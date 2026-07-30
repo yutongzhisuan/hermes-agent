@@ -709,3 +709,84 @@ cd /Users/suyanlong/github/hermes-agent
 ```
 
 Result: **192 passed in 29.97s**
+
+
+---
+
+## Final Re-Review Fix Report
+
+**Commit:** `35220b6c1fbba37cd27ecdd3c06e3c1cb0f7b75d`  
+**Subject:** `fix(task-relay): heartbeat recovers stale workers, explicit zero grace, remove dead claim path`  
+**Date:** 2026-07-31  
+
+### Findings addressed
+
+| Finding | Severity | File(s) | Fix |
+|---|---|---|---|
+| Stale workers do not recover when heartbeats resume | Important | `extend/task_relay/hub/ws_server.py` | `_handle_worker_heartbeat()` now transitions `status == "stale"` back to `"idle"` and persists the worker. |
+| `CancelTask.grace_seconds = 0` treated as unset | Minor | `extend/task_relay/proto/task_relay_v1.proto`, `extend/task_relay/hub/grpc_server.py`, generated stubs | Marked `grace_seconds` as `optional int32`; regenerated stubs; `CancelTask` now uses `request.HasField("grace_seconds")` so explicit `0` means zero grace while unset still falls back to the Hub default. |
+| `_handle_worker_claim()` dead two-step code path | Minor | `extend/task_relay/hub/ws_server.py` | Removed `_handle_worker_claim()` and the unused `DEFAULT_TWO_STEP_CLAIM_TIMEOUT_S` constant. M1 uses atomic claim-on-poll exclusively; any `worker.claim` request now returns the standard "unknown method" JSON-RPC error. |
+
+### Tests added
+
+- `test_final_rereview_fixes.py::test_heartbeat_recover_stale_worker` — verifies a heartbeat returns a stale worker to `idle`.
+- `test_final_rereview_fixes.py::test_cancel_task_explicit_zero_grace` — verifies `grace_seconds=0` produces a cancel-grace deadline at the current time.
+- `test_final_rereview_fixes.py::test_cancel_task_unset_grace_uses_default` — verifies an unset `grace_seconds` still uses the Hub default (60s).
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent && .venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **195 passed in 30.10s** (pristine output, no warnings/failures).
+
+
+---
+
+## 14. Final Re-Review Remaining Important Findings (Task Relay P1)
+
+**Commit:** `c221047f2`  
+**Subject:** `fix(task-relay): guard heartbeat by session ownership and preserve drain on stale recovery`  
+**Date:** 2026-07-31
+
+### Findings
+
+1. **Heartbeat bypassed session ownership check.**
+   `extend/task_relay/hub/ws_server.py::_handle_worker_heartbeat()` updated `last_seen_at` and transitioned `stale → idle` without verifying the heartbeat came from the worker's current active session. A heartbeat from a superseded (e.g., stale WebSocket) session could resurrect a stale worker or refresh timestamps even though a newer session had taken over.
+
+2. **Stale recovery clobbered `draining`.**
+   When `_handle_worker_heartbeat()` recovered a worker from `stale`, it always restored status to `idle`, discarding a prior `draining` state.
+
+### What changed
+
+1. **`extend/task_relay/hub/ws_server.py`**
+   - `_handle_worker_heartbeat()` now calls `_is_current_session_for_worker()` before writing any worker row updates.
+   - If the session is no longer active for the worker, the heartbeat is ignored (returns an empty `worker.heartbeat_ok` result) and nothing is persisted.
+   - Stale recovery now restores `draining` when `worker.drain_requested` is set, otherwise `idle`.
+   - `_handle_worker_drain()` sets `worker.drain_requested = True` so the drain intent survives a stale period.
+   - `_handle_worker_announce()` passes `drain_requested=False` so a fresh announce clears any stale drain intent from a previous session.
+
+2. **`extend/task_relay/hub/models.py`**
+   - Added `drain_requested: bool = False` to the `Worker` dataclass.
+
+3. **`extend/task_relay/hub/db.py`**
+   - Added `drain_requested INTEGER DEFAULT 0` to the `workers` table schema.
+   - Added migration in `_migrate()` to add `drain_requested` to existing databases (with fallback for older SQLite builds).
+
+4. **`extend/task_relay/hub/worker_registry.py`**
+   - `announce()` accepts a new `drain_requested: bool = False` keyword argument and persists it on the worker row.
+
+### Tests added
+
+- `extend/task_relay/tests/test_final_rereview_fixes.py::test_heartbeat_from_superseded_session_ignored` — a second `worker.announce` replaces the active session; a heartbeat on the old connection does not update `last_seen_at` or status, while a heartbeat on the new session recovers normally.
+- `extend/task_relay/tests/test_final_rereview_fixes.py::test_heartbeat_recover_stale_draining_worker` — a worker that was `draining`, then marked `stale`, recovers to `draining` when heartbeats resume.
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **197 passed in 30.17s** (pristine output, no warnings/failures).
