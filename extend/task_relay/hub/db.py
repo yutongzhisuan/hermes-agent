@@ -187,6 +187,40 @@ class Database:
         )
         return [TaskEvent(**dict(row)) for row in await cursor.fetchall()]
 
+    async def list_events_for_filter(
+        self,
+        *,
+        topic: str | None = None,
+        batch_id: str | None = None,
+        task_id: str | None = None,
+        after_event_id: int = 0,
+        limit: int = 1000,
+    ) -> list[TaskEvent]:
+        """Replay events matching a WatchTask filter, oldest first."""
+        clauses = ["event_id > ?"]
+        params: list = [after_event_id]
+        if topic is not None:
+            clauses.append("callback_topic = ?")
+            params.append(topic)
+        if batch_id is not None:
+            clauses.append("batch_id = ?")
+            params.append(batch_id)
+        if task_id is not None:
+            clauses.append("task_id = ?")
+            params.append(task_id)
+        cursor = await self._conn.execute(
+            f"SELECT * FROM task_events WHERE {' AND '.join(clauses)}"
+            " ORDER BY event_id LIMIT ?",
+            (*params, limit),
+        )
+        return [TaskEvent(**dict(row)) for row in await cursor.fetchall()]
+
+    async def newest_event_id(self) -> int | None:
+        """Global tail of the event log; None when no events exist."""
+        cursor = await self._conn.execute("SELECT MAX(event_id) FROM task_events")
+        row = await cursor.fetchone()
+        return row[0] if row is not None else None
+
     async def oldest_event_id_for_filter(
         self,
         *,
