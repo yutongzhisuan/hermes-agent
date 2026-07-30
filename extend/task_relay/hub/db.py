@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS workers (
     running_tasks INTEGER DEFAULT 0,
     last_announce_at REAL,
     last_heartbeat_at REAL,
+    last_seen_at REAL,
     status TEXT DEFAULT 'offline',
     online_session_id TEXT
 );
@@ -385,6 +386,20 @@ async def _migrate(conn: aiosqlite.Connection) -> None:
             columns = {row[1] for row in rows}
             if "cancel_reason" not in columns:
                 await conn.execute("ALTER TABLE tasks ADD COLUMN cancel_reason TEXT")
+        else:
+            raise
+
+    try:
+        await conn.execute("ALTER TABLE workers ADD COLUMN IF NOT EXISTS last_seen_at REAL")
+    except aiosqlite.OperationalError as exc:
+        msg = str(exc).lower()
+        if "duplicate column name" in msg:
+            pass
+        elif "syntax error" in msg:
+            rows = await conn.execute_fetchall("PRAGMA table_info(workers)")
+            columns = {row[1] for row in rows}
+            if "last_seen_at" not in columns:
+                await conn.execute("ALTER TABLE workers ADD COLUMN last_seen_at REAL")
         else:
             raise
     await conn.commit()

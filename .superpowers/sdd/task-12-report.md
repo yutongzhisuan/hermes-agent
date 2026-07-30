@@ -591,3 +591,121 @@ cd /Users/suyanlong/github/hermes-agent
 ```
 
 Result: **183 passed in 28.58s**
+
+
+---
+
+## 12. Final Re-review Remaining Important Findings
+
+Commit: `387d8ffc9 fix(task-relay): gRPC auth error hygiene and Hub worker capacity enforcement`
+
+### Findings
+
+1. **gRPC auth failures still leaked token-validation details.**
+   `extend/task_relay/hub/grpc_server.py::MasterAuthInterceptor.authenticate()` raised `GRPCError(Status.UNAUTHENTICATED, str(e))` from `AuthError`, exposing strings like `"Not enough segments"` to the Master client.
+
+2. **Hub poll did not enforce worker capacity, and `running_tasks` was stale.**
+   `extend/task_relay/hub/task_router.py::atomic_claim_for_poll()` ignored `worker.running_tasks` and never updated it, so a worker could claim an unbounded number of tasks and `ListWorkers` reported an always-zero `running_tasks`.
+
+3. **`--max-concurrent` help text was misleading.**
+   `extend/task_relay/worker/__main__.py` described `--max-concurrent` as overriding the JWT limit, but the Hub caps it to the JWT claim.
+
+### What changed
+
+1. **`extend/task_relay/hub/grpc_server.py`**
+   - Added module-level `logger = logging.getLogger("task_relay.hub.grpc")`.
+   - In `MasterAuthInterceptor.authenticate()`, `AuthError` now logs the verification failure detail at debug level and raises `GRPCError(Status.UNAUTHENTICATED, "Invalid or missing token")`, mirroring the WebSocket auth error hygiene.
+
+2. **`extend/task_relay/hub/task_router.py`**
+   - `atomic_claim_for_poll()` now fetches the worker inside the router lock, clamps `max_tasks` to `max(0, worker.max_concurrent - worker.running_tasks)`, and returns early when capacity is zero.
+   - Each successful claim increments `worker.running_tasks`.
+   - Poll refreshes `worker.last_heartbeat_at` and persists the worker row.
+   - Added `_release_task_slot()` helper that decrements `worker.running_tasks` (clamped at zero).
+   - `on_complete()` releases the slot when the previous status was `running` or `cancelling`.
+   - `_settle_lost()`, `_settle_failed()`, and `_settle_cancelled()` release the slot when a running/cancelling task reaches a terminal state.
+
+3. **`extend/task_relay/worker/__main__.py`**
+   - Changed `--max-concurrent` help text to `"capped by the JWT's limit"`.
+
+### Tests
+
+- Added to `extend/task_relay/tests/test_final_rereview_fixes.py`:
+  - `test_grpc_auth_error_is_generic_for_malformed_token`
+  - `test_grpc_auth_error_is_generic_for_worker_token`
+  - `test_poll_capacity_clamped_by_remaining_slots`
+  - `test_poll_updates_worker_last_heartbeat_at`
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **187 passed in 28.69s**
+
+
+---
+
+## 13. Final Re-review Remaining Important Findings (Task Relay P1)
+
+Commit: `fix(task-relay): preserve running_tasks on re-announce, worker staleness, atomic claim queue`
+
+### Findings
+
+1. **Worker re-announce reset `running_tasks` to 0, allowing Hub-side overcommit across reconnects.**
+   `extend/task_relay/hub/worker_registry.py::announce()` created a fresh `Worker(..., running_tasks=0)` and `db.upsert_worker()` updated all columns, so a reconnecting worker would report zero active tasks and could be over-allocated.
+
+2. **No heartbeat staleness detector.**
+   `extend/task_relay/hub/task_router.py::tick_timeouts()` did not check how long a worker had been silent, so crashed or partitioned workers stayed `idle` indefinitely and kept tasks assigned to them.
+
+3. **`atomic_claim_for_poll` read the pending queue outside the router lock.**
+   `extend/task_relay/hub/task_router.py::atomic_claim_for_poll()` selected pending rows before acquiring `self._lock`, so capacity and queue were not checked atomically. This caused wasted scans and potential starvation.
+
+4. **Duplicate `_json_list` helper.**
+   Both `extend/task_relay/hub/task_router.py` and `extend/task_relay/hub/worker_registry.py` defined an identical `_json_list()` helper.
+
+### What changed
+
+1. **`extend/task_relay/hub/worker_registry.py`**
+   - `announce()` now queries `SELECT COUNT(*) FROM tasks WHERE worker_id = ? AND status IN ('running', 'cancelling')` and uses that count for `running_tasks` instead of 0.
+   - `announce()` sets `last_seen_at = now` (in addition to `last_announce_at` and `last_heartbeat_at`).
+   - Removed the local `_json_list()` helper; now imports it from `extend.task_relay.hub.models`.
+
+2. **`extend/task_relay/hub/task_router.py`**
+   - Moved the pending-task `SELECT` inside `async with self._lock` in `atomic_claim_for_poll()` so capacity and queue are evaluated atomically.
+   - Poll now updates both `worker.last_heartbeat_at` and `worker.last_seen_at`.
+   - `tick_timeouts()` now marks workers stale when `last_seen_at` is older than `config.worker_stale_seconds`.
+   - Imported `Worker` and `_json_list` from `models.py`; removed the local `_json_list()` duplicate.
+
+3. **`extend/task_relay/hub/ws_server.py`**
+   - `worker.heartbeat` handler now updates `worker.last_seen_at` in addition to `worker.last_heartbeat_at`.
+
+4. **`extend/task_relay/hub/models.py`**
+   - Added `last_seen_at: float | None = None` to the `Worker` dataclass.
+   - Added a shared `_json_list()` helper at module level.
+
+5. **`extend/task_relay/hub/db.py`**
+   - Added `last_seen_at REAL` to the `workers` table schema.
+   - Added migration in `_migrate()` to add `last_seen_at` to existing databases (with fallback for older SQLite builds).
+
+6. **`extend/task_relay/hub/config.py`**
+   - Added `worker_stale_seconds: int = 300` to `HubConfig`.
+
+### Tests
+
+- Added to `extend/task_relay/tests/test_final_rereview_fixes.py`:
+  - `test_re_announce_preserves_running_task_count`
+  - `test_re_announce_preserves_cancelling_task_count`
+  - `test_stale_worker_marked_after_missing_heartbeat`
+  - `test_stale_worker_not_eligible_for_poll`
+  - `test_concurrent_polls_do_not_overclaim_single_task`
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **192 passed in 29.97s**

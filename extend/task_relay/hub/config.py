@@ -48,6 +48,8 @@ class HubConfig:
     max_attempts: int = 1
     # Cancel pushed but worker has not settled -> Hub settles it itself.
     cancel_grace_seconds: int = 60
+    # Workers without a heartbeat/announce for this long are marked stale.
+    worker_stale_seconds: int = 300
     # Max opaque resume_blob bytes a checkpoint may carry; oversize checkpoints
     # are rejected so workers fall back to ContextRef.
     resume_blob_max_bytes: int = 1_048_576

@@ -28,7 +28,7 @@ from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.event_bus import EventBus
-from extend.task_relay.hub.models import Batch, Task, TaskSpec
+from extend.task_relay.hub.models import Batch, Task, TaskSpec, Worker, _json_list
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
 
@@ -191,13 +191,6 @@ class TaskRouter:
         if max_tasks <= 0:
             return []
 
-        # Pending tasks ordered by priority desc, then creation time asc.
-        cursor = await self._db._conn.execute(
-            "SELECT * FROM tasks WHERE status = 'pending'"
-            " ORDER BY priority DESC, created_at ASC"
-        )
-        rows = await cursor.fetchall()
-
         claimed: list[ClaimedTask] = []
         async with self._lock:
             worker = await self._registry.get_worker(worker_id)
@@ -213,6 +206,14 @@ class TaskRouter:
                 return []
             max_tasks = min(max_tasks, capacity)
 
+            # Pending tasks ordered by priority desc, then creation time asc.
+            # Read inside the lock so capacity and queue are checked atomically.
+            cursor = await self._db._conn.execute(
+                "SELECT * FROM tasks WHERE status = 'pending'"
+                " ORDER BY priority DESC, created_at ASC"
+            )
+            rows = await cursor.fetchall()
+
             for row in rows:
                 if len(claimed) >= max_tasks:
                     break
@@ -224,7 +225,9 @@ class TaskRouter:
                     claimed.append(claimed_task)
                     worker.running_tasks += 1
 
-            worker.last_heartbeat_at = time.time()
+            now = time.time()
+            worker.last_heartbeat_at = now
+            worker.last_seen_at = now
             await self._db.upsert_worker(worker)
 
         return claimed
@@ -307,7 +310,11 @@ class TaskRouter:
             return self._response_from_task(task, idempotent_hit=False)
 
     async def tick_timeouts(self) -> None:
-        """Evaluate queue / first-progress / lease / cancel-grace deadlines."""
+        """Evaluate queue / first-progress / lease / cancel-grace deadlines.
+
+        Also mark workers stale when they have not announced or heartbeated
+        within ``worker_stale_seconds``.
+        """
         now = time.time()
         async with self._lock:
             cursor = await self._db._conn.execute(
@@ -317,6 +324,17 @@ class TaskRouter:
             for row in rows:
                 task = Task(**dict(row))
                 await self._timeout_task(task, now)
+
+            stale_deadline = now - self._config.worker_stale_seconds
+            cursor = await self._db._conn.execute(
+                "SELECT * FROM workers WHERE status NOT IN ('offline', 'stale')"
+                " AND last_seen_at < ?",
+                (stale_deadline,),
+            )
+            for row in await cursor.fetchall():
+                worker = Worker(**dict(row))
+                worker.status = "stale"
+                await self._db.upsert_worker(worker)
         if now - self._last_prune_at >= PRUNE_INTERVAL_SECONDS:
             await self.prune_old_data()
 
@@ -749,18 +767,6 @@ class TaskRouter:
         for node in list(graph):
             if node not in visited:
                 visit(node, [])
-
-
-def _json_list(value: str | None) -> list[str]:
-    if not value:
-        return []
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        return []
-    if isinstance(parsed, list):
-        return [str(x) for x in parsed]
-    return []
 
 
 # Fields that participate in the batch idempotency hash. They mirror the

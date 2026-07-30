@@ -12,7 +12,7 @@ from typing import Iterable
 
 from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.db import Database
-from extend.task_relay.hub.models import Task, Worker
+from extend.task_relay.hub.models import Task, Worker, _json_list
 
 
 class WorkerRegistry:
@@ -43,6 +43,7 @@ class WorkerRegistry:
         caps = dict(capabilities) if capabilities is not None else {}
         caps["toolsets"] = list(toolsets)
         now = time.time()
+        running_tasks = await self._count_running_tasks(worker_id)
         worker = Worker(
             worker_id=worker_id,
             wake_url=wake_url,
@@ -51,13 +52,23 @@ class WorkerRegistry:
             resources_json=json.dumps(resources) if resources is not None else None,
             load_json=json.dumps(load) if load is not None else None,
             max_concurrent=max_concurrent,
+            running_tasks=running_tasks,
             last_announce_at=now,
             last_heartbeat_at=now,
+            last_seen_at=now,
             status=status,
             online_session_id=online_session_id,
         )
         await self._db.upsert_worker(worker)
         return worker
+
+    async def _count_running_tasks(self, worker_id: str) -> int:
+        cursor = await self._db._conn.execute(
+            "SELECT COUNT(*) FROM tasks WHERE worker_id = ? AND status IN ('running', 'cancelling')",
+            (worker_id,),
+        )
+        row = await cursor.fetchone()
+        return row[0] if row is not None else 0
 
     async def get_worker(self, worker_id: str) -> Worker | None:
         return await self._db.get_worker(worker_id)
@@ -111,15 +122,3 @@ class WorkerRegistry:
                 return False
 
         return True
-
-
-def _json_list(value: str | None) -> list[str]:
-    if not value:
-        return []
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        return []
-    if isinstance(parsed, list):
-        return [str(x) for x in parsed]
-    return []

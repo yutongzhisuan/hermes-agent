@@ -4,7 +4,20 @@ Field names and order match the table definitions in the design spec
 §Persistence, so rows map 1:1 onto these types.
 """
 
+import json
 from dataclasses import dataclass
+
+
+def _json_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(parsed, list):
+        return [str(x) for x in parsed]
+    return []
 
 
 @dataclass
@@ -96,6 +109,7 @@ class Worker:
     running_tasks: int = 0
     last_announce_at: float | None = None
     last_heartbeat_at: float | None = None
+    last_seen_at: float | None = None
     status: str = "offline"  # offline | idle | busy | stale | draining
     online_session_id: str | None = None
 

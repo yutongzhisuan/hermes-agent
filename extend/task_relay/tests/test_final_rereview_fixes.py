@@ -402,6 +402,132 @@ async def test_grpc_auth_error_is_generic_for_worker_token(grpc_channel):
 
 
 # -----------------------------------------------------------------------------
+# Re-review Important Finding 1: Worker re-announce preserves running_tasks.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_re_announce_preserves_running_task_count(registry, router, db):
+    """Re-announcing a worker must not reset running_tasks to zero."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=2
+    )
+    for i in range(2):
+        await router.dispatch_task(
+            TaskSpec(task_id=f"t{i}", goal="g", callback_topic="topic"),
+            master_session_id="m1",
+        )
+    claimed = await router.atomic_claim_for_poll("w1", max_tasks=2)
+    assert len(claimed) == 2
+    before = await registry.get_worker("w1")
+    assert before.running_tasks == 2
+    assert before.last_seen_at is not None
+
+    # Re-announce while tasks are still running/cancelling.
+    await asyncio.sleep(0.05)
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=2
+    )
+    after = await registry.get_worker("w1")
+    assert after.running_tasks == 2
+    assert after.last_seen_at >= before.last_seen_at
+
+
+@pytest.mark.asyncio
+async def test_re_announce_preserves_cancelling_task_count(registry, router):
+    """Re-announce must count tasks in cancelling state toward running_tasks."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=2
+    )
+    await router.dispatch_task(
+        TaskSpec(task_id="t1", goal="g", callback_topic="topic"),
+        master_session_id="m1",
+    )
+    await router.atomic_claim_for_poll("w1", max_tasks=1)
+    await router.on_cancel("t1", reason="user requested", grace_seconds=60)
+    assert (await router.get_status("t1")) == "cancelling"
+
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=2
+    )
+    worker = await registry.get_worker("w1")
+    assert worker.running_tasks == 1
+
+
+# -----------------------------------------------------------------------------
+# Re-review Important Finding 2: Heartbeat staleness detector.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_marked_after_missing_heartbeat(db, bus, registry):
+    """tick_timeouts must mark workers stale when no heartbeat/announce arrives."""
+    cfg = HubConfig(
+        jwt_secret=SECRET,
+        queue_timeout_seconds=900,
+        first_progress_seconds=120,
+        timeout_seconds=600,
+        cancel_grace_seconds=60,
+        max_attempts=1,
+        worker_stale_seconds=1,
+    )
+    router = TaskRouter(db, bus, cfg, registry)
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=1
+    )
+    await asyncio.sleep(1.1)
+    await router.tick_timeouts()
+    worker = await registry.get_worker("w1")
+    assert worker.status == "stale"
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_not_eligible_for_poll(router, registry, db):
+    """A stale worker must not be eligible to claim new tasks."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=1
+    )
+    worker = await registry.get_worker("w1")
+    worker.status = "stale"
+    await db.upsert_worker(worker)
+    await router.dispatch_task(
+        TaskSpec(task_id="t1", goal="g", callback_topic="topic"),
+        master_session_id="m1",
+    )
+    assert await router.atomic_claim_for_poll("w1", max_tasks=1) == []
+
+
+# -----------------------------------------------------------------------------
+# Re-review Important Finding 3: atomic_claim_for_poll is atomic.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_concurrent_polls_do_not_overclaim_single_task(router, registry, db):
+    """Two workers polling simultaneously must not claim the same pending task."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=1
+    )
+    await registry.announce(
+        "w2", session_modes="a", status="idle", max_concurrent=1
+    )
+    await router.dispatch_task(
+        TaskSpec(task_id="t1", goal="g", callback_topic="topic"),
+        master_session_id="m1",
+    )
+
+    w1_claimed, w2_claimed = await asyncio.gather(
+        router.atomic_claim_for_poll("w1", max_tasks=1),
+        router.atomic_claim_for_poll("w2", max_tasks=1),
+    )
+    total = len(w1_claimed) + len(w2_claimed)
+    assert total == 1
+    task = await db.get_task("t1")
+    assert task.status == "running"
+    assert task.worker_id in {"w1", "w2"}
+
+
+# -----------------------------------------------------------------------------
 # Finding 2: Hub poll enforces worker capacity and tracks running_tasks.
 # -----------------------------------------------------------------------------
 

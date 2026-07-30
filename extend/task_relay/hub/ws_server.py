@@ -599,7 +599,9 @@ class WsServerSession:
         self._require_announced()
         worker = await self.hub.registry.get_worker(self.worker_id)
         if worker is not None:
-            worker.last_heartbeat_at = time.time()
+            now = time.time()
+            worker.last_heartbeat_at = now
+            worker.last_seen_at = now
             await self.hub.db.upsert_worker(worker)
         return {}
 
