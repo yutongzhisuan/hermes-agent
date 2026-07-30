@@ -49,6 +49,28 @@ OnProgress = Callable[[str], Awaitable[None]]
 OnCheckpoint = Callable[..., Awaitable[None]]
 
 
+class TaskCancelEvent(asyncio.Event):
+    """asyncio.Event carrying an optional cancel reason from the Hub.
+
+    The Task Relay Hub may push ``task.cancel`` with a ``reason`` field
+    (e.g. ``timeout``). Backends that need to distinguish a normal cancel
+    from a timeout-induced cancel can inspect :attr:`reason` after the
+    event is set.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reason: str | None = None
+
+    def set(self, reason: str | None = None) -> None:
+        self.reason = reason
+        super().set()
+
+    def clear(self) -> None:
+        self.reason = None
+        super().clear()
+
+
 class TaskBackend(Protocol):
     """Pluggable execution engine for a claimed task."""
 

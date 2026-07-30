@@ -14,7 +14,7 @@ from typing import Any
 
 import jwt
 
-from extend.task_relay.worker.task_executor import TaskBackend, TaskExecutor, TaskRunPayload
+from extend.task_relay.worker.task_executor import TaskBackend, TaskCancelEvent, TaskExecutor, TaskRunPayload
 from extend.task_relay.worker.task_worker_ws import TaskWorkerWs, WsClientError
 
 logger = logging.getLogger("task_relay.worker")
@@ -61,7 +61,7 @@ class TaskWorker:
         self._ws: TaskWorkerWs | None = None
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
         self._running_tasks: set[asyncio.Task] = set()
-        self._cancel_events: dict[str, asyncio.Event] = {}
+        self._cancel_events: dict[str, TaskCancelEvent] = {}
         self._shutdown = asyncio.Event()
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval_ms: int = 30_000
@@ -161,7 +161,7 @@ class TaskWorker:
             backoff = self.initial_backoff_seconds
             for task_info in result.get("tasks", []):
                 run_payload = _run_payload_from_dict(task_info.get("run", {}))
-                cancel_event = asyncio.Event()
+                cancel_event = TaskCancelEvent()
                 self._cancel_events[run_payload.task_id] = cancel_event
                 task = asyncio.create_task(
                     self._execute_one(run_payload, cancel_event)
@@ -172,7 +172,7 @@ class TaskWorker:
     async def _execute_one(
         self,
         run: TaskRunPayload,
-        cancel_event: asyncio.Event,
+        cancel_event: TaskCancelEvent,
     ) -> None:
         """Execute a single task under the concurrency semaphore."""
         async with self._semaphore:
@@ -213,7 +213,7 @@ class TaskWorker:
         )
         event = self._cancel_events.get(task_id)
         if event is not None:
-            event.set()
+            event.set(reason)
         # Acknowledge the cancel so the Hub knows the worker is aware.
         try:
             await self._ws.request("cancel.ack", {"task_id": task_id})
