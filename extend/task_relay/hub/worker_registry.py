@@ -34,6 +34,7 @@ class WorkerRegistry:
         wake_url: str | None = None,
         status: str = "idle",
         online_session_id: str | None = None,
+        drain_requested: bool = False,
     ) -> Worker:
         """Register or refresh a worker.
 
@@ -58,6 +59,7 @@ class WorkerRegistry:
             last_seen_at=now,
             status=status,
             online_session_id=online_session_id,
+            drain_requested=drain_requested,
         )
         await self._db.upsert_worker(worker)
         return worker

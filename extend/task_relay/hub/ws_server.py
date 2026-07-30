@@ -372,6 +372,7 @@ class WsServerSession:
             wake_url=params.get("wake_url"),
             status="idle",
             online_session_id=self.session_id,
+            drain_requested=False,
         )
 
         self.worker_id = worker_id
@@ -565,17 +566,27 @@ class WsServerSession:
     async def _handle_worker_heartbeat(self, params: dict) -> dict:
         """Refresh the worker heartbeat timestamp.
 
-        A stale worker that resumes heartbeating transitions back to idle so it
-        can receive work again without requiring a fresh announce.
+        Only the current active session for a worker may update its heartbeat
+        or status. A stale worker that resumes heartbeating on the active
+        session transitions back to ``idle`` (or ``draining`` if drain was
+        requested before staleness) so it can receive work again without a
+        fresh announce.
         """
         self._require_announced()
+        if not await self._is_current_session_for_worker():
+            logger.debug(
+                "heartbeat from superseded session %s for worker %s ignored",
+                self.session_id,
+                self.worker_id,
+            )
+            return {}
         worker = await self.hub.registry.get_worker(self.worker_id)
         if worker is not None:
             now = time.time()
             worker.last_heartbeat_at = now
             worker.last_seen_at = now
             if worker.status == "stale":
-                worker.status = "idle"
+                worker.status = "draining" if worker.drain_requested else "idle"
             await self.hub.db.upsert_worker(worker)
         return {}
 
@@ -586,6 +597,7 @@ class WsServerSession:
             worker = await self.hub.registry.get_worker(self.worker_id)
             if worker is not None:
                 worker.status = "draining"
+                worker.drain_requested = True
                 await self.hub.db.upsert_worker(worker)
         self.draining = True
         running_ids = await self._running_task_ids_for_worker()

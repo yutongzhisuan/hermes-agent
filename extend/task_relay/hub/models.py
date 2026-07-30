@@ -112,6 +112,7 @@ class Worker:
     last_seen_at: float | None = None
     status: str = "offline"  # offline | idle | busy | stale | draining
     online_session_id: str | None = None
+    drain_requested: bool = False
 
 
 @dataclass

@@ -616,6 +616,101 @@ async def test_heartbeat_recover_stale_worker(hub_ws_url, registry):
 
 
 # -----------------------------------------------------------------------------
+# Final re-review Important Finding: heartbeat obeys session ownership.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_from_superseded_session_ignored(hub_ws_url, registry):
+    """A heartbeat from a replaced session must not update the worker row."""
+    token = make_worker_jwt("w1", max_concurrent=1)
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {token}"},
+    ) as ws1:
+        await ws1.send(
+            jsonrpc_request(
+                1,
+                "worker.announce",
+                {"worker_id": "w1", "session_modes": ["a"], "max_concurrent": 1, "toolsets": []},
+            )
+        )
+        await recv_ok(ws1, "worker.announce_ok")
+
+        async with websockets.connect(
+            hub_ws_url,
+            additional_headers={"Authorization": f"Bearer {token}"},
+        ) as ws2:
+            await ws2.send(
+                jsonrpc_request(
+                    1,
+                    "worker.announce",
+                    {"worker_id": "w1", "session_modes": ["a"], "max_concurrent": 1, "toolsets": []},
+                )
+            )
+            await recv_ok(ws2, "worker.announce_ok")
+
+            # Simulate the current session going stale.
+            worker = await registry.get_worker("w1")
+            worker.status = "stale"
+            worker.last_seen_at = 1.0
+            await registry._db.upsert_worker(worker)
+            before = (await registry.get_worker("w1")).last_seen_at
+
+            await asyncio.sleep(0.05)
+            await ws1.send(jsonrpc_request(2, "worker.heartbeat", {}))
+            await recv_ok(ws1, "worker.heartbeat_ok")
+
+            stale = await registry.get_worker("w1")
+            assert stale.status == "stale"
+            assert stale.last_seen_at == before
+
+            # A heartbeat on the current session recovers normally.
+            await ws2.send(jsonrpc_request(3, "worker.heartbeat", {}))
+            await recv_ok(ws2, "worker.heartbeat_ok")
+            recovered = await registry.get_worker("w1")
+            assert recovered.status == "idle"
+            assert recovered.last_seen_at > before
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_recover_stale_draining_worker(hub_ws_url, registry):
+    """A heartbeat on a stale worker that was draining must restore draining."""
+    token = make_worker_jwt("w1", max_concurrent=1)
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {token}"},
+    ) as ws:
+        await ws.send(
+            jsonrpc_request(
+                1,
+                "worker.announce",
+                {"worker_id": "w1", "session_modes": ["a"], "max_concurrent": 1, "toolsets": []},
+            )
+        )
+        await recv_ok(ws, "worker.announce_ok")
+
+        await ws.send(jsonrpc_request(2, "worker.drain", {}))
+        await recv_ok(ws, "worker.drain_ok")
+        worker = await registry.get_worker("w1")
+        assert worker.status == "draining"
+        assert worker.drain_requested
+
+        worker.status = "stale"
+        worker.last_seen_at = 1.0
+        await registry._db.upsert_worker(worker)
+        before = (await registry.get_worker("w1")).last_seen_at
+
+        await asyncio.sleep(0.05)
+        await ws.send(jsonrpc_request(3, "worker.heartbeat", {}))
+        await recv_ok(ws, "worker.heartbeat_ok")
+
+        recovered = await registry.get_worker("w1")
+        assert recovered.status == "draining"
+        assert recovered.last_seen_at > before
+
+
+# -----------------------------------------------------------------------------
 # Final re-review Minor Finding 2: explicit grace_seconds = 0 means zero grace.
 # -----------------------------------------------------------------------------
 
