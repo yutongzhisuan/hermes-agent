@@ -221,6 +221,12 @@ class Database:
         row = await cursor.fetchone()
         return row[0] if row is not None else None
 
+    async def oldest_event_id(self) -> int | None:
+        """Global head of the event log; None when no events exist."""
+        cursor = await self._conn.execute("SELECT MIN(event_id) FROM task_events")
+        row = await cursor.fetchone()
+        return row[0] if row is not None else None
+
     async def oldest_event_id_for_filter(
         self,
         *,

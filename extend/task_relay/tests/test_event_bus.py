@@ -7,6 +7,8 @@ stream: replay from a cursor, then live events; a stale cursor fails with
 `SlowConsumerError`.
 """
 
+import asyncio
+
 import pytest
 import pytest_asyncio
 
@@ -178,6 +180,31 @@ async def test_cursor_out_of_range_not_raised_for_empty_filter(bus):
 
 
 @pytest.mark.asyncio
+async def test_cursor_out_of_range_when_all_matching_events_pruned(bus, db):
+    e1 = await bus.publish(callback_topic="a", task_id="t1", kind="STATUS", payload={})
+    e2 = await bus.publish(callback_topic="a", task_id="t1", kind="RESULT", payload={})
+    e3 = await bus.publish(callback_topic="b", task_id="t2", kind="STATUS", payload={})
+    # Retention pruned EVERY topic-a event: the filter's oldest is None, but
+    # the reconnect cursor still points into pruned global history.
+    await db._conn.execute("DELETE FROM task_events WHERE callback_topic = 'a'")
+    await db._conn.commit()
+
+    with pytest.raises(CursorOutOfRangeError) as exc_info:
+        await bus.subscribe(EventFilter(topic="a"), since_event_id=e2.event_id)
+    err = exc_info.value
+    assert err.requested == e2.event_id
+    assert err.oldest == e3.event_id  # falls back to the global log floor
+    assert err.newest == e3.event_id
+
+
+@pytest.mark.asyncio
+async def test_subscribe_with_nonzero_cursor_on_empty_db_is_allowed(bus):
+    # Empty table: nothing was ever pruned, so any cursor is in range.
+    stream = await bus.subscribe(EventFilter(topic="a"), since_event_id=42)
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
 async def test_slow_consumer_closes(db):
     bus = EventBus(db, HubConfig(watch_stream_buffer_events=2))
     stream = await bus.subscribe(EventFilter(topic="a"), since_event_id=0)
@@ -231,6 +258,44 @@ async def test_non_matching_events_do_not_fill_buffer(db):
     got = await stream.__anext__()
     assert got.event_id == e.event_id
     await stream.aclose()
+
+
+@pytest.mark.asyncio
+async def test_aclose_wakes_consumer_blocked_in_anext(bus):
+    stream = await bus.subscribe(EventFilter(topic="a"), since_event_id=0)
+    # No events: the consumer blocks in queue.get() inside __anext__.
+    got = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.1)  # let the consumer finish replay and block in get()
+    assert not got.done()
+
+    await stream.aclose()
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(got, timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_aclose_delivers_buffered_live_events_before_ending(bus):
+    stream = await bus.subscribe(EventFilter(topic="a"), since_event_id=0)
+    e1 = await bus.publish(callback_topic="a", task_id="t1", kind="STATUS", payload={})
+    first = await stream.__anext__()
+    assert first.event_id == e1.event_id
+
+    # Drive the subscription into the live phase: the caught-up replay finds
+    # the log empty and the consumer blocks in queue.get().
+    pending = asyncio.create_task(stream.__anext__())
+    await asyncio.sleep(0.1)
+    assert not pending.done()
+    e2 = await bus.publish(callback_topic="a", task_id="t1", kind="RESULT", payload={})
+    second = await pending
+    assert second.event_id == e2.event_id  # delivered live, not via replay
+
+    # Buffered before close: still delivered, then the stream ends.
+    e3 = await bus.publish(callback_topic="a", task_id="t1", kind="STATUS", payload={})
+    await stream.aclose()
+    third = await stream.__anext__()
+    assert third.event_id == e3.event_id
+    with pytest.raises(StopAsyncIteration):
+        await stream.__anext__()
 
 
 @pytest.mark.asyncio

@@ -10,10 +10,15 @@ Backbone for the Master `WatchTask` stream (design spec §WatchTask Replay):
 - A ``since_event_id`` older than the oldest retained event for the filter
   fails fast with :class:`CursorOutOfRangeError` — never a silent restart
   from the oldest retained event, which would look like "nothing missed".
+  When every event matching the filter was pruned, the global log's oldest
+  retained event is the floor instead.
 - Each subscription has a bounded buffer (``watch_stream_buffer_events``).
   Overflow closes the stream with :class:`SlowConsumerError` carrying the
   last delivered cursor — the only allowed backpressure action; the hub
   never blocks producers on a slow consumer and never drops events silently.
+- ``aclose`` pushes a close sentinel into the subscriber queue so a consumer
+  blocked in ``queue.get()`` wakes: buffered live events are still delivered,
+  then the stream ends with ``StopAsyncIteration``.
 """
 
 import asyncio
@@ -27,6 +32,10 @@ from extend.task_relay.hub.models import TaskEvent
 
 # Replay page size; paging keeps a huge backlog from being read at once.
 _REPLAY_PAGE = 256
+
+# Pushed into a subscriber's queue by `aclose` so a consumer blocked in
+# `queue.get()` wakes and ends the stream (after draining buffered events).
+_CLOSE_SENTINEL: object = object()
 
 
 class CursorOutOfRangeError(Exception):
@@ -96,7 +105,7 @@ class _Subscription:
     ):
         self._bus = bus
         self._filter = filter
-        self._queue: asyncio.Queue[TaskEvent] = asyncio.Queue(maxsize=buffer_size)
+        self._queue: asyncio.Queue[TaskEvent | object] = asyncio.Queue(maxsize=buffer_size)
         self._overflow_newest: int | None = None
         # Cursor of the last event handed to the consumer (replayed or live).
         self._delivered = since_event_id
@@ -128,9 +137,10 @@ class _Subscription:
     async def __anext__(self) -> TaskEvent:
         while True:
             self._raise_if_overflow()
-            if self._closed:
-                raise StopAsyncIteration
             if self._replaying:
+                if self._closed:
+                    # Close stops replay immediately, even mid-backlog.
+                    raise StopAsyncIteration
                 if not self._page:
                     events = await self._bus._db.list_events_for_filter(
                         topic=self._filter.topic,
@@ -153,7 +163,13 @@ class _Subscription:
                     event = self._queue.get_nowait()
                 except asyncio.QueueEmpty:
                     self._raise_if_overflow()
+                    if self._closed:
+                        # Closed with a full buffer (no room for the sentinel):
+                        # the buffer is drained now, so end the stream.
+                        raise StopAsyncIteration
                     event = await self._queue.get()
+                if event is _CLOSE_SENTINEL:
+                    raise StopAsyncIteration
                 # The queue may hold events replay already delivered.
                 if event.event_id <= self._delivered:
                     continue
@@ -174,8 +190,22 @@ class _Subscription:
         raise SlowConsumerError(delivered, newest)
 
     async def aclose(self) -> None:
+        """Close the stream and wake a consumer blocked in `queue.get()`.
+
+        Semantics: replay stops immediately; in the live phase, events
+        already buffered are still delivered, then the stream ends with
+        StopAsyncIteration. Events published after close are never delivered.
+        """
+        if self._closed:
+            return
         self._closed = True
         self._bus._drop(self)
+        try:
+            self._queue.put_nowait(_CLOSE_SENTINEL)
+        except asyncio.QueueFull:
+            # Buffer full means the consumer is draining, not blocked in
+            # get(): it will observe `_closed` once the buffer is empty.
+            pass
 
 
 class EventBus:
@@ -218,15 +248,26 @@ class EventBus:
 
         `since_event_id = 0` replays from the oldest retained event. A cursor
         older than the oldest retained event for the filter raises
-        CursorOutOfRangeError instead of silently restarting.
+        CursorOutOfRangeError instead of silently restarting. When retention
+        pruned ALL events matching the filter (per-filter oldest is None),
+        the global log floor applies: the cursor still raises if it predates
+        the global oldest retained event. An empty event log has no floor —
+        nothing was pruned, so any cursor opens.
         """
         oldest = await self._db.oldest_event_id_for_filter(
             topic=filter.topic, batch_id=filter.batch_id, task_id=filter.task_id
         )
-        if since_event_id > 0 and oldest is not None and since_event_id < oldest:
-            stored_newest = await self._db.newest_event_id()
-            newest = max(self._newest_event_id, stored_newest or 0, oldest)
-            raise CursorOutOfRangeError(since_event_id, oldest, newest)
+        if since_event_id > 0:
+            floor = oldest
+            if floor is None:
+                # All matching events were pruned (or none ever matched):
+                # fall back to the global floor so a cursor pointing at
+                # pruned history still fails fast.
+                floor = await self._db.oldest_event_id()
+            if floor is not None and since_event_id < floor:
+                stored_newest = await self._db.newest_event_id()
+                newest = max(self._newest_event_id, stored_newest or 0, floor)
+                raise CursorOutOfRangeError(since_event_id, floor, newest)
         # Register before any replay so live events published during replay
         # are buffered (and deduplicated by cursor on delivery).
         sub = _Subscription(self, filter, since_event_id, self._buffer_size)
