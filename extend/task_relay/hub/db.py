@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     allowed_worker_ids_json TEXT,
     deny_worker_ids_json TEXT,
     resume_from_checkpoint TEXT,
+    timeout_seconds INTEGER,
+    queue_timeout_seconds INTEGER,
+    first_progress_seconds INTEGER,
     created_at REAL NOT NULL,
     started_at REAL,
     completed_at REAL

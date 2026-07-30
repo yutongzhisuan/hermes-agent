@@ -8,6 +8,30 @@ from dataclasses import dataclass
 
 
 @dataclass
+class TaskSpec:
+    """Master-facing task specification; not a DB row."""
+
+    task_id: str
+    goal: str
+    callback_topic: str = "default"
+    params_json: str | None = None
+    context_json: str | None = None
+    toolsets_json: str | None = None
+    target_worker: str | None = None
+    timeout_seconds: int | None = None
+    priority: int = 0
+    depends_on_json: str | None = None
+    aggregate_key: str | None = None
+    min_resources_json: str | None = None
+    trace_context_json: str | None = None
+    allowed_worker_ids_json: str | None = None
+    deny_worker_ids_json: str | None = None
+    queue_timeout_seconds: int | None = None
+    max_attempts: int | None = None
+    first_progress_seconds: int | None = None
+
+
+@dataclass
 class Task:
     task_id: str
     goal: str
@@ -40,6 +64,9 @@ class Task:
     allowed_worker_ids_json: str | None = None
     deny_worker_ids_json: str | None = None
     resume_from_checkpoint: str | None = None
+    timeout_seconds: int | None = None
+    queue_timeout_seconds: int | None = None
+    first_progress_seconds: int | None = None
     started_at: float | None = None
     completed_at: float | None = None
 
