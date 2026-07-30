@@ -37,6 +37,7 @@ VALID_STATUSES = frozenset(
 )
 TERMINAL_STATUSES = frozenset({"completed", "failed", "lost", "cancelled"})
 REDISPATCHABLE_STATUSES = frozenset({"lost", "failed"})
+PRUNE_INTERVAL_SECONDS = 3600
 
 
 class TaskRouterError(Exception):
@@ -88,6 +89,7 @@ class TaskRouter:
         self._config = config
         self._registry = registry
         self._lock = asyncio.Lock()
+        self._last_prune_at = 0.0
 
     # ------------------------------------------------------------------
     # Public API
@@ -285,6 +287,8 @@ class TaskRouter:
             # running (or already cancelling) -> enter cancelling grace window.
             grace = grace_seconds if grace_seconds is not None else self._config.cancel_grace_seconds
             task.status = "cancelling"
+            task.cancel_reason = reason
+            task.summary = reason
             task.claim_expires_at = time.time() + grace
             await self._persist_task(task)
             await self._emit_progress(task, f"cancel requested: {reason}")
@@ -301,6 +305,32 @@ class TaskRouter:
             for row in rows:
                 task = Task(**dict(row))
                 await self._timeout_task(task, now)
+        if now - self._last_prune_at >= PRUNE_INTERVAL_SECONDS:
+            await self.prune_old_data()
+
+    async def prune_old_data(self) -> None:
+        """Delete events, checkpoints, and terminal tasks older than retention_days.
+
+        M1 retention policy: prune only terminal tasks so in-flight work is never
+        deleted. Events and checkpoints are pruned by their own timestamps,
+        independent of task lifecycle. Rows are deleted in an order safe for
+        databases both with and without foreign-key cascade support.
+        """
+        retention_seconds = self._config.retention_days * 86400
+        cutoff = time.time() - retention_seconds
+        async with self._lock:
+            await self._db._conn.execute(
+                "DELETE FROM checkpoints WHERE checkpoint_at < ?", (cutoff,)
+            )
+            await self._db._conn.execute(
+                "DELETE FROM task_events WHERE event_at < ?", (cutoff,)
+            )
+            await self._db._conn.execute(
+                "DELETE FROM tasks WHERE status IN (?, ?, ?, ?) AND completed_at < ?",
+                ("completed", "failed", "lost", "cancelled", cutoff),
+            )
+            await self._db._conn.commit()
+        self._last_prune_at = time.time()
 
     async def get_status(self, task_id: str) -> str:
         task = await self._db.get_task(task_id)
@@ -338,6 +368,7 @@ class TaskRouter:
             task.started_at = None
             task.completed_at = None
             task.summary = None
+            task.cancel_reason = None
             task.result_json = None
             task.error = None
             await self._persist_task(task)
@@ -432,7 +463,7 @@ class TaskRouter:
         if task.status == "cancelling":
             if task.claim_expires_at is not None and now >= task.claim_expires_at:
                 # Timeout-induced cancelling must eventually settle as failed.
-                if task.summary == "timeout":
+                if task.cancel_reason == "timeout":
                     await self._settle_failed(task, now, "execution/lease timeout")
                 else:
                     await self._settle_cancelled(task, now)
@@ -507,6 +538,7 @@ class TaskRouter:
         """
         grace = self._config.cancel_grace_seconds
         task.status = "cancelling"
+        task.cancel_reason = reason
         task.summary = reason
         task.claim_expires_at = now + grace
         task.first_progress_deadline_at = None
@@ -613,7 +645,7 @@ class TaskRouter:
         fields = [
             "batch_id", "master_session_id", "goal", "params_json", "context_json",
             "toolsets_json", "worker_id", "status", "result_json", "summary",
-            "fields_json", "usage_json", "error", "callback_topic", "allow_redispatch",
+            "cancel_reason", "fields_json", "usage_json", "error", "callback_topic", "allow_redispatch",
             "claim_token", "claim_expires_at", "first_progress_deadline_at",
             "queue_deadline_at", "attempt", "max_attempts", "priority",
             "depends_on_json", "aggregate_key", "min_resources_json",

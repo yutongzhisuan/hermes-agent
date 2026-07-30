@@ -7,6 +7,7 @@ Master JWT on the ``authorization: Bearer …`` metadata.
 
 from __future__ import annotations
 
+import base64
 import contextvars
 import json
 import time
@@ -352,7 +353,7 @@ def _context_payload_to_dict(ctx: pb.ContextPayload) -> dict:
     if ctx.HasField("inline_gzip"):
         return {
             "inline_gzip": {
-                "gzip_data": ctx.inline_gzip.gzip_data.hex(),
+                "gzip_data": base64.b64encode(ctx.inline_gzip.gzip_data).decode("ascii"),
                 "sha256": ctx.inline_gzip.sha256,
             }
         }

@@ -46,6 +46,7 @@ class Task:
     status: str = "pending"
     result_json: str | None = None
     summary: str | None = None
+    cancel_reason: str | None = None
     fields_json: str | None = None
     usage_json: str | None = None
     error: str | None = None

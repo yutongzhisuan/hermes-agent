@@ -663,7 +663,7 @@ class WsServerSession:
                 if self.worker_id is None:
                     continue
                 cursor = await self.hub.db._conn.execute(
-                    "SELECT task_id, summary, claim_expires_at FROM tasks"
+                    "SELECT task_id, cancel_reason, claim_expires_at FROM tasks"
                     " WHERE worker_id = ? AND status = 'cancelling'",
                     (self.worker_id,),
                 )
@@ -676,7 +676,7 @@ class WsServerSession:
                         "task.cancel",
                         {
                             "task_id": task_id,
-                            "reason": row["summary"] or "cancel requested",
+                            "reason": row["cancel_reason"] or "cancel requested",
                             "hard_deadline_at": row["claim_expires_at"],
                         },
                     )

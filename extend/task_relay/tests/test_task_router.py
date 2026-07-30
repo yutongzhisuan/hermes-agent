@@ -374,6 +374,7 @@ async def test_execution_lease_timeout_enters_cancelling_with_timeout_reason(
     await router.tick_timeouts()
     task = await db.get_task("t1")
     assert task.status == "cancelling"
+    assert task.cancel_reason == "timeout"
     assert task.summary == "timeout"
 
 

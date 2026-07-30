@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     status TEXT NOT NULL DEFAULT 'pending',
     result_json TEXT,
     summary TEXT,
+    cancel_reason TEXT,
     fields_json TEXT,
     usage_json TEXT,
     error TEXT,
@@ -367,6 +368,7 @@ async def open_db(path: str) -> Database:
     """Open (creating if needed) a hub database at `path` and apply the schema."""
     conn = await aiosqlite.connect(path)
     conn.row_factory = aiosqlite.Row
+    await conn.execute("PRAGMA foreign_keys = ON")
     await conn.executescript(_SCHEMA)
     await conn.commit()
     return Database(conn)

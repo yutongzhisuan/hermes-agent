@@ -7,6 +7,7 @@ runs each claimed task through a :class:`TaskBackend` with bounded concurrency.
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import signal
 import traceback
@@ -343,12 +344,13 @@ class TaskWorker:
 
 def _run_payload_from_dict(run: dict[str, Any]) -> TaskRunPayload:
     """Convert the Hub's ``task.run`` dict into a typed payload."""
+    context = _decode_inline_gzip(run.get("context"))
     return TaskRunPayload(
         task_id=run.get("task_id", ""),
         attempt=int(run.get("attempt", 1)),
         goal=run.get("goal", ""),
         params=run.get("params"),
-        context=run.get("context"),
+        context=context,
         toolsets=list(run.get("toolsets") or []),
         timeout_seconds=int(run.get("timeout_seconds", 600)),
         first_progress_seconds=run.get("first_progress_seconds"),
@@ -357,6 +359,27 @@ def _run_payload_from_dict(run: dict[str, Any]) -> TaskRunPayload:
         resume_blob=run.get("resume_blob"),
         claim_token=run.get("claim_token"),
     )
+
+
+def _decode_inline_gzip(context: Any) -> Any:
+    """Decode base64-encoded ``inline_gzip.gzip_data`` back to bytes.
+
+    The Hub stores binary gzip payloads as base64 inside JSON; the worker
+    backend expects the original bytes for decompression.
+    """
+    if not isinstance(context, dict):
+        return context
+    inline_gzip = context.get("inline_gzip")
+    if not isinstance(inline_gzip, dict):
+        return context
+    encoded = inline_gzip.get("gzip_data")
+    if isinstance(encoded, str):
+        try:
+            inline_gzip["gzip_data"] = base64.b64decode(encoded, validate=True)
+        except Exception:
+            # Leave malformed payloads as-is so the backend can fail cleanly.
+            pass
+    return context
 
 
 def install_signal_handlers(worker: TaskWorker) -> None:

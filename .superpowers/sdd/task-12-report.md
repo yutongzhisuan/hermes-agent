@@ -296,3 +296,106 @@ No implementation code was added or changed.
 ### Verdict
 
 P1 M1 Delivery Core meets the definition of done.
+
+---
+
+## 6. Final Whole-Branch Review Fixes
+
+Commit: `6b26aad4f` — `fix(task-relay): final review Important fixes — timeout cancel, guard bypass, CLI backend, proto script`
+
+### What changed
+
+1. **`extend/task_relay/worker/task_worker.py`**
+   - The outer `except Exception` fallback in `_execute_one` now routes through `executor._complete_once` (which calls `_guard_settlement`) instead of sending `task.complete` directly. Added `TaskCompletePayload` import.
+
+2. **`extend/task_relay/hub/task_router.py`**
+   - Running execution/lease timeout now transitions to `cancelling` with reason `"timeout"` (new `_enter_cancelling` helper) instead of immediately settling `failed`.
+   - The cancel-grace expiry path now settles `failed` when the cancelling reason is `"timeout"`, otherwise `cancelled`.
+   - `on_progress` no longer extends `claim_expires_at` when `task.status == "cancelling"`.
+   - `_existing_result` now includes the full task row fields needed for a complete `TaskResult` proto.
+
+3. **`extend/task_relay/hub/ws_server.py`**
+   - `_cancel_monitor_loop` tracks already-notified cancelling task IDs in a per-session `set[str]` and sends only once per task/session.
+
+4. **`extend/task_relay/hub/grpc_server.py`**
+   - `TaskRelayService` now receives `db`, `bus`, and `registry` as explicit constructor arguments instead of reaching into `router._db` etc.
+   - `serve_grpc` signature updated to accept `db`, `bus`, `registry`.
+   - `_existing_result_to_proto` now populates the full `TaskResult`: `task_id`, `result_text`, `fields`, `usage`, `started_at`, `batch_id`, `latest_checkpoint_id`, `schema_version`.
+
+5. **`extend/task_relay/worker/__main__.py`**
+   - Added `"acp"` to the `--backend` choices.
+   - Wired `_create_backend` to instantiate `AcpTaskBackend` with `--acp-progress-interval-seconds` (default 5.0).
+
+6. **`extend/task_relay/scripts/gen_proto.sh`**
+   - The import rewrite is now idempotent (succeeds if already relative) and exits non-zero if the expected top-level import is not found. Uses exact-line matching and a replacement count check.
+
+### Test changes
+
+- Added failing tests first for findings 2, 3, 4 (TDD):
+  - `test_execution_lease_timeout_enters_cancelling_with_timeout_reason`
+  - `test_execution_lease_timeout_grace_expires_to_failed`
+  - `test_on_progress_during_cancelling_does_not_extend_grace_window`
+  - `test_task_cancel_pushed_only_once_per_session`
+  - `test_execution_timeout_pushes_cancel_to_worker`
+- Added `test_worker_fallback_complete_uses_settlement_guard` for finding 1.
+- Updated fixtures in `conftest.py`, `test_grpc_watch.py`, and `test_e2e_mode_a.py` for the new `serve_grpc` signature.
+- Updated `FakeWorkerWs` in `test_worker.py` to support `task.status` responses.
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **168 passed in 20.17s**
+
+---
+
+## 7. Final Re-Review Important Fixes
+
+Commit: `fix(task-relay): cancel reason column, base64 inline_gzip round-trip, retention pruning`
+
+### What changed
+
+1. **`extend/task_relay/hub/models.py`**
+   - Added `cancel_reason: str | None = None` to the `Task` dataclass.
+
+2. **`extend/task_relay/hub/db.py`**
+   - Added `cancel_reason TEXT` column to the `tasks` table schema.
+   - Enabled `PRAGMA foreign_keys = ON` on new connections so cascading deletes work if foreign keys are later added by migration.
+
+3. **`extend/task_relay/hub/task_router.py`**
+   - Added dedicated `cancel_reason` tracking. `_enter_cancelling` and `on_cancel` now write the reason into `task.cancel_reason` (and keep `task.summary` in sync).
+   - Cancel-grace expiry now uses `task.cancel_reason == "timeout"` to decide between `failed` and `cancelled`. A Master cancel that arrives while a task is already timeout-cancelling correctly flips attribution to `cancelled`.
+   - Redispatch now clears `cancel_reason` when reopening a terminal task.
+   - Added `prune_old_data()` and wired it to `tick_timeouts()` (hourly, throttled by `PRUNE_INTERVAL_SECONDS`).
+   - Retention policy: delete `checkpoints`, then `task_events`, then terminal `tasks` older than `config.retention_days`. In-flight (non-terminal) tasks are never deleted.
+
+4. **`extend/task_relay/hub/ws_server.py`**
+   - `_cancel_monitor_loop` now reads `cancel_reason` instead of `summary` when pushing `task.cancel` reason to the worker.
+
+5. **`extend/task_relay/hub/grpc_server.py`**
+   - `_context_payload_to_dict` now stores `inline_gzip.gzip_data` as standard base64 (instead of hex) so binary payloads survive JSON round-trips.
+
+6. **`extend/task_relay/worker/task_worker.py`**
+   - `_run_payload_from_dict` decodes base64 `inline_gzip.gzip_data` back to `bytes` before passing the context to the backend, restoring the original compressed bytes end-to-end.
+
+### Test changes
+
+- Added `extend/task_relay/tests/test_rereview_fixes.py` with failing tests first (TDD):
+  - `test_execution_timeout_sets_cancel_reason_timeout`
+  - `test_master_cancel_during_timeout_cancelling_settles_cancelled`
+  - `test_context_payload_to_dict_base64_encodes_gzip_data`
+  - `test_run_payload_decodes_inline_gzip_base64_to_bytes`
+  - `test_prune_old_data_removes_old_events_and_checkpoints_and_tasks`
+- Updated `extend/task_relay/tests/test_task_router.py::test_execution_lease_timeout_enters_cancelling_with_timeout_reason` to assert `cancel_reason == "timeout"`.
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **173 passed in 25.49s**
