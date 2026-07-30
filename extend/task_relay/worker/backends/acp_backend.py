@@ -105,12 +105,25 @@ class AcpTaskBackend(TaskBackend):
                 last_progress_at = now
 
             try:
-                asyncio.run_coroutine_threadsafe(
+                fut = asyncio.run_coroutine_threadsafe(
                     on_progress(summary[:240]), loop
                 )
             except RuntimeError:
-                # Event loop may be closing; drop the progress frame.
-                pass
+                logger.warning(
+                    "progress frame dropped for session %s: event loop closed",
+                    session_id,
+                )
+            else:
+
+                def _log_progress_failure(f: asyncio.Future[Any]) -> None:
+                    try:
+                        f.result()
+                    except Exception:
+                        logger.exception(
+                            "progress frame failed for session %s", session_id
+                        )
+
+                fut.add_done_callback(_log_progress_failure)
 
         agent.step_callback = _step_callback
 
@@ -123,17 +136,19 @@ class AcpTaskBackend(TaskBackend):
             )
 
         async def _watch_cancel() -> None:
-            """Call agent.interrupt() as soon as cancellation is requested."""
+            """Set the ACP session cancel_event and interrupt the agent."""
             try:
                 await cancel_event.wait()
             except asyncio.CancelledError:
                 return
             try:
+                if state.cancel_event is not None:
+                    state.cancel_event.set()
                 if hasattr(agent, "interrupt"):
                     agent.interrupt()
             except Exception:
                 logger.debug(
-                    "agent.interrupt() failed for session %s", session_id, exc_info=True
+                    "ACP cancel failed for session %s", session_id, exc_info=True
                 )
 
         watch_task = asyncio.create_task(_watch_cancel())
@@ -159,13 +174,15 @@ class AcpTaskBackend(TaskBackend):
             except asyncio.CancelledError:
                 pass
             if cancel_event.is_set():
-                # Defensive interrupt in case the watch task lost the race.
+                # Defensive cancel in case the watch task lost the race.
                 try:
+                    if state.cancel_event is not None:
+                        state.cancel_event.set()
                     if hasattr(agent, "interrupt"):
                         agent.interrupt()
                 except Exception:
                     logger.debug(
-                        "Defensive interrupt failed for session %s",
+                        "Defensive ACP cancel failed for session %s",
                         session_id,
                         exc_info=True,
                     )

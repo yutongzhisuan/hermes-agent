@@ -19,6 +19,9 @@ from extend.task_relay.worker.task_worker_ws import TaskWorkerWs, WsClientError
 
 logger = logging.getLogger("task_relay.worker")
 
+# M1: terminal Hub statuses used by the settlement-ownership guard.
+_TERMINAL_STATUSES = frozenset({"completed", "failed", "lost", "cancelled"})
+
 
 class TaskWorker:
     """Long-lived worker process that executes tasks from the Hub."""
@@ -176,7 +179,13 @@ class TaskWorker:
     ) -> None:
         """Execute a single task under the concurrency semaphore."""
         async with self._semaphore:
-            executor = TaskExecutor(self._ws, self.backend)
+
+            async def settlement_guard(task_id: str) -> bool:
+                return await self._guard_settlement(task_id, run.claim_token)
+
+            executor = TaskExecutor(
+                self._ws, self.backend, settlement_guard=settlement_guard
+            )
             try:
                 await executor.execute(run, cancel_event)
             except asyncio.CancelledError:
@@ -219,6 +228,48 @@ class TaskWorker:
             await self._ws.request("cancel.ack", {"task_id": task_id})
         except Exception:
             logger.exception("cancel.ack failed for %s", task_id)
+
+    async def _guard_settlement(
+        self, task_id: str, claim_token: str | None
+    ) -> bool:
+        """Return True if this worker still owns settlement for the task.
+
+        The M1 guard queries the Hub before sending ``task.complete``. If the
+        Hub has already marked the task terminal (e.g. lease timeout) or the
+        claim token no longer matches, the worker drops its completion to avoid
+        a double-settle race. Query failures fail open so a transient Hub
+        connectivity blip does not lose a legitimate result.
+        """
+        try:
+            result = await self._ws.request("task.status", {"task_id": task_id})
+        except Exception:
+            logger.exception("task.status query failed for %s", task_id)
+            return True
+
+        status = result.get("status")
+        if status in _TERMINAL_STATUSES:
+            logger.info(
+                "task %s already terminal in Hub (%s); skipping complete",
+                task_id,
+                status,
+            )
+            return False
+
+        returned_token = result.get("claim_token")
+        if (
+            claim_token is not None
+            and returned_token is not None
+            and returned_token != claim_token
+        ):
+            logger.info(
+                "task %s claim token mismatch (worker=%s, hub=%s); skipping complete",
+                task_id,
+                claim_token,
+                returned_token,
+            )
+            return False
+
+        return True
 
     async def _heartbeat_loop(self) -> None:
         """Send periodic worker.heartbeat frames."""
@@ -297,6 +348,7 @@ def _run_payload_from_dict(run: dict[str, Any]) -> TaskRunPayload:
         trace_context=run.get("trace_context"),
         resume_from_checkpoint=run.get("resume_from_checkpoint"),
         resume_blob=run.get("resume_blob"),
+        claim_token=run.get("claim_token"),
     )
 
 

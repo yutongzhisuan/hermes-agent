@@ -31,6 +31,7 @@ class TaskRunPayload:
     trace_context: dict[str, Any] | None
     resume_from_checkpoint: str | None
     resume_blob: str | None = None
+    claim_token: str | None = None
 
 
 @dataclass
@@ -92,15 +93,21 @@ class TaskBackend(Protocol):
 class TaskExecutor:
     """Runs one backend task and forwards lifecycle frames to the Hub."""
 
-    def __init__(self, ws_client: Any, backend: TaskBackend):
+    def __init__(
+        self,
+        ws_client: Any,
+        backend: TaskBackend,
+        settlement_guard: Callable[[str], Awaitable[bool]] | None = None,
+    ):
         self.ws_client = ws_client
         self.backend = backend
+        self.settlement_guard = settlement_guard
         self._completion_state: str | None = None  # None | "pending" | "sent"
 
     @property
     def completion_attempted(self) -> bool:
-        """True if ``task.complete`` has already been requested for this task."""
-        return self._completion_state in ("pending", "sent")
+        """True if ``task.complete`` has already been requested or dropped."""
+        return self._completion_state in ("pending", "sent", "dropped")
 
     async def execute(
         self,
@@ -173,6 +180,13 @@ class TaskExecutor:
         """Send ``task.complete`` exactly once. Returns True on success."""
         if self._completion_state is not None:
             return False
+        if self.settlement_guard is not None:
+            if not await self.settlement_guard(task_id):
+                logger.info(
+                    "task %s settlement guard rejected; dropping complete", task_id
+                )
+                self._completion_state = "dropped"
+                return False
         self._completion_state = "pending"
         params: dict[str, Any] = {"task_id": task_id, "status": payload.status}
         if payload.summary is not None:

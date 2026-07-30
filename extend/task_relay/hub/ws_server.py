@@ -564,6 +564,15 @@ class WsServerSession:
             "attempt": resp.attempt,
         }
 
+    async def _handle_task_status(self, params: dict) -> dict:
+        """Return the current Hub status and claim token for a worker's task."""
+        self._require_announced()
+        task_id = params.get("task_id")
+        if not task_id:
+            raise WsServerError("task_id is required", JSONRPC_INVALID_PARAMS)
+        task = await self._verify_task_owner(task_id)
+        return {"status": task.status, "claim_token": task.claim_token}
+
     async def _handle_cancel_ack(self, params: dict) -> dict:
         """Worker acknowledges a pushed ``task.cancel``."""
         self._require_announced()
@@ -689,6 +698,7 @@ class WsServerSession:
             "first_progress_seconds": task.first_progress_seconds,
             "trace_context": _safe_json_loads(task.trace_context_json),
             "resume_from_checkpoint": task.resume_from_checkpoint,
+            "claim_token": claimed.claim_token,
         }
         if latest is not None:
             run["resume_blob"] = latest.resume_blob.decode("utf-8") if latest.resume_blob else None
