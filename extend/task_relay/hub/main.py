@@ -29,18 +29,15 @@ logger = logging.getLogger("task_relay.hub")
 
 async def _timeout_ticker(
     router: TaskRouter,
+    shutdown: asyncio.Event,
     interval: float = 1.0,
-    shutdown: asyncio.Event | None = None,
 ) -> None:
     """Periodically evaluate queue, first-progress, lease, and cancel-grace deadlines."""
-    while shutdown is None or not shutdown.is_set():
+    while not shutdown.is_set():
         try:
             await router.tick_timeouts()
         except Exception:
             logger.exception("timeout ticker failed")
-        if shutdown is None:
-            await asyncio.sleep(interval)
-            continue
         try:
             await asyncio.wait_for(shutdown.wait(), timeout=interval)
         except asyncio.TimeoutError:
@@ -52,37 +49,41 @@ def _format_sockets(sockets, host: str) -> list[str]:
     return [f"{host}:{sock.getsockname()[1]}" for sock in sockets]
 
 
-async def run(args: argparse.Namespace) -> int:
+async def run(
+    db_path: Path,
+    hub_config: HubConfig,
+    args: argparse.Namespace,
+) -> int:
     """Assemble and run the Hub until a shutdown signal is received."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    db_path = Path(args.db)
     try:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        logger.error("cannot create database directory %s: %s", db_path.parent, exc)
+        auth = Auth.from_config(hub_config)
+    except AuthError as exc:
+        logger.error("auth configuration failed: %s", exc)
         return 1
 
     db: Database = await open_db(str(db_path))
 
     try:
-        bootstrap_tokens = load_bootstrap_tokens(args.bootstrap_tokens)
-        hub_config = HubConfig(
-            jwt_secret=args.jwt_secret,
-            bootstrap_tokens=bootstrap_tokens,
-        )
-        try:
-            auth = Auth.from_config(hub_config)
-        except AuthError as exc:
-            logger.error("auth configuration failed: %s", exc)
-            return 1
-
         bus = EventBus(db, hub_config)
         registry = WorkerRegistry(db)
         router = TaskRouter(db, bus, hub_config, registry)
+
+        shutdown = asyncio.Event()
+
+        def _on_signal(signum: int) -> None:
+            logger.info("received signal %s, shutting down", signal.Signals(signum).name)
+            shutdown.set()
+
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, _on_signal, sig)
+
+        ticker_task = asyncio.create_task(_timeout_ticker(router, shutdown))
 
         grpc_server = await serve_grpc(
             router,
@@ -105,18 +106,6 @@ async def run(args: argparse.Namespace) -> int:
         ws_addrs = _format_sockets(ws_server.sockets, args.host)
         logger.info("WebSocket listening on %s", ", ".join(ws_addrs))
 
-        shutdown = asyncio.Event()
-
-        def _on_signal(signum: int) -> None:
-            logger.info("received signal %s, shutting down", signal.Signals(signum).name)
-            shutdown.set()
-
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, _on_signal, sig)
-
-        ticker_task = asyncio.create_task(_timeout_ticker(router, shutdown=shutdown))
-
         await shutdown.wait()
 
         logger.info("closing servers")
@@ -138,13 +127,42 @@ async def run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entry point for ``python -m extend.task_relay.hub``."""
+def _main_sync(argv: Sequence[str] | None = None) -> int:
+    """Parse arguments and perform synchronous setup before starting the event loop."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
     args = parse_args(argv)
+
+    db_path = Path(args.db)
     try:
-        return asyncio.run(run(args))
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.error("cannot create database directory %s: %s", db_path.parent, exc)
+        return 1
+
+    try:
+        bootstrap_tokens = load_bootstrap_tokens(args.bootstrap_tokens)
+    except ValueError as exc:
+        logger.error("invalid bootstrap tokens: %s", exc)
+        return 1
+
+    hub_config = HubConfig(
+        jwt_secret=args.jwt_secret,
+        bootstrap_tokens=bootstrap_tokens,
+    )
+
+    try:
+        return asyncio.run(run(db_path, hub_config, args))
     except KeyboardInterrupt:
         return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """CLI entry point for ``python -m extend.task_relay.hub``."""
+    return _main_sync(argv)
 
 
 if __name__ == "__main__":
