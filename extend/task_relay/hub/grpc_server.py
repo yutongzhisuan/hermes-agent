@@ -7,11 +7,12 @@ Master JWT on the ``authorization: Bearer …`` metadata.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import time
-from typing import Any
+from typing import Any, Callable
 
-from grpclib.const import Status
+from grpclib.const import Handler, Status
 from grpclib.exceptions import GRPCError
 from grpclib.server import Server, Stream
 
@@ -60,6 +61,66 @@ _SESSION_MODE_CHAR_TO_PROTO = {
 }
 
 
+worker_identity: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "worker_identity", default=None
+)
+
+
+class MasterAuthInterceptor:
+    """grpclib-style server interceptor that requires ``authorization: Bearer
+    <master_jwt>`` on every RPC and sets ``worker_identity`` in context."""
+
+    def __init__(self, auth: Auth):
+        self._auth = auth
+
+    def authenticate(self, metadata: Any) -> str:
+        if metadata is None:
+            raise GRPCError(Status.UNAUTHENTICATED, "missing authorization metadata")
+        authorization = metadata.get("authorization")
+        if not authorization:
+            raise GRPCError(Status.UNAUTHENTICATED, "missing authorization header")
+        parts = authorization.split(None, 1)
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise GRPCError(
+                Status.UNAUTHENTICATED, "authorization requires Bearer scheme"
+            )
+        token = parts[1]
+        try:
+            claims = self._auth.verify_master_jwt(token)
+        except AuthError as e:
+            raise GRPCError(Status.UNAUTHENTICATED, str(e)) from e
+        worker_identity.set(claims.sub)
+        return claims.sub
+
+    def intercept_service(self, service: TaskRelayBase) -> TaskRelayBase:
+        return _InterceptedService(self, service)
+
+
+class _InterceptedService:
+    def __init__(self, interceptor: MasterAuthInterceptor, service: TaskRelayBase):
+        self._interceptor = interceptor
+        self._service = service
+
+    def __mapping__(self) -> dict[str, Handler]:
+        mapping = self._service.__mapping__()
+        return {
+            path: Handler(
+                self._wrap(handler.func),
+                handler.cardinality,
+                handler.request_type,
+                handler.reply_type,
+            )
+            for path, handler in mapping.items()
+        }
+
+    def _wrap(self, fn: Callable[[Stream], Any]) -> Callable[[Stream], Any]:
+        async def wrapper(stream: Stream) -> None:
+            self._interceptor.authenticate(stream.metadata)
+            await fn(stream)
+
+        return wrapper
+
+
 class TaskRelayService(TaskRelayBase):
     def __init__(
         self,
@@ -80,7 +141,6 @@ class TaskRelayService(TaskRelayBase):
 
     async def DispatchTask(self, stream: Stream) -> None:
         request: pb.DispatchTaskRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         spec = _spec_from_proto(request.spec)
         try:
             resp = await self._router.dispatch_task(
@@ -94,7 +154,6 @@ class TaskRelayService(TaskRelayBase):
 
     async def DispatchTaskBatch(self, stream: Stream) -> None:
         request: pb.DispatchTaskBatchRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         specs = [_spec_from_proto(s) for s in request.specs]
         policy_json = _json_dumps(_message_to_dict(request.policy)) if request.HasField("policy") else None
         try:
@@ -112,7 +171,6 @@ class TaskRelayService(TaskRelayBase):
 
     async def GetTaskResult(self, stream: Stream) -> None:
         request: pb.TaskResultRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         task = await self._db.get_task(request.task_id)
         if task is None:
             raise GRPCError(Status.NOT_FOUND, f"task {request.task_id} not found")
@@ -120,7 +178,6 @@ class TaskRelayService(TaskRelayBase):
 
     async def WatchTask(self, stream: Stream) -> None:
         request: pb.WatchTaskRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         filter = _filter_from_request(request)
         since_event_id = request.since_event_id
         try:
@@ -157,7 +214,6 @@ class TaskRelayService(TaskRelayBase):
 
     async def ListWorkers(self, stream: Stream) -> None:
         request: pb.ListWorkersRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         workers = await self._db.list_workers(only_schedulable=request.only_schedulable)
         require_toolsets = set(request.require_toolsets)
         response = pb.ListWorkersResponse()
@@ -173,7 +229,6 @@ class TaskRelayService(TaskRelayBase):
 
     async def ListTasks(self, stream: Stream) -> None:
         request: pb.ListTasksRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         limit = request.limit if request.limit else self._config.list_tasks_default_limit
         limit = max(1, min(limit, self._config.list_tasks_max_limit))
         statuses = None
@@ -194,10 +249,14 @@ class TaskRelayService(TaskRelayBase):
 
     async def CancelTask(self, stream: Stream) -> None:
         request: pb.CancelTaskRequest = await stream.recv_message()
-        _require_master(self._auth, stream.metadata)
         response = pb.CancelTaskResponse()
         task_ids: list[str] = []
         if request.task_id:
+            task = await self._db.get_task(request.task_id)
+            if task is None:
+                raise GRPCError(
+                    Status.NOT_FOUND, f"task {request.task_id} not found"
+                )
             task_ids.append(request.task_id)
         if request.batch_id:
             batch_tasks = await self._db.list_tasks_by_batch(request.batch_id)
@@ -236,32 +295,11 @@ async def serve_grpc(
     port: int = 0,
 ) -> Server:
     """Start a gRPC server serving the Master-facing TaskRelay service."""
-    server = Server([TaskRelayService(router, auth, config)])
+    service = TaskRelayService(router, auth, config)
+    intercepted = MasterAuthInterceptor(auth).intercept_service(service)
+    server = Server([intercepted])
     await server.start(host, port)
     return server
-
-
-# ------------------------------------------------------------------
-# Auth helper
-# ------------------------------------------------------------------
-
-def _require_master(auth: Auth, metadata: Any) -> None:
-    if metadata is None:
-        raise GRPCError(Status.UNAUTHENTICATED, "missing authorization")
-    raw = metadata.get("authorization")
-    if not raw:
-        raise GRPCError(Status.UNAUTHENTICATED, "missing authorization")
-    parts = raw.split()
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        token = parts[1]
-    elif len(parts) == 1:
-        token = parts[0]
-    else:
-        raise GRPCError(Status.UNAUTHENTICATED, "invalid authorization format")
-    try:
-        auth.verify_master_jwt(token)
-    except AuthError as e:
-        raise GRPCError(Status.UNAUTHENTICATED, str(e)) from e
 
 
 # ------------------------------------------------------------------

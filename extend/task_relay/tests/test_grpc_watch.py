@@ -138,6 +138,50 @@ async def router_via_worker_complete(router, registry):
 # ---------------------------------------------------------------------------
 
 
+RPC_METHODS = [
+    "DispatchTask",
+    "DispatchTaskBatch",
+    "GetTaskResult",
+    "WatchTask",
+    "ListWorkers",
+    "ListTasks",
+    "CancelTask",
+]
+
+
+async def _call_rpc(stub: TaskRelayStub, method: str, metadata) -> None:
+    if method == "DispatchTask":
+        await stub.DispatchTask(
+            pb.DispatchTaskRequest(spec=_spec()), metadata=metadata
+        )
+    elif method == "DispatchTaskBatch":
+        await stub.DispatchTaskBatch(
+            pb.DispatchTaskBatchRequest(batch_id="b", specs=[_spec()]),
+            metadata=metadata,
+        )
+    elif method == "GetTaskResult":
+        await stub.GetTaskResult(
+            pb.TaskResultRequest(task_id="t"), metadata=metadata
+        )
+    elif method == "WatchTask":
+        async with stub.WatchTask.open(metadata=metadata) as stream:
+            await stream.send_message(pb.WatchTaskRequest(task_id="t"), end=True)
+            try:
+                await asyncio.wait_for(stream.recv_message(), timeout=1.0)
+            except asyncio.TimeoutError:
+                pytest.fail(f"{method} did not reject unauthenticated request")
+    elif method == "ListWorkers":
+        await stub.ListWorkers(pb.ListWorkersRequest(), metadata=metadata)
+    elif method == "ListTasks":
+        await stub.ListTasks(pb.ListTasksRequest(), metadata=metadata)
+    elif method == "CancelTask":
+        await stub.CancelTask(
+            pb.CancelTaskRequest(task_id="t"), metadata=metadata
+        )
+    else:
+        raise ValueError(method)
+
+
 @pytest.mark.asyncio
 async def test_dispatch_requires_authorization(grpc_channel):
     stub = TaskRelayStub(grpc_channel)
@@ -166,6 +210,23 @@ async def test_dispatch_rejects_invalid_token(grpc_channel, master_jwt):
             pb.DispatchTaskRequest(spec=_spec()),
             metadata={"authorization": "Bearer not-a-token"},
         )
+    assert exc.value.status == Status.UNAUTHENTICATED
+
+
+@pytest.mark.parametrize("method", RPC_METHODS)
+@pytest.mark.parametrize("case", ["missing", "invalid_bearer", "bare_token"])
+@pytest.mark.asyncio
+async def test_auth_interceptor_rejects_all_rpcs(method, case, grpc_channel, master_jwt):
+    stub = TaskRelayStub(grpc_channel)
+    if case == "missing":
+        metadata = None
+    elif case == "invalid_bearer":
+        metadata = {"authorization": "Bearer invalid-token"}
+    else:
+        # A valid token without the required "Bearer " scheme must be rejected.
+        metadata = {"authorization": master_jwt}
+    with pytest.raises(GRPCError) as exc:
+        await _call_rpc(stub, method, metadata)
     assert exc.value.status == Status.UNAUTHENTICATED
 
 
@@ -301,6 +362,18 @@ async def test_cancel_pending_task(grpc_channel, master_jwt, router):
     assert resp.cancelled_task_ids == [task_id]
     assert resp.already_terminal_task_ids == []
     assert await router.get_status(task_id) == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancel_unknown_task_returns_not_found(grpc_channel, master_jwt):
+    stub = TaskRelayStub(grpc_channel)
+    with pytest.raises(GRPCError) as exc:
+        await stub.CancelTask(
+            pb.CancelTaskRequest(task_id="no-such-task"),
+            metadata=_bearer_metadata(master_jwt),
+        )
+    assert exc.value.status == Status.NOT_FOUND
+    assert "no-such-task" in exc.value.message
 
 
 # ---------------------------------------------------------------------------
