@@ -4,8 +4,26 @@ See docs/superpowers/specs/2026-07-31-task-relay-design.md ("Global
 Constraints" and timeout layers) for where each default comes from.
 """
 
+import argparse
+import json
 from dataclasses import dataclass, field
-from typing import Mapping
+from pathlib import Path
+from typing import Mapping, Sequence
+
+
+def _default_db_path() -> str:
+    """Return the default SQLite DB path under the Hermes home directory.
+
+    Uses ``hermes_constants.get_hermes_home()`` when available. Falls back to
+    ``~/.hermes/relay/tasks.db`` so the Hub can still start in environments
+    where the constants module is unreachable.
+    """
+    try:
+        from hermes_constants import get_hermes_home
+
+        return str(get_hermes_home() / "relay" / "tasks.db")
+    except Exception:
+        return str(Path.home() / ".hermes" / "relay" / "tasks.db")
 
 
 @dataclass(frozen=True)
@@ -54,3 +72,78 @@ class HubConfig:
     # Long-lived bootstrap credentials: token -> worker scope. Workers present
     # one to the token endpoint once, then refresh the issued JWT before exp.
     bootstrap_tokens: Mapping[str, BootstrapEntry] = field(default_factory=dict)
+
+
+def load_bootstrap_tokens(raw: str) -> dict[str, BootstrapEntry]:
+    """Parse ``--bootstrap-tokens`` as either inline JSON or a JSON file path.
+
+    Expected object shape::
+
+        {
+          "<opaque-token>": {
+            "worker_id": "worker-01",
+            "allowed_toolsets": ["terminal", "file"],
+            "max_concurrent": 2
+          }
+        }
+
+    ``allowed_toolsets`` defaults to empty and ``max_concurrent`` defaults to 1.
+    """
+    if not raw:
+        return {}
+    text = raw.strip()
+    if text.startswith(("{", "[")):
+        data = json.loads(text)
+    else:
+        with open(text, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError("bootstrap tokens must be a JSON object mapping token -> entry")
+    result: dict[str, BootstrapEntry] = {}
+    for token, entry in data.items():
+        if not isinstance(entry, dict):
+            raise ValueError(f"bootstrap entry for {token!r} must be an object")
+        result[token] = BootstrapEntry(
+            worker_id=entry["worker_id"],
+            allowed_toolsets=tuple(entry.get("allowed_toolsets", [])),
+            max_concurrent=entry.get("max_concurrent", 1),
+        )
+    return result
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse the Hub process command line."""
+    parser = argparse.ArgumentParser(description="Task Relay Hub")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="interface to bind (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--grpc-port",
+        type=int,
+        default=9090,
+        help="gRPC master port (default: 9090)",
+    )
+    parser.add_argument(
+        "--ws-port",
+        type=int,
+        default=9000,
+        help="WebSocket worker port (default: 9000)",
+    )
+    parser.add_argument(
+        "--db",
+        default=_default_db_path(),
+        help=f"SQLite database path (default: {_default_db_path()})",
+    )
+    parser.add_argument(
+        "--jwt-secret",
+        default="",
+        help="HS256 shared secret for issuing/verifying Hub JWTs (required)",
+    )
+    parser.add_argument(
+        "--bootstrap-tokens",
+        default="",
+        help="JSON file path or inline JSON mapping bootstrap token to worker scope",
+    )
+    return parser.parse_args(argv)
