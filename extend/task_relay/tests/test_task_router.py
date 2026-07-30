@@ -10,6 +10,7 @@ import time
 import pytest
 import pytest_asyncio
 
+from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
@@ -238,6 +239,39 @@ async def test_claim_respects_toolsets(router, registry):
     assert len(claimed) == 1
 
 
+@pytest.mark.asyncio
+async def test_claim_jwt_toolset_scope_allows_claim(router, registry):
+    await _announce_poll_worker(registry, "w1", toolsets=["terminal", "file"])
+    await router.dispatch_task(spec(task_id="t1", toolsets=["file"]), "m1")
+    claims = WorkerClaims(
+        sub="w1", allowed_toolsets=["terminal", "file"], max_concurrent=1, exp=9999999999
+    )
+    claimed = await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims)
+    assert len(claimed) == 1
+
+
+@pytest.mark.asyncio
+async def test_claim_jwt_toolset_scope_denies_claim(router, registry):
+    await _announce_poll_worker(registry, "w1", toolsets=["terminal", "file"])
+    await router.dispatch_task(spec(task_id="t1", toolsets=["file"]), "m1")
+    claims = WorkerClaims(
+        sub="w1", allowed_toolsets=["terminal"], max_concurrent=1, exp=9999999999
+    )
+    assert await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims) == []
+
+
+@pytest.mark.asyncio
+async def test_claim_jwt_toolset_scope_intersects_with_advertised(router, registry):
+    await _announce_poll_worker(registry, "w1", toolsets=["terminal", "file"])
+    await router.dispatch_task(spec(task_id="t1", toolsets=["terminal", "file"]), "m1")
+    # JWT allows terminal only, so the file requirement cannot be satisfied
+    # even though the worker advertised it.
+    claims = WorkerClaims(
+        sub="w1", allowed_toolsets=["terminal"], max_concurrent=1, exp=9999999999
+    )
+    assert await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims) == []
+
+
 # ---------------------------------------------------------------------------
 # Progress / complete
 # ---------------------------------------------------------------------------
@@ -309,7 +343,7 @@ async def test_first_progress_deadline_marks_lost(router, registry):
 
 
 @pytest.mark.asyncio
-async def test_execution_lease_timeout_marks_lost(router, registry):
+async def test_execution_lease_timeout_marks_failed(router, registry):
     await _announce_poll_worker(registry, "w1")
     await router.dispatch_task(spec(task_id="t1"), "m1")
     await router.atomic_claim_for_poll("w1", max_tasks=1)
@@ -318,7 +352,7 @@ async def test_execution_lease_timeout_marks_lost(router, registry):
     await router.on_progress("t1", "still alive")
     await asyncio.sleep(2.1)
     await router.tick_timeouts()
-    assert (await router.get_status("t1")) == "lost"
+    assert (await router.get_status("t1")) == "failed"
 
 
 # ---------------------------------------------------------------------------
@@ -434,6 +468,51 @@ async def test_batch_idempotent_on_tasks(router):
     )
     assert r2.idempotent_hit is True
     assert r2.tasks[0].status == r1.tasks[0].status
+
+
+@pytest.mark.asyncio
+async def test_batch_idempotent_exact_redispatch_returns_existing(router, db):
+    specs = [spec(task_id="b3-t1"), spec(task_id="b3-t2", goal="other")]
+    r1 = await router.dispatch_task_batch(
+        specs, batch_id="batch-3", master_session_id="m1", callback_topic="bt"
+    )
+    r2 = await router.dispatch_task_batch(
+        specs, batch_id="batch-3", master_session_id="m1", callback_topic="bt"
+    )
+    assert r1.idempotent_hit is False
+    assert r2.idempotent_hit is True
+    assert {t.task_id for t in r2.tasks} == {"b3-t1", "b3-t2"}
+    batch = await db.get_batch("batch-3")
+    assert batch is not None
+    assert batch.batch_spec_hash
+
+
+@pytest.mark.asyncio
+async def test_batch_redispatch_with_different_spec_not_idempotent(router):
+    specs1 = [spec(task_id="b4-t1")]
+    await router.dispatch_task_batch(
+        specs1, batch_id="batch-4", master_session_id="m1", callback_topic="bt"
+    )
+    specs2 = [spec(task_id="b4-t1", goal="changed")]
+    with pytest.raises(TaskRouterError):
+        await router.dispatch_task_batch(
+            specs2, batch_id="batch-4", master_session_id="m1", callback_topic="bt"
+        )
+
+
+@pytest.mark.asyncio
+async def test_batch_stores_policy_json(router, db):
+    policy = json.dumps({"completion_mode": "ALL", "fail_fast": True})
+    specs = [spec(task_id="b5-t1")]
+    await router.dispatch_task_batch(
+        specs,
+        batch_id="batch-5",
+        master_session_id="m1",
+        callback_topic="bt",
+        policy_json=policy,
+    )
+    batch = await db.get_batch("batch-5")
+    assert batch.policy_json == policy
 
 
 @pytest.mark.asyncio

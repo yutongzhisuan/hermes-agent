@@ -12,21 +12,23 @@ Implementation notes:
 - ``claim_expires_at`` serves double duty as the execution lease deadline and
   the cancel-grace deadline. The router distinguishes the two cases by the row
   status (``running`` vs ``cancelling``).
-- Execution timeout currently maps to ``lost`` (design spec says ``failed`` for
-  hard execution timeout; this refinement is deferred).
+- First-progress deadline expiry maps to ``lost``; execution/lease timeout maps
+  to ``failed`` per the design spec Global Constraints.
 """
 
 import asyncio
+import hashlib
 import json
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Iterable
 
+from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.event_bus import EventBus
-from extend.task_relay.hub.models import Task, TaskSpec
+from extend.task_relay.hub.models import Batch, Task, TaskSpec
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
 
@@ -128,13 +130,44 @@ class TaskRouter:
         specs = list(specs)
         self._check_dependency_cycles(specs)
 
-        # M1: store policy/depends_on metadata on each task but treat every task
-        # as independent for scheduling purposes.
-        responses: list[DispatchTaskResponse] = []
+        # Normalize specs so the batch hash is deterministic.
+        for sp in specs:
+            if not sp.callback_topic:
+                sp.callback_topic = callback_topic
+
+        batch_spec_hash = _batch_spec_hash(batch_id, specs)
+
         async with self._lock:
+            existing_batch = await self._db.get_batch(batch_id)
+            if existing_batch is not None:
+                if existing_batch.batch_spec_hash != batch_spec_hash:
+                    raise TaskRouterError(
+                        f"batch_id {batch_id} already dispatched with different spec"
+                    )
+                tasks = await self._db.list_tasks_by_batch(batch_id)
+                return BatchDispatchResponse(
+                    batch_id=batch_id,
+                    callback_topic=callback_topic,
+                    tasks=[
+                        self._response_from_task(t, idempotent_hit=True)
+                        for t in tasks
+                    ],
+                    idempotent_hit=True,
+                )
+
+            await self._db.insert_batch(
+                Batch(
+                    batch_id=batch_id,
+                    callback_topic=callback_topic,
+                    batch_spec_hash=batch_spec_hash,
+                    created_at=time.time(),
+                    master_session_id=master_session_id,
+                    policy_json=policy_json,
+                )
+            )
+
+            responses: list[DispatchTaskResponse] = []
             for sp in specs:
-                if not sp.callback_topic:
-                    sp.callback_topic = callback_topic
                 resp = await self._dispatch_single(
                     sp, master_session_id, allow_redispatch, batch_id=batch_id
                 )
@@ -148,7 +181,10 @@ class TaskRouter:
         )
 
     async def atomic_claim_for_poll(
-        self, worker_id: str, max_tasks: int
+        self,
+        worker_id: str,
+        max_tasks: int,
+        worker_claims: WorkerClaims | None = None,
     ) -> list[ClaimedTask]:
         if max_tasks <= 0:
             return []
@@ -174,7 +210,7 @@ class TaskRouter:
                 if len(claimed) >= max_tasks:
                     break
                 task = Task(**dict(row))
-                if not self._registry.is_eligible_for_poll(worker, task):
+                if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
                     continue
                 claimed_task = await self._claim_task(task, worker_id)
                 if claimed_task is not None:
@@ -380,9 +416,15 @@ class TaskRouter:
             return
 
         if task.status == "running":
-            deadline = task.first_progress_deadline_at or task.claim_expires_at
-            if deadline is not None and now >= deadline:
-                await self._settle_lost(task, now, "progress/lease timeout")
+            if (
+                task.first_progress_deadline_at is not None
+                and now >= task.first_progress_deadline_at
+            ):
+                await self._settle_lost(task, now, "first progress timeout")
+                return
+            if task.claim_expires_at is not None and now >= task.claim_expires_at:
+                await self._settle_failed(task, now, "execution/lease timeout")
+                return
             return
 
         if task.status == "cancelling":
@@ -414,6 +456,31 @@ class TaskRouter:
         task.first_progress_deadline_at = None
         await self._persist_task(task)
         await self._emit_terminal(task, "lost", reason)
+
+    async def _settle_failed(self, task: Task, now: float, reason: str) -> None:
+        if task.allow_redispatch and task.attempt < task.max_attempts:
+            # Requeue for another attempt instead of marking terminal.
+            queue_timeout = self._effective_int(
+                task.queue_timeout_seconds, self._config.queue_timeout_seconds
+            )
+            task.status = "pending"
+            task.worker_id = None
+            task.claim_token = None
+            task.claim_expires_at = None
+            task.first_progress_deadline_at = None
+            task.queue_deadline_at = now + queue_timeout
+            task.summary = f"{reason}; requeuing for attempt {task.attempt + 1}"
+            await self._persist_task(task)
+            await self._emit_progress(task, task.summary)
+            return
+
+        task.status = "failed"
+        task.summary = reason
+        task.completed_at = now
+        task.claim_expires_at = None
+        task.first_progress_deadline_at = None
+        await self._persist_task(task)
+        await self._emit_terminal(task, "failed", reason)
 
     async def _settle_cancelled(self, task: Task, now: float) -> None:
         task.status = "cancelled"
@@ -608,3 +675,40 @@ def _json_list(value: str | None) -> list[str]:
     if isinstance(parsed, list):
         return [str(x) for x in parsed]
     return []
+
+
+# Fields that participate in the batch idempotency hash. They mirror the
+# TaskSpec proto fields that affect task identity and execution semantics.
+_BATCH_SPEC_FIELDS = (
+    "task_id",
+    "goal",
+    "params_json",
+    "context_json",
+    "toolsets_json",
+    "target_worker",
+    "timeout_seconds",
+    "callback_topic",
+    "priority",
+    "depends_on_json",
+    "aggregate_key",
+    "min_resources_json",
+    "trace_context_json",
+    "allowed_worker_ids_json",
+    "deny_worker_ids_json",
+    "queue_timeout_seconds",
+    "max_attempts",
+    "first_progress_seconds",
+)
+
+
+def _batch_spec_hash(batch_id: str, specs: list[TaskSpec]) -> str:
+    """Deterministic SHA-256 over the batch identity and normalized specs."""
+    ordered = sorted(specs, key=lambda s: s.task_id)
+    payload = {
+        "batch_id": batch_id,
+        "specs": [
+            {f: getattr(sp, f) for f in _BATCH_SPEC_FIELDS} for sp in ordered
+        ],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

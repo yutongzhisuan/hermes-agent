@@ -10,6 +10,7 @@ import json
 import time
 from typing import Iterable
 
+from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.models import Task, Worker
 
@@ -72,7 +73,9 @@ class WorkerRegistry:
     def supports_mode(self, worker: Worker, mode: str) -> bool:
         return mode.lower() in worker.session_modes.lower()
 
-    def is_eligible_for_poll(self, worker: Worker, task: Task) -> bool:
+    def is_eligible_for_poll(
+        self, worker: Worker, task: Task, claims: WorkerClaims | None = None
+    ) -> bool:
         """Check ACL and capability requirements for a poll claim.
 
         Eligibility rules (M1):
@@ -80,7 +83,8 @@ class WorkerRegistry:
         - Worker status is not ``offline``, ``stale``, or ``draining``.
         - Worker is not denied by ``task.deny_worker_ids``.
         - If ``task.allowed_worker_ids`` is non-empty, worker must be in it.
-        - Worker's advertised toolsets are a superset of task toolsets.
+        - Worker's advertised toolsets, optionally further restricted by the
+          worker JWT ``allowed_toolsets`` scope, are a superset of task toolsets.
         """
         if not self.supports_mode(worker, "a"):
             return False
@@ -98,7 +102,10 @@ class WorkerRegistry:
         task_toolsets = _json_list(task.toolsets_json)
         if task_toolsets:
             worker_toolsets = self.toolsets(worker)
-            if not set(task_toolsets).issubset(worker_toolsets):
+            authorized_toolsets = worker_toolsets
+            if claims is not None:
+                authorized_toolsets = worker_toolsets & set(claims.allowed_toolsets)
+            if not set(task_toolsets).issubset(authorized_toolsets):
                 return False
 
         return True

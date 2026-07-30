@@ -12,7 +12,7 @@ from dataclasses import asdict, fields
 
 import aiosqlite
 
-from extend.task_relay.hub.models import Task, TaskEvent, Worker
+from extend.task_relay.hub.models import Batch, Task, TaskEvent, Worker
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS tasks (
@@ -139,6 +139,13 @@ class Database:
         )
         row = await cursor.fetchone()
         return Task(**dict(row)) if row is not None else None
+
+    async def list_tasks_by_batch(self, batch_id: str) -> list[Task]:
+        cursor = await self._conn.execute(
+            "SELECT * FROM tasks WHERE batch_id = ? ORDER BY created_at, task_id",
+            (batch_id,),
+        )
+        return [Task(**dict(row)) for row in await cursor.fetchall()]
 
     async def update_task_status(self, task_id: str, status: str) -> None:
         await self._conn.execute(
@@ -278,6 +285,19 @@ class Database:
         )
         row = await cursor.fetchone()
         return Worker(**dict(row)) if row is not None else None
+
+    # -- batches ---------------------------------------------------------
+
+    async def insert_batch(self, batch: Batch) -> None:
+        await self._conn.execute(_insert_sql("batches", Batch), asdict(batch))
+        await self._conn.commit()
+
+    async def get_batch(self, batch_id: str) -> Batch | None:
+        cursor = await self._conn.execute(
+            "SELECT * FROM batches WHERE batch_id = ?", (batch_id,)
+        )
+        row = await cursor.fetchone()
+        return Batch(**dict(row)) if row is not None else None
 
 
 async def open_db(path: str) -> Database:
