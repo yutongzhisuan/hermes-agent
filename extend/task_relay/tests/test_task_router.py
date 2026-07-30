@@ -526,6 +526,20 @@ async def test_batch_idempotent_exact_redispatch_returns_existing(router, db):
 
 
 @pytest.mark.asyncio
+async def test_batch_create_idempotent_hit_false_even_when_tasks_preexist(router):
+    # Pre-create the task so the per-task dispatch is an idempotent hit.
+    await router.dispatch_task(spec(task_id="b6-t1"), "m1")
+    specs = [spec(task_id="b6-t1")]
+    resp = await router.dispatch_task_batch(
+        specs, batch_id="batch-6", master_session_id="m1", callback_topic="bt"
+    )
+    # The batch itself is brand new; batch-level idempotent_hit must be False
+    # even though the sole task already existed.
+    assert resp.idempotent_hit is False
+    assert resp.tasks[0].idempotent_hit is True
+
+
+@pytest.mark.asyncio
 async def test_batch_redispatch_with_different_spec_not_idempotent(router):
     specs1 = [spec(task_id="b4-t1")]
     await router.dispatch_task_batch(

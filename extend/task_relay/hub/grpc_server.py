@@ -588,6 +588,17 @@ def _event_to_proto(event) -> pb.TaskEvent:
             payload.get("status", ""), pb.TaskStatus.TASK_STATUS_UNSPECIFIED
         )
         proto.result.attempt = attempt
+    elif event.kind == "CHECKPOINT":
+        proto.checkpoint.task_id = event.task_id or ""
+        proto.checkpoint.checkpoint_id = payload.get("checkpoint_id") or ""
+        proto.checkpoint.event_id = event.event_id
+        proto.checkpoint.checkpoint_at = _seconds_to_ms(event.event_at)
+        proto.checkpoint.summary = payload.get("summary") or ""
+        fields_json = payload.get("fields_json")
+        if fields_json:
+            fields_dict = _safe_json_loads(fields_json)
+            if isinstance(fields_dict, dict):
+                proto.checkpoint.fields.MergeFrom(_fields_from_dict(fields_dict))
     return proto
 
 

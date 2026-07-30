@@ -651,6 +651,62 @@ async def test_task_cancel_pushed_only_once_per_session(hub_ws_url, worker_jwt, 
 
 
 @pytest.mark.asyncio
+async def test_task_cancel_notification_resets_after_task_leaves_cancelling(
+    hub_ws_url, worker_jwt, router
+):
+    # allow_redispatch so the task can be cancelled, settled, and re-cancelled.
+    await router.dispatch_task(
+        spec(task_id="t1", goal="g", callback_topic="c-topic", max_attempts=2),
+        "m1",
+        allow_redispatch=True,
+    )
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(announce_msg())
+        await recv_ok(ws, "worker.announce_ok")
+        await ws.send(poll_msg())
+        result = await recv_ok(ws, "worker.poll_result")
+        task_id = result["tasks"][0]["task_id"]
+
+        # First cancel: task enters cancelling and the monitor pushes one notify.
+        await router.on_cancel(task_id, reason="first cancel")
+        params1 = await asyncio.wait_for(
+            recv_notification(ws, "task.cancel"),
+            timeout=2.0,
+        )
+        assert params1["task_id"] == task_id
+        assert params1["reason"] == "first cancel"
+
+        # Worker settles the task as lost (redispatchable terminal status).
+        await router.on_complete(task_id, status="lost", summary="lost before finish")
+
+        # Wait for the monitor loop to notice the task is no longer cancelling
+        # and clear its entry from _notified_cancelling.
+        await asyncio.sleep(1.2)
+
+        # Redispatch and claim the same task_id again in the same session.
+        await router.dispatch_task(
+            spec(task_id=task_id, goal="g", callback_topic="c-topic", max_attempts=2),
+            "m1",
+            allow_redispatch=True,
+        )
+        await ws.send(poll_msg(max_wait_ms=500, max_tasks=1))
+        result2 = await recv_ok(ws, "worker.poll_result")
+        assert result2["tasks"][0]["task_id"] == task_id
+
+        # Second cancel on the redispatched task must produce a new notification.
+        await router.on_cancel(task_id, reason="second cancel")
+        params2 = await asyncio.wait_for(
+            recv_notification(ws, "task.cancel"),
+            timeout=2.0,
+        )
+        assert params2["task_id"] == task_id
+        assert params2["reason"] == "second cancel"
+
+
+@pytest.mark.asyncio
 async def test_execution_timeout_pushes_cancel_to_worker(hub_ws_url, worker_jwt, router):
     # Task-level short timeout so the lease expires quickly.
     await router.dispatch_task(

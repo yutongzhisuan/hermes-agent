@@ -667,8 +667,10 @@ class WsServerSession:
                     " WHERE worker_id = ? AND status = 'cancelling'",
                     (self.worker_id,),
                 )
+                currently_cancelling = set()
                 for row in await cursor.fetchall():
                     task_id = row["task_id"]
+                    currently_cancelling.add(task_id)
                     if task_id in self._notified_cancelling:
                         continue
                     self._notified_cancelling.add(task_id)
@@ -680,6 +682,10 @@ class WsServerSession:
                             "hard_deadline_at": row["claim_expires_at"],
                         },
                     )
+                # Tasks that left cancelling (e.g. settled terminal) must be
+                # removable from the notified set so a future redispatch+cancel
+                # can be pushed again in the same worker session.
+                self._notified_cancelling.intersection_update(currently_cancelling)
             except Exception:
                 # Stop monitoring on any send/DB failure; the main loop will
                 # clean up the session.

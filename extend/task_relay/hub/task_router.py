@@ -179,7 +179,7 @@ class TaskRouter:
             batch_id=batch_id,
             callback_topic=callback_topic,
             tasks=responses,
-            idempotent_hit=all(r.idempotent_hit for r in responses),
+            idempotent_hit=False,
         )
 
     async def atomic_claim_for_poll(

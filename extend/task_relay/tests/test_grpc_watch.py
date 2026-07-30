@@ -16,8 +16,8 @@ from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
-from extend.task_relay.hub.grpc_server import serve_grpc
-from extend.task_relay.hub.models import TaskSpec
+from extend.task_relay.hub.grpc_server import _event_to_proto, serve_grpc
+from extend.task_relay.hub.models import TaskEvent, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
@@ -258,6 +258,26 @@ async def test_watch_receives_terminal(grpc_channel, master_jwt, router_via_work
     assert events[-1].kind == pb.TaskEventKind.TASK_EVENT_KIND_TERMINAL
     assert events[-1].result.status == pb.TaskStatus.TASK_STATUS_COMPLETED
     assert events[-1].result.summary == "done"
+
+
+def test_event_to_proto_maps_checkpoint_payload():
+    event = TaskEvent(
+        event_id=7,
+        callback_topic="topic",
+        task_id="t1",
+        batch_id="b1",
+        kind="CHECKPOINT",
+        payload_json='{"checkpoint_id":"ck1","summary":"halfway","fields_json":"{\\"version\\":1,\\"metrics\\":[{\\"name\\":\\"m1\\",\\"value\\":1.0}]}"}',
+        event_at=1.0,
+    )
+    proto = _event_to_proto(event)
+    assert proto.kind == pb.TaskEventKind.TASK_EVENT_KIND_CHECKPOINT
+    assert proto.checkpoint.task_id == "t1"
+    assert proto.checkpoint.checkpoint_id == "ck1"
+    assert proto.checkpoint.summary == "halfway"
+    assert proto.checkpoint.fields.version == 1
+    assert len(proto.checkpoint.fields.metrics) == 1
+    assert proto.checkpoint.fields.metrics[0].name == "m1"
 
 
 @pytest.mark.asyncio
