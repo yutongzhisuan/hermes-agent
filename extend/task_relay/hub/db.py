@@ -148,6 +148,42 @@ class Database:
         )
         return [Task(**dict(row)) for row in await cursor.fetchall()]
 
+    async def list_tasks(
+        self,
+        *,
+        batch_id: str | None = None,
+        callback_topic: str | None = None,
+        master_session_id: str | None = None,
+        statuses: list[str] | None = None,
+        worker_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Task]:
+        clauses: list[str] = []
+        params: list = []
+        if batch_id is not None:
+            clauses.append("batch_id = ?")
+            params.append(batch_id)
+        if callback_topic is not None:
+            clauses.append("callback_topic = ?")
+            params.append(callback_topic)
+        if master_session_id is not None:
+            clauses.append("master_session_id = ?")
+            params.append(master_session_id)
+        if statuses:
+            clauses.append(f"status IN ({','.join('?' for _ in statuses)})")
+            params.extend(statuses)
+        if worker_id is not None:
+            clauses.append("worker_id = ?")
+            params.append(worker_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        cursor = await self._conn.execute(
+            f"SELECT * FROM tasks {where} ORDER BY created_at DESC, task_id"
+            " LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        )
+        return [Task(**dict(row)) for row in await cursor.fetchall()]
+
     async def update_task_status(self, task_id: str, status: str) -> None:
         await self._conn.execute(
             "UPDATE tasks SET status = ? WHERE task_id = ?", (status, task_id)
@@ -300,6 +336,18 @@ class Database:
         )
         row = await cursor.fetchone()
         return Worker(**dict(row)) if row is not None else None
+
+    async def list_workers(
+        self, *, only_schedulable: bool = False
+    ) -> list[Worker]:
+        clauses: list[str] = []
+        if only_schedulable:
+            clauses.append("status NOT IN ('offline', 'stale', 'draining')")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        cursor = await self._conn.execute(
+            f"SELECT * FROM workers {where} ORDER BY worker_id"
+        )
+        return [Worker(**dict(row)) for row in await cursor.fetchall()]
 
     # -- batches ---------------------------------------------------------
 
