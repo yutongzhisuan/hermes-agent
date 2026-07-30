@@ -4,7 +4,18 @@ See docs/superpowers/specs/2026-07-31-task-relay-design.md ("Global
 Constraints" and timeout layers) for where each default comes from.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Mapping
+
+
+@dataclass(frozen=True)
+class BootstrapEntry:
+    """Long-lived bootstrap credential entry: what a worker is scoped to once
+    it exchanges the bootstrap token for a short-lived JWT."""
+
+    worker_id: str
+    allowed_toolsets: tuple[str, ...] = ()
+    max_concurrent: int = 1
 
 
 @dataclass(frozen=True)
@@ -28,3 +39,13 @@ class HubConfig:
     # Events older than this are pruned; cursors older than retention fail
     # with FAILED_PRECONDITION + CursorOutOfRange.
     retention_days: int = 7
+    # Auth (M1): HS256 shared secret signing Hub-issued worker/master JWTs.
+    # Empty secret means no token can be issued or verified.
+    jwt_secret: str = ""
+    jwt_issuer: str = "hermes-relay-hub"
+    jwt_audience: str = "task-relay-hub"
+    # Lifetime of issued worker/master JWTs.
+    jwt_ttl_seconds: int = 3600
+    # Long-lived bootstrap credentials: token -> worker scope. Workers present
+    # one to the token endpoint once, then refresh the issued JWT before exp.
+    bootstrap_tokens: Mapping[str, BootstrapEntry] = field(default_factory=dict)
