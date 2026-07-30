@@ -40,7 +40,9 @@ class HubConfig:
     # with FAILED_PRECONDITION + CursorOutOfRange.
     retention_days: int = 7
     # Auth (M1): HS256 shared secret signing Hub-issued worker/master JWTs.
-    # Empty secret means no token can be issued or verified.
+    # The default is empty so the dataclass stays cheap to construct, but
+    # Auth.from_config rejects an empty secret (fail-closed): a deployment
+    # MUST set jwt_secret explicitly before any token can be issued.
     jwt_secret: str = ""
     jwt_issuer: str = "hermes-relay-hub"
     jwt_audience: str = "task-relay-hub"

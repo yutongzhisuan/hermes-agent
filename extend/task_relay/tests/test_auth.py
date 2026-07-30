@@ -8,7 +8,7 @@ import pytest
 from extend.task_relay.hub.auth import Auth, AuthError, WorkerClaims, MasterClaims
 from extend.task_relay.hub.config import BootstrapEntry, HubConfig
 
-SECRET = "test-secret"
+SECRET = "t" * 32  # ≥32 bytes: PyJWT warns on short HS256 keys
 ISSUER = "hermes-relay-hub"
 AUDIENCE = "task-relay-hub"
 
@@ -107,7 +107,7 @@ def test_reject_bad_signature():
             "max_concurrent": 1,
             "exp": int(time.time()) + 600,
         },
-        secret="wrong-secret",
+        secret="w" * 32,
     )
     with pytest.raises(AuthError):
         auth.verify_worker_jwt(tok)
@@ -187,6 +187,19 @@ def test_exchange_bootstrap_rejects_worker_id_mismatch():
     )
     with pytest.raises(AuthError):
         auth.exchange_bootstrap("boot-abc", "worker-02")
+
+
+# --- empty secret (fail-closed) ---------------------------------------------
+
+
+def test_reject_empty_secret_direct_construction():
+    with pytest.raises(AuthError, match="empty"):
+        Auth(secret="", issuer=ISSUER, audience=AUDIENCE)
+
+
+def test_reject_empty_secret_from_config():
+    with pytest.raises(AuthError, match="empty"):
+        Auth.from_config(HubConfig())
 
 
 # --- HubConfig wiring -------------------------------------------------------

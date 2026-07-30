@@ -64,6 +64,8 @@ class Auth:
         bootstrap_tokens: dict[str, BootstrapEntry] | None = None,
         default_ttl_s: int = 3600,
     ):
+        if not secret:
+            raise AuthError("empty jwt secret: refusing to sign/verify HS256 with no key")
         self._secret = secret
         self._issuer = issuer
         self._audience = audience
