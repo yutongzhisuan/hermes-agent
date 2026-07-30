@@ -21,6 +21,7 @@ from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayBase
 from extend.task_relay.hub.auth import Auth, AuthError
 from extend.task_relay.hub.config import HubConfig
+from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.event_bus import (
     CursorOutOfRangeError,
     EventFilter,
@@ -199,7 +200,7 @@ class TaskRelayService(TaskRelayBase):
             ) from e
         try:
             async for event in sub:
-                await stream.send_message(_event_to_proto(event))
+                await stream.send_message(await _event_to_proto(event, self._db))
                 # A task-specific watch naturally ends when the task terminalizes.
                 if filter.task_id is not None and event.kind == "TERMINAL":
                     break
@@ -557,7 +558,9 @@ def _filter_from_request(request: pb.WatchTaskRequest) -> EventFilter:
     raise GRPCError(Status.INVALID_ARGUMENT, "WatchTask requires oneof topic/batch_id/task_id")
 
 
-def _event_to_proto(event) -> pb.TaskEvent:
+async def _event_to_proto(
+    event, db: "Database | None" = None
+) -> pb.TaskEvent:
     proto = pb.TaskEvent(
         event_id=event.event_id,
         event_at=_seconds_to_ms(event.event_at),
@@ -568,17 +571,34 @@ def _event_to_proto(event) -> pb.TaskEvent:
     payload = _safe_json_loads(event.payload_json) or {}
     attempt = payload.get("attempt", 0)
     if event.kind == "TERMINAL":
-        proto.result.CopyFrom(
-            pb.TaskResult(
-                task_id=event.task_id or "",
-                status=_STATUS_TO_PROTO.get(
-                    payload.get("status", ""), pb.TaskStatus.TASK_STATUS_UNSPECIFIED
-                ),
-                summary=payload.get("summary") or "",
-                error=payload.get("error") or "",
-                attempt=attempt,
+        if db is not None and event.task_id:
+            task = await db.get_task(event.task_id)
+            if task is not None:
+                proto.result.CopyFrom(_task_to_result_proto(task))
+            else:
+                proto.result.CopyFrom(
+                    pb.TaskResult(
+                        task_id=event.task_id or "",
+                        status=_STATUS_TO_PROTO.get(
+                            payload.get("status", ""), pb.TaskStatus.TASK_STATUS_UNSPECIFIED
+                        ),
+                        summary=payload.get("summary") or "",
+                        error=payload.get("error") or "",
+                        attempt=attempt,
+                    )
+                )
+        else:
+            proto.result.CopyFrom(
+                pb.TaskResult(
+                    task_id=event.task_id or "",
+                    status=_STATUS_TO_PROTO.get(
+                        payload.get("status", ""), pb.TaskStatus.TASK_STATUS_UNSPECIFIED
+                    ),
+                    summary=payload.get("summary") or "",
+                    error=payload.get("error") or "",
+                    attempt=attempt,
+                )
             )
-        )
     elif event.kind == "PROGRESS":
         proto.progress_summary = payload.get("summary") or ""
         proto.result.attempt = attempt

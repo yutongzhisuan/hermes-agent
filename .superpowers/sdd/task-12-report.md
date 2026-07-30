@@ -399,3 +399,195 @@ cd /Users/suyanlong/github/hermes-agent
 ```
 
 Result: **173 passed in 25.49s**
+
+
+---
+
+## 8. Final Merge Blocker Fix: SQLite Migration for `cancel_reason`
+
+Commit: `4868cd290694172054cc463879498d0295523e2d fix(task-relay): add SQLite migration for cancel_reason column`
+
+### Finding
+
+Final whole-branch re-review found that `open_db()` only ran `CREATE TABLE IF NOT EXISTS`, so databases created before the `cancel_reason` column was added lacked it. This caused `_persist_task` and `_cancel_monitor_loop` to fail at runtime when they read or wrote `task.cancel_reason`.
+
+### What changed
+
+1. **`extend/task_relay/hub/db.py`**
+   - Added `_migrate()` helper that runs after `_SCHEMA` creation.
+   - Attempts `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS cancel_reason TEXT`.
+   - Falls back to `PRAGMA table_info(tasks)` + conditional `ALTER TABLE tasks ADD COLUMN cancel_reason TEXT` when the running SQLite rejects the `IF NOT EXISTS` clause (syntax error).
+   - Ignores `duplicate column name` errors and re-raises any other unexpected `OperationalError`.
+
+2. **`extend/task_relay/tests/test_db.py`**
+   - Added `test_open_db_migrates_cancel_reason_column`.
+   - Creates a legacy database with the pre-`cancel_reason` schema using the standard `sqlite3` module, then opens it with `open_db()` and verifies the column exists and round-trips a value.
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **174 passed in 25.54s**
+
+
+---
+
+## 9. Final Re-review Important Findings (Task Relay P1)
+
+Commit: `6145a3dda fix(task-relay): checkpoint event mapping, batch idempotent_hit semantics, cancel notification reset`
+
+### Findings
+
+1. **`WatchTask` CHECKPOINT events did not carry checkpoint data.**
+   `extend/task_relay/hub/grpc_server.py::_event_to_proto()` handled `TERMINAL`, `PROGRESS`, and `STATUS` but left `TaskEvent.checkpoint` unset for `CHECKPOINT` events.
+
+2. **Batch `idempotent_hit` semantics were wrong for newly created batches.**
+   `extend/task_relay/hub/task_router.py::dispatch_task_batch()` returned `idempotent_hit=all(r.idempotent_hit for r in responses)` on the create path. Per the proto comment, batch-level `idempotent_hit` must be true only when `batch_id` already existed, not when the tasks inside it already existed.
+
+3. **`_cancel_monitor_loop` never cleared `_notified_cancelling`.**
+   `extend/task_relay/hub/ws_server.py::_cancel_monitor_loop()` added task ids to the per-session set but never removed them. If a task id was redispatched and cancelled again in the same worker session, the second `task.cancel` frame was not pushed.
+
+### What changed
+
+1. **`extend/task_relay/hub/grpc_server.py`**
+   - Added `CHECKPOINT` handling in `_event_to_proto()`.
+   - Maps `checkpoint_id`, `summary`, and `fields_json` from the event payload into `pb.TaskCheckpoint`.
+   - Sets `task_id`, `event_id`, and `checkpoint_at` from the event row.
+
+2. **`extend/task_relay/hub/task_router.py`**
+   - On the create path, hard-coded `idempotent_hit=False` for the batch response.
+   - Existing-batch path continues to return `idempotent_hit=True`.
+
+3. **`extend/task_relay/hub/ws_server.py`**
+   - `_cancel_monitor_loop()` now tracks the set of currently cancelling tasks for this worker.
+   - After notifying new cancellations, it updates `_notified_cancelling` to the intersection of the notified set and the currently cancelling set, so ids that have left `cancelling` can be notified again after redispatch.
+
+### Tests
+
+- `extend/task_relay/tests/test_grpc_watch.py::test_event_to_proto_maps_checkpoint_payload`
+- `extend/task_relay/tests/test_task_router.py::test_batch_create_idempotent_hit_false_even_when_tasks_preexist`
+- `extend/task_relay/tests/test_ws_poll.py::test_task_cancel_notification_resets_after_task_leaves_cancelling`
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **177 passed in 28.65s**
+
+
+---
+
+## 10. Final Re-review Important Finding: Binary `resume_blob` in `task.run` Payload
+
+Commit: `671c0559b fix(task-relay): base64-encode resume_blob in task.run payload`
+
+### Finding
+
+`extend/task_relay/hub/ws_server.py::_build_run_payload()` UTF-8 decoded `latest.resume_blob` (`latest.resume_blob.decode("utf-8")`). The schema stores it as `BLOB` and the proto defines it as `bytes`, so opaque binary blobs would crash redispatch.
+
+### What changed
+
+1. **`extend/task_relay/hub/ws_server.py`**
+   - `_build_run_payload()` now base64-encodes `resume_blob` with `base64.b64encode(...).decode("ascii")` before placing it in the JSON `task.run` payload.
+   - Updated the method docstring to document that `resume_blob` is base64-encoded for JSON transport.
+
+2. **`extend/task_relay/worker/task_worker.py`**
+   - Added `_decode_resume_blob()` helper that decodes a base64 `resume_blob` string back to `bytes` when receiving `task.run`.
+   - Falls back to leaving the value as a string if it is not valid base64 (e.g. an older plain-string blob).
+   - `_run_payload_from_dict()` now uses `_decode_resume_blob()` for the `resume_blob` field.
+
+3. **`extend/task_relay/worker/task_executor.py`**
+   - Updated `TaskRunPayload.resume_blob` type from `str | None` to `str | bytes | None` to reflect the decoded bytes path.
+
+### Test changes
+
+- Added `extend/task_relay/tests/test_ws_poll.py::test_poll_run_payload_base64_encodes_binary_resume_blob`.
+- Creates a checkpoint with a binary `resume_blob` (including non-UTF-8 bytes), persists it, then polls and verifies the `task.run` payload contains a base64 string that round-trips back to the original bytes without crashing.
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **178 passed in 28.67s**
+
+
+---
+
+## 11. Final Re-review Critical + Important Findings (Task Relay P1)
+
+Commit: `fix(task-relay): correct serve_grpc call, enforce JWT max_concurrent, full terminal results, checkpoint blob symmetry, auth error hygiene`
+
+### Findings
+
+1. **`serve_grpc` was called with the wrong signature in `hub/main.py`.**
+   `extend/task_relay/hub/main.py::run()` invoked `serve_grpc(router, auth, hub_config, host=..., port=...)` but `extend/task_relay/hub/grpc_server.py::serve_grpc()` requires `db`, `bus`, and `registry` after `config`. This prevented the Hub process from starting.
+
+2. **Worker-announced `max_concurrent` was not capped to the JWT claim on the Hub side.**
+   `extend/task_relay/hub/ws_server.py::_handle_worker_announce()` accepted the worker's announced `max_concurrent` without clamping it to `claims.max_concurrent`, allowing a worker to exceed its JWT-authorized concurrency.
+
+3. **`WatchTask` TERMINAL events did not carry the full `TaskResult`.**
+   `extend/task_relay/hub/grpc_server.py::_event_to_proto()` only populated `status`, `summary`, `error`, and `attempt` for TERMINAL events, omitting `result_text`, `fields`, `usage`, `worker_id`, `batch_id`, `latest_checkpoint_id`, and timestamps.
+
+4. **Worker→Hub checkpoint `resume_blob` was not base64-decoded.**
+   `extend/task_relay/hub/ws_server.py::_handle_task_checkpoint()` stored a base64 string as UTF-8 bytes instead of decoding it back to the original bytes, breaking symmetry with the Hub→Worker direction.
+
+5. **Auth failure responses could leak token-validation details.**
+   `extend/task_relay/hub/ws_server.py::_process_request()` included `str(exc)` in the 401 response body, exposing information such as "Not enough segments" or expiration details.
+
+### What changed
+
+1. **`extend/task_relay/hub/main.py`**
+   - `run()` now passes `db`, `bus`, and `registry` explicitly to `serve_grpc()`.
+
+2. **`extend/task_relay/hub/ws_server.py`**
+   - `_handle_worker_announce()` clamps `max_concurrent` to `min(announced, claims.max_concurrent)` before persisting the worker.
+   - `_handle_task_checkpoint()` attempts `base64.b64decode(resume_blob, validate=True)` when the incoming value is a string, falling back to UTF-8 encoding for plain-string backwards compatibility.
+   - `_process_request()` returns a generic `"Invalid or missing token"` 401 body and logs the verification failure detail at debug level.
+   - Added module-level `logger`.
+
+3. **`extend/task_relay/hub/grpc_server.py`**
+   - Imported `Database`.
+   - `_event_to_proto()` is now async and accepts an optional `db` parameter.
+   - For TERMINAL events, when `db` is provided and the task row exists, it reuses `_task_to_result_proto()` to populate the full `TaskResult`.
+   - `WatchTask` awaits `_event_to_proto()` and passes `self._db`.
+
+4. **`extend/task_relay/tests/test_grpc_watch.py`**
+   - Updated `test_event_to_proto_maps_checkpoint_payload` to be async and await `_event_to_proto()`.
+
+### Tests
+
+- Added `extend/task_relay/tests/test_final_rereview_fixes.py`:
+  - `test_announce_clamps_max_concurrent_to_jwt_claim`
+  - `test_event_to_proto_terminal_includes_full_task_result`
+  - `test_task_checkpoint_decodes_base64_resume_blob`
+  - `test_checkpoint_resume_blob_round_trips_through_poll`
+  - `test_rejects_upgrade_with_generic_error_body`
+
+### Verification
+
+Hub smoke test:
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+timeout 5 .venv/bin/python -m extend.task_relay.hub --grpc-port 9090 --ws-port 9000 --db /tmp/relay-test.db --jwt-secret test
+```
+
+Result: Hub logs gRPC/WebSocket listening and stops cleanly on SIGTERM (exit code 124 from `timeout`).
+
+Full test suite:
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **183 passed in 28.58s**

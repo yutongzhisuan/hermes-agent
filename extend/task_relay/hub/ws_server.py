@@ -16,10 +16,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 import time
 import uuid
 from dataclasses import asdict
 from typing import Any, Awaitable, Callable
+
+logger = logging.getLogger("task_relay.hub.ws")
 
 from websockets.asyncio.server import Response, ServerConnection, serve
 from websockets.datastructures import Headers
@@ -135,11 +138,12 @@ class WsHubServer:
         try:
             self.auth.verify_worker_jwt(token)
         except AuthError as exc:
+            logger.debug("worker JWT verification failed: %s", exc)
             return Response(
                 401,
                 "Unauthorized",
                 Headers([("WWW-Authenticate", 'Bearer realm="task-relay-hub"')]),
-                _json_dumps({"error": f"invalid token: {exc}"}).encode(),
+                _json_dumps({"error": "Invalid or missing token"}).encode(),
             )
         return None
 
@@ -348,6 +352,7 @@ class WsServerSession:
             raise WsServerError("Mode A is mandatory for all workers", JSONRPC_INVALID_PARAMS)
 
         max_concurrent = int(params.get("max_concurrent", self.claims.max_concurrent))
+        max_concurrent = min(max_concurrent, self.claims.max_concurrent)
         if max_concurrent <= 0:
             raise WsServerError("max_concurrent must be > 0", JSONRPC_INVALID_PARAMS)
 
@@ -484,7 +489,12 @@ class WsServerSession:
         resume_blob: bytes | None = None
         if resume_blob_raw is not None:
             if isinstance(resume_blob_raw, str):
-                resume_blob = resume_blob_raw.encode("utf-8")
+                # The worker base64-encodes binary blobs for JSON transport; decode
+                # back to the original bytes. Fall back to UTF-8 for plain strings.
+                try:
+                    resume_blob = base64.b64decode(resume_blob_raw, validate=True)
+                except Exception:
+                    resume_blob = resume_blob_raw.encode("utf-8")
             elif isinstance(resume_blob_raw, bytes):
                 resume_blob = resume_blob_raw
             else:

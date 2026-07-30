@@ -89,6 +89,9 @@ async def run(
             router,
             auth,
             hub_config,
+            db,
+            bus,
+            registry,
             host=args.host,
             port=args.grpc_port,
         )

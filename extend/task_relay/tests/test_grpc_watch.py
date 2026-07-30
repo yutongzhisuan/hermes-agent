@@ -260,7 +260,8 @@ async def test_watch_receives_terminal(grpc_channel, master_jwt, router_via_work
     assert events[-1].result.summary == "done"
 
 
-def test_event_to_proto_maps_checkpoint_payload():
+@pytest.mark.asyncio
+async def test_event_to_proto_maps_checkpoint_payload():
     event = TaskEvent(
         event_id=7,
         callback_topic="topic",
@@ -270,7 +271,7 @@ def test_event_to_proto_maps_checkpoint_payload():
         payload_json='{"checkpoint_id":"ck1","summary":"halfway","fields_json":"{\\"version\\":1,\\"metrics\\":[{\\"name\\":\\"m1\\",\\"value\\":1.0}]}"}',
         event_at=1.0,
     )
-    proto = _event_to_proto(event)
+    proto = await _event_to_proto(event)
     assert proto.kind == pb.TaskEventKind.TASK_EVENT_KIND_CHECKPOINT
     assert proto.checkpoint.task_id == "t1"
     assert proto.checkpoint.checkpoint_id == "ck1"
