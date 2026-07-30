@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from extend.task_relay.worker.backends.stub_backend import StubBackend
 from extend.task_relay.worker.task_worker import TaskWorker, install_signal_handlers
 
 logger = logging.getLogger("task_relay.worker")
@@ -110,6 +109,7 @@ async def _async_main(argv: Sequence[str] | None) -> int:
         backend=backend,
         max_concurrent=args.max_concurrent,
         poll_wait_ms=args.poll_wait_ms,
+        session_modes=session_modes,
     )
     install_signal_handlers(worker)
 

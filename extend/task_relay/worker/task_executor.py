@@ -73,6 +73,12 @@ class TaskExecutor:
     def __init__(self, ws_client: Any, backend: TaskBackend):
         self.ws_client = ws_client
         self.backend = backend
+        self._completion_state: str | None = None  # None | "pending" | "sent"
+
+    @property
+    def completion_attempted(self) -> bool:
+        """True if ``task.complete`` has already been requested for this task."""
+        return self._completion_state in ("pending", "sent")
 
     async def execute(
         self,
@@ -107,21 +113,19 @@ class TaskExecutor:
                 params["lease_until"] = lease_until
             await self.ws_client.request("task.checkpoint", params)
 
+        complete: TaskCompletePayload | None = None
         try:
             complete = await self.backend.run(run, on_progress, on_checkpoint, cancel_event)
         except asyncio.CancelledError:
             # Worker is shutting down or task was cancelled and the backend
             # propagated the cancellation. Record cancelled if we can.
-            try:
-                await self._complete(
-                    task_id,
-                    TaskCompletePayload(
-                        status="cancelled",
-                        summary="backend received cancellation",
-                    ),
-                )
-            except Exception:
-                logger.exception("failed to send cancellation completion")
+            await self._complete_once(
+                task_id,
+                TaskCompletePayload(
+                    status="cancelled",
+                    summary="backend received cancellation",
+                ),
+            )
             raise
         except Exception:
             logger.exception("backend raised for task %s", task_id)
@@ -131,7 +135,7 @@ class TaskExecutor:
                 error=traceback.format_exc(),
             )
 
-        await self._complete(task_id, complete)
+        await self._complete_once(task_id, complete)
 
     async def _progress(self, task_id: str, summary: str) -> None:
         try:
@@ -139,7 +143,15 @@ class TaskExecutor:
         except Exception:
             logger.exception("task.progress failed for %s", task_id)
 
-    async def _complete(self, task_id: str, payload: TaskCompletePayload) -> None:
+    async def _complete_once(
+        self,
+        task_id: str,
+        payload: TaskCompletePayload,
+    ) -> bool:
+        """Send ``task.complete`` exactly once. Returns True on success."""
+        if self._completion_state is not None:
+            return False
+        self._completion_state = "pending"
         params: dict[str, Any] = {"task_id": task_id, "status": payload.status}
         if payload.summary is not None:
             params["summary"] = payload.summary
@@ -151,4 +163,10 @@ class TaskExecutor:
             params["usage"] = payload.usage
         if payload.error is not None:
             params["error"] = payload.error
-        await self.ws_client.request("task.complete", params)
+        try:
+            await self.ws_client.request("task.complete", params)
+        except Exception:
+            logger.exception("task.complete failed for %s", task_id)
+            raise
+        self._completion_state = "sent"
+        return True

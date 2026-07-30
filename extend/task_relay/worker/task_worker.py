@@ -12,6 +12,8 @@ import signal
 import traceback
 from typing import Any
 
+import jwt
+
 from extend.task_relay.worker.task_executor import TaskBackend, TaskExecutor, TaskRunPayload
 from extend.task_relay.worker.task_worker_ws import TaskWorkerWs, WsClientError
 
@@ -32,15 +34,29 @@ class TaskWorker:
         poll_wait_ms: int = 5_000,
         initial_backoff_seconds: float = 1.0,
         max_backoff_seconds: float = 30.0,
+        session_modes: list[str] | None = None,
     ):
         self.worker_id = worker_id
         self.relay_url = relay_url
         self.jwt = jwt
         self.backend = backend
-        self.max_concurrent = max(1, max_concurrent or 1)
+        self.session_modes = [str(m).lower() for m in (session_modes or ["a"])]
         self.poll_wait_ms = poll_wait_ms
         self.initial_backoff_seconds = initial_backoff_seconds
         self.max_backoff_seconds = max_backoff_seconds
+
+        requested = max(1, max_concurrent or 1)
+        jwt_max = self._extract_jwt_max_concurrent(jwt)
+        if jwt_max is not None and requested > jwt_max:
+            logger.warning(
+                "requested max_concurrent=%d exceeds JWT limit=%d; capping at %d",
+                requested,
+                jwt_max,
+                jwt_max,
+            )
+            self.max_concurrent = max(1, jwt_max)
+        else:
+            self.max_concurrent = requested
 
         self._ws: TaskWorkerWs | None = None
         self._semaphore = asyncio.Semaphore(self.max_concurrent)
@@ -49,6 +65,22 @@ class TaskWorker:
         self._shutdown = asyncio.Event()
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval_ms: int = 30_000
+
+    @staticmethod
+    def _extract_jwt_max_concurrent(token: str) -> int | None:
+        """Decode the worker JWT payload (without verifying signature) for the max_concurrent claim."""
+        try:
+            payload = jwt.decode(
+                token,
+                options={"verify_signature": False},
+            )
+        except Exception:
+            logger.debug("unable to decode worker JWT payload")
+            return None
+        try:
+            return int(payload.get("max_concurrent"))
+        except (TypeError, ValueError):
+            return None
 
     async def run(self) -> None:
         """Run the worker until ``_shutdown`` is set."""
@@ -61,7 +93,7 @@ class TaskWorker:
                 "worker.announce",
                 {
                     "worker_id": self.worker_id,
-                    "session_modes": ["a"],
+                    "session_modes": self.session_modes,
                     "max_concurrent": self.max_concurrent,
                 },
             )
@@ -152,18 +184,19 @@ class TaskWorker:
                 raise
             except Exception:
                 logger.exception("task %s execution failed", run.task_id)
-                try:
-                    await self._ws.request(
-                        "task.complete",
-                        {
-                            "task_id": run.task_id,
-                            "status": "failed",
-                            "summary": "worker execution error",
-                            "error": traceback.format_exc(),
-                        },
-                    )
-                except Exception:
-                    logger.exception("failed to send error completion for %s", run.task_id)
+                if not executor.completion_attempted:
+                    try:
+                        await self._ws.request(
+                            "task.complete",
+                            {
+                                "task_id": run.task_id,
+                                "status": "failed",
+                                "summary": "worker execution error",
+                                "error": traceback.format_exc(),
+                            },
+                        )
+                    except Exception:
+                        logger.exception("failed to send error completion for %s", run.task_id)
             finally:
                 self._cancel_events.pop(run.task_id, None)
 
