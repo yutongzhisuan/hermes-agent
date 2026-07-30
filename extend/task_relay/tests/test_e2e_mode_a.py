@@ -20,7 +20,9 @@ from grpclib.exceptions import GRPCError
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayStub
 from extend.task_relay.hub.config import HubConfig
+from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
+from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.ws_server import serve_ws
 from extend.task_relay.tests.conftest import SECRET, make_worker_jwt
 from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
@@ -112,8 +114,7 @@ async def _stop_worker(worker: TaskWorker, run_task: asyncio.Task) -> None:
             pass
 
 
-@pytest_asyncio.fixture
-async def hub(router, registry, db, auth):
+async def _run_hub(router, registry, db, auth):
     """Start gRPC + WS servers and a timeout ticker on ephemeral ports."""
     grpc_server = await serve_grpc(
         router, auth, router._config, host="127.0.0.1", port=0
@@ -162,6 +163,34 @@ async def hub(router, registry, db, auth):
         grpc_server.close()
         await ws_server.wait_closed()
         await grpc_server.wait_closed()
+
+
+@pytest_asyncio.fixture
+async def hub(router, registry, db, auth):
+    """Live Hub with the default router config."""
+    async for runner in _run_hub(router, registry, db, auth):
+        yield runner
+
+
+@pytest_asyncio.fixture
+async def hub_fast_first_progress(registry, db, auth):
+    """Live Hub configured with a zero first-progress deadline.
+
+    Use this fixture when the test needs first-progress timeouts to fire
+    immediately after claim, without mutating config after startup.
+    """
+    cfg = HubConfig(
+        jwt_secret=SECRET,
+        queue_timeout_seconds=900,
+        first_progress_seconds=0,
+        timeout_seconds=600,
+        cancel_grace_seconds=60,
+        max_attempts=1,
+    )
+    bus = EventBus(db, cfg)
+    router = TaskRouter(db, bus, cfg, registry)
+    async for runner in _run_hub(router, registry, db, auth):
+        yield runner
 
 
 @pytest.fixture
@@ -266,7 +295,7 @@ async def test_cancel_pending_cancelled_without_worker(hub, master_jwt):
 @pytest.mark.asyncio
 async def test_cancel_running_cancelled_with_partial_summary(hub, master_jwt):
     task_id = "e2e-cancel-running"
-    backend = StubBackend(StubBackendConfig(sleep_seconds=5.0))
+    backend = StubBackend(StubBackendConfig(sleep_seconds=2.0))
     worker, run_task = await _start_worker(hub, backend)
     try:
         stub = TaskRelayStub(hub.grpc_channel)
@@ -303,17 +332,9 @@ async def test_cancel_running_cancelled_with_partial_summary(hub, master_jwt):
 
 
 @pytest.mark.asyncio
-async def test_first_progress_miss_marks_lost(hub, master_jwt, monkeypatch):
+async def test_first_progress_miss_marks_lost(hub_fast_first_progress, master_jwt, monkeypatch):
     task_id = "e2e-fp-lost"
-    # Tight first-progress window so a silent claimed task expires fast.
-    hub.router._config = HubConfig(
-        jwt_secret=SECRET,
-        queue_timeout_seconds=900,
-        first_progress_seconds=0,
-        timeout_seconds=600,
-        cancel_grace_seconds=60,
-        max_attempts=1,
-    )
+    hub = hub_fast_first_progress
 
     # Simulate a worker that claims but drops the immediate claim-ack progress
     # without telling the executor it failed, so the backend keeps running while
@@ -327,7 +348,7 @@ async def test_first_progress_miss_marks_lost(hub, master_jwt, monkeypatch):
 
     monkeypatch.setattr(TaskExecutor, "_progress", dropping_progress)
 
-    backend = StubBackend(StubBackendConfig(sleep_seconds=10.0))
+    backend = StubBackend(StubBackendConfig(sleep_seconds=2.0))
     worker, run_task = await _start_worker(hub, backend)
     try:
         stub = TaskRelayStub(hub.grpc_channel)
@@ -386,6 +407,8 @@ async def test_watch_reconnect_since_event_id(hub, master_jwt, backend):
         await _wait_for_status(hub.router, task_id, {"completed"})
 
         # Reconnect from the cursor of the first delivered event.
+        # WatchTask replays events with event_id > since_event_id (exclusive),
+        # so the first delivered event must not be re-emitted.
         events = await _watch_terminal(
             stub, master_jwt, task_id=task_id, since_event_id=first_event_id
         )
@@ -443,7 +466,9 @@ async def test_watch_cursor_out_of_range_since_too_old(hub, master_jwt):
 
 @pytest.mark.asyncio
 async def test_unauthorized_ws_rejected(hub):
+    # Connect to the worker endpoint path for fidelity; auth is checked before
+    # any path-specific handling, so any path without a valid JWT is rejected.
     with pytest.raises(websockets.exceptions.InvalidStatus) as exc:
-        async with websockets.connect(hub.ws_url):
+        async with websockets.connect(f"{hub.ws_url}/ws/worker"):
             pass
     assert exc.value.response.status_code == 401
