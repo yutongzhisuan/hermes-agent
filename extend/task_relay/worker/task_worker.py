@@ -356,7 +356,7 @@ def _run_payload_from_dict(run: dict[str, Any]) -> TaskRunPayload:
         first_progress_seconds=run.get("first_progress_seconds"),
         trace_context=run.get("trace_context"),
         resume_from_checkpoint=run.get("resume_from_checkpoint"),
-        resume_blob=run.get("resume_blob"),
+        resume_blob=_decode_resume_blob(run.get("resume_blob")),
         claim_token=run.get("claim_token"),
     )
 
@@ -380,6 +380,23 @@ def _decode_inline_gzip(context: Any) -> Any:
             # Leave malformed payloads as-is so the backend can fail cleanly.
             pass
     return context
+
+
+def _decode_resume_blob(blob: Any) -> str | bytes | None:
+    """Decode a base64 ``resume_blob`` string back to bytes.
+
+    The Hub base64-encodes the opaque checkpoint blob when embedding it in
+    the JSON ``task.run`` payload. The worker backend receives the original
+    bytes so it can resume from binary state without a UTF-8 round-trip.
+    """
+    if not isinstance(blob, str):
+        return blob
+    try:
+        return base64.b64decode(blob, validate=True)
+    except Exception:
+        # Not a valid base64 payload (e.g. an older plain-string blob);
+        # leave it as a string for the backend to interpret.
+        return blob
 
 
 def install_signal_handlers(worker: TaskWorker) -> None:

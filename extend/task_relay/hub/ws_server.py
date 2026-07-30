@@ -14,6 +14,7 @@ to a real port.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import time
 import uuid
@@ -692,7 +693,12 @@ class WsServerSession:
                 break
 
     async def _build_run_payload(self, task: Task | None, claimed: Any) -> dict:
-        """Build the ``task.run`` payload delivered inside a poll result."""
+        """Build the ``task.run`` payload delivered inside a poll result.
+
+        The checkpoint ``resume_blob`` is stored as an opaque BLOB and is
+        base64-encoded before being placed in JSON so binary data survives
+        redispatch without a UTF-8 decode step.
+        """
         if task is None:
             return {}
         latest = None
@@ -712,7 +718,10 @@ class WsServerSession:
             "claim_token": claimed.claim_token,
         }
         if latest is not None:
-            run["resume_blob"] = latest.resume_blob.decode("utf-8") if latest.resume_blob else None
+            run["resume_blob"] = (
+                base64.b64encode(latest.resume_blob).decode("ascii")
+                if latest.resume_blob else None
+            )
         return run
 
 

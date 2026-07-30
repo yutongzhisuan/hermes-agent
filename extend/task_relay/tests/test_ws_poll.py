@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import time
 from typing import Any
 
 import pytest
@@ -14,7 +16,7 @@ from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
-from extend.task_relay.hub.models import TaskSpec
+from extend.task_relay.hub.models import Checkpoint, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 from extend.task_relay.hub.ws_server import serve_ws
@@ -410,6 +412,47 @@ async def test_task_checkpoint_persists_l1_and_rejects_oversized_blob(
 
         task = await db.get_task(task_id)
         assert task.resume_from_checkpoint == "ck1"
+
+
+@pytest.mark.asyncio
+async def test_poll_run_payload_base64_encodes_binary_resume_blob(
+    hub_ws_url, worker_jwt, router, db
+):
+    """A checkpoint with an opaque binary resume_blob round-trips through task.run."""
+    await router.dispatch_task(spec(task_id="t1", goal="g"), "m1")
+    task = await db.get_task("t1")
+    event = await db.append_event(
+        callback_topic=task.callback_topic,
+        task_id="t1",
+        kind="CHECKPOINT",
+        payload={"checkpoint_id": "ck1"},
+    )
+    binary_blob = b"\x00\x01\xff\xfe binary \x80 data"
+    await db.insert_checkpoint(
+        Checkpoint(
+            checkpoint_id="ck1",
+            task_id="t1",
+            event_id=event.event_id,
+            checkpoint_at=time.time(),
+            resume_blob=binary_blob,
+        )
+    )
+    task.resume_from_checkpoint = "ck1"
+    await router._persist_task(task)
+
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(announce_msg())
+        await recv_ok(ws, "worker.announce_ok")
+        await ws.send(poll_msg())
+        result = await recv_ok(ws, "worker.poll_result")
+        run = result["tasks"][0]["run"]
+        assert run["resume_from_checkpoint"] == "ck1"
+        encoded = run["resume_blob"]
+        assert isinstance(encoded, str)
+        assert base64.b64decode(encoded, validate=True) == binary_blob
 
 
 @pytest.mark.asyncio

@@ -30,7 +30,7 @@ class TaskRunPayload:
     first_progress_seconds: int | None
     trace_context: dict[str, Any] | None
     resume_from_checkpoint: str | None
-    resume_blob: str | None = None
+    resume_blob: str | bytes | None = None
     claim_token: str | None = None
 
 
