@@ -30,6 +30,9 @@ class HubConfig:
     max_attempts: int = 1
     # Cancel pushed but worker has not settled -> Hub settles it itself.
     cancel_grace_seconds: int = 60
+    # Max opaque resume_blob bytes a checkpoint may carry; oversize checkpoints
+    # are rejected so workers fall back to ContextRef.
+    resume_blob_max_bytes: int = 1_048_576
     # Bounded per-WatchTask-stream buffer; overflow closes the stream with
     # RESOURCE_EXHAUSTED + SlowConsumer detail.
     watch_stream_buffer_events: int = 1024

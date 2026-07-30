@@ -12,7 +12,7 @@ from dataclasses import asdict, fields
 
 import aiosqlite
 
-from extend.task_relay.hub.models import Batch, Task, TaskEvent, Worker
+from extend.task_relay.hub.models import Batch, Checkpoint, Task, TaskEvent, Worker
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS tasks (
@@ -265,6 +265,20 @@ class Database:
         )
         row = await cursor.fetchone()
         return row[0] if row is not None else None
+
+    # -- checkpoints ------------------------------------------------------
+
+    async def insert_checkpoint(self, checkpoint: Checkpoint) -> None:
+        await self._conn.execute(_insert_sql("checkpoints", Checkpoint), asdict(checkpoint))
+        await self._conn.commit()
+
+    async def get_latest_checkpoint(self, task_id: str) -> Checkpoint | None:
+        cursor = await self._conn.execute(
+            "SELECT * FROM checkpoints WHERE task_id = ? ORDER BY checkpoint_at DESC LIMIT 1",
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        return Checkpoint(**dict(row)) if row is not None else None
 
     # -- workers ---------------------------------------------------------
 
