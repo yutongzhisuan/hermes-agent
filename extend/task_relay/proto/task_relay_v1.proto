@@ -1,0 +1,361 @@
+// Task Relay v1 — Master ↔ Hub protocol.
+//
+// Source of truth: docs/superpowers/specs/2026-07-31-task-relay-design.md,
+// §Protocol. Field numbers are copied verbatim from the design — do NOT
+// renumber. M3 features (DAG edges, BatchPolicy, AGGREGATE, TraceContext,
+// resource scheduling) are present as optional message fields so the schema
+// stays one file; M1 implementors may leave them unset.
+syntax = "proto3";
+
+package task_relay.v1;
+
+// gRPC Service (Master ↔ Hub)
+service TaskRelay {
+  rpc DispatchTask(DispatchTaskRequest) returns (DispatchTaskResponse);
+  rpc DispatchTaskBatch(DispatchTaskBatchRequest) returns (DispatchTaskBatchResponse);
+  rpc GetTaskResult(TaskResultRequest) returns (TaskResult);
+  rpc WatchTask(WatchTaskRequest) returns (stream TaskEvent);
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+}
+
+// ---- Dispatch Messages ----
+
+message DispatchTaskRequest {
+  TaskSpec spec = 1;
+  string master_session_id = 2;
+  bool allow_redispatch = 3;   // reopen lost/failed for retry
+}
+
+message DispatchTaskResponse {
+  string task_id = 1;
+  string batch_id = 2;            // empty for single dispatch
+  string callback_topic = 3;
+  TaskStatus status = 4;          // the task's ACTUAL current status
+  bool idempotent_hit = 5;        // true when this task_id already existed
+  TaskResult existing_result = 6; // set when idempotent_hit and status is terminal
+  int32 attempt = 7;              // attempts consumed so far
+}
+
+message DispatchTaskBatchRequest {
+  string batch_id = 1;         // Master-generated, globally unique
+  repeated TaskSpec specs = 2;
+  string master_session_id = 3;
+  string callback_topic = 4;   // shared topic for the batch
+  bool allow_redispatch = 5;
+  BatchPolicy policy = 6;      // optional Hub-side join helper (M3)
+}
+
+message DispatchTaskBatchResponse {
+  string batch_id = 1;
+  string callback_topic = 2;
+  repeated DispatchTaskResponse tasks = 3;
+  bool idempotent_hit = 4;     // true when this batch_id already existed
+}
+
+// ---- TaskSpec ----
+// Aligned with `delegate_task` (goal, context, toolsets, timeout_seconds).
+
+message TaskSpec {
+  string task_id = 1;                 // Master-generated, globally unique
+  string goal = 2;
+  map<string, string> params = 3;     // e.g. params["model"], params["structured_output"]
+  ContextPayload context = 4;
+  repeated string toolsets = 5;
+  string target_worker = 6;           // optional hard pin
+  int32 timeout_seconds = 7;          // execution timeout
+  string callback_topic = 8;          // optional; batch may share one
+  int32 priority = 9;                 // higher = sooner
+  repeated string depends_on = 10;    // optional Hub DAG edges (M3)
+  string aggregate_key = 11;          // optional Hub pre-aggregate group (M3)
+  ResourceRequirements min_resources = 12;
+  TraceContext trace_context = 13;
+  repeated string allowed_worker_ids = 14;
+  repeated string deny_worker_ids = 15;
+  reserved 16;                        // was resume_from_checkpoint (moved to task.run)
+  int32 queue_timeout_seconds = 17;   // max time in pending before lost (default 900)
+  int32 max_attempts = 18;            // total execution attempts allowed (default 1)
+  int32 first_progress_seconds = 19;  // deadline for first progress/checkpoint (default 120; worker emits an immediate claim-ack progress frame, see Lease)
+}
+
+message ResourceRequirements {
+  // Hard gate, not a preference. A worker missing any specified field is
+  // treated as unsatisfied (excluded), never best-effort. Unsatisfiable
+  // min_resources → permanent pending until queue_timeout_seconds → lost.
+  int32 min_cpu_cores = 1;
+  int32 min_memory_gb = 2;
+  bool requires_gpu = 3;
+  repeated string required_network_profiles = 4; // e.g. "unmetered"
+}
+
+message TraceContext {
+  string trace_id = 1;
+  string span_id = 2;
+  string parent_span_id = 3;
+  bool sampled = 4;
+}
+
+message ContextPayload {
+  oneof payload {
+    string inline = 1;           // plaintext; recommend < 64 KiB
+    InlineGzip inline_gzip = 2;  // compressed, still delivered in-band
+    ContextRef ref = 3;          // out-of-band; worker fetches
+  }
+}
+
+message InlineGzip {
+  bytes gzip_data = 1;
+  string sha256 = 2;             // over the DECOMPRESSED plaintext
+}
+
+message ContextRef {
+  string uri = 1;                // https:// presigned, s3://, …
+  string sha256 = 2;             // over the DECOMPRESSED plaintext
+  string content_encoding = 3;   // "" | "gzip" — encoding of the fetched bytes
+}
+
+// ---- TaskEvent & TaskResult ----
+// WatchTask streams events. Terminal payload lives in TaskResult.
+
+message TaskEvent {
+  int64 event_id = 1;             // globally monotonic in the Hub (see Cursor semantics)
+  int64 event_at = 2;             // unix ms
+  string task_id = 3;
+  string batch_id = 4;
+  TaskEventKind kind = 5;
+  TaskResult result = 6;
+  string progress_summary = 7;
+  TaskCheckpoint checkpoint = 8;
+  AggregateResult aggregate = 9;  // kind=AGGREGATE only (M3)
+  TraceContext trace_context = 10;
+}
+
+// AGGREGATE events describe a GROUP, not a task. task_id is empty on them.
+message AggregateResult {
+  string batch_id = 1;
+  string aggregate_key = 2;
+  repeated string task_ids = 3;          // members, dispatch order
+  map<string, int32> status_counts = 4;  // TaskStatus name → count
+  string summary = 5;                    // member summaries joined in task_ids order
+  repeated Metric metrics = 6;           // concatenation of member fields.metrics, each stamped with origin_task_id
+  int32 schema_version = 7;
+}
+
+enum TaskEventKind {
+  TASK_EVENT_KIND_UNSPECIFIED = 0;
+  TASK_EVENT_KIND_STATUS = 1;
+  TASK_EVENT_KIND_PROGRESS = 2;
+  TASK_EVENT_KIND_TERMINAL = 3;
+  TASK_EVENT_KIND_CHECKPOINT = 4;
+  TASK_EVENT_KIND_AGGREGATE = 5;
+}
+
+message TaskCheckpoint {
+  string task_id = 1;
+  string checkpoint_id = 2;       // worker-generated dedupe key
+  int64 event_id = 3;             // Hub-assigned after persist
+  int64 checkpoint_at = 4;
+  string summary = 5;
+  TaskFields fields = 6;          // structured partial output for Master
+  bytes resume_blob = 7;          // opaque; worker-defined only; capped at resume_blob_max_bytes (default 1 MiB)
+  int64 lease_until = 8;
+}
+
+message BatchPolicy {
+  enum CompletionMode {
+    COMPLETION_MODE_UNSPECIFIED = 0;
+    COMPLETION_MODE_ALL = 1;
+    COMPLETION_MODE_ANY = 2;
+    COMPLETION_MODE_MAJORITY = 3;
+    COMPLETION_MODE_THRESHOLD = 4;
+  }
+  CompletionMode completion_mode = 1;
+  int32 success_threshold = 2;
+  int64 batch_timeout_ms = 3;
+  bool fail_fast = 4;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_LOST = 5;
+  TASK_STATUS_CANCELLED = 6;
+}
+
+message TaskResult {
+  string task_id = 1;
+  TaskStatus status = 2;
+  string summary = 3;
+  string result_text = 4;
+  TaskFields fields = 5;
+  string error = 6;
+  TaskUsage usage = 7;
+  int64 started_at = 8;
+  int64 completed_at = 9;
+  string worker_id = 10;
+  int32 schema_version = 11;
+  string batch_id = 12;
+  string latest_checkpoint_id = 13;
+  int32 attempt = 14;              // 1-based attempt that produced this result
+  int32 max_attempts = 15;         // effective limit for this task
+}
+
+message TaskUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+  int32 api_calls = 4;             // model round-trips inside the run
+  int32 tool_calls = 5;
+  double wall_seconds = 6;
+  double cost_usd = 7;             // 0 when the worker cannot attribute cost
+  string model = 8;                // model actually used by the worker
+}
+
+message TaskFields {
+  int32 version = 1;
+  repeated Metric metrics = 2;
+  repeated KeyValue tags = 3;
+  string report = 4;
+  map<string, bytes> extensions = 15;
+}
+
+message Metric {
+  string name = 1;
+  double value = 2;
+  string unit = 3;
+  string description = 4;
+  string origin_task_id = 5;   // populated by Hub when aggregating into AggregateResult.metrics; empty on per-task metrics
+}
+
+message KeyValue {
+  string key = 1;
+  string value = 2;
+}
+
+// ---- WatchTask Replay ----
+
+message WatchTaskRequest {
+  oneof filter {
+    string topic = 1;
+    string batch_id = 2;
+    string task_id = 3;
+  }
+  int64 since_event_id = 4;   // 0 = from oldest retained; reconnect uses last seen
+}
+
+// Cursor expiry detail: stream fails with gRPC FAILED_PRECONDITION carrying
+// this detail when since_event_id is older than the oldest retained event.
+message CursorOutOfRange {
+  int64 requested_since_event_id = 1;
+  int64 oldest_available_event_id = 2;
+  int64 newest_event_id = 3;
+}
+
+// Slow-consumer detail: stream closes with gRPC RESOURCE_EXHAUSTED carrying
+// this detail when the per-stream buffer fills.
+message SlowConsumer {
+  int64 delivered_event_id = 1;   // last event successfully sent on this stream
+  int64 newest_event_id = 2;      // Hub's current tail; gap = missed range
+}
+
+// ---- Query & Control Messages ----
+
+message TaskResultRequest {
+  string task_id = 1;
+  bool include_latest_checkpoint = 2;
+}
+
+message ListTasksRequest {
+  string batch_id = 1;                  // optional filter
+  string callback_topic = 2;            // optional filter
+  string master_session_id = 3;         // optional filter
+  repeated TaskStatus statuses = 4;     // optional filter; empty = any
+  string worker_id = 5;                 // optional filter
+  int32 limit = 6;                      // default 100, max 500; Hub clamps values above list_tasks_max_limit (default 500)
+  string page_token = 7;
+}
+
+message ListTasksResponse {
+  repeated TaskResult tasks = 1;
+  string next_page_token = 2;
+}
+
+message ListWorkersRequest {
+  repeated string require_toolsets = 1;         // worker must have all of these
+  ResourceRequirements require_resources = 2;   // optional minimum profile
+  bool only_schedulable = 3;                    // exclude offline/stale/draining
+}
+
+message ListWorkersResponse {
+  repeated WorkerInfo workers = 1;
+}
+
+message WorkerInfo {
+  string worker_id = 1;
+  string status = 2;                 // offline | idle | busy | stale | draining
+  repeated SessionMode session_modes = 3;  // capability set; A always present (mandatory)
+  repeated string toolsets = 4;
+  string os = 5;
+  string arch = 6;
+  string region = 7;
+  repeated string resume_formats = 8;
+  WorkerResources resources = 9;
+  WorkerLoad load = 10;
+  int32 max_concurrent = 11;
+  int32 running_tasks = 12;
+  int64 last_announce_at = 13;
+  int64 last_heartbeat_at = 14;
+  bool wake_url_present = 15;        // Mode B availability, URL itself not exposed
+}
+
+enum SessionMode {
+  SESSION_MODE_UNSPECIFIED = 0;
+  SESSION_MODE_A = 1;                // poll (mandatory for every worker)
+  SESSION_MODE_B = 2;                // HTTP wake (requires wake_url + A)
+  SESSION_MODE_C = 3;                // long session push (requires sustained WS)
+}
+
+message WorkerResources {
+  int32 cpu_cores = 1;
+  int32 memory_gb = 2;
+  int32 gpu_count = 3;
+  string gpu_model = 4;
+  int32 disk_gb = 5;
+  string network_profile = 6;        // e.g. "unmetered"
+}
+
+message WorkerLoad {
+  int32 running_tasks = 1;
+  double cpu_percent = 2;
+  double memory_percent = 3;
+}
+
+message CancelTaskRequest {
+  string task_id = 1;
+  string batch_id = 2;               // optional: cancel every non-terminal task in batch
+  string reason = 3;
+  int32 grace_seconds = 4;           // overrides Hub cancel_grace_seconds (default 60)
+}
+
+message CancelTaskResponse {
+  repeated string cancelled_task_ids = 1;
+  repeated string already_terminal_task_ids = 2;
+}
+
+// ---- M1 auth helper ----
+// Not in the original service block; optional companion for bootstrap —
+// may be exposed over HTTP in the Hub instead of gRPC.
+
+message IssueWorkerTokenRequest {
+  string bootstrap_token = 1;
+  string worker_id = 2;
+}
+
+message IssueWorkerTokenResponse {
+  string worker_jwt = 1;
+  int64 expires_at = 2;
+}
