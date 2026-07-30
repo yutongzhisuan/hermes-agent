@@ -338,7 +338,7 @@ message CancelTaskRequest {
   string task_id = 1;
   string batch_id = 2;               // optional: cancel every non-terminal task in batch
   string reason = 3;
-  int32 grace_seconds = 4;           // overrides Hub cancel_grace_seconds (default 60)
+  optional int32 grace_seconds = 4;  // overrides Hub cancel_grace_seconds (default 60)
 }
 
 message CancelTaskResponse {

@@ -579,3 +579,96 @@ async def test_poll_updates_worker_last_heartbeat_at(router, registry):
     worker = await registry.get_worker("w1")
     assert worker.last_heartbeat_at is not None
     assert worker.last_heartbeat_at >= before
+
+
+# -----------------------------------------------------------------------------
+# Final re-review Important Finding 1: stale workers recover when heartbeats resume.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_recover_stale_worker(hub_ws_url, registry):
+    """A heartbeat on a stale worker must transition it back to idle."""
+    token = make_worker_jwt("w1", max_concurrent=1)
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {token}"},
+    ) as ws:
+        await ws.send(
+            jsonrpc_request(
+                1,
+                "worker.announce",
+                {"worker_id": "w1", "session_modes": ["a"], "max_concurrent": 1, "toolsets": []},
+            )
+        )
+        await recv_ok(ws, "worker.announce_ok")
+
+        worker = await registry.get_worker("w1")
+        worker.status = "stale"
+        await registry._db.upsert_worker(worker)
+        assert (await registry.get_worker("w1")).status == "stale"
+
+        await ws.send(jsonrpc_request(2, "worker.heartbeat", {}))
+        await recv_ok(ws, "worker.heartbeat_ok")
+
+    worker = await registry.get_worker("w1")
+    assert worker.status == "idle"
+
+
+# -----------------------------------------------------------------------------
+# Final re-review Minor Finding 2: explicit grace_seconds = 0 means zero grace.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cancel_task_explicit_zero_grace(grpc_channel, registry, router, master_jwt):
+    """An explicit grace_seconds=0 must start the cancel-grace window at now."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=1
+    )
+    await router.dispatch_task(
+        TaskSpec(task_id="t1", goal="g", callback_topic="topic"),
+        master_session_id="m1",
+    )
+    await router.atomic_claim_for_poll("w1", max_tasks=1)
+
+    stub = TaskRelayStub(grpc_channel)
+    before = time.time()
+    await stub.CancelTask(
+        pb.CancelTaskRequest(task_id="t1", grace_seconds=0),
+        metadata={"authorization": f"Bearer {master_jwt}"},
+    )
+    after = time.time()
+
+    task = await router._db.get_task("t1")
+    assert task.status == "cancelling"
+    assert task.claim_expires_at is not None
+    assert before <= task.claim_expires_at <= after
+
+
+@pytest.mark.asyncio
+async def test_cancel_task_unset_grace_uses_default(grpc_channel, registry, router, master_jwt):
+    """When grace_seconds is unset, the Hub default cancel grace is used."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=1
+    )
+    await router.dispatch_task(
+        TaskSpec(task_id="t1", goal="g", callback_topic="topic"),
+        master_session_id="m1",
+    )
+    await router.atomic_claim_for_poll("w1", max_tasks=1)
+
+    stub = TaskRelayStub(grpc_channel)
+    before = time.time()
+    await stub.CancelTask(
+        pb.CancelTaskRequest(task_id="t1"),
+        metadata={"authorization": f"Bearer {master_jwt}"},
+    )
+    after = time.time()
+
+    task = await router._db.get_task("t1")
+    assert task.status == "cancelling"
+    assert task.claim_expires_at is not None
+    # Default grace is 60s; an unset field must not be treated as zero grace.
+    assert task.claim_expires_at >= before + router._config.cancel_grace_seconds - 1
+    assert task.claim_expires_at <= after + router._config.cancel_grace_seconds

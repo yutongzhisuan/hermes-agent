@@ -51,7 +51,6 @@ _RESULT_METHOD_LABELS = {
 
 DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000
 DEFAULT_POLL_MAX_WAIT_MS = 60_000
-DEFAULT_TWO_STEP_CLAIM_TIMEOUT_S = 30
 DEFAULT_RESUME_BLOB_MAX_BYTES = 1_048_576
 
 
@@ -434,37 +433,6 @@ class WsServerSession:
                 return []
             await asyncio.sleep(min(0.2, deadline - time.time()))
 
-    async def _handle_worker_claim(self, params: dict) -> dict:
-        """Two-step claim: move an offered task to running and return task.run."""
-        self._require_announced()
-        task_id = params.get("task_id")
-        claim_token = params.get("claim_token")
-        if not task_id or not claim_token:
-            raise WsServerError("task_id and claim_token required", JSONRPC_INVALID_PARAMS)
-
-        async with self.hub.router._lock:
-            task = await self.hub.db.get_task(task_id)
-            if task is None:
-                raise WsServerError("task not found", JSONRPC_INVALID_PARAMS)
-            if task.status != "pending":
-                raise WsServerError("task is no longer available", JSONRPC_INVALID_PARAMS)
-            if task.claim_token != claim_token:
-                raise WsServerError("claim_token mismatch", JSONRPC_INVALID_PARAMS)
-            if task.worker_id is not None and task.worker_id != self.worker_id:
-                raise WsServerError("task reserved for another worker", JSONRPC_INVALID_PARAMS)
-            claimed = await self.hub.router._claim_task(task, self.worker_id)
-            if claimed is None:
-                raise WsServerError("task was claimed by another session", JSONRPC_INVALID_PARAMS)
-
-        return {
-            "claimed": True,
-            "task_id": claimed.task_id,
-            "attempt": claimed.attempt,
-            "claim_token": claimed.claim_token,
-            "claim_expires_at": task.claim_expires_at,
-            "run": await self._build_run_payload(task, claimed),
-        }
-
     async def _handle_task_progress(self, params: dict) -> dict:
         """Extend the task lease and emit a progress event."""
         self._require_announced()
@@ -595,13 +563,19 @@ class WsServerSession:
         return {"acknowledged": True}
 
     async def _handle_worker_heartbeat(self, params: dict) -> dict:
-        """Refresh the worker heartbeat timestamp."""
+        """Refresh the worker heartbeat timestamp.
+
+        A stale worker that resumes heartbeating transitions back to idle so it
+        can receive work again without requiring a fresh announce.
+        """
         self._require_announced()
         worker = await self.hub.registry.get_worker(self.worker_id)
         if worker is not None:
             now = time.time()
             worker.last_heartbeat_at = now
             worker.last_seen_at = now
+            if worker.status == "stale":
+                worker.status = "idle"
             await self.hub.db.upsert_worker(worker)
         return {}
 
