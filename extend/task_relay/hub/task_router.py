@@ -191,14 +191,6 @@ class TaskRouter:
         if max_tasks <= 0:
             return []
 
-        worker = await self._registry.get_worker(worker_id)
-        if worker is None:
-            return []
-        if not self._registry.supports_mode(worker, "a"):
-            return []
-        if worker.status in {"offline", "stale", "draining"}:
-            return []
-
         # Pending tasks ordered by priority desc, then creation time asc.
         cursor = await self._db._conn.execute(
             "SELECT * FROM tasks WHERE status = 'pending'"
@@ -208,6 +200,19 @@ class TaskRouter:
 
         claimed: list[ClaimedTask] = []
         async with self._lock:
+            worker = await self._registry.get_worker(worker_id)
+            if worker is None:
+                return []
+            if not self._registry.supports_mode(worker, "a"):
+                return []
+            if worker.status in {"offline", "stale", "draining"}:
+                return []
+
+            capacity = max(0, worker.max_concurrent - worker.running_tasks)
+            if capacity <= 0:
+                return []
+            max_tasks = min(max_tasks, capacity)
+
             for row in rows:
                 if len(claimed) >= max_tasks:
                     break
@@ -217,6 +222,10 @@ class TaskRouter:
                 claimed_task = await self._claim_task(task, worker_id)
                 if claimed_task is not None:
                     claimed.append(claimed_task)
+                    worker.running_tasks += 1
+
+            worker.last_heartbeat_at = time.time()
+            await self._db.upsert_worker(worker)
 
         return claimed
 
@@ -252,6 +261,7 @@ class TaskRouter:
             if task.status in TERMINAL_STATUSES:
                 # Terminal monotonic: first wins.
                 return self._response_from_task(task, idempotent_hit=True)
+            previous_status = task.status
             self._validate_transition(task.status, status)
 
             now = time.time()
@@ -266,6 +276,8 @@ class TaskRouter:
             task.claim_expires_at = None
             await self._persist_task(task)
             await self._emit_terminal(task, status, summary, error)
+            if previous_status in {"running", "cancelling"}:
+                await self._release_task_slot(task.worker_id)
             return self._response_from_task(task, idempotent_hit=False)
 
     async def on_cancel(
@@ -493,6 +505,7 @@ class TaskRouter:
         task.first_progress_deadline_at = None
         await self._persist_task(task)
         await self._emit_terminal(task, "lost", reason)
+        await self._release_task_slot(task.worker_id)
 
     async def _settle_failed(self, task: Task, now: float, reason: str) -> None:
         if task.allow_redispatch and task.attempt < task.max_attempts:
@@ -518,6 +531,7 @@ class TaskRouter:
         task.first_progress_deadline_at = None
         await self._persist_task(task)
         await self._emit_terminal(task, "failed", reason)
+        await self._release_task_slot(task.worker_id)
 
     async def _settle_cancelled(self, task: Task, now: float) -> None:
         task.status = "cancelled"
@@ -527,6 +541,7 @@ class TaskRouter:
         task.first_progress_deadline_at = None
         await self._persist_task(task)
         await self._emit_terminal(task, "cancelled", task.summary)
+        await self._release_task_slot(task.worker_id)
 
     async def _enter_cancelling(
         self, task: Task, now: float, reason: str
@@ -639,6 +654,16 @@ class TaskRouter:
 
     def _effective_timeout(self, task: Task) -> int:
         return self._effective_int(task.timeout_seconds, self._config.timeout_seconds)
+
+    async def _release_task_slot(self, worker_id: str | None) -> None:
+        """Decrement ``worker.running_tasks`` when a task leaves the worker."""
+        if worker_id is None:
+            return
+        worker = await self._registry.get_worker(worker_id)
+        if worker is None:
+            return
+        worker.running_tasks = max(0, worker.running_tasks - 1)
+        await self._db.upsert_worker(worker)
 
     async def _persist_task(self, task: Task) -> None:
         """Full row update; ``db.update_task_status`` only touches status."""

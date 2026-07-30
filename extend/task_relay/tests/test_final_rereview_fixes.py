@@ -5,13 +5,17 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import time
 from typing import Any
 
 import pytest
 import pytest_asyncio
 import websockets
+from grpclib.const import Status
+from grpclib.exceptions import GRPCError
 
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
+from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayStub
 from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
@@ -357,3 +361,95 @@ async def test_rejects_upgrade_with_generic_error_body(hub_ws_url):
     assert data["error"] == "Invalid or missing token"
     assert "signature" not in text.lower()
     assert "expired" not in text.lower()
+
+
+# -----------------------------------------------------------------------------
+# Finding 1: gRPC auth failures do not leak token-validation details.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_grpc_auth_error_is_generic_for_malformed_token(grpc_channel):
+    """A gRPC AuthError must surface a generic message, not JWT internals."""
+    stub = TaskRelayStub(grpc_channel)
+    with pytest.raises(GRPCError) as exc:
+        await stub.DispatchTask(
+            pb.DispatchTaskRequest(
+                spec=pb.TaskSpec(task_id="t1", goal="g", callback_topic="topic")
+            ),
+            metadata={"authorization": "Bearer not-a-token"},
+        )
+    assert exc.value.status == Status.UNAUTHENTICATED
+    assert exc.value.message == "Invalid or missing token"
+    assert "Not enough segments" not in exc.value.message
+
+
+@pytest.mark.asyncio
+async def test_grpc_auth_error_is_generic_for_worker_token(grpc_channel):
+    """A valid worker JWT must still return the generic unauthenticated message."""
+    token = make_auth().issue_worker_jwt("w1", [], max_concurrent=1)
+    stub = TaskRelayStub(grpc_channel)
+    with pytest.raises(GRPCError) as exc:
+        await stub.DispatchTask(
+            pb.DispatchTaskRequest(
+                spec=pb.TaskSpec(task_id="t1", goal="g", callback_topic="topic")
+            ),
+            metadata={"authorization": f"Bearer {token}"},
+        )
+    assert exc.value.status == Status.UNAUTHENTICATED
+    assert exc.value.message == "Invalid or missing token"
+    assert "not a master token" not in exc.value.message.lower()
+
+
+# -----------------------------------------------------------------------------
+# Finding 2: Hub poll enforces worker capacity and tracks running_tasks.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_poll_capacity_clamped_by_remaining_slots(router, registry):
+    """Poll must not claim more tasks than max_concurrent - running_tasks."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=2
+    )
+    for i in range(3):
+        await router.dispatch_task(
+            TaskSpec(task_id=f"t{i}", goal="g", callback_topic="topic"),
+            master_session_id="m1",
+        )
+
+    claimed = await router.atomic_claim_for_poll("w1", max_tasks=10)
+    assert len(claimed) == 2
+    worker = await registry.get_worker("w1")
+    assert worker.running_tasks == 2
+
+    # At capacity; further polls return nothing.
+    assert await router.atomic_claim_for_poll("w1", max_tasks=10) == []
+
+    # Completing a task frees exactly one slot.
+    await router.on_complete("t0", status="completed", summary="done")
+    worker = await registry.get_worker("w1")
+    assert worker.running_tasks == 1
+
+    claimed2 = await router.atomic_claim_for_poll("w1", max_tasks=10)
+    assert len(claimed2) == 1
+    worker = await registry.get_worker("w1")
+    assert worker.running_tasks == 2
+
+
+@pytest.mark.asyncio
+async def test_poll_updates_worker_last_heartbeat_at(router, registry):
+    """Polling must refresh the worker heartbeat timestamp."""
+    await registry.announce(
+        "w1", session_modes="a", status="idle", max_concurrent=1
+    )
+    await asyncio.sleep(0.05)
+    before = time.time()
+    await router.dispatch_task(
+        TaskSpec(task_id="t1", goal="g", callback_topic="topic"),
+        master_session_id="m1",
+    )
+    await router.atomic_claim_for_poll("w1", max_tasks=1)
+    worker = await registry.get_worker("w1")
+    assert worker.last_heartbeat_at is not None
+    assert worker.last_heartbeat_at >= before

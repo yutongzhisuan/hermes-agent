@@ -55,7 +55,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--max-concurrent",
         type=int,
         default=None,
-        help="override the JWT's max_concurrent concurrency limit",
+        help="capped by the JWT's limit",
     )
     parser.add_argument(
         "--poll-wait-ms",

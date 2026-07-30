@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import contextvars
 import json
+import logging
 import time
 from typing import Any, Callable
 
@@ -36,6 +37,7 @@ from extend.task_relay.hub.task_router import (
 )
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
+logger = logging.getLogger("task_relay.hub.grpc")
 
 _STATUS_TO_PROTO = {
     "pending": pb.TaskStatus.TASK_STATUS_PENDING,
@@ -90,7 +92,8 @@ class MasterAuthInterceptor:
         try:
             claims = self._auth.verify_master_jwt(token)
         except AuthError as e:
-            raise GRPCError(Status.UNAUTHENTICATED, str(e)) from e
+            logger.debug("master JWT verification failed: %s", e)
+            raise GRPCError(Status.UNAUTHENTICATED, "Invalid or missing token") from e
         worker_identity.set(claims.sub)
         return claims.sub
 
