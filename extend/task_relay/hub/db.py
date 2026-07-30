@@ -364,11 +364,38 @@ class Database:
         return Batch(**dict(row)) if row is not None else None
 
 
+async def _migrate(conn: aiosqlite.Connection) -> None:
+    """Apply additive schema migrations that ``CREATE TABLE IF NOT EXISTS`` skips.
+
+    Columns added after the initial schema (e.g. ``cancel_reason``) are added
+    with ``ALTER TABLE ... ADD COLUMN IF NOT EXISTS``. For older SQLite builds
+    that do not support ``IF NOT EXISTS`` on ``ALTER TABLE``, we fall back to
+    ``PRAGMA table_info`` and add the column only when missing.
+    """
+    try:
+        await conn.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS cancel_reason TEXT")
+    except aiosqlite.OperationalError as exc:
+        msg = str(exc).lower()
+        if "duplicate column name" in msg:
+            # Column already present (IF NOT EXISTS was ignored by older SQLite).
+            pass
+        elif "syntax error" in msg:
+            # Older SQLite without IF NOT EXISTS support for ALTER TABLE.
+            rows = await conn.execute_fetchall("PRAGMA table_info(tasks)")
+            columns = {row[1] for row in rows}
+            if "cancel_reason" not in columns:
+                await conn.execute("ALTER TABLE tasks ADD COLUMN cancel_reason TEXT")
+        else:
+            raise
+    await conn.commit()
+
+
 async def open_db(path: str) -> Database:
     """Open (creating if needed) a hub database at `path` and apply the schema."""
     conn = await aiosqlite.connect(path)
     conn.row_factory = aiosqlite.Row
     await conn.execute("PRAGMA foreign_keys = ON")
     await conn.executescript(_SCHEMA)
+    await _migrate(conn)
     await conn.commit()
     return Database(conn)

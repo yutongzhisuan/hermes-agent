@@ -116,3 +116,68 @@ async def test_list_events_after_and_oldest_event_id_for_filter(db):
     oldest_b = await db.oldest_event_id_for_filter(topic="topic-b")
     assert oldest_b == e2.event_id
     assert await db.oldest_event_id_for_filter(topic="nope") is None
+
+
+@pytest.mark.asyncio
+async def test_open_db_migrates_cancel_reason_column(tmp_path):
+    """Existing databases created before ``cancel_reason`` must gain the column."""
+    db_path = str(tmp_path / "legacy.db")
+    old_schema = """
+    CREATE TABLE tasks (
+        task_id TEXT PRIMARY KEY,
+        batch_id TEXT,
+        master_session_id TEXT,
+        goal TEXT NOT NULL,
+        params_json TEXT,
+        context_json TEXT,
+        toolsets_json TEXT,
+        worker_id TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        result_json TEXT,
+        summary TEXT,
+        fields_json TEXT,
+        usage_json TEXT,
+        error TEXT,
+        callback_topic TEXT NOT NULL,
+        allow_redispatch INTEGER DEFAULT 0,
+        claim_token TEXT,
+        claim_expires_at REAL,
+        first_progress_deadline_at REAL,
+        queue_deadline_at REAL,
+        attempt INTEGER DEFAULT 0,
+        max_attempts INTEGER DEFAULT 1,
+        priority INTEGER DEFAULT 0,
+        depends_on_json TEXT,
+        aggregate_key TEXT,
+        min_resources_json TEXT,
+        trace_context_json TEXT,
+        allowed_worker_ids_json TEXT,
+        deny_worker_ids_json TEXT,
+        resume_from_checkpoint TEXT,
+        timeout_seconds INTEGER,
+        queue_timeout_seconds INTEGER,
+        first_progress_seconds INTEGER,
+        created_at REAL NOT NULL,
+        started_at REAL,
+        completed_at REAL
+    );
+    """
+    sync_conn = sqlite3.connect(db_path)
+    sync_conn.executescript(old_schema)
+    sync_conn.close()
+
+    db = await open_db(db_path)
+    try:
+        task = Task(
+            task_id="t1",
+            goal="do something",
+            callback_topic="topic-1",
+            created_at=1.0,
+            cancel_reason="user requested",
+        )
+        await db.insert_task(task)
+        got = await db.get_task("t1")
+        assert got is not None
+        assert got.cancel_reason == "user requested"
+    finally:
+        await db.close()
