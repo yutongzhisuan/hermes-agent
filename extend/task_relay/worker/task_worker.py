@@ -14,7 +14,13 @@ from typing import Any
 
 import jwt
 
-from extend.task_relay.worker.task_executor import TaskBackend, TaskCancelEvent, TaskExecutor, TaskRunPayload
+from extend.task_relay.worker.task_executor import (
+    TaskBackend,
+    TaskCancelEvent,
+    TaskCompletePayload,
+    TaskExecutor,
+    TaskRunPayload,
+)
 from extend.task_relay.worker.task_worker_ws import TaskWorkerWs, WsClientError
 
 logger = logging.getLogger("task_relay.worker")
@@ -195,17 +201,18 @@ class TaskWorker:
                 logger.exception("task %s execution failed", run.task_id)
                 if not executor.completion_attempted:
                     try:
-                        await self._ws.request(
-                            "task.complete",
-                            {
-                                "task_id": run.task_id,
-                                "status": "failed",
-                                "summary": "worker execution error",
-                                "error": traceback.format_exc(),
-                            },
+                        await executor._complete_once(
+                            run.task_id,
+                            TaskCompletePayload(
+                                status="failed",
+                                summary="worker execution error",
+                                error=traceback.format_exc(),
+                            ),
                         )
                     except Exception:
-                        logger.exception("failed to send error completion for %s", run.task_id)
+                        logger.exception(
+                            "failed to send error completion for %s", run.task_id
+                        )
             finally:
                 self._cancel_events.pop(run.task_id, None)
 

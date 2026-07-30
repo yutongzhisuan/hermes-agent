@@ -294,6 +294,24 @@ async def test_on_progress_extends_lease_and_clears_first_progress_deadline(
 
 
 @pytest.mark.asyncio
+async def test_on_progress_during_cancelling_does_not_extend_grace_window(
+    router, registry, db
+):
+    await _announce_poll_worker(registry, "w1")
+    await router.dispatch_task(spec(task_id="t1"), "m1")
+    await router.atomic_claim_for_poll("w1", max_tasks=1)
+    await router.on_cancel("t1", reason="stop")
+    before = await db.get_task("t1")
+    assert before.status == "cancelling"
+    assert before.claim_expires_at is not None
+    await asyncio.sleep(0.1)
+    await router.on_progress("t1", summary="still shutting down")
+    after = await db.get_task("t1")
+    assert after.status == "cancelling"
+    assert after.claim_expires_at == before.claim_expires_at
+
+
+@pytest.mark.asyncio
 async def test_complete_is_monotonic(router, registry):
     await _announce_poll_worker(registry, "w1")
     await router.dispatch_task(spec(task_id="t1"), "m1")
@@ -343,7 +361,9 @@ async def test_first_progress_deadline_marks_lost(router, registry):
 
 
 @pytest.mark.asyncio
-async def test_execution_lease_timeout_marks_failed(router, registry):
+async def test_execution_lease_timeout_enters_cancelling_with_timeout_reason(
+    router, registry, db
+):
     await _announce_poll_worker(registry, "w1")
     await router.dispatch_task(spec(task_id="t1"), "m1")
     await router.atomic_claim_for_poll("w1", max_tasks=1)
@@ -351,6 +371,23 @@ async def test_execution_lease_timeout_marks_failed(router, registry):
     # Progress once to clear first_progress deadline, then wait for lease.
     await router.on_progress("t1", "still alive")
     await asyncio.sleep(2.1)
+    await router.tick_timeouts()
+    task = await db.get_task("t1")
+    assert task.status == "cancelling"
+    assert task.summary == "timeout"
+
+
+@pytest.mark.asyncio
+async def test_execution_lease_timeout_grace_expires_to_failed(router, registry):
+    await _announce_poll_worker(registry, "w1")
+    await router.dispatch_task(spec(task_id="t1"), "m1")
+    await router.atomic_claim_for_poll("w1", max_tasks=1)
+    await router.on_progress("t1", "still alive")
+    # Lease timeout enters cancelling; grace is 1s.
+    await asyncio.sleep(2.1)
+    await router.tick_timeouts()
+    assert (await router.get_status("t1")) == "cancelling"
+    await asyncio.sleep(1.1)
     await router.tick_timeouts()
     assert (await router.get_status("t1")) == "failed"
 

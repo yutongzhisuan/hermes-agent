@@ -43,12 +43,21 @@ import sys
 
 path = pathlib.Path(sys.argv[1])
 text = path.read_text()
-text = text.replace(
-    "import task_relay_v1_pb2\n",
-    "from . import task_relay_v1_pb2\n",
-    1,
-)
-path.write_text(text)
+lines = text.splitlines(keepends=True)
+new_lines = []
+replaced = 0
+already_relative = False
+for line in lines:
+    if line == "import task_relay_v1_pb2\n":
+        line = "from . import task_relay_v1_pb2\n"
+        replaced += 1
+    elif line == "from . import task_relay_v1_pb2\n":
+        already_relative = True
+    new_lines.append(line)
+if replaced == 0 and not already_relative:
+    print("expected top-level import task_relay_v1_pb2 not found", file=sys.stderr)
+    sys.exit(1)
+path.write_text("".join(new_lines))
 PYEOF
 touch "$OUT/__init__.py"
 touch "$(dirname "$OUT")/__init__.py"

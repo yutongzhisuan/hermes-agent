@@ -75,8 +75,10 @@ def master_jwt(auth):
 
 
 @pytest_asyncio.fixture
-async def grpc_server(router, auth):
-    server = await serve_grpc(router, auth, router._config, host="127.0.0.1", port=0)
+async def grpc_server(router, auth, db, bus, registry):
+    server = await serve_grpc(
+        router, auth, router._config, db, bus, registry, host="127.0.0.1", port=0
+    )
     yield server
     server.close()
     await server.wait_closed()

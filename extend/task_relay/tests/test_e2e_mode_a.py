@@ -114,10 +114,10 @@ async def _stop_worker(worker: TaskWorker, run_task: asyncio.Task) -> None:
             pass
 
 
-async def _run_hub(router, registry, db, auth):
+async def _run_hub(router, registry, db, bus, auth):
     """Start gRPC + WS servers and a timeout ticker on ephemeral ports."""
     grpc_server = await serve_grpc(
-        router, auth, router._config, host="127.0.0.1", port=0
+        router, auth, router._config, db, bus, registry, host="127.0.0.1", port=0
     )
     ws_server = await serve_ws(
         router,
@@ -166,9 +166,9 @@ async def _run_hub(router, registry, db, auth):
 
 
 @pytest_asyncio.fixture
-async def hub(router, registry, db, auth):
+async def hub(router, registry, db, bus, auth):
     """Live Hub with the default router config."""
-    async for runner in _run_hub(router, registry, db, auth):
+    async for runner in _run_hub(router, registry, db, bus, auth):
         yield runner
 
 
@@ -189,7 +189,7 @@ async def hub_fast_first_progress(registry, db, auth):
     )
     bus = EventBus(db, cfg)
     router = TaskRouter(db, bus, cfg, registry)
-    async for runner in _run_hub(router, registry, db, auth):
+    async for runner in _run_hub(router, registry, db, bus, auth):
         yield runner
 
 

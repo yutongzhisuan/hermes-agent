@@ -127,13 +127,16 @@ class TaskRelayService(TaskRelayBase):
         router: TaskRouter,
         auth: Auth,
         config: HubConfig,
+        db: Database,
+        bus: EventBus,
+        registry: WorkerRegistry,
     ):
         self._router = router
         self._auth = auth
         self._config = config
-        self._db = router._db
-        self._bus = router._bus
-        self._registry = router._registry
+        self._db = db
+        self._bus = bus
+        self._registry = registry
 
     # ------------------------------------------------------------------
     # RPCs
@@ -290,12 +293,15 @@ async def serve_grpc(
     router: TaskRouter,
     auth: Auth,
     config: HubConfig,
+    db: Database,
+    bus: EventBus,
+    registry: WorkerRegistry,
     *,
     host: str = "127.0.0.1",
     port: int = 0,
 ) -> Server:
     """Start a gRPC server serving the Master-facing TaskRelay service."""
-    service = TaskRelayService(router, auth, config)
+    service = TaskRelayService(router, auth, config, db, bus, registry)
     intercepted = MasterAuthInterceptor(auth).intercept_service(service)
     server = Server([intercepted])
     await server.start(host, port)
@@ -435,22 +441,35 @@ def _batch_response_to_proto(resp: BatchDispatchResponse) -> pb.DispatchTaskBatc
 
 
 def _existing_result_to_proto(result: dict) -> pb.TaskResult:
-    proto = pb.TaskResult()
-    status = result.get("status")
-    if status:
-        proto.status = _STATUS_TO_PROTO.get(status, pb.TaskStatus.TASK_STATUS_UNSPECIFIED)
-    if result.get("summary") is not None:
-        proto.summary = result["summary"]
-    if result.get("error") is not None:
-        proto.error = result["error"]
-    if result.get("attempt") is not None:
-        proto.attempt = result["attempt"]
-    if result.get("max_attempts") is not None:
-        proto.max_attempts = result["max_attempts"]
-    if result.get("worker_id") is not None:
-        proto.worker_id = result["worker_id"]
+    proto = pb.TaskResult(
+        task_id=result.get("task_id", ""),
+        status=_STATUS_TO_PROTO.get(
+            result.get("status"), pb.TaskStatus.TASK_STATUS_UNSPECIFIED
+        ),
+        summary=result.get("summary") or "",
+        result_text=result.get("result_text") or "",
+        error=result.get("error") or "",
+        worker_id=result.get("worker_id") or "",
+        attempt=result.get("attempt", 0),
+        max_attempts=result.get("max_attempts", 1),
+        batch_id=result.get("batch_id") or "",
+        latest_checkpoint_id=result.get("latest_checkpoint_id") or "",
+        schema_version=1,
+    )
+    if result.get("started_at") is not None:
+        proto.started_at = _seconds_to_ms(result["started_at"])
     if result.get("completed_at") is not None:
         proto.completed_at = _seconds_to_ms(result["completed_at"])
+    fields_json = result.get("fields_json")
+    if fields_json:
+        fields_dict = _safe_json_loads(fields_json)
+        if isinstance(fields_dict, dict):
+            proto.fields.MergeFrom(_fields_from_dict(fields_dict))
+    usage_json = result.get("usage_json")
+    if usage_json:
+        usage_dict = _safe_json_loads(usage_json)
+        if isinstance(usage_dict, dict):
+            proto.usage.MergeFrom(_usage_from_dict(usage_dict))
     return proto
 
 

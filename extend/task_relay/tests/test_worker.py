@@ -109,6 +109,8 @@ class FakeWorkerWs:
         self.poll_results: list[list[dict[str, Any]]] = []
         self.raise_on_complete = False
         self.complete_count = 0
+        self.task_status = "running"
+        self.claim_token = "tok-1"
 
     async def connect(self) -> None:
         pass
@@ -135,6 +137,8 @@ class FakeWorkerWs:
             if self.raise_on_complete:
                 raise RuntimeError("websocket dropped")
             return {}
+        if method == "task.status":
+            return {"status": self.task_status, "claim_token": self.claim_token}
         if method == "task.progress":
             return {}
         if method == "task.checkpoint":
@@ -564,6 +568,47 @@ async def test_worker_does_not_send_second_complete_when_first_raises(monkeypatc
 
     # The first (and only) complete attempt failed; no second attempt.
     assert fake_ws.complete_count == 1
+
+
+@pytest.mark.asyncio
+async def test_worker_fallback_complete_uses_settlement_guard(monkeypatch):
+    """The outer except path routes complete through the guarded executor path."""
+    fake_ws = FakeWorkerWs()
+    fake_ws.task_status = "failed"  # Hub already settled; guard must drop.
+    monkeypatch.setattr(
+        "extend.task_relay.worker.task_worker.TaskWorkerWs",
+        lambda *args, **kwargs: fake_ws,
+    )
+
+    original_execute = TaskExecutor.execute
+
+    def execute_that_raises(self, run, cancel_event):
+        # Raise before the executor can send its own complete.
+        raise RuntimeError("forced executor failure")
+
+    monkeypatch.setattr(TaskExecutor, "execute", execute_that_raises)
+
+    worker = TaskWorker(
+        worker_id="w1",
+        relay_url="ws://x",
+        jwt=make_worker_jwt("w1"),
+        backend=StubBackend(),
+        poll_wait_ms=10_000,
+    )
+    fake_ws.poll_results.append([_run_payload_dict("t1")])
+
+    await _run_worker_until(
+        worker,
+        lambda: any(r[0] == "task.status" for r in fake_ws.requests),
+        timeout=2.0,
+    )
+
+    # Guard should have been consulted (task.status request) and the fallback
+    # complete should have been dropped because the Hub is already terminal.
+    status_calls = [r for r in fake_ws.requests if r[0] == "task.status"]
+    assert len(status_calls) == 1
+    complete_calls = [r for r in fake_ws.requests if r[0] == "task.complete"]
+    assert len(complete_calls) == 0
 
 
 # ---------------------------------------------------------------------------

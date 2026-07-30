@@ -48,7 +48,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--backend",
         default="stub",
-        choices=["stub"],
+        choices=["stub", "acp"],
         help="execution backend to use (default: stub)",
     )
     parser.add_argument(
@@ -70,6 +70,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="stub backend sleep duration (default: 0.1)",
     )
     parser.add_argument(
+        "--acp-progress-interval-seconds",
+        type=float,
+        default=5.0,
+        help="minimum seconds between ACP progress frames (default: 5.0)",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         help="logging level (default: INFO)",
@@ -77,11 +83,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _create_backend(args: argparse.Namespace) -> StubBackend:
+def _create_backend(args: argparse.Namespace):
     if args.backend == "stub":
         from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
 
         return StubBackend(StubBackendConfig(sleep_seconds=args.stub_sleep_seconds))
+    if args.backend == "acp":
+        from extend.task_relay.worker.backends.acp_backend import AcpTaskBackend
+
+        return AcpTaskBackend(
+            progress_interval_seconds=args.acp_progress_interval_seconds
+        )
     raise ValueError(f"unknown backend: {args.backend}")
 
 

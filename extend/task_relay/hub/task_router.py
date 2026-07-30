@@ -224,9 +224,10 @@ class TaskRouter:
             if task.status not in {"running", "cancelling"}:
                 return
             now = time.time()
-            timeout = self._effective_timeout(task)
             task.first_progress_deadline_at = None
-            task.claim_expires_at = now + timeout
+            # Do not extend the cancel-grace window when a task is cancelling.
+            if task.status == "running":
+                task.claim_expires_at = now + self._effective_timeout(task)
             await self._persist_task(task)
             await self._emit_progress(task, summary)
 
@@ -423,13 +424,18 @@ class TaskRouter:
                 await self._settle_lost(task, now, "first progress timeout")
                 return
             if task.claim_expires_at is not None and now >= task.claim_expires_at:
-                await self._settle_failed(task, now, "execution/lease timeout")
+                # Give the worker a cancel-grace window to settle before failing.
+                await self._enter_cancelling(task, now, "timeout")
                 return
             return
 
         if task.status == "cancelling":
             if task.claim_expires_at is not None and now >= task.claim_expires_at:
-                await self._settle_cancelled(task, now)
+                # Timeout-induced cancelling must eventually settle as failed.
+                if task.summary == "timeout":
+                    await self._settle_failed(task, now, "execution/lease timeout")
+                else:
+                    await self._settle_cancelled(task, now)
             return
 
     async def _settle_lost(self, task: Task, now: float, reason: str) -> None:
@@ -491,6 +497,22 @@ class TaskRouter:
         await self._persist_task(task)
         await self._emit_terminal(task, "cancelled", task.summary)
 
+    async def _enter_cancelling(
+        self, task: Task, now: float, reason: str
+    ) -> None:
+        """Move a running task into the cancel-grace window.
+
+        Caller must hold ``self._lock``. The WS cancel monitor is responsible
+        for pushing ``task.cancel`` to the worker.
+        """
+        grace = self._config.cancel_grace_seconds
+        task.status = "cancelling"
+        task.summary = reason
+        task.claim_expires_at = now + grace
+        task.first_progress_deadline_at = None
+        await self._persist_task(task)
+        await self._emit_progress(task, f"cancel requested: {reason}")
+
     def _task_from_spec(
         self, spec: TaskSpec, master_session_id: str, allow_redispatch: bool
     ) -> Task:
@@ -547,13 +569,20 @@ class TaskRouter:
 
     def _existing_result(self, task: Task) -> dict:
         return {
+            "task_id": task.task_id,
             "status": task.status,
             "summary": task.summary,
+            "result_text": task.result_json,
             "error": task.error,
+            "worker_id": task.worker_id,
             "attempt": task.attempt,
             "max_attempts": task.max_attempts,
-            "worker_id": task.worker_id,
+            "batch_id": task.batch_id,
+            "latest_checkpoint_id": task.resume_from_checkpoint,
+            "started_at": task.started_at,
             "completed_at": task.completed_at,
+            "fields_json": task.fields_json,
+            "usage_json": task.usage_json,
         }
 
     async def _get_task_or_raise(self, task_id: str) -> Task:

@@ -618,3 +618,62 @@ async def test_task_cancel_pushed_to_worker(hub_ws_url, worker_jwt, router):
         )
         ack = await recv_ok(ws, "cancel.ack")
         assert ack["acknowledged"] is True
+
+
+@pytest.mark.asyncio
+async def test_task_cancel_pushed_only_once_per_session(hub_ws_url, worker_jwt, router):
+    await router.dispatch_task(spec(task_id="t1", goal="g"), "m1")
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(announce_msg())
+        await recv_ok(ws, "worker.announce_ok")
+        await ws.send(poll_msg())
+        result = await recv_ok(ws, "worker.poll_result")
+        task_id = result["tasks"][0]["task_id"]
+
+        await router.on_cancel(task_id, reason="test cancel")
+
+        params = await asyncio.wait_for(
+            recv_notification(ws, "task.cancel"),
+            timeout=2.0,
+        )
+        assert params["task_id"] == task_id
+
+        # Wait for the monitor to iterate again; it must not re-notify.
+        await asyncio.sleep(1.2)
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                recv_notification(ws, "task.cancel"),
+                timeout=0.3,
+            )
+
+
+@pytest.mark.asyncio
+async def test_execution_timeout_pushes_cancel_to_worker(hub_ws_url, worker_jwt, router):
+    # Task-level short timeout so the lease expires quickly.
+    await router.dispatch_task(
+        spec(task_id="t1", goal="g", timeout_seconds=1, first_progress_seconds=10),
+        "m1",
+    )
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(announce_msg())
+        await recv_ok(ws, "worker.announce_ok")
+        await ws.send(poll_msg())
+        result = await recv_ok(ws, "worker.poll_result")
+        task_id = result["tasks"][0]["task_id"]
+
+        await asyncio.sleep(1.1)
+        await router.tick_timeouts()
+        assert (await router.get_status(task_id)) == "cancelling"
+
+        params = await asyncio.wait_for(
+            recv_notification(ws, "task.cancel"),
+            timeout=2.0,
+        )
+        assert params["task_id"] == task_id
+        assert "timeout" in params["reason"].lower()

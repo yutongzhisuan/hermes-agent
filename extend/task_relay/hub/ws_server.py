@@ -210,6 +210,7 @@ class WsServerSession:
         self._closed = False
         self._close_after_response = False
         self._cancel_monitor_task: asyncio.Task | None = None
+        self._notified_cancelling: set[str] = set()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -667,10 +668,14 @@ class WsServerSession:
                     (self.worker_id,),
                 )
                 for row in await cursor.fetchall():
+                    task_id = row["task_id"]
+                    if task_id in self._notified_cancelling:
+                        continue
+                    self._notified_cancelling.add(task_id)
                     await self.send_notification(
                         "task.cancel",
                         {
-                            "task_id": row["task_id"],
+                            "task_id": task_id,
                             "reason": row["summary"] or "cancel requested",
                             "hard_deadline_at": row["claim_expires_at"],
                         },
