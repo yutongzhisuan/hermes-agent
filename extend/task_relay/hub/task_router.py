@@ -24,6 +24,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
+from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
@@ -486,14 +487,14 @@ class TaskRouter:
                 return
             if task.claim_expires_at is not None and now >= task.claim_expires_at:
                 # Give the worker a cancel-grace window to settle before failing.
-                await self._enter_cancelling(task, now, "timeout")
+                await self._enter_cancelling(task, now, CANCEL_REASON_TIMEOUT)
                 return
             return
 
         if task.status == "cancelling":
             if task.claim_expires_at is not None and now >= task.claim_expires_at:
                 # Timeout-induced cancelling must eventually settle as failed.
-                if task.cancel_reason == "timeout":
+                if task.cancel_reason == CANCEL_REASON_TIMEOUT:
                     await self._settle_failed(task, now, "execution/lease timeout")
                 else:
                     await self._settle_cancelled(task, now)

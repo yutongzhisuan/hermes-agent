@@ -8,9 +8,9 @@ Cancel semantics:
 - A normal ``task.cancel`` calls ``agent.interrupt()`` and, once the agent
   returns, settles the task as ``cancelled`` while salvaging any partial
   ``final_response`` as the summary.
-- A timeout cancel (``task.cancel`` with ``reason`` containing ``timeout``)
-  still interrupts the agent, but the worker settles ``failed`` if it still
-  owns settlement. The Hub will mark ``failed`` otherwise.
+- A timeout cancel (``task.cancel`` with ``reason`` equal to
+  ``CANCEL_REASON_TIMEOUT``) still interrupts the agent, but the worker settles
+  ``failed`` if it still owns settlement. The Hub will mark ``failed`` otherwise.
 
 M1 scope: no L2 resume; cancelled tasks are settled immediately.
 """
@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Any
 
+from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.worker.task_executor import (
     OnCheckpoint,
     OnProgress,
@@ -201,7 +202,7 @@ class AcpTaskBackend(TaskBackend):
         reason = getattr(cancel_event, "reason", None)
 
         # Timeout attribution: a Hub timeout cancel must settle as failed.
-        if cancelled and reason and "timeout" in reason.lower():
+        if cancelled and reason == CANCEL_REASON_TIMEOUT:
             return TaskCompletePayload(
                 status="failed",
                 summary="execution timeout",

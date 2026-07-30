@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock
 import jwt as pyjwt
 import pytest
 
+from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.worker.backends.acp_backend import AcpTaskBackend
 from extend.task_relay.worker.task_executor import (
     TaskBackend,
@@ -168,8 +169,8 @@ async def test_cancel_during_tool_settles_cancelled():
 
 
 @pytest.mark.asyncio
-async def test_execution_timeout_attribution_is_failed():
-    """A cancel pushed with reason ``timeout`` settles as failed, not cancelled."""
+async def test_execution_timeout_marker_settles_failed():
+    """A cancel pushed with the dedicated timeout marker settles as failed."""
     manager = FakeSessionManager(block_until_interrupt=True)
     backend = AcpTaskBackend(
         session_manager=manager, progress_interval_seconds=0.0
@@ -181,7 +182,7 @@ async def test_execution_timeout_attribution_is_failed():
 
     async def _delayed_timeout() -> None:
         await asyncio.sleep(0.05)
-        cancel_event.set(reason="timeout")
+        cancel_event.set(reason=CANCEL_REASON_TIMEOUT)
 
     timeout_task = asyncio.create_task(_delayed_timeout())
     result = await backend.run(run, on_progress, on_checkpoint, cancel_event)
@@ -192,6 +193,30 @@ async def test_execution_timeout_attribution_is_failed():
     assert "timeout" in result.summary.lower()
     assert manager.sessions[0].agent.interrupted is True
     assert manager.sessions[0].cancel_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_cancel_reason_containing_timeout_is_not_failed():
+    """A master cancel whose reason contains 'timeout' must still settle cancelled."""
+    manager = FakeSessionManager(block_until_interrupt=True)
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0
+    )
+    run = _run_payload()
+    cancel_event = TaskCancelEvent()
+    on_progress = AsyncMock()
+    on_checkpoint = AsyncMock()
+
+    async def _delayed_cancel() -> None:
+        await asyncio.sleep(0.05)
+        cancel_event.set(reason="user requested timeout")
+
+    cancel_task = asyncio.create_task(_delayed_cancel())
+    result = await backend.run(run, on_progress, on_checkpoint, cancel_event)
+    await cancel_task
+
+    assert result.status == "cancelled"
+    assert manager.sessions[0].agent.interrupted is True
 
 
 @pytest.mark.asyncio

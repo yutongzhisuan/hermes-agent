@@ -10,6 +10,7 @@ import time
 import pytest
 import pytest_asyncio
 
+from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
@@ -374,8 +375,8 @@ async def test_execution_lease_timeout_enters_cancelling_with_timeout_reason(
     await router.tick_timeouts()
     task = await db.get_task("t1")
     assert task.status == "cancelling"
-    assert task.cancel_reason == "timeout"
-    assert task.summary == "timeout"
+    assert task.cancel_reason == CANCEL_REASON_TIMEOUT
+    assert task.summary == CANCEL_REASON_TIMEOUT
 
 
 @pytest.mark.asyncio

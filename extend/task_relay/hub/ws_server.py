@@ -27,6 +27,7 @@ logger = logging.getLogger("task_relay.hub.ws")
 from websockets.asyncio.server import Response, ServerConnection, serve
 from websockets.datastructures import Headers
 
+from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.hub.auth import Auth, AuthError, WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
@@ -178,12 +179,20 @@ class WsHubServer:
         )
 
     async def push_cancel(self, task_id: str, reason: str, hard_deadline_at: float) -> None:
-        """Best-effort push of a ``task.cancel`` frame to the worker that owns it."""
+        """Best-effort push of a ``task.cancel`` frame to the worker that owns it.
+
+        Looks up the worker's active ``online_session_id`` and sends only to the
+        matching session, so a stale connection cannot receive cancel frames
+        intended for the current one.
+        """
         task = await self.db.get_task(task_id)
         if task is None or task.worker_id is None:
             return
+        worker = await self.registry.get_worker(task.worker_id)
+        if worker is None or worker.online_session_id is None:
+            return
         for session in list(self._sessions):
-            if session.worker_id == task.worker_id:
+            if session.session_id == worker.online_session_id:
                 await session.send_notification(
                     "task.cancel",
                     {
@@ -661,6 +670,10 @@ class WsServerSession:
                 await asyncio.sleep(1)
                 if self.worker_id is None:
                     continue
+                if not await self._is_current_session_for_worker():
+                    # This session was superseded; stop monitoring so a stale
+                    # connection cannot push cancels to the wrong socket.
+                    break
                 cursor = await self.hub.db._conn.execute(
                     "SELECT task_id, cancel_reason, claim_expires_at FROM tasks"
                     " WHERE worker_id = ? AND status = 'cancelling'",

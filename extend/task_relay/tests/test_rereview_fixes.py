@@ -11,6 +11,7 @@ import time
 import pytest
 import pytest_asyncio
 
+from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
@@ -89,8 +90,8 @@ async def test_execution_timeout_sets_cancel_reason_timeout(router, registry, db
     await router.tick_timeouts()
     task = await db.get_task("t1")
     assert task.status == "cancelling"
-    assert task.cancel_reason == "timeout"
-    assert task.summary == "timeout"
+    assert task.cancel_reason == CANCEL_REASON_TIMEOUT
+    assert task.summary == CANCEL_REASON_TIMEOUT
 
 
 @pytest.mark.asyncio
@@ -102,12 +103,12 @@ async def test_master_cancel_during_timeout_cancelling_settles_cancelled(
     await router.atomic_claim_for_poll("w1", max_tasks=1)
     await router.on_progress("t1", "still alive")
 
-    # Lease timeout enters cancelling with reason "timeout".
+    # Lease timeout enters cancelling with the dedicated timeout marker.
     await asyncio.sleep(2.1)
     await router.tick_timeouts()
     task = await db.get_task("t1")
     assert task.status == "cancelling"
-    assert task.cancel_reason == "timeout"
+    assert task.cancel_reason == CANCEL_REASON_TIMEOUT
 
     # Master cancels before the grace window expires; attribution must flip.
     await router.on_cancel("t1", reason="user requested")
