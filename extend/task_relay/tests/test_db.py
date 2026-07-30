@@ -89,7 +89,7 @@ async def test_upsert_and_get_worker(db):
     assert got is not None
     assert got.worker_id == "w1"
     assert got.status == "idle"
-    assert got.session_modes == "a"
+    assert got.session_modes == "A"
 
     # Upsert updates in place.
     worker.status = "busy"

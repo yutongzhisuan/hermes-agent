@@ -37,6 +37,14 @@ JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
 JSONRPC_DOMAIN_ERROR = -32000
 
+_RESULT_METHOD_LABELS = {
+    "worker.announce": "worker.announce_ok",
+    "worker.poll": "worker.poll_result",
+    "worker.heartbeat": "worker.heartbeat_ok",
+    "worker.drain": "worker.drain_ok",
+    "task.checkpoint": "checkpoint.ack",
+}
+
 DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000
 DEFAULT_POLL_MAX_WAIT_MS = 60_000
 DEFAULT_TWO_STEP_CLAIM_TIMEOUT_S = 30
@@ -196,6 +204,7 @@ class WsServerSession:
         self.connection = connection
         self.claims = claims
         self.worker_id: str | None = None
+        self.session_id: str | None = None
         self.announced = False
         self.draining = False
         self._closed = False
@@ -230,18 +239,29 @@ class WsServerSession:
                     pass
             await self._set_worker_offline_if_still_owned()
 
+    async def _is_current_session_for_worker(self) -> bool:
+        """Return True if this session is still the active session for the worker."""
+        if self.worker_id is None or self.session_id is None:
+            return False
+        worker = await self.hub.registry.get_worker(self.worker_id)
+        return worker is not None and worker.online_session_id == self.session_id
+
     async def _set_worker_offline_if_still_owned(self) -> None:
-        """Mark the worker offline when its WS drops without a graceful close."""
-        if self.worker_id is None:
+        """Mark the worker offline when its WS drops without a graceful close.
+
+        Only writes ``offline`` when this session is still the active session
+        for the worker. A newer session would have replaced
+        ``worker.online_session_id``, so leave the worker alone in that case.
+        """
+        if not await self._is_current_session_for_worker():
             return
         worker = await self.hub.registry.get_worker(self.worker_id)
         if worker is None:
             return
-        # Only mutate if this session was the last to announce. A newer session
-        # would have bumped last_announce_at, so leave it alone.
         if worker.status != "draining":
             worker.status = "offline"
-            await self.hub.db.upsert_worker(worker)
+        worker.online_session_id = None
+        await self.hub.db.upsert_worker(worker)
 
     async def _handle_raw(self, raw: str | bytes) -> None:
         """Parse and dispatch one JSON-RPC request."""
@@ -265,6 +285,12 @@ class WsServerSession:
 
         msg_id = payload.get("id")
         method = payload.get("method")
+        if not isinstance(method, str):
+            await self.send(
+                _jsonrpc_error(msg_id, JSONRPC_INVALID_REQUEST, "method must be a string")
+            )
+            return
+
         params = payload.get("params") or {}
         if not isinstance(params, dict):
             await self.send(_jsonrpc_error(msg_id, JSONRPC_INVALID_PARAMS, "params must be object"))
@@ -284,6 +310,8 @@ class WsServerSession:
         except Exception as exc:  # pragma: no cover - defensive
             await self.send(_jsonrpc_error(msg_id, JSONRPC_INTERNAL_ERROR, f"internal error: {exc}"))
         else:
+            result = dict(result) if result else {}
+            result["_method"] = _RESULT_METHOD_LABELS.get(method, method)
             await self.send(_jsonrpc_response(msg_id, result))
             if self._close_after_response:
                 await self.connection.close(code=1000, reason="worker.close")
@@ -310,11 +338,11 @@ class WsServerSession:
         if worker_id != self.claims.sub:
             raise WsServerError("worker_id does not match JWT sub", JSONRPC_INVALID_PARAMS)
 
-        session_modes = params.get("session_modes", ["a"])
+        session_modes = params.get("session_modes", ["A"])
         if isinstance(session_modes, str):
             session_modes = [session_modes]
-        modes_lower = [str(m).lower() for m in session_modes]
-        if "a" not in modes_lower:
+        modes_upper = [str(m).upper() for m in session_modes]
+        if "A" not in modes_upper:
             raise WsServerError("Mode A is mandatory for all workers", JSONRPC_INVALID_PARAMS)
 
         max_concurrent = int(params.get("max_concurrent", self.claims.max_concurrent))
@@ -326,9 +354,10 @@ class WsServerSession:
         if "toolsets" not in capabilities and toolsets:
             capabilities["toolsets"] = list(toolsets)
 
+        self.session_id = str(uuid.uuid4())
         await self.hub.registry.announce(
             worker_id,
-            session_modes="".join(modes_lower),
+            session_modes="".join(modes_upper),
             toolsets=toolsets,
             capabilities=capabilities or None,
             resources=params.get("resources"),
@@ -336,6 +365,7 @@ class WsServerSession:
             max_concurrent=max_concurrent,
             wake_url=params.get("wake_url"),
             status="idle",
+            online_session_id=self.session_id,
         )
 
         self.worker_id = worker_id
@@ -343,7 +373,7 @@ class WsServerSession:
         self._cancel_monitor_task = asyncio.create_task(self._cancel_monitor_loop())
 
         return {
-            "session_id": str(uuid.uuid4()),
+            "session_id": self.session_id,
             "heartbeat_interval_ms": DEFAULT_HEARTBEAT_INTERVAL_MS,
             "server_time": int(time.time() * 1000),
         }
@@ -555,10 +585,11 @@ class WsServerSession:
     async def _handle_worker_drain(self, params: dict) -> dict:
         """Set the worker to draining and return its running task ids."""
         self._require_announced()
-        worker = await self.hub.registry.get_worker(self.worker_id)
-        if worker is not None:
-            worker.status = "draining"
-            await self.hub.db.upsert_worker(worker)
+        if await self._is_current_session_for_worker():
+            worker = await self.hub.registry.get_worker(self.worker_id)
+            if worker is not None:
+                worker.status = "draining"
+                await self.hub.db.upsert_worker(worker)
         self.draining = True
         running_ids = await self._running_task_ids_for_worker()
         return {"running_task_ids": running_ids}
@@ -566,10 +597,12 @@ class WsServerSession:
     async def _handle_worker_close(self, params: dict) -> dict:
         """Graceful close: mark worker offline and end the session."""
         self._require_announced()
-        worker = await self.hub.registry.get_worker(self.worker_id)
-        if worker is not None:
-            worker.status = "offline"
-            await self.hub.db.upsert_worker(worker)
+        if await self._is_current_session_for_worker():
+            worker = await self.hub.registry.get_worker(self.worker_id)
+            if worker is not None:
+                worker.status = "offline"
+                worker.online_session_id = None
+                await self.hub.db.upsert_worker(worker)
         self._close_after_response = True
         return {}
 

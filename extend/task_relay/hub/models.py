@@ -86,7 +86,7 @@ class Batch:
 class Worker:
     worker_id: str
     wake_url: str | None = None
-    session_modes: str = "a"
+    session_modes: str = "A"
     capabilities_json: str | None = None
     resources_json: str | None = None
     load_json: str | None = None
@@ -96,6 +96,7 @@ class Worker:
     last_announce_at: float | None = None
     last_heartbeat_at: float | None = None
     status: str = "offline"  # offline | idle | busy | stale | draining
+    online_session_id: str | None = None
 
 
 @dataclass

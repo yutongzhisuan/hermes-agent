@@ -25,7 +25,7 @@ class WorkerRegistry:
         self,
         worker_id: str,
         *,
-        session_modes: str = "a",
+        session_modes: str = "A",
         toolsets: Iterable[str] = (),
         capabilities: dict | None = None,
         resources: dict | None = None,
@@ -33,6 +33,7 @@ class WorkerRegistry:
         max_concurrent: int = 1,
         wake_url: str | None = None,
         status: str = "idle",
+        online_session_id: str | None = None,
     ) -> Worker:
         """Register or refresh a worker.
 
@@ -53,6 +54,7 @@ class WorkerRegistry:
             last_announce_at=now,
             last_heartbeat_at=now,
             status=status,
+            online_session_id=online_session_id,
         )
         await self._db.upsert_worker(worker)
         return worker
@@ -71,7 +73,7 @@ class WorkerRegistry:
         return set(caps.get("toolsets") or [])
 
     def supports_mode(self, worker: Worker, mode: str) -> bool:
-        return mode.lower() in worker.session_modes.lower()
+        return mode.upper() in worker.session_modes.upper()
 
     def is_eligible_for_poll(
         self, worker: Worker, task: Task, claims: WorkerClaims | None = None

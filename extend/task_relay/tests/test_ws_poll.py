@@ -91,8 +91,19 @@ async def recv_ok(ws, expected_method: str | None = None) -> dict:
     assert payload.get("jsonrpc") == "2.0"
     assert "error" not in payload, f"unexpected error: {payload.get('error')}"
     if expected_method is not None:
-        assert payload["result"].get("_method") == expected_method or True
+        assert payload["result"].get("_method") == expected_method
     return payload["result"]
+
+
+async def recv_notification(ws, expected_method: str | None = None) -> dict:
+    raw = await ws.recv()
+    payload = json.loads(raw)
+    assert payload.get("jsonrpc") == "2.0"
+    assert "method" in payload
+    assert "id" not in payload, "expected notification, got response"
+    if expected_method is not None:
+        assert payload["method"] == expected_method
+    return payload["params"]
 
 
 async def recv_error(ws) -> dict:
@@ -217,7 +228,7 @@ async def test_accepts_valid_token(hub_ws_url, worker_jwt):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.announce_ok")
         assert "session_id" in result
         assert "heartbeat_interval_ms" in result
 
@@ -280,9 +291,9 @@ async def test_mode_a_poll_claims_task(hub_ws_url, worker_jwt, router):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg(session_modes=["a"], max_concurrent=1))
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg(max_wait_ms=500, max_tasks=1))
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.poll_result")
         assert result["offered"] is True
         assert result["tasks"][0]["claimed"] is True
         assert result["tasks"][0]["run"]["goal"] == "ping"
@@ -295,9 +306,9 @@ async def test_poll_returns_empty_when_no_work(hub_ws_url, worker_jwt):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg(max_wait_ms=100, max_tasks=1))
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.poll_result")
         assert result["offered"] is False
 
 
@@ -309,9 +320,9 @@ async def test_task_progress_extends_lease(hub_ws_url, worker_jwt, router, db):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg())
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.poll_result")
         task_id = result["tasks"][0]["task_id"]
 
         before = await db.get_task(task_id)
@@ -319,7 +330,7 @@ async def test_task_progress_extends_lease(hub_ws_url, worker_jwt, router, db):
         await ws.send(
             jsonrpc_request(3, "task.progress", {"task_id": task_id, "summary": "ok"})
         )
-        await recv_result(ws)
+        await recv_ok(ws, "task.progress")
         after = await db.get_task(task_id)
         assert after.first_progress_deadline_at is None
         assert after.claim_expires_at > before.claim_expires_at
@@ -333,9 +344,9 @@ async def test_task_complete_marks_terminal(hub_ws_url, worker_jwt, router):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg())
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.poll_result")
         task_id = result["tasks"][0]["task_id"]
 
         await ws.send(
@@ -345,7 +356,7 @@ async def test_task_complete_marks_terminal(hub_ws_url, worker_jwt, router):
                 {"task_id": task_id, "status": "completed", "summary": "done"},
             )
         )
-        await recv_result(ws)
+        await recv_ok(ws, "task.complete")
         assert (await router.get_status(task_id)) == "completed"
 
 
@@ -359,9 +370,9 @@ async def test_task_checkpoint_persists_l1_and_rejects_oversized_blob(
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg())
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.poll_result")
         task_id = result["tasks"][0]["task_id"]
 
         await ws.send(
@@ -393,7 +404,7 @@ async def test_task_checkpoint_persists_l1_and_rejects_oversized_blob(
                 },
             )
         )
-        ack = await recv_result(ws)
+        ack = await recv_ok(ws, "checkpoint.ack")
         assert ack["checkpoint_id"] == "ck1"
         assert ack["event_id"] is not None
 
@@ -408,11 +419,11 @@ async def test_worker_heartbeat(hub_ws_url, worker_jwt, registry):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         before = await registry.get_worker("w1")
         await asyncio.sleep(0.05)
         await ws.send(jsonrpc_request(2, "worker.heartbeat", {}))
-        await recv_result(ws)
+        await recv_ok(ws, "worker.heartbeat_ok")
         after = await registry.get_worker("w1")
         assert after.last_heartbeat_at > before.last_heartbeat_at
 
@@ -425,14 +436,14 @@ async def test_worker_drain(hub_ws_url, worker_jwt, router, registry):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg())
-        await recv_result(ws)
+        await recv_ok(ws, "worker.poll_result")
 
         await ws.send(
             jsonrpc_request(3, "worker.drain", {"reason": "deploy", "finish_running": True})
         )
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.drain_ok")
         assert "running_task_ids" in result
         assert "t1" in result["running_task_ids"]
 
@@ -447,9 +458,9 @@ async def test_worker_close_marks_offline(hub_ws_url, worker_jwt, registry):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(jsonrpc_request(2, "worker.close", {}))
-        await recv_result(ws)
+        await recv_ok(ws, "worker.close")
 
     worker = await registry.get_worker("w1")
     assert worker.status == "offline"
@@ -463,13 +474,147 @@ async def test_worker_nack_releases_task(hub_ws_url, worker_jwt, router):
         additional_headers={"Authorization": f"Bearer {worker_jwt}"},
     ) as ws:
         await ws.send(announce_msg())
-        await recv_ok(ws)
+        await recv_ok(ws, "worker.announce_ok")
         await ws.send(poll_msg())
-        result = await recv_result(ws)
+        result = await recv_ok(ws, "worker.poll_result")
         task_id = result["tasks"][0]["task_id"]
 
         await ws.send(
             jsonrpc_request(3, "worker.nack", {"task_id": task_id, "reason": "cannot run"})
         )
-        await recv_result(ws)
+        await recv_ok(ws, "worker.nack")
         assert (await router.get_status(task_id)) == "lost"
+
+
+
+# ---------------------------------------------------------------------------
+# JSON-RPC framing / error codes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_malformed_json_returns_parse_error(hub_ws_url, worker_jwt):
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send("{not valid json")
+        err = await recv_error(ws)
+        assert err["code"] == -32700
+
+
+@pytest.mark.asyncio
+async def test_unknown_method_returns_method_not_found(hub_ws_url, worker_jwt):
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(jsonrpc_request(1, "worker.nonexistent", {}))
+        err = await recv_error(ws)
+        assert err["code"] == -32601
+
+
+@pytest.mark.asyncio
+async def test_missing_method_field_returns_invalid_request(hub_ws_url, worker_jwt):
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(json.dumps({"jsonrpc": "2.0", "id": 1, "params": {}}))
+        err = await recv_error(ws)
+        assert err["code"] == -32600
+
+
+@pytest.mark.asyncio
+async def test_non_string_method_returns_invalid_request(hub_ws_url, worker_jwt):
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(json.dumps({"jsonrpc": "2.0", "id": 1, "method": 123, "params": {}}))
+        err = await recv_error(ws)
+        assert err["code"] == -32600
+
+
+# ---------------------------------------------------------------------------
+# Session mode casing and lifecycle race
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_announce_stores_session_modes_uppercase(hub_ws_url, worker_jwt, registry):
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(announce_msg(session_modes=["a"]))
+        await recv_ok(ws, "worker.announce_ok")
+
+    worker = await registry.get_worker("w1")
+    assert "A" in worker.session_modes
+    assert worker.session_modes == "A"
+
+
+@pytest.mark.asyncio
+async def test_disconnect_does_not_overwrite_newer_session(
+    hub_ws_url, worker_jwt, registry
+):
+    ws1 = await websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    )
+    await ws1.send(announce_msg())
+    result1 = await recv_ok(ws1, "worker.announce_ok")
+
+    ws2 = await websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    )
+    await ws2.send(announce_msg())
+    result2 = await recv_ok(ws2, "worker.announce_ok")
+    assert result1["session_id"] != result2["session_id"]
+
+    await ws1.close()
+    await asyncio.sleep(0.2)
+    worker = await registry.get_worker("w1")
+    assert worker.status == "idle"
+    assert worker.online_session_id == result2["session_id"]
+
+    await ws2.close()
+    await asyncio.sleep(0.2)
+    worker = await registry.get_worker("w1")
+    assert worker.status == "offline"
+
+
+# ---------------------------------------------------------------------------
+# Push delivery
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_task_cancel_pushed_to_worker(hub_ws_url, worker_jwt, router):
+    await router.dispatch_task(spec(task_id="t1", goal="g"), "m1")
+    async with websockets.connect(
+        hub_ws_url,
+        additional_headers={"Authorization": f"Bearer {worker_jwt}"},
+    ) as ws:
+        await ws.send(announce_msg())
+        await recv_ok(ws, "worker.announce_ok")
+        await ws.send(poll_msg())
+        result = await recv_ok(ws, "worker.poll_result")
+        task_id = result["tasks"][0]["task_id"]
+
+        await router.on_cancel(task_id, reason="test cancel")
+
+        params = await asyncio.wait_for(
+            recv_notification(ws, "task.cancel"),
+            timeout=2.0,
+        )
+        assert params["task_id"] == task_id
+        assert params["reason"]
+
+        await ws.send(
+            jsonrpc_request(4, "cancel.ack", {"task_id": task_id})
+        )
+        ack = await recv_ok(ws, "cancel.ack")
+        assert ack["acknowledged"] is True

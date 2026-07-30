@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS batches (
 CREATE TABLE IF NOT EXISTS workers (
     worker_id TEXT PRIMARY KEY,
     wake_url TEXT,
-    session_modes TEXT NOT NULL DEFAULT 'a',
+    session_modes TEXT NOT NULL DEFAULT 'A',
     capabilities_json TEXT,
     resources_json TEXT,
     load_json TEXT,
@@ -80,7 +80,8 @@ CREATE TABLE IF NOT EXISTS workers (
     running_tasks INTEGER DEFAULT 0,
     last_announce_at REAL,
     last_heartbeat_at REAL,
-    status TEXT DEFAULT 'offline'
+    status TEXT DEFAULT 'offline',
+    online_session_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS task_events (
