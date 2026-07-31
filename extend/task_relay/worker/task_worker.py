@@ -15,6 +15,11 @@ from typing import Any
 
 import jwt
 
+from extend.task_relay.worker.resource_probe import (
+    probe_capabilities,
+    probe_load,
+    probe_resources,
+)
 from extend.task_relay.worker.run_payload import run_payload_from_dict
 from extend.task_relay.worker.task_executor import (
     TaskBackend,
@@ -47,6 +52,9 @@ class TaskWorker:
         initial_backoff_seconds: float = 1.0,
         max_backoff_seconds: float = 30.0,
         session_modes: list[str] | None = None,
+        prefer_atomic_claim: bool = True,
+        probe_resources_enabled: bool = True,
+        toolsets: list[str] | None = None,
         ssl_context: ssl.SSLContext | None = None,
     ):
         self.worker_id = worker_id
@@ -61,6 +69,9 @@ class TaskWorker:
         self.poll_wait_ms = poll_wait_ms
         self.initial_backoff_seconds = initial_backoff_seconds
         self.max_backoff_seconds = max_backoff_seconds
+        self.prefer_atomic_claim = prefer_atomic_claim
+        self._probe_resources_enabled = probe_resources_enabled
+        self._toolsets = list(toolsets or [])
 
         requested = max(1, max_concurrent or 1)
         jwt_max = self._extract_jwt_max_concurrent(jwt)
@@ -119,6 +130,14 @@ class TaskWorker:
                 "session_modes": self.session_modes,
                 "max_concurrent": self.max_concurrent,
             }
+            if self._probe_resources_enabled:
+                announce_params["capabilities"] = probe_capabilities(self._toolsets)
+                announce_params["resources"] = probe_resources()
+                announce_params["load"] = probe_load(
+                    running_tasks=len(self._running_tasks)
+                )
+            elif self._toolsets:
+                announce_params["toolsets"] = self._toolsets
             if self._mode_c:
                 announce_params["credit"] = self._available_credit()
             if self._wake_url:
@@ -225,7 +244,7 @@ class TaskWorker:
                     {
                         "max_wait_ms": self.poll_wait_ms,
                         "max_tasks": free_slots,
-                        "prefer_atomic_claim": True,
+                        "prefer_atomic_claim": self.prefer_atomic_claim,
                     },
                 )
             except WsClientError as exc:
@@ -246,9 +265,65 @@ class TaskWorker:
                 continue
 
             backoff = self.initial_backoff_seconds
-            for task_info in result.get("tasks", []):
+            await self._handle_poll_tasks(result.get("tasks", []))
+
+    async def _handle_poll_tasks(self, tasks: list[dict[str, Any]]) -> None:
+        """Dispatch atomic claims or confirm two-step poll offers."""
+        for task_info in tasks:
+            if task_info.get("claimed", True):
                 run_payload = run_payload_from_dict(task_info.get("run", {}))
+                if run_payload.claim_token is None:
+                    token = task_info.get("claim_token")
+                    if token:
+                        run_payload = TaskRunPayload(
+                            task_id=run_payload.task_id,
+                            attempt=run_payload.attempt,
+                            goal=run_payload.goal,
+                            params=run_payload.params,
+                            context=run_payload.context,
+                            toolsets=run_payload.toolsets,
+                            timeout_seconds=run_payload.timeout_seconds,
+                            first_progress_seconds=run_payload.first_progress_seconds,
+                            trace_context=run_payload.trace_context,
+                            resume_from_checkpoint=run_payload.resume_from_checkpoint,
+                            resume_blob=run_payload.resume_blob,
+                            claim_token=str(token),
+                        )
                 await self._dispatch_run(run_payload)
+                continue
+
+            task_id = task_info.get("task_id")
+            claim_token = task_info.get("claim_token")
+            if not task_id or not claim_token:
+                logger.warning("ignoring malformed two-step offer: %s", task_info)
+                continue
+            try:
+                claim_result = await self._ws.request(
+                    "worker.claim",
+                    {"task_id": task_id, "claim_token": claim_token},
+                )
+            except WsClientError as exc:
+                logger.warning("two-step claim failed for %s: %s", task_id, exc)
+                continue
+            if not claim_result.get("claimed"):
+                continue
+            run_payload = run_payload_from_dict(claim_result.get("run", {}))
+            if run_payload.claim_token is None:
+                run_payload = TaskRunPayload(
+                    task_id=run_payload.task_id,
+                    attempt=run_payload.attempt,
+                    goal=run_payload.goal,
+                    params=run_payload.params,
+                    context=run_payload.context,
+                    toolsets=run_payload.toolsets,
+                    timeout_seconds=run_payload.timeout_seconds,
+                    first_progress_seconds=run_payload.first_progress_seconds,
+                    trace_context=run_payload.trace_context,
+                    resume_from_checkpoint=run_payload.resume_from_checkpoint,
+                    resume_blob=run_payload.resume_blob,
+                    claim_token=str(claim_token),
+                )
+            await self._dispatch_run(run_payload)
 
     async def _execute_one(
         self,
@@ -301,11 +376,16 @@ class TaskWorker:
             hard_deadline_at,
         )
         event = self._cancel_events.get(task_id)
+        in_flight_tool = event is not None and bool(self._running_tasks)
         if event is not None:
             event.set(reason)
-        # Acknowledge the cancel so the Hub knows the worker is aware.
+        ack_params: dict[str, Any] = {"task_id": task_id, "accepted": True}
+        if in_flight_tool:
+            ack_params["in_flight_tool"] = True
+        if hard_deadline_at is not None:
+            ack_params["will_settle_by"] = hard_deadline_at
         try:
-            await self._ws.request("cancel.ack", {"task_id": task_id})
+            await self._ws.request("cancel.ack", ack_params)
         except Exception:
             logger.exception("cancel.ack failed for %s", task_id)
 
@@ -366,7 +446,12 @@ class TaskWorker:
             if self._shutdown.is_set():
                 break
             try:
-                await self._ws.request("worker.heartbeat", {})
+                heartbeat_params: dict[str, Any] = {}
+                if self._probe_resources_enabled:
+                    heartbeat_params["load"] = probe_load(
+                        running_tasks=len(self._running_tasks)
+                    )
+                await self._ws.request("worker.heartbeat", heartbeat_params)
             except asyncio.CancelledError:
                 raise
             except Exception:

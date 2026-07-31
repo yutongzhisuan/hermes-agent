@@ -59,8 +59,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--backend",
         default="stub",
-        choices=["stub", "acp"],
+        choices=["stub", "acp", "remote-acp"],
         help="execution backend to use (default: stub)",
+    )
+    parser.add_argument(
+        "--prefer-atomic-claim",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="use atomic claim-on-poll (disable for two-step offers)",
+    )
+    parser.add_argument(
+        "--no-probe-resources",
+        action="store_true",
+        help="do not attach probed resources/load to worker.announce",
+    )
+    parser.add_argument(
+        "--remote-acp-url",
+        default="",
+        help="JSON-RPC endpoint URL for the remote-acp backend",
     )
     parser.add_argument(
         "--max-concurrent",
@@ -113,6 +129,15 @@ def _create_backend(args: argparse.Namespace):
         return AcpTaskBackend(
             progress_interval_seconds=args.acp_progress_interval_seconds
         )
+    if args.backend == "remote-acp":
+        from extend.task_relay.worker.backends.remote_acp_backend import (
+            RemoteAcpBackend,
+            RemoteAcpBackendConfig,
+        )
+
+        if not args.remote_acp_url:
+            raise ValueError("--remote-acp-url is required for remote-acp backend")
+        return RemoteAcpBackend(RemoteAcpBackendConfig(endpoint_url=args.remote_acp_url))
     raise ValueError(f"unknown backend: {args.backend}")
 
 
@@ -154,6 +179,8 @@ async def _async_main(argv: Sequence[str] | None) -> int:
         max_concurrent=args.max_concurrent,
         poll_wait_ms=args.poll_wait_ms,
         session_modes=session_modes,
+        prefer_atomic_claim=args.prefer_atomic_claim,
+        probe_resources_enabled=not args.no_probe_resources,
         ssl_context=ssl_context,
     )
     install_signal_handlers(worker)

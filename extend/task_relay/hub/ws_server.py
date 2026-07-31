@@ -645,7 +645,14 @@ class WsServerSession:
         if not task_id:
             raise WsServerError("task_id is required", JSONRPC_INVALID_PARAMS)
         await self._verify_task_owner(task_id)
-        return {"acknowledged": True}
+        response: dict[str, Any] = {"acknowledged": True}
+        if params.get("accepted") is not None:
+            response["accepted"] = bool(params.get("accepted"))
+        if params.get("in_flight_tool"):
+            response["in_flight_tool"] = True
+        if params.get("will_settle_by") is not None:
+            response["will_settle_by"] = params.get("will_settle_by")
+        return response
 
     async def _handle_worker_credit(self, params: dict) -> dict:
         """Refresh Mode C push credit and attempt to deliver pending tasks."""
@@ -727,6 +734,12 @@ class WsServerSession:
             now = time.time()
             worker.last_heartbeat_at = now
             worker.last_seen_at = now
+            load = params.get("load")
+            if isinstance(load, dict):
+                worker.load_json = json.dumps(load)
+            resources = params.get("resources")
+            if isinstance(resources, dict):
+                worker.resources_json = json.dumps(resources)
             if worker.status == "stale":
                 worker.status = "draining" if worker.drain_requested else "idle"
             await self.hub.db.upsert_worker(worker)

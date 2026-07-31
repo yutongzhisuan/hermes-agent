@@ -34,6 +34,13 @@ run_py() {
 
 run_python_conformance() {
   run_py "Python Mode A E2E" "test_e2e_mode_a.py"
+  run_py "TaskWorker two-step E2E" "test_e2e_two_step_worker.py"
+  run_py "Cancel during tool E2E" "test_e2e_cancel_during_tool.py"
+  run_py "Worker unit tests" "test_worker.py"
+  run_py "WS poll unit tests" "test_ws_poll.py"
+  run_py "Resource probe" "test_resource_probe.py"
+  run_py "Structured output" "test_structured_output.py"
+  run_py "Remote ACP backend" "test_remote_acp_backend.py"
   run_py "M2 Mode C push" "test_m2_mode_c.py"
   run_py "M2 wake" "test_m2_wake.py"
   run_py "M2 ContextRef" "test_m2_context_ref.py"
