@@ -74,6 +74,15 @@ class ClaimedTask:
 
 
 @dataclass(frozen=True)
+class OfferedTask:
+    task_id: str
+    claim_token: str
+    claim_expires_at: float
+    attempt: int
+    timeout_seconds: int
+
+
+@dataclass(frozen=True)
 class BatchDispatchResponse:
     batch_id: str
     callback_topic: str
@@ -246,6 +255,8 @@ class TaskRouter:
                 if len(claimed) >= max_tasks:
                     break
                 task = Task(**dict(row))
+                if self._has_active_offer(task, time.time()):
+                    continue
                 if not await self._is_claimable(task):
                     continue
                 if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
@@ -263,6 +274,109 @@ class TaskRouter:
 
         return claimed
 
+    async def offer_tasks_for_poll(
+        self,
+        worker_id: str,
+        max_tasks: int,
+        worker_claims: WorkerClaims | None = None,
+    ) -> list[OfferedTask]:
+        """Return metadata-only two-step offers without moving tasks to running."""
+        if max_tasks <= 0:
+            return []
+
+        offered: list[OfferedTask] = []
+        async with self._lock:
+            worker = await self._registry.get_worker(worker_id)
+            if worker is None:
+                return []
+            if not self._registry.supports_mode(worker, "a"):
+                return []
+            if worker.status in {"offline", "stale", "draining"}:
+                return []
+
+            capacity = max(0, worker.max_concurrent - worker.running_tasks)
+            if capacity <= 0:
+                return []
+            max_tasks = min(max_tasks, capacity)
+
+            cursor = await self._db._conn.execute(
+                "SELECT * FROM tasks WHERE status = 'pending'"
+                " ORDER BY priority DESC, created_at ASC"
+            )
+            rows = await cursor.fetchall()
+            now = time.time()
+
+            for row in rows:
+                if len(offered) >= max_tasks:
+                    break
+                task = Task(**dict(row))
+                if self._has_active_offer(task, now):
+                    continue
+                if not await self._is_claimable(task):
+                    continue
+                if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
+                    continue
+                offer = await self._offer_task(task)
+                if offer is not None:
+                    offered.append(offer)
+
+            worker.last_heartbeat_at = now
+            worker.last_seen_at = now
+            await self._db.upsert_worker(worker)
+
+        return offered
+
+    async def claim_offered_task(
+        self,
+        task_id: str,
+        worker_id: str,
+        claim_token: str,
+        worker_claims: WorkerClaims | None = None,
+    ) -> ClaimedTask | None:
+        """Confirm a two-step poll offer and move the task to running."""
+        async with self._lock:
+            worker = await self._registry.get_worker(worker_id)
+            if worker is None:
+                return None
+            if worker.status in {"offline", "stale", "draining"}:
+                return None
+            task = await self._db.get_task(task_id)
+            if task is None or task.status != "pending":
+                return None
+            if task.claim_token != claim_token:
+                return None
+            now = time.time()
+            if task.claim_expires_at is not None and now >= task.claim_expires_at:
+                return None
+            if not await self._is_claimable(task):
+                return None
+            if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
+                return None
+            claimed = await self._confirm_offered_claim(task, worker_id)
+            if claimed is None:
+                return None
+            worker.running_tasks += 1
+            worker.last_heartbeat_at = now
+            worker.last_seen_at = now
+            await self._db.upsert_worker(worker)
+            inc("relay_tasks_claimed_total")
+            return claimed
+
+    async def release_offer(self, task_id: str, claim_token: str | None = None) -> bool:
+        """Release a pending two-step offer back to the queue."""
+        async with self._lock:
+            task = await self._db.get_task(task_id)
+            if task is None or task.status != "pending":
+                return False
+            if claim_token is not None and task.claim_token != claim_token:
+                return False
+            if not task.claim_token:
+                return False
+            task.claim_token = None
+            task.claim_expires_at = None
+            await self._persist_task(task)
+            return True
+
     async def claim_task_for_worker(
         self,
         task_id: str,
@@ -278,6 +392,8 @@ class TaskRouter:
                 return None
             task = await self._db.get_task(task_id)
             if task is None or task.status != "pending":
+                return None
+            if self._has_active_offer(task, time.time()):
                 return None
             if not await self._is_claimable(task):
                 return None
@@ -584,8 +700,87 @@ class TaskRouter:
             claim_token=fresh.claim_token,
         )
 
+    async def _offer_task(self, task: Task) -> OfferedTask | None:
+        """Reserve a pending task with a short-lived claim token (two-step poll)."""
+        fresh = await self._db.get_task(task.task_id)
+        if fresh is None or fresh.status != "pending":
+            return None
+
+        now = time.time()
+        offer_seconds = self._config.poll_offer_seconds
+        token = str(uuid.uuid4())
+        timeout = self._effective_int(fresh.timeout_seconds, self._config.timeout_seconds)
+
+        fresh.claim_token = token
+        fresh.claim_expires_at = now + offer_seconds
+        await self._persist_task(fresh)
+        return OfferedTask(
+            task_id=fresh.task_id,
+            claim_token=token,
+            claim_expires_at=fresh.claim_expires_at,
+            attempt=fresh.attempt + 1,
+            timeout_seconds=timeout,
+        )
+
+    async def _confirm_offered_claim(
+        self, task: Task, worker_id: str
+    ) -> ClaimedTask | None:
+        """Move an offered pending task to running, preserving the offer token."""
+        fresh = await self._db.get_task(task.task_id)
+        if fresh is None or fresh.status != "pending":
+            return None
+
+        now = time.time()
+        first_progress = self._effective_int(
+            fresh.first_progress_seconds, self._config.first_progress_seconds
+        )
+        timeout = self._effective_int(fresh.timeout_seconds, self._config.timeout_seconds)
+        token = fresh.claim_token
+        if not token:
+            return None
+
+        fresh.status = "running"
+        fresh.worker_id = worker_id
+        fresh.attempt += 1
+        fresh.started_at = fresh.started_at or now
+        fresh.first_progress_deadline_at = now + first_progress
+        fresh.claim_expires_at = now + timeout
+
+        await self._persist_task(fresh)
+        await self._emit_status(fresh, "running")
+        await self._emit_progress(
+            fresh, f"claimed, starting {fresh.goal[:40]}"
+        )
+        return ClaimedTask(
+            task_id=fresh.task_id,
+            goal=fresh.goal,
+            params_json=fresh.params_json,
+            context_json=fresh.context_json,
+            toolsets_json=fresh.toolsets_json,
+            timeout_seconds=timeout,
+            callback_topic=fresh.callback_topic,
+            attempt=fresh.attempt,
+            claim_token=token,
+        )
+
+    def _has_active_offer(self, task: Task, now: float) -> bool:
+        return bool(
+            task.claim_token
+            and task.claim_expires_at is not None
+            and now < task.claim_expires_at
+            and task.status == "pending"
+        )
+
     async def _timeout_task(self, task: Task, now: float) -> None:
         if task.status == "pending":
+            if (
+                task.claim_token
+                and task.claim_expires_at is not None
+                and now >= task.claim_expires_at
+            ):
+                task.claim_token = None
+                task.claim_expires_at = None
+                await self._persist_task(task)
             if task.queue_deadline_at is not None and now >= task.queue_deadline_at:
                 await self._settle_lost(task, now, "queue timeout")
             return

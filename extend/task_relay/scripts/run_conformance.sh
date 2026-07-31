@@ -27,11 +27,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PY="PYTHONPATH=. uv run --extra task-relay pytest -o addopts="
-
 run_py() {
   echo "== $1 =="
-  $PY extend/task_relay/tests/$2 -q
+  PYTHONPATH=. uv run --extra task-relay pytest -o addopts= "extend/task_relay/tests/$2" -q
 }
 
 run_python_conformance() {
@@ -42,6 +40,11 @@ run_python_conformance() {
   run_py "M3 orchestration" "test_m3_orchestration.py"
   run_py "M3 signed ContextRef" "test_m3_context_ref_sign.py"
   run_py "M3 security (encrypt + audit)" "test_m3_security.py"
+  run_py "M3 two-step poll" "test_m3_two_step_poll.py"
+  run_py "M3 metrics" "test_m3_metrics.py"
+  run_py "M3 TLS" "test_m3_tls.py"
+  run_py "Cancel grace" "test_cancel.py"
+  run_py "Watch SlowConsumer" "test_event_bus.py"
   run_py "gRPC watch semantics" "test_grpc_watch.py"
 
   echo "== Go Master SDK E2E (Python Hub) =="

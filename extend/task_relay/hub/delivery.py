@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from extend.task_relay.hub.worker_registry import WorkerRegistry
     from extend.task_relay.hub.ws_server import WsHubServer
 
-from extend.task_relay.hub.resource_scheduler import sort_workers_by_load
+from extend.task_relay.hub.resource_scheduler import sort_workers_for_task
 
 logger = logging.getLogger("task_relay.hub.delivery")
 
@@ -54,7 +54,7 @@ class DeliveryCoordinator:
                 await self._wake.schedule_wake(task_id, task.target_worker)
             return
 
-        workers = sort_workers_by_load(await self._db.list_workers())
+        workers = sort_workers_for_task(task, await self._db.list_workers())
         for worker in workers:
             if await self._try_mode_c_push(task_id, worker.worker_id):
                 return

@@ -64,3 +64,39 @@ def worker_load_score(worker: Worker) -> float:
 def sort_workers_by_load(workers: list[Worker]) -> list[Worker]:
     """Return workers ordered by ascending load (least loaded first)."""
     return sorted(workers, key=worker_load_score)
+
+
+def parse_prefer_region(params_json: str | None) -> str | None:
+    """Return preferred region from task params (soft scheduling hint)."""
+    params = safe_json_loads(params_json) or {}
+    if not isinstance(params, dict):
+        return None
+    region = params.get("prefer_region") or params.get("region")
+    if not region:
+        return None
+    text = str(region).strip()
+    return text or None
+
+
+def worker_region(worker: Worker) -> str:
+    """Return the worker region from capabilities, or empty when unset."""
+    caps = safe_json_loads(worker.capabilities_json) or {}
+    if not isinstance(caps, dict):
+        return ""
+    return str(caps.get("region") or "").strip()
+
+
+def region_preference_rank(worker: Worker, prefer_region: str | None) -> int:
+    """Lower rank is preferred; non-matching regions sort after matching ones."""
+    if not prefer_region:
+        return 0
+    return 0 if worker_region(worker) == prefer_region else 1
+
+
+def sort_workers_for_task(task: Task, workers: list[Worker]) -> list[Worker]:
+    """Score workers: region preference (soft), then ascending load."""
+    prefer_region = parse_prefer_region(task.params_json)
+    return sorted(
+        workers,
+        key=lambda worker: (region_preference_rank(worker, prefer_region), worker_load_score(worker)),
+    )

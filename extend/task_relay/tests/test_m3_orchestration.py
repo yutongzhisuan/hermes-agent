@@ -11,6 +11,7 @@ from extend.task_relay.hub.bootstrap import wire_orchestration
 from extend.task_relay.hub.models import TaskSpec, Worker
 from extend.task_relay.hub.resource_scheduler import (
     sort_workers_by_load,
+    sort_workers_for_task,
     worker_load_score,
     worker_meets_resources,
 )
@@ -144,6 +145,29 @@ def test_sort_workers_by_load_prefers_idle_worker():
     assert worker_load_score(light) < worker_load_score(heavy)
     ordered = sort_workers_by_load([heavy, light])
     assert [worker.worker_id for worker in ordered] == ["light", "heavy"]
+
+
+def test_sort_workers_for_task_prefers_matching_region():
+    prefer = make_task_spec(
+        task_id="r1",
+        params_json=json.dumps({"prefer_region": "ap-southeast-1"}),
+    )
+    ap = Worker(
+        worker_id="ap",
+        max_concurrent=2,
+        running_tasks=1,
+        capabilities_json=json.dumps({"region": "ap-southeast-1"}),
+        load_json=json.dumps({"running_tasks": 1}),
+    )
+    us = Worker(
+        worker_id="us",
+        max_concurrent=2,
+        running_tasks=0,
+        capabilities_json=json.dumps({"region": "us-east-1"}),
+        load_json=json.dumps({"running_tasks": 0}),
+    )
+    ordered = sort_workers_for_task(prefer, [us, ap])
+    assert [worker.worker_id for worker in ordered] == ["ap", "us"]
 
 
 @pytest.mark.asyncio

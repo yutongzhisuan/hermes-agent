@@ -38,7 +38,10 @@ from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.json_util import safe_json_dict_loads
 from extend.task_relay.hub.metrics import inc
 from extend.task_relay.hub.models import Checkpoint, Task
-from extend.task_relay.hub.run_payload import build_run_payload as build_task_run_payload
+from extend.task_relay.hub.run_payload import (
+    build_preview_payload,
+    build_run_payload as build_task_run_payload,
+)
 from extend.task_relay.hub.task_router import TaskRouter, TaskRouterError
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
@@ -440,34 +443,52 @@ class WsServerSession:
         max_wait_ms = int(params.get("max_wait_ms", DEFAULT_POLL_MAX_WAIT_MS))
         max_tasks = int(params.get("max_tasks", 1))
         prefer_atomic_claim = params.get("prefer_atomic_claim", True)
-        if not prefer_atomic_claim:
-            # Two-step offers are optional in M1; atomic claim is the default.
-            raise WsServerError(
-                "two-step poll offers are not implemented in M1", JSONRPC_INVALID_PARAMS
-            )
         if max_tasks <= 0:
             raise WsServerError("max_tasks must be > 0", JSONRPC_INVALID_PARAMS)
 
         # Bound the long-poll wait to a sane maximum.
         wait_s = min(max_wait_ms / 1000.0, DEFAULT_POLL_MAX_WAIT_MS / 1000.0)
-        claimed = await self._wait_for_claims(wait_s, max_tasks)
-        if not claimed:
+        if prefer_atomic_claim:
+            claimed = await self._wait_for_claims(wait_s, max_tasks)
+            if not claimed:
+                return {"offered": False}
+
+            tasks_out = []
+            for claimed_task in claimed:
+                task = await self.hub.db.get_task(claimed_task.task_id)
+                run_payload = await self.hub.build_run_payload(claimed_task.task_id, claimed_task)
+                tasks_out.append(
+                    {
+                        "claimed": True,
+                        "task_id": claimed_task.task_id,
+                        "attempt": claimed_task.attempt,
+                        "claim_token": claimed_task.claim_token,
+                        "claim_expires_at": task.claim_expires_at if task else None,
+                        "run": run_payload,
+                    }
+                )
+            return {"offered": True, "tasks": tasks_out}
+
+        offered = await self._wait_for_offers(wait_s, max_tasks)
+        if not offered:
             return {"offered": False}
 
         tasks_out = []
-        for claimed_task in claimed:
-            task = await self.hub.db.get_task(claimed_task.task_id)
-            run_payload = await self.hub.build_run_payload(claimed_task.task_id, claimed_task)
+        for offered_task in offered:
+            task = await self.hub.db.get_task(offered_task.task_id)
+            if task is None:
+                continue
             tasks_out.append(
                 {
-                    "claimed": True,
-                    "task_id": claimed_task.task_id,
-                    "attempt": claimed_task.attempt,
-                    "claim_token": claimed_task.claim_token,
-                    "claim_expires_at": task.claim_expires_at if task else None,
-                    "run": run_payload,
+                    "claimed": False,
+                    "task_id": offered_task.task_id,
+                    "claim_token": offered_task.claim_token,
+                    "claim_expires_at": int(offered_task.claim_expires_at),
+                    "preview": build_preview_payload(task, offered_task),
                 }
             )
+        if not tasks_out:
+            return {"offered": False}
         return {"offered": True, "tasks": tasks_out}
 
     async def _wait_for_claims(self, wait_s: float, max_tasks: int) -> list:
@@ -479,6 +500,19 @@ class WsServerSession:
             )
             if claimed:
                 return claimed
+            if time.time() >= deadline:
+                return []
+            await asyncio.sleep(min(0.2, deadline - time.time()))
+
+    async def _wait_for_offers(self, wait_s: float, max_tasks: int) -> list:
+        """Short-poll for two-step offers without atomic claim."""
+        deadline = time.time() + wait_s
+        while True:
+            offered = await self.hub.router.offer_tasks_for_poll(
+                self.worker_id, max_tasks, self.claims
+            )
+            if offered:
+                return offered
             if time.time() >= deadline:
                 return []
             await asyncio.sleep(min(0.2, deadline - time.time()))
@@ -634,8 +668,23 @@ class WsServerSession:
         self._require_announced()
         task_id = params.get("task_id")
         wake_token = params.get("wake_token")
+        claim_token = params.get("claim_token")
         if not task_id:
             raise WsServerError("task_id is required", JSONRPC_INVALID_PARAMS)
+
+        if claim_token:
+            claimed = await self.hub.router.claim_offered_task(
+                task_id, self.worker_id, str(claim_token), self.claims
+            )
+            if claimed is None:
+                raise WsServerError("claim failed", JSONRPC_DOMAIN_ERROR)
+            run_payload = await self.hub.build_run_payload(task_id, claimed)
+            return {
+                "claimed": True,
+                "task_id": task_id,
+                "claim_token": claimed.claim_token,
+                "run": run_payload,
+            }
 
         task = await self.hub.db.get_task(task_id)
         if task is None or task.status != "pending":
@@ -648,12 +697,11 @@ class WsServerSession:
             ):
                 raise WsServerError("invalid wake_token", JSONRPC_DOMAIN_ERROR)
 
-        claimed_list = await self.hub.router.claim_task_for_worker(
+        claimed = await self.hub.router.claim_task_for_worker(
             task_id, self.worker_id, self.claims
         )
-        if claimed_list is None:
+        if claimed is None:
             raise WsServerError("claim failed", JSONRPC_DOMAIN_ERROR)
-        claimed = claimed_list
         run_payload = await self.hub.build_run_payload(task_id, claimed)
         return {"claimed": True, "task_id": task_id, "run": run_payload}
 
@@ -710,17 +758,22 @@ class WsServerSession:
         return {}
 
     async def _handle_worker_nack(self, params: dict) -> dict:
-        """Worker declines a two-step offer or a pushed task.
-
-        M1 uses atomic claim-on-poll, so a nack after receiving ``task.run`` is
-        treated as a graceful loss. The task is marked ``lost`` so the Master
-        can redispatch if configured.
-        """
+        """Worker declines a two-step offer or a pushed task."""
         self._require_announced()
         task_id = params.get("task_id")
         reason = params.get("reason", "worker nack")
+        claim_token = params.get("claim_token")
         if not task_id:
             raise WsServerError("task_id is required", JSONRPC_INVALID_PARAMS)
+
+        task = await self.hub.db.get_task(task_id)
+        if task is not None and task.status == "pending":
+            released = await self.hub.router.release_offer(
+                task_id, str(claim_token) if claim_token else None
+            )
+            if released:
+                return {"released": True}
+
         await self._verify_task_owner(task_id)
         await self.hub.router.on_complete(task_id, status="lost", summary=reason)
         return {"released": True}

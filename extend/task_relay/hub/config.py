@@ -46,6 +46,8 @@ class HubConfig:
     first_progress_seconds: int = 120
     # Hard per-task timeout once running.
     timeout_seconds: int = 600
+    # Two-step poll offer window before an unclaimed offer is released (seconds).
+    poll_offer_seconds: int = 30
     # Total dispatch attempts per task (1 = no redispatch by default).
     max_attempts: int = 1
     # Cancel pushed but worker has not settled -> Hub settles it itself.

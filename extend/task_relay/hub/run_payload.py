@@ -8,6 +8,8 @@ from typing import Any
 from extend.task_relay.hub.context_crypto import decrypt_context_json
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.json_util import safe_json_loads
+from extend.task_relay.hub.models import Task
+from extend.task_relay.hub.resource_scheduler import parse_min_resources
 
 
 async def build_run_payload(
@@ -47,3 +49,21 @@ async def build_run_payload(
     if latest is not None and latest.resume_blob:
         run["resume_blob"] = base64.b64encode(latest.resume_blob).decode("ascii")
     return run
+
+
+def build_preview_payload(task: Task, offered: Any) -> dict[str, Any]:
+    """Build metadata-only preview for optional two-step poll offers."""
+    min_resources = parse_min_resources(task.min_resources_json)
+    context_raw = task.context_json or ""
+    preview: dict[str, Any] = {
+        "goal_excerpt": task.goal[:80],
+        "toolsets": safe_json_loads(task.toolsets_json) or [],
+        "priority": task.priority or 0,
+        "attempt": offered.attempt,
+        "timeout_seconds": offered.timeout_seconds,
+        "context_bytes": len(context_raw.encode("utf-8")),
+        "has_resume_checkpoint": bool(task.resume_from_checkpoint),
+    }
+    if min_resources:
+        preview["min_resources"] = min_resources
+    return preview
