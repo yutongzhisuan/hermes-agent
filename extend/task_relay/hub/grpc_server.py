@@ -28,7 +28,7 @@ from extend.task_relay.hub.event_bus import (
     EventFilter,
     SlowConsumerError,
 )
-from extend.task_relay.hub.models import Task, TaskSpec, Worker
+from extend.task_relay.hub.models import Checkpoint, Task, TaskSpec, Worker
 from extend.task_relay.hub.task_router import (
     BatchDispatchResponse,
     DispatchTaskResponse,
@@ -182,7 +182,10 @@ class TaskRelayService(TaskRelayBase):
         task = await self._db.get_task(request.task_id)
         if task is None:
             raise GRPCError(Status.NOT_FOUND, f"task {request.task_id} not found")
-        await stream.send_message(_task_to_result_proto(task))
+        checkpoint = None
+        if request.include_latest_checkpoint:
+            checkpoint = await self._db.get_latest_checkpoint(request.task_id)
+        await stream.send_message(_task_to_result_proto(task, checkpoint=checkpoint))
 
     async def WatchTask(self, stream: Stream) -> None:
         request: pb.WatchTaskRequest = await stream.recv_message()
@@ -480,7 +483,11 @@ def _existing_result_to_proto(result: dict) -> pb.TaskResult:
     return proto
 
 
-def _task_to_result_proto(task: Task) -> pb.TaskResult:
+def _task_to_result_proto(
+    task: Task,
+    *,
+    checkpoint: Checkpoint | None = None,
+) -> pb.TaskResult:
     proto = pb.TaskResult(
         task_id=task.task_id,
         status=_STATUS_TO_PROTO.get(task.status, pb.TaskStatus.TASK_STATUS_UNSPECIFIED),
@@ -494,6 +501,14 @@ def _task_to_result_proto(task: Task) -> pb.TaskResult:
         latest_checkpoint_id=task.resume_from_checkpoint or "",
         schema_version=1,
     )
+    if checkpoint is not None:
+        proto.latest_checkpoint_id = checkpoint.checkpoint_id
+        if checkpoint.summary and not proto.summary:
+            proto.summary = checkpoint.summary
+        if checkpoint.fields_json:
+            fields_dict = _safe_json_loads(checkpoint.fields_json)
+            if isinstance(fields_dict, dict):
+                proto.fields.MergeFrom(_fields_from_dict(fields_dict))
     if task.started_at is not None:
         proto.started_at = _seconds_to_ms(task.started_at)
     if task.completed_at is not None:

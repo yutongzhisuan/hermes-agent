@@ -607,6 +607,7 @@ class TaskRouter:
             params_json=spec.params_json,
             context_json=spec.context_json,
             toolsets_json=spec.toolsets_json,
+            target_worker=spec.target_worker,
             timeout_seconds=timeout,
             queue_timeout_seconds=queue_timeout,
             first_progress_seconds=first_progress,
@@ -694,7 +695,7 @@ class TaskRouter:
         """Full row update; ``db.update_task_status`` only touches status."""
         fields = [
             "batch_id", "master_session_id", "goal", "params_json", "context_json",
-            "toolsets_json", "worker_id", "status", "result_json", "summary",
+            "toolsets_json", "target_worker", "worker_id", "status", "result_json", "summary",
             "cancel_reason", "fields_json", "usage_json", "error", "callback_topic", "allow_redispatch",
             "claim_token", "claim_expires_at", "first_progress_deadline_at",
             "queue_deadline_at", "attempt", "max_attempts", "priority",

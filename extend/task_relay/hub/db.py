@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     params_json TEXT,
     context_json TEXT,
     toolsets_json TEXT,
+    target_worker TEXT,
     worker_id TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     result_json TEXT,
@@ -415,6 +416,20 @@ async def _migrate(conn: aiosqlite.Connection) -> None:
             columns = {row[1] for row in rows}
             if "drain_requested" not in columns:
                 await conn.execute("ALTER TABLE workers ADD COLUMN drain_requested INTEGER DEFAULT 0")
+        else:
+            raise
+
+    try:
+        await conn.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS target_worker TEXT")
+    except aiosqlite.OperationalError as exc:
+        msg = str(exc).lower()
+        if "duplicate column name" in msg:
+            pass
+        elif "syntax error" in msg:
+            rows = await conn.execute_fetchall("PRAGMA table_info(tasks)")
+            columns = {row[1] for row in rows}
+            if "target_worker" not in columns:
+                await conn.execute("ALTER TABLE tasks ADD COLUMN target_worker TEXT")
         else:
             raise
     await conn.commit()

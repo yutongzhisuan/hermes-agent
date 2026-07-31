@@ -55,6 +55,7 @@ class Task:
     params_json: str | None = None
     context_json: str | None = None
     toolsets_json: str | None = None
+    target_worker: str | None = None
     worker_id: str | None = None
     status: str = "pending"
     result_json: str | None = None

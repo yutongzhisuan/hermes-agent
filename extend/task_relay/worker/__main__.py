@@ -9,17 +9,10 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from extend.task_relay.worker.jwt_manager import derive_token_url, ensure_worker_jwt
 from extend.task_relay.worker.task_worker import TaskWorker, install_signal_handlers
 
 logger = logging.getLogger("task_relay.worker")
-
-
-def _load_jwt(path: Path) -> str:
-    """Read a JWT or bootstrap token from disk, stripping whitespace."""
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError as exc:
-        raise RuntimeError(f"cannot read worker JWT file {path}: {exc}") from exc
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -38,7 +31,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--worker-jwt-file",
         required=True,
         type=Path,
-        help="path to a file containing the short-lived worker JWT",
+        help="path to cache the short-lived worker JWT",
+    )
+    parser.add_argument(
+        "--worker-bootstrap-file",
+        type=Path,
+        default=None,
+        help="optional path to a long-lived bootstrap credential",
+    )
+    parser.add_argument(
+        "--token-url",
+        default=None,
+        help="Hub worker token HTTP URL (default: derived from --relay-url)",
+    )
+    parser.add_argument(
+        "--hub-http-port",
+        type=int,
+        default=None,
+        help="Hub HTTP port when deriving --token-url from --relay-url",
     )
     parser.add_argument(
         "--session-modes",
@@ -106,7 +116,13 @@ async def _async_main(argv: Sequence[str] | None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    jwt = _load_jwt(args.worker_jwt_file)
+    jwt = await ensure_worker_jwt(
+        worker_id=args.worker_id,
+        jwt_file=args.worker_jwt_file,
+        token_url=args.token_url
+        or derive_token_url(args.relay_url, http_port=args.hub_http_port),
+        bootstrap_file=args.worker_bootstrap_file,
+    )
     backend = _create_backend(args)
 
     session_modes = [m.strip().lower() for m in args.session_modes.split(",") if m.strip()]

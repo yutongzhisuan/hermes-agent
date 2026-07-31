@@ -21,6 +21,7 @@ from extend.task_relay.hub.db import Database, open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
 from extend.task_relay.hub.task_router import TaskRouter
+from extend.task_relay.hub.token_server import serve_token_http
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 from extend.task_relay.hub.ws_server import serve_ws
 
@@ -109,9 +110,16 @@ async def run(
         ws_addrs = _format_sockets(ws_server.sockets, args.host)
         logger.info("WebSocket listening on %s", ", ".join(ws_addrs))
 
+        token_runner = await serve_token_http(
+            auth,
+            host=args.host,
+            port=args.http_port,
+        )
+
         await shutdown.wait()
 
         logger.info("closing servers")
+        await token_runner.cleanup()
         grpc_server.close()
         ws_server.close()
         await grpc_server.wait_closed()

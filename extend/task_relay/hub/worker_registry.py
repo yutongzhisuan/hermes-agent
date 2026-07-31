@@ -98,12 +98,16 @@ class WorkerRegistry:
         - Worker status is not ``offline``, ``stale``, or ``draining``.
         - Worker is not denied by ``task.deny_worker_ids``.
         - If ``task.allowed_worker_ids`` is non-empty, worker must be in it.
+        - If ``task.target_worker`` is set, only that worker may claim.
         - Worker's advertised toolsets, optionally further restricted by the
           worker JWT ``allowed_toolsets`` scope, are a superset of task toolsets.
         """
         if not self.supports_mode(worker, "a"):
             return False
         if worker.status in {"offline", "stale", "draining"}:
+            return False
+
+        if task.target_worker and worker.worker_id != task.target_worker:
             return False
 
         deny = _json_list(task.deny_worker_ids_json)

@@ -72,12 +72,14 @@ def spec(
     first_progress_seconds=None,
     priority=0,
     depends_on=None,
+    target_worker=None,
 ) -> TaskSpec:
     return TaskSpec(
         task_id=task_id,
         goal=goal,
         callback_topic=callback_topic,
         toolsets_json=json.dumps(toolsets) if toolsets is not None else None,
+        target_worker=target_worker,
         allowed_worker_ids_json=json.dumps(allowed_worker_ids)
         if allowed_worker_ids is not None
         else None,

@@ -134,6 +134,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="WebSocket worker port (default: 9000)",
     )
     parser.add_argument(
+        "--http-port",
+        type=int,
+        default=9001,
+        help="HTTP worker token port (default: 9001)",
+    )
+    parser.add_argument(
         "--db",
         default=_default_db_path(),
         help=f"SQLite database path (default: {_default_db_path()})",
