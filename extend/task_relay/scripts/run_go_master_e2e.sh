@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run Go Master SDK E2E against a live Python Hub + stub worker.
+# Run Go Master E2E: Phase 1 client + Phase 2 Eino tools against Python Hub.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -46,4 +46,4 @@ MASTER_JWT="$("$PYTHON" -c "import json,sys; print(json.loads(sys.argv[1])['mast
 export HUB_GRPC_ADDR MASTER_JWT
 
 cd "$ROOT/master/go"
-go test -tags=integration ./client/ -v -count=1
+go test -tags=integration ./client/ ./agent/ -v -count=1
