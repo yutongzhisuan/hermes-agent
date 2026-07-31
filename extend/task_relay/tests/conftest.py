@@ -11,7 +11,7 @@ from extend.task_relay.hub.config import BootstrapEntry, HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
-from extend.task_relay.hub.bootstrap import start_ws_server
+from extend.task_relay.hub.bootstrap import start_ws_server, wire_orchestration
 from extend.task_relay.hub.models import TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
@@ -98,7 +98,9 @@ async def router(db, bus, registry):
         list_tasks_default_limit=10,
         list_tasks_max_limit=50,
     )
-    return TaskRouter(db, bus, cfg, registry)
+    router = TaskRouter(db, bus, cfg, registry)
+    wire_orchestration(router, db, bus)
+    return router
 
 
 @pytest_asyncio.fixture

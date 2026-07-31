@@ -1,120 +1,29 @@
-"""SQLite store for the Task Relay Hub.
+"""Store for the Task Relay Hub (SQLite default, Postgres for HA).
 
-Schema is verbatim from the design spec §Persistence (portable types, so the
-same contract can be ported to Postgres behind this module later). The
-`task_events.event_id` AUTOINCREMENT column is the single globally-monotonic
-event sequence the WatchTask cursor semantics rely on.
+Schema is verbatim from the design spec §Persistence (portable types). The
+``task_events.event_id`` monotonic sequence is the single globally-monotonic
+event cursor the WatchTask semantics rely on.
 """
 
 import json
 import time
 from dataclasses import asdict, fields
+from typing import Any
 
 import aiosqlite
 
+from extend.task_relay.hub.db_conn import (
+    PostgresDbConn,
+    SqliteDbConn,
+    is_postgres_url,
+)
+from extend.task_relay.hub.db_schema import (
+    POSTGRES_MIGRATIONS,
+    SCHEMA_POSTGRES,
+    SCHEMA_SQLITE,
+)
+from extend.task_relay.hub.json_util import safe_json_loads
 from extend.task_relay.hub.models import Batch, Checkpoint, Task, TaskEvent, Worker
-
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS tasks (
-    task_id TEXT PRIMARY KEY,
-    batch_id TEXT,
-    master_session_id TEXT,
-    goal TEXT NOT NULL,
-    params_json TEXT,
-    context_json TEXT,
-    toolsets_json TEXT,
-    target_worker TEXT,
-    worker_id TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',
-    result_json TEXT,
-    summary TEXT,
-    cancel_reason TEXT,
-    fields_json TEXT,
-    usage_json TEXT,
-    error TEXT,
-    callback_topic TEXT NOT NULL,
-    allow_redispatch INTEGER DEFAULT 0,
-    claim_token TEXT,
-    claim_expires_at REAL,
-    first_progress_deadline_at REAL,
-    queue_deadline_at REAL,
-    attempt INTEGER DEFAULT 0,
-    max_attempts INTEGER DEFAULT 1,
-    priority INTEGER DEFAULT 0,
-    depends_on_json TEXT,
-    aggregate_key TEXT,
-    min_resources_json TEXT,
-    trace_context_json TEXT,
-    allowed_worker_ids_json TEXT,
-    deny_worker_ids_json TEXT,
-    resume_from_checkpoint TEXT,
-    timeout_seconds INTEGER,
-    queue_timeout_seconds INTEGER,
-    first_progress_seconds INTEGER,
-    created_at REAL NOT NULL,
-    started_at REAL,
-    completed_at REAL
-);
-
-CREATE INDEX IF NOT EXISTS idx_tasks_pending ON tasks(status, priority DESC, created_at);
-CREATE INDEX IF NOT EXISTS idx_tasks_batch ON tasks(batch_id, status);
-CREATE INDEX IF NOT EXISTS idx_tasks_aggregate ON tasks(batch_id, aggregate_key, status);
-
-CREATE TABLE IF NOT EXISTS batches (
-    batch_id TEXT PRIMARY KEY,
-    master_session_id TEXT,
-    callback_topic TEXT NOT NULL,
-    batch_spec_hash TEXT NOT NULL,
-    policy_json TEXT,
-    created_at REAL NOT NULL,
-    batch_deadline_at REAL
-);
-
-CREATE TABLE IF NOT EXISTS workers (
-    worker_id TEXT PRIMARY KEY,
-    wake_url TEXT,
-    session_modes TEXT NOT NULL DEFAULT 'A',
-    capabilities_json TEXT,
-    resources_json TEXT,
-    load_json TEXT,
-    max_concurrent INTEGER DEFAULT 1,
-    credit_available INTEGER DEFAULT 0,
-    running_tasks INTEGER DEFAULT 0,
-    last_announce_at REAL,
-    last_heartbeat_at REAL,
-    last_seen_at REAL,
-    status TEXT DEFAULT 'offline',
-    online_session_id TEXT,
-    drain_requested INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS task_events (
-    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    callback_topic TEXT NOT NULL,
-    task_id TEXT,
-    batch_id TEXT,
-    kind TEXT NOT NULL,
-    payload_json TEXT,
-    event_at REAL NOT NULL,
-    CHECK (kind = 'AGGREGATE' OR task_id IS NOT NULL)
-);
-
-CREATE INDEX IF NOT EXISTS idx_events_topic ON task_events(callback_topic, event_id);
-
-CREATE TABLE IF NOT EXISTS checkpoints (
-    checkpoint_id TEXT NOT NULL,
-    task_id TEXT NOT NULL,
-    event_id INTEGER NOT NULL,
-    checkpoint_at REAL NOT NULL,
-    summary TEXT,
-    fields_json TEXT,
-    resume_blob BLOB,
-    lease_until REAL,
-    PRIMARY KEY (task_id, checkpoint_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_checkpoints_task ON checkpoints(task_id, checkpoint_at DESC);
-"""
 
 
 def _insert_sql(table: str, model: type) -> str:
@@ -124,10 +33,14 @@ def _insert_sql(table: str, model: type) -> str:
 
 
 class Database:
-    """Async wrapper around an aiosqlite connection with the hub schema."""
+    """Async wrapper around a store connection with the hub schema."""
 
-    def __init__(self, conn: aiosqlite.Connection):
+    def __init__(self, conn: SqliteDbConn | PostgresDbConn):
         self._conn = conn
+
+    @property
+    def dialect(self) -> str:
+        return self._conn.dialect
 
     async def close(self) -> None:
         await self._conn.close()
@@ -147,10 +60,34 @@ class Database:
 
     async def list_tasks_by_batch(self, batch_id: str) -> list[Task]:
         cursor = await self._conn.execute(
-            "SELECT * FROM tasks WHERE batch_id = ? ORDER BY created_at, task_id",
+            "SELECT * FROM tasks WHERE batch_id = ? ORDER BY created_at ASC",
             (batch_id,),
         )
         return [Task(**dict(row)) for row in await cursor.fetchall()]
+
+    async def list_pending_tasks(self) -> list[Task]:
+        cursor = await self._conn.execute(
+            "SELECT * FROM tasks WHERE status = 'pending' ORDER BY created_at ASC"
+        )
+        return [Task(**dict(row)) for row in await cursor.fetchall()]
+
+    async def update_batch(self, batch: Batch) -> None:
+        await self._conn.execute(
+            "UPDATE batches SET batch_deadline_at = ?, policy_json = ? WHERE batch_id = ?",
+            (batch.batch_deadline_at, batch.policy_json, batch.batch_id),
+        )
+        await self._conn.commit()
+
+    async def aggregate_event_exists(self, batch_id: str, aggregate_key: str) -> bool:
+        cursor = await self._conn.execute(
+            "SELECT payload_json FROM task_events WHERE batch_id = ? AND kind = 'AGGREGATE'",
+            (batch_id,),
+        )
+        for row in await cursor.fetchall():
+            payload = safe_json_loads(row["payload_json"])
+            if isinstance(payload, dict) and payload.get("aggregate_key") == aggregate_key:
+                return True
+        return False
 
     async def list_tasks(
         self,
@@ -367,80 +304,85 @@ class Database:
         return Batch(**dict(row)) if row is not None else None
 
 
-async def _migrate(conn: aiosqlite.Connection) -> None:
-    """Apply additive schema migrations that ``CREATE TABLE IF NOT EXISTS`` skips.
+async def _migrate_sqlite(conn: SqliteDbConn) -> None:
+    """Apply additive schema migrations for SQLite."""
+    raw = conn._conn
 
-    Columns added after the initial schema (e.g. ``cancel_reason``) are added
-    with ``ALTER TABLE ... ADD COLUMN IF NOT EXISTS``. For older SQLite builds
-    that do not support ``IF NOT EXISTS`` on ``ALTER TABLE``, we fall back to
-    ``PRAGMA table_info`` and add the column only when missing.
-    """
-    try:
-        await conn.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS cancel_reason TEXT")
-    except aiosqlite.OperationalError as exc:
-        msg = str(exc).lower()
-        if "duplicate column name" in msg:
-            # Column already present (IF NOT EXISTS was ignored by older SQLite).
-            pass
-        elif "syntax error" in msg:
-            # Older SQLite without IF NOT EXISTS support for ALTER TABLE.
-            rows = await conn.execute_fetchall("PRAGMA table_info(tasks)")
+    async def _add_column_if_missing(
+        table: str, column: str, ddl: str, pragma_table: str | None = None
+    ) -> None:
+        try:
+            await raw.execute(ddl)
+        except aiosqlite.OperationalError as exc:
+            msg = str(exc).lower()
+            if "duplicate column name" in msg:
+                return
+            if "syntax error" not in msg:
+                raise
+            rows = await raw.execute_fetchall(f"PRAGMA table_info({pragma_table or table})")
             columns = {row[1] for row in rows}
-            if "cancel_reason" not in columns:
-                await conn.execute("ALTER TABLE tasks ADD COLUMN cancel_reason TEXT")
-        else:
-            raise
+            if column not in columns:
+                fallback = ddl.replace(" IF NOT EXISTS", "")
+                await raw.execute(fallback)
 
-    try:
-        await conn.execute("ALTER TABLE workers ADD COLUMN IF NOT EXISTS last_seen_at REAL")
-    except aiosqlite.OperationalError as exc:
-        msg = str(exc).lower()
-        if "duplicate column name" in msg:
-            pass
-        elif "syntax error" in msg:
-            rows = await conn.execute_fetchall("PRAGMA table_info(workers)")
-            columns = {row[1] for row in rows}
-            if "last_seen_at" not in columns:
-                await conn.execute("ALTER TABLE workers ADD COLUMN last_seen_at REAL")
-        else:
-            raise
+    await _add_column_if_missing(
+        "tasks",
+        "cancel_reason",
+        "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS cancel_reason TEXT",
+    )
+    await _add_column_if_missing(
+        "workers",
+        "last_seen_at",
+        "ALTER TABLE workers ADD COLUMN IF NOT EXISTS last_seen_at REAL",
+    )
+    await _add_column_if_missing(
+        "workers",
+        "drain_requested",
+        "ALTER TABLE workers ADD COLUMN IF NOT EXISTS drain_requested INTEGER DEFAULT 0",
+    )
+    await _add_column_if_missing(
+        "tasks",
+        "target_worker",
+        "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS target_worker TEXT",
+    )
+    await raw.commit()
 
-    try:
-        await conn.execute("ALTER TABLE workers ADD COLUMN IF NOT EXISTS drain_requested INTEGER DEFAULT 0")
-    except aiosqlite.OperationalError as exc:
-        msg = str(exc).lower()
-        if "duplicate column name" in msg:
-            pass
-        elif "syntax error" in msg:
-            rows = await conn.execute_fetchall("PRAGMA table_info(workers)")
-            columns = {row[1] for row in rows}
-            if "drain_requested" not in columns:
-                await conn.execute("ALTER TABLE workers ADD COLUMN drain_requested INTEGER DEFAULT 0")
-        else:
-            raise
 
-    try:
-        await conn.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS target_worker TEXT")
-    except aiosqlite.OperationalError as exc:
-        msg = str(exc).lower()
-        if "duplicate column name" in msg:
-            pass
-        elif "syntax error" in msg:
-            rows = await conn.execute_fetchall("PRAGMA table_info(tasks)")
-            columns = {row[1] for row in rows}
-            if "target_worker" not in columns:
-                await conn.execute("ALTER TABLE tasks ADD COLUMN target_worker TEXT")
-        else:
-            raise
+async def _migrate_postgres(conn: PostgresDbConn) -> None:
+    for statement in POSTGRES_MIGRATIONS:
+        await conn.execute(statement)
     await conn.commit()
 
 
-async def open_db(path: str) -> Database:
-    """Open (creating if needed) a hub database at `path` and apply the schema."""
-    conn = await aiosqlite.connect(path)
-    conn.row_factory = aiosqlite.Row
-    await conn.execute("PRAGMA foreign_keys = ON")
-    await conn.executescript(_SCHEMA)
-    await _migrate(conn)
+async def open_db(path_or_url: str) -> Database:
+    """Open a hub database (SQLite path or ``postgres://`` URL)."""
+    if is_postgres_url(path_or_url):
+        return await _open_postgres(path_or_url)
+    return await _open_sqlite(path_or_url)
+
+
+async def _open_sqlite(path: str) -> Database:
+    raw = await aiosqlite.connect(path)
+    raw.row_factory = aiosqlite.Row
+    await raw.execute("PRAGMA foreign_keys = ON")
+    conn = SqliteDbConn(raw)
+    await conn.executescript(SCHEMA_SQLITE)
+    await _migrate_sqlite(conn)
     await conn.commit()
+    return Database(conn)
+
+
+async def _open_postgres(url: str) -> Database:
+    try:
+        import asyncpg
+    except ImportError as exc:
+        raise RuntimeError(
+            "asyncpg is required for postgres:// URLs; install with "
+            "uv sync --extra task-relay"
+        ) from exc
+
+    raw: Any = await asyncpg.connect(url)
+    conn = PostgresDbConn(raw)
+    await conn.executescript(SCHEMA_POSTGRES)
+    await _migrate_postgres(conn)
     return Database(conn)

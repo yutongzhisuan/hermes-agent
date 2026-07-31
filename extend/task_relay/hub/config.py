@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from extend.task_relay.hub.tls import TlsConfig
+
 
 def _default_db_path() -> str:
     """Return the default SQLite DB path under the Hermes home directory.
@@ -142,7 +144,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--db",
         default=_default_db_path(),
-        help=f"SQLite database path (default: {_default_db_path()})",
+        help="SQLite path or postgres:// URL (default: SQLite under Hermes home)",
     )
     parser.add_argument(
         "--jwt-secret",
@@ -154,4 +156,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default="",
         help="JSON file path or inline JSON mapping bootstrap token to worker scope",
     )
+    parser.add_argument("--tls-cert", default="", help="TLS server certificate (PEM)")
+    parser.add_argument("--tls-key", default="", help="TLS server private key (PEM)")
+    parser.add_argument("--tls-ca", default="", help="TLS CA bundle for client verification")
+    parser.add_argument(
+        "--tls-require-client-cert",
+        action="store_true",
+        help="Require mTLS client certificates (requires --tls-ca)",
+    )
     return parser.parse_args(argv)
+
+
+def tls_config_from_args(args: argparse.Namespace) -> TlsConfig:
+    """Build :class:`TlsConfig` from parsed CLI arguments."""
+    return TlsConfig(
+        cert_file=args.tls_cert,
+        key_file=args.tls_key,
+        ca_file=args.tls_ca,
+        require_client_cert=args.tls_require_client_cert,
+    )

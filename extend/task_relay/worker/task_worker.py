@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+import ssl
 import traceback
 from typing import Any
 
@@ -46,11 +47,13 @@ class TaskWorker:
         initial_backoff_seconds: float = 1.0,
         max_backoff_seconds: float = 30.0,
         session_modes: list[str] | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ):
         self.worker_id = worker_id
         self.relay_url = relay_url
         self.jwt = jwt
         self.backend = backend
+        self._ssl_context = ssl_context
         self.session_modes = [str(m).lower() for m in (session_modes or ["a"])]
         self._mode_a = "a" in self.session_modes
         self._mode_c = "c" in self.session_modes
@@ -100,7 +103,7 @@ class TaskWorker:
 
     async def run(self) -> None:
         """Run the worker until ``_shutdown`` is set."""
-        self._ws = TaskWorkerWs(self.relay_url, self.jwt)
+        self._ws = TaskWorkerWs(self.relay_url, self.jwt, ssl_context=self._ssl_context)
         await self._ws.connect()
         try:
             if self._mode_b:

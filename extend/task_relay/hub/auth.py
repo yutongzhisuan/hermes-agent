@@ -7,8 +7,8 @@ M1 baseline per the design spec §Security:
 - Workers obtain their JWT by presenting a long-lived bootstrap credential
   (from ``HubConfig.bootstrap_tokens``) once, then refresh before ``exp``.
 
-mTLS is P3/M3 hardening for high-trust internal deployments — deliberately not
-built here; HS256 with a Hub-owned symmetric secret is the M1 baseline.
+Optional mTLS transport hardening lives in ``hub/tls.py`` (M3); JWT remains
+the application-layer auth baseline here.
 
 Worker JWT claim keys (exact, per spec):
 

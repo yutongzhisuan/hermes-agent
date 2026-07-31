@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 import time
 from typing import Any
 
@@ -92,12 +93,20 @@ async def serve_token_http(
     *,
     host: str = "127.0.0.1",
     port: int = 9001,
+    ssl_context: ssl.SSLContext | None = None,
 ) -> web.AppRunner:
     """Start the worker token HTTP server and return its runner."""
     app = create_token_app(auth)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, host, port)
+    site = web.TCPSite(runner, host, port, ssl_context=ssl_context)
     await site.start()
-    logger.info("worker token HTTP listening on http://%s:%d%s", host, port, TOKEN_PATH)
+    scheme = "https" if ssl_context is not None else "http"
+    logger.info(
+        "worker token HTTP listening on %s://%s:%d%s",
+        scheme,
+        host,
+        port,
+        TOKEN_PATH,
+    )
     return runner

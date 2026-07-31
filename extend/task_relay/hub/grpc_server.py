@@ -11,6 +11,7 @@ import base64
 import contextvars
 import json
 import logging
+import ssl
 import time
 from typing import Any, Callable
 
@@ -24,6 +25,7 @@ from extend.task_relay.hub.auth import Auth, AuthError
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.json_util import safe_json_loads
+from extend.task_relay.hub.resource_scheduler import worker_meets_resources
 from extend.task_relay.hub.event_bus import (
     CursorOutOfRangeError,
     EventFilter,
@@ -234,7 +236,9 @@ class TaskRelayService(TaskRelayBase):
             if require_toolsets and not require_toolsets.issubset(toolsets):
                 continue
             if request.HasField("require_resources"):
-                if not _worker_meets_resources(worker, request.require_resources):
+                if not worker_meets_resources(
+                    worker, _message_to_dict(request.require_resources)
+                ):
                     continue
             response.workers.append(_worker_to_proto(worker, toolsets, self._registry))
         await stream.send_message(response)
@@ -310,12 +314,13 @@ async def serve_grpc(
     *,
     host: str = "127.0.0.1",
     port: int = 0,
+    ssl: ssl.SSLContext | None = None,
 ) -> Server:
     """Start a gRPC server serving the Master-facing TaskRelay service."""
     service = TaskRelayService(router, auth, config, db, bus, registry)
     intercepted = MasterAuthInterceptor(auth).intercept_service(service)
     server = Server([intercepted])
-    await server.start(host, port)
+    await server.start(host, port, ssl=ssl)
     return server
 
 
@@ -575,6 +580,12 @@ async def _event_to_proto(
     )
     payload = safe_json_loads(event.payload_json) or {}
     attempt = payload.get("attempt", 0)
+    trace = payload.get("trace_context")
+    if isinstance(trace, dict):
+        proto.trace_context.trace_id = str(trace.get("trace_id") or "")
+        proto.trace_context.span_id = str(trace.get("span_id") or "")
+        proto.trace_context.parent_span_id = str(trace.get("parent_span_id") or "")
+        proto.trace_context.sampled = bool(trace.get("sampled"))
     if event.kind == "TERMINAL":
         if db is not None and event.task_id:
             task = await db.get_task(event.task_id)
@@ -624,6 +635,25 @@ async def _event_to_proto(
             fields_dict = safe_json_loads(fields_json)
             if isinstance(fields_dict, dict):
                 proto.checkpoint.fields.MergeFrom(_fields_from_dict(fields_dict))
+    elif event.kind == "AGGREGATE":
+        proto.aggregate.batch_id = payload.get("batch_id") or event.batch_id or ""
+        proto.aggregate.aggregate_key = payload.get("aggregate_key") or ""
+        proto.aggregate.task_ids.extend(payload.get("task_ids") or [])
+        for status_name, count in (payload.get("status_counts") or {}).items():
+            proto.aggregate.status_counts[str(status_name)] = int(count)
+        proto.aggregate.summary = payload.get("summary") or ""
+        for metric in payload.get("metrics") or []:
+            if isinstance(metric, dict):
+                proto.aggregate.metrics.append(
+                    pb.Metric(
+                        name=str(metric.get("name") or ""),
+                        value=float(metric.get("value") or 0),
+                        unit=str(metric.get("unit") or ""),
+                        description=str(metric.get("description") or ""),
+                        origin_task_id=str(metric.get("origin_task_id") or ""),
+                    )
+                )
+        proto.aggregate.schema_version = int(payload.get("schema_version") or 1)
     return proto
 
 
@@ -689,20 +719,6 @@ def _worker_load_from_dict(data: dict) -> pb.WorkerLoad:
         memory_percent=data.get("memory_percent", data.get("memory", 0.0)),
     )
 
-
-def _worker_meets_resources(worker: Worker, requirements: pb.ResourceRequirements) -> bool:
-    resources = safe_json_loads(worker.resources_json) or {}
-    if requirements.min_cpu_cores and resources.get("cpu_cores", resources.get("cpu", 0)) < requirements.min_cpu_cores:
-        return False
-    if requirements.min_memory_gb and resources.get("memory_gb", resources.get("memory", 0)) < requirements.min_memory_gb:
-        return False
-    if requirements.requires_gpu and resources.get("gpu_count", resources.get("gpu", 0)) < 1:
-        return False
-    if requirements.required_network_profiles:
-        worker_profiles = set(resources.get("network_profiles") or [resources.get("network_profile", "")])
-        if not set(requirements.required_network_profiles).issubset(worker_profiles):
-            return False
-    return True
 
 
 def _proto_status_to_str(status: pb.TaskStatus) -> str:

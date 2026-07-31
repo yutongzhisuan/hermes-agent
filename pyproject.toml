@@ -255,6 +255,7 @@ task-relay = [
   "protobuf==6.33.6",
   "grpcio-tools==1.76.0",
   "aiosqlite==0.22.1",
+  "asyncpg==0.31.0",
 ]
 # mistral: Voxtral STT + TTS. Pinned to an exact verified-clean version.
 # The `mistralai` PyPI project was quarantined 2026-05-12 after the malicious

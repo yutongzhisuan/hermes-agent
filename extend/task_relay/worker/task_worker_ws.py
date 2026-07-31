@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import ssl
 from typing import Any, Awaitable, Callable
 
 import websockets
@@ -34,9 +35,12 @@ class TaskWorkerWs:
         relay_url: str,
         jwt: str,
         notification_handlers: dict[str, Callable[[dict[str, Any]], Awaitable[None]]] | None = None,
+        *,
+        ssl_context: ssl.SSLContext | None = None,
     ):
         self.relay_url = relay_url
         self.jwt = jwt
+        self._ssl_context = ssl_context
         self._ws: websockets.WebSocketClientProtocol | None = None
         self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
         self._req_id = 0
@@ -47,10 +51,12 @@ class TaskWorkerWs:
     async def connect(self) -> None:
         """Open the WebSocket and start the receive loop."""
         logger.info("connecting to %s", self.relay_url)
-        self._ws = await websockets.connect(
-            self.relay_url,
-            additional_headers={"Authorization": f"Bearer {self.jwt}"},
-        )
+        connect_kwargs: dict[str, Any] = {
+            "additional_headers": {"Authorization": f"Bearer {self.jwt}"},
+        }
+        if self._ssl_context is not None:
+            connect_kwargs["ssl"] = self._ssl_context
+        self._ws = await websockets.connect(self.relay_url, **connect_kwargs)
         self._receiver_task = asyncio.create_task(self._receive_loop())
 
     async def close(self) -> None:

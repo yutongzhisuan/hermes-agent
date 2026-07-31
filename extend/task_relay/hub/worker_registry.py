@@ -13,6 +13,10 @@ from typing import Iterable
 from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.models import Task, Worker, _json_list
+from extend.task_relay.hub.resource_scheduler import (
+    parse_min_resources,
+    worker_meets_resources,
+)
 
 
 class WorkerRegistry:
@@ -126,5 +130,9 @@ class WorkerRegistry:
                 authorized_toolsets = worker_toolsets & set(claims.allowed_toolsets)
             if not set(task_toolsets).issubset(authorized_toolsets):
                 return False
+
+        requirements = parse_min_resources(task.min_resources_json)
+        if requirements and not worker_meets_resources(worker, requirements):
+            return False
 
         return True

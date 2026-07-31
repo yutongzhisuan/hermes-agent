@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Awaitable
 
 from extend.task_relay.hub.auth import Auth
+from extend.task_relay.hub.batch_orchestrator import BatchOrchestrator
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.delivery import DeliveryCoordinator
+from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.wake_scheduler import WakeScheduler
 from extend.task_relay.hub.worker_registry import WorkerRegistry
@@ -44,6 +46,13 @@ def wire_delivery(
     )
     delivery._wake = wake
     return DeliveryRuntime(delivery=delivery, wake=wake)
+
+
+def wire_orchestration(router: TaskRouter, db: Database, bus: EventBus) -> BatchOrchestrator:
+    """Attach M3 batch/DAG orchestrator to the router."""
+    orchestrator = BatchOrchestrator(router, db, bus)
+    router.set_orchestrator(orchestrator)
+    return orchestrator
 
 
 async def start_ws_server(

@@ -29,6 +29,8 @@ from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.event_bus import EventBus
+from extend.task_relay.hub.json_util import safe_json_loads
+from extend.task_relay.hub.metrics import inc
 from extend.task_relay.hub.models import Batch, Task, TaskSpec, Worker, _json_list
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
@@ -92,9 +94,13 @@ class TaskRouter:
         self._lock = asyncio.Lock()
         self._last_prune_at = 0.0
         self._delivery: Any | None = None
+        self._orchestrator: Any | None = None
 
     def set_delivery(self, delivery: Any) -> None:
         self._delivery = delivery
+
+    def set_orchestrator(self, orchestrator: Any) -> None:
+        self._orchestrator = orchestrator
 
     # ------------------------------------------------------------------
     # Public API
@@ -120,6 +126,8 @@ class TaskRouter:
             await self._db.insert_task(task)
             await self._emit_status(task, "pending")
             response = self._response_from_task(task, idempotent_hit=False)
+        if not response.idempotent_hit:
+            inc("relay_tasks_dispatched_total")
         if self._delivery is not None:
             await self._delivery.on_task_pending(spec.task_id)
         return response
@@ -138,7 +146,10 @@ class TaskRouter:
             raise TaskRouterError("batch_id is required")
 
         specs = list(specs)
-        self._check_dependency_cycles(specs)
+        if self._orchestrator is not None:
+            self._orchestrator.check_dependency_cycles(specs)
+        else:
+            self._check_dependency_cycles(specs)
 
         # Normalize specs so the batch hash is deterministic.
         for sp in specs:
@@ -170,9 +181,10 @@ class TaskRouter:
                     batch_id=batch_id,
                     callback_topic=callback_topic,
                     batch_spec_hash=batch_spec_hash,
-                    created_at=time.time(),
+                    created_at=(batch_created := time.time()),
                     master_session_id=master_session_id,
                     policy_json=policy_json,
+                    batch_deadline_at=self._batch_deadline_at(policy_json, batch_created),
                 )
             )
 
@@ -231,12 +243,15 @@ class TaskRouter:
                 if len(claimed) >= max_tasks:
                     break
                 task = Task(**dict(row))
+                if not await self._is_claimable(task):
+                    continue
                 if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
                     continue
                 claimed_task = await self._claim_task(task, worker_id)
                 if claimed_task is not None:
                     claimed.append(claimed_task)
                     worker.running_tasks += 1
+                    inc("relay_tasks_claimed_total")
 
             now = time.time()
             worker.last_heartbeat_at = now
@@ -261,6 +276,8 @@ class TaskRouter:
             task = await self._db.get_task(task_id)
             if task is None or task.status != "pending":
                 return None
+            if not await self._is_claimable(task):
+                return None
             if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
                 return None
             claimed = await self._claim_task(task, worker_id)
@@ -271,6 +288,7 @@ class TaskRouter:
             worker.last_heartbeat_at = now
             worker.last_seen_at = now
             await self._db.upsert_worker(worker)
+            inc("relay_tasks_claimed_total")
             return claimed
 
     async def on_progress(self, task_id: str, summary: str) -> None:
@@ -326,9 +344,31 @@ class TaskRouter:
             if was_active:
                 await self._release_task_slot(task.worker_id)
             response = self._response_from_task(task, idempotent_hit=False)
+        ready: list[str] = []
+        if self._orchestrator is not None:
+            ready = await self._orchestrator.on_task_terminal(task, status)
         if self._delivery is not None and was_active:
             await self._delivery.on_task_terminal(task_id, worker_id)
+        if self._delivery is not None:
+            for ready_id in ready:
+                await self._delivery.on_task_pending(ready_id)
         return response
+
+    async def cancel_as_dependency(
+        self, task_id: str, dep_id: str, dep_status: str
+    ) -> None:
+        """Cancel a pending task because a dependency ended non-completed."""
+        error = f"dependency {dep_id} ended {dep_status}"
+        async with self._lock:
+            task = await self._db.get_task(task_id)
+            if task is None or task.status != "pending":
+                return
+            task.status = "cancelled"
+            task.summary = error
+            task.error = error
+            task.completed_at = time.time()
+            await self._persist_task(task)
+            await self._emit_terminal(task, "cancelled", error, error)
 
     async def on_cancel(
         self, task_id: str, *, reason: str, grace_seconds: int | None = None
@@ -382,6 +422,8 @@ class TaskRouter:
                 worker = Worker(**dict(row))
                 worker.status = "stale"
                 await self._db.upsert_worker(worker)
+        if self._orchestrator is not None:
+            await self._orchestrator.enforce_batch_deadlines(now)
         if now - self._last_prune_at >= PRUNE_INTERVAL_SECONDS:
             await self.prune_old_data()
 
@@ -758,13 +800,33 @@ class TaskRouter:
         )
         await self._db._conn.commit()
 
+    async def _is_claimable(self, task: Task) -> bool:
+        if self._orchestrator is None:
+            return True
+        return await self._orchestrator.is_task_ready(task)
+
+    def _batch_deadline_at(self, policy_json: str | None, created_at: float) -> float | None:
+        if self._orchestrator is None:
+            return None
+        from extend.task_relay.hub.batch_orchestrator import BatchOrchestrator
+
+        return BatchOrchestrator.batch_deadline_from_policy(policy_json, created_at)
+
+    def _event_payload(self, task: Task, payload: dict) -> dict:
+        if task.trace_context_json:
+            payload = dict(payload)
+            parsed = safe_json_loads(task.trace_context_json)
+            if parsed is not None:
+                payload["trace_context"] = parsed
+        return payload
+
     async def _emit_status(self, task: Task, status: str) -> None:
         await self._bus.publish(
             callback_topic=task.callback_topic,
             task_id=task.task_id,
             batch_id=task.batch_id,
             kind="STATUS",
-            payload={"status": status, "attempt": task.attempt},
+            payload=self._event_payload(task, {"status": status, "attempt": task.attempt}),
         )
 
     async def _emit_progress(self, task: Task, summary: str) -> None:
@@ -773,7 +835,7 @@ class TaskRouter:
             task_id=task.task_id,
             batch_id=task.batch_id,
             kind="PROGRESS",
-            payload={"summary": summary, "attempt": task.attempt},
+            payload=self._event_payload(task, {"summary": summary, "attempt": task.attempt}),
         )
 
     async def _emit_terminal(
@@ -784,12 +846,15 @@ class TaskRouter:
             task_id=task.task_id,
             batch_id=task.batch_id,
             kind="TERMINAL",
-            payload={
-                "status": status,
-                "summary": summary,
-                "error": error,
-                "attempt": task.attempt,
-            },
+            payload=self._event_payload(
+                task,
+                {
+                    "status": status,
+                    "summary": summary,
+                    "error": error,
+                    "attempt": task.attempt,
+                },
+            ),
         )
 
     def _check_dependency_cycles(self, specs: list[TaskSpec]) -> None:

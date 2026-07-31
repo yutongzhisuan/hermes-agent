@@ -11,6 +11,7 @@ from typing import Sequence
 
 from extend.task_relay.worker.jwt_manager import derive_token_url, ensure_worker_jwt
 from extend.task_relay.worker.task_worker import TaskWorker, install_signal_handlers
+from extend.task_relay.worker.tls_client import build_client_ssl_context, client_tls_from_args
 
 logger = logging.getLogger("task_relay.worker")
 
@@ -90,6 +91,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default="INFO",
         help="logging level (default: INFO)",
     )
+    parser.add_argument("--tls-ca", default="", help="CA bundle to verify Hub TLS (PEM)")
+    parser.add_argument("--tls-cert", default="", help="client certificate for mTLS (PEM)")
+    parser.add_argument("--tls-key", default="", help="client private key for mTLS (PEM)")
+    parser.add_argument(
+        "--tls-skip-hostname-verify",
+        action="store_true",
+        help="skip TLS hostname verification (dev/test only)",
+    )
     return parser
 
 
@@ -116,12 +125,19 @@ async def _async_main(argv: Sequence[str] | None) -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
+    try:
+        ssl_context = build_client_ssl_context(client_tls_from_args(args))
+    except ValueError as exc:
+        logger.error("TLS configuration failed: %s", exc)
+        return 1
+
     jwt = await ensure_worker_jwt(
         worker_id=args.worker_id,
         jwt_file=args.worker_jwt_file,
         token_url=args.token_url
         or derive_token_url(args.relay_url, http_port=args.hub_http_port),
         bootstrap_file=args.worker_bootstrap_file,
+        ssl_context=ssl_context,
     )
     backend = _create_backend(args)
 
@@ -138,6 +154,7 @@ async def _async_main(argv: Sequence[str] | None) -> int:
         max_concurrent=args.max_concurrent,
         poll_wait_ms=args.poll_wait_ms,
         session_modes=session_modes,
+        ssl_context=ssl_context,
     )
     install_signal_handlers(worker)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 import time
 from pathlib import Path
 from typing import Any
@@ -39,10 +40,16 @@ def _jwt_exp(value: str) -> int | None:
     return int(exp) if exp is not None else None
 
 
-async def _post_token_request(token_url: str, payload: dict[str, Any]) -> tuple[str, int]:
+async def _post_token_request(
+    token_url: str,
+    payload: dict[str, Any],
+    *,
+    ssl_context: ssl.SSLContext | None = None,
+) -> tuple[str, int]:
     import aiohttp
 
-    async with aiohttp.ClientSession() as session:
+    connector = aiohttp.TCPConnector(ssl=ssl_context) if ssl_context is not None else None
+    async with aiohttp.ClientSession(connector=connector) as session:
         async with session.post(token_url, json=payload) as resp:
             body = await resp.json(content_type=None)
             if resp.status >= 400:
@@ -61,6 +68,7 @@ async def ensure_worker_jwt(
     jwt_file: Path,
     token_url: str,
     bootstrap_file: Path | None = None,
+    ssl_context: ssl.SSLContext | None = None,
 ) -> str:
     """Return a valid worker JWT, exchanging or refreshing as needed."""
     cached = _read_cached(jwt_file)
@@ -72,7 +80,9 @@ async def ensure_worker_jwt(
         if exp - time.time() > REFRESH_BUFFER_SECONDS:
             return cached
         try:
-            token, _ = await _post_token_request(token_url, {"worker_jwt": cached})
+            token, _ = await _post_token_request(
+                token_url, {"worker_jwt": cached}, ssl_context=ssl_context
+            )
             _write_jwt(jwt_file, token)
             logger.info("refreshed worker JWT for %s", worker_id)
             return token
@@ -94,6 +104,7 @@ async def ensure_worker_jwt(
     token, _ = await _post_token_request(
         token_url,
         {"bootstrap_token": bootstrap_token, "worker_id": worker_id},
+        ssl_context=ssl_context,
     )
     _write_jwt(jwt_file, token)
     logger.info("exchanged bootstrap token for worker JWT (%s)", worker_id)
