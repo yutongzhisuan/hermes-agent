@@ -17,17 +17,17 @@ func TestDispatchTaskBatchIdempotent(t *testing.T) {
 		{TaskID: "b1-t2", Goal: "two", CallbackTopic: "batch-topic"},
 	}
 
-	first, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", specs)
+	first, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs)
 	if err != nil || first.IdempotentHit || len(first.Tasks) != 2 {
 		t.Fatalf("first batch: %+v err=%v", first, err)
 	}
 
-	second, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", specs)
+	second, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs)
 	if err != nil || !second.IdempotentHit || len(second.Tasks) != 2 {
 		t.Fatalf("second batch: %+v err=%v", second, err)
 	}
 
-	conflict, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", []router.TaskSpec{
+	conflict, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", []router.TaskSpec{
 		{TaskID: "b1-t1", Goal: "changed", CallbackTopic: "batch-topic"},
 	})
 	if err == nil {
@@ -39,7 +39,7 @@ func TestDispatchTaskBatchSetsBatchIDOnTasks(t *testing.T) {
 	mem := store.NewMemory()
 	r := router.NewRouter(mem, nil, router.DefaultRouterConfig())
 	ctx := context.Background()
-	_, err := r.DispatchTaskBatch(ctx, "batch-2", "topic", "", []router.TaskSpec{
+	_, err := r.DispatchTaskBatch(ctx, "batch-2", "topic", "", "sess", []router.TaskSpec{
 		{TaskID: "b2-t1", Goal: "goal"},
 	})
 	if err != nil {

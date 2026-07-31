@@ -4,15 +4,16 @@ import (
 	"context"
 
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/resources"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 // RunBuilder builds task.run payloads for worker delivery.
-type RunBuilder func(claimed router.ClaimedTask) map[string]any
+type RunBuilder func(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error)
 
 // Coordinator routes pending tasks to Mode C sessions (M2 subset).
 type Coordinator struct {
-	router  *router.Router
+	router   *router.Router
 	registry *registry.Registry
 	buildRun RunBuilder
 }
@@ -35,11 +36,25 @@ func (c *Coordinator) OnTaskPending(ctx context.Context, taskID string) {
 		c.tryPush(ctx, taskID, task.TargetWorker)
 		return
 	}
-	for _, worker := range c.registry.List(false) {
-		if c.tryPush(ctx, taskID, worker.WorkerID) {
+	workers := workerScheduleViews(c.registry.List(false))
+	ordered := resources.SortWorkerViews(task.ParamsJSON, workers)
+	for _, view := range ordered {
+		if c.tryPush(ctx, taskID, view.WorkerID) {
 			return
 		}
 	}
+}
+
+func workerScheduleViews(workers []registry.Worker) []resources.WorkerScheduleView {
+	views := make([]resources.WorkerScheduleView, 0, len(workers))
+	for i := range workers {
+		worker := workers[i]
+		views = append(views, resources.WorkerScheduleView{
+			WorkerID: worker.WorkerID, Region: worker.Region,
+			MaxConcurrent: worker.MaxConcurrent, RunningTasks: worker.RunningTasks, LoadJSON: worker.LoadJSON,
+		})
+	}
+	return views
 }
 
 // OnCreditGranted pushes pending tasks after credit refresh.
@@ -85,7 +100,11 @@ func (c *Coordinator) tryPush(ctx context.Context, taskID, workerID string) bool
 	if err != nil || claimed == nil {
 		return false
 	}
-	payload := c.buildRun(*claimed)
+	payload, err := c.buildRun(ctx, *claimed)
+	if err != nil {
+		_, _ = c.router.Complete(ctx, taskID, router.StatusLost, "Mode C payload build failed")
+		return false
+	}
 	if !c.registry.PushTaskRun(workerID, payload) {
 		_, _ = c.router.Complete(ctx, taskID, router.StatusLost, "Mode C push delivery failed")
 		return false

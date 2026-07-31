@@ -15,11 +15,11 @@ func TestDispatchTaskIdempotent(t *testing.T) {
 	ctx := context.Background()
 	spec := router.TaskSpec{TaskID: "t1", Goal: "hello", CallbackTopic: "topic-1"}
 
-	first, err := r.DispatchTask(ctx, spec)
+	first, err := r.DispatchTask(ctx, spec, "test-session")
 	if err != nil || first.IdempotentHit {
 		t.Fatalf("first dispatch: %+v err=%v", first, err)
 	}
-	second, err := r.DispatchTask(ctx, spec)
+	second, err := r.DispatchTask(ctx, spec, "test-session")
 	if err != nil || !second.IdempotentHit || second.Status != router.StatusPending {
 		t.Fatalf("second dispatch: %+v err=%v", second, err)
 	}

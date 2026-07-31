@@ -17,6 +17,8 @@ type Store interface {
 	ListExpiredBatches(ctx context.Context, now time.Time) ([]*Batch, error)
 	InsertCheckpoint(ctx context.Context, checkpoint *Checkpoint) error
 	GetLatestCheckpoint(ctx context.Context, taskID string) (*Checkpoint, error)
+	InsertAuditLog(ctx context.Context, action, taskID, masterSessionID, payloadJSON string) error
+	CountAuditLogs(ctx context.Context, taskID string) (int, error)
 }
 
 // TaskOrchestrator implements M3 DAG and batch policy hooks.

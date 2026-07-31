@@ -17,7 +17,7 @@ func TestCancelPendingTask(t *testing.T) {
 	_, err := r.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "cancel-1",
 		Goal:   "cancel me",
-	})
+	}, "test-session")
 	if err != nil {
 		t.Fatal(err)
 	}

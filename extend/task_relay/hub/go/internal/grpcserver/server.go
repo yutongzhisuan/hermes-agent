@@ -20,6 +20,7 @@ type Server struct {
 	bus      *eventbus.Bus
 	registry *registry.Registry
 	delivery *delivery.Coordinator
+	cfg      router.RouterConfig
 }
 
 // New returns a gRPC server wired to Hub runtime services.
@@ -28,8 +29,9 @@ func New(
 	bus *eventbus.Bus,
 	reg *registry.Registry,
 	del *delivery.Coordinator,
+	cfg router.RouterConfig,
 ) *Server {
-	return &Server{router: r, bus: bus, registry: reg, delivery: del}
+	return &Server{router: r, bus: bus, registry: reg, delivery: del, cfg: cfg}
 }
 
 // DispatchTask handles Master task dispatch (M1).
@@ -38,7 +40,10 @@ func (s *Server) DispatchTask(ctx context.Context, req *pb.DispatchTaskRequest) 
 		return nil, status.Error(codes.InvalidArgument, "spec is required")
 	}
 	spec := mapTaskSpec(req.Spec)
-	resp, err := s.router.DispatchTask(ctx, spec)
+	if err := validateContextJSON(spec.ContextJSON, s.cfg); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	resp, err := s.router.DispatchTask(ctx, spec, req.MasterSessionId)
 	if err != nil {
 		return nil, routerStatusError(err)
 	}

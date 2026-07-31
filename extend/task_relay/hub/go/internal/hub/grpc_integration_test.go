@@ -42,7 +42,7 @@ func startTestHubGRPC(t *testing.T) (*gohub.Hub, func(context.Context, string) (
 		grpc.UnaryInterceptor(grpcserver.MasterAuthUnaryInterceptor(h.Auth())),
 		grpc.StreamInterceptor(grpcserver.MasterAuthStreamInterceptor(h.Auth())),
 	)
-	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.Router(), h.EventBus(), h.Registry(), h.Delivery()))
+	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.Router(), h.EventBus(), h.Registry(), h.Delivery(), h.Router().Config()))
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
 

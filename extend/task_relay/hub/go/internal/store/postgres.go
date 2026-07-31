@@ -40,14 +40,18 @@ func (p *Postgres) GetTask(ctx context.Context, taskID string) (*router.Task, er
 func (p *Postgres) InsertTask(ctx context.Context, task *router.Task) error {
 	_, err := p.db.ExecContext(ctx,
 		`INSERT INTO tasks (
-		 task_id, batch_id, goal, callback_topic, status, attempt, max_attempts,
-		 target_worker, toolsets_json, depends_on_json, aggregate_key, min_resources_json,
-		 priority, queue_timeout_seconds, first_progress_seconds, timeout_seconds,
-		 queue_deadline_at, created_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-		task.TaskID, nullString(task.BatchID), task.Goal, task.CallbackTopic, task.Status,
+		 task_id, batch_id, master_session_id, goal, params_json, context_json, callback_topic,
+		 status, attempt, max_attempts, target_worker, toolsets_json, depends_on_json,
+		 aggregate_key, min_resources_json, trace_context_json, allowed_worker_ids_json,
+		 deny_worker_ids_json, resume_from_checkpoint, priority, queue_timeout_seconds,
+		 first_progress_seconds, timeout_seconds, queue_deadline_at, created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+		task.TaskID, nullString(task.BatchID), nullString(task.MasterSessionID), task.Goal,
+		nullString(task.ParamsJSON), nullString(task.ContextJSON), task.CallbackTopic, task.Status,
 		task.Attempt, task.MaxAttempts, nullString(task.TargetWorker), nullString(task.ToolsetsJSON),
 		nullString(task.DependsOnJSON), nullString(task.AggregateKey), nullString(task.MinResourcesJSON),
+		nullString(task.TraceContextJSON), nullString(task.AllowedWorkerIDsJSON),
+		nullString(task.DenyWorkerIDsJSON), nullString(task.ResumeFromCheckpoint),
 		task.Priority, nullInt(task.QueueTimeoutSeconds), nullInt(task.FirstProgressSeconds),
 		nullInt(task.TimeoutSeconds), nullTime(task.QueueDeadlineAt), float64(task.CreatedAt.Unix()),
 	)
@@ -76,6 +80,24 @@ func (p *Postgres) UpdateTask(ctx context.Context, task *router.Task) error {
 		return fmt.Errorf("task %s not found", task.TaskID)
 	}
 	return nil
+}
+
+func (p *Postgres) InsertAuditLog(ctx context.Context, action, taskID, masterSessionID, payloadJSON string) error {
+	_, err := p.db.ExecContext(ctx,
+		`INSERT INTO audit_log (event_at, action, task_id, master_session_id, payload_json)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		float64(time.Now().Unix()), action, nullString(taskID), nullString(masterSessionID), nullString(payloadJSON),
+	)
+	return err
+}
+
+func (p *Postgres) CountAuditLogs(ctx context.Context, taskID string) (int, error) {
+	row := p.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM audit_log WHERE task_id = $1`, taskID)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (p *Postgres) ListTasks(ctx context.Context, query router.ListTasksQuery) ([]*router.Task, error) {

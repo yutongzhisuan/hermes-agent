@@ -16,10 +16,16 @@ type TaskSpec struct {
 	CallbackTopic        string
 	BatchID              string
 	TargetWorker         string
+	ParamsJSON           string
+	ContextJSON          string
 	Toolsets             []string
 	DependsOn            []string
 	AggregateKey         string
 	MinResourcesJSON     string
+	TraceContextJSON     string
+	AllowedWorkerIDsJSON string
+	DenyWorkerIDsJSON    string
+	ResumeFromCheckpoint string
 	Priority             int
 	QueueTimeoutSeconds  int
 	FirstProgressSeconds int
@@ -39,10 +45,17 @@ type Task struct {
 	WorkerID                string
 	ClaimToken              string
 	TargetWorker            string
+	MasterSessionID         string
+	ParamsJSON              string
+	ContextJSON             string
 	ToolsetsJSON            string
 	DependsOnJSON           string
 	AggregateKey            string
 	MinResourcesJSON        string
+	TraceContextJSON        string
+	AllowedWorkerIDsJSON    string
+	DenyWorkerIDsJSON       string
+	ResumeFromCheckpoint    string
 	Error                   string
 	Priority                int
 	QueueTimeoutSeconds     int

@@ -14,6 +14,7 @@ import (
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/runpayload"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
@@ -29,11 +30,12 @@ var upgrader = websocket.Upgrader{
 
 // Deps wires worker JSON-RPC handlers to Hub runtime services.
 type Deps struct {
-	Router   *router.Router
-	Auth     *auth.Auth
-	Bus      *eventbus.Bus
-	Registry *registry.Registry
-	Delivery *delivery.Coordinator
+	Router     *router.Router
+	Auth       *auth.Auth
+	Bus        *eventbus.Bus
+	Registry   *registry.Registry
+	Delivery   *delivery.Coordinator
+	RunBuilder *runpayload.Builder
 }
 
 // Server serves worker WebSocket JSON-RPC (Go Hub port).
@@ -155,6 +157,24 @@ func (s *session) dispatch(payload []byte) ([]byte, bool) {
 			return marshalError(req.ID, -32000, err.Error()), true
 		}
 		return marshalResult(req.ID, result, "worker.poll_ok"), true
+	case "worker.claim":
+		result, err := s.handleClaim(req.Params)
+		if err != nil {
+			return marshalError(req.ID, -32000, err.Error()), true
+		}
+		return marshalResult(req.ID, result, "worker.claim_ok"), true
+	case "worker.nack":
+		result, err := s.handleNack(req.Params)
+		if err != nil {
+			return marshalError(req.ID, -32000, err.Error()), true
+		}
+		return marshalResult(req.ID, result, "worker.nack_ok"), true
+	case "cancel.ack":
+		result, err := s.handleCancelAck(req.Params)
+		if err != nil {
+			return marshalError(req.ID, -32000, err.Error()), true
+		}
+		return marshalResult(req.ID, result, "cancel.ack_ok"), true
 	case "task.progress":
 		result, err := s.handleProgress(req.Params)
 		if err != nil {
@@ -174,7 +194,7 @@ func (s *session) dispatch(payload []byte) ([]byte, bool) {
 		}
 		return marshalResult(req.ID, result, "task.complete_ok"), true
 	case "worker.heartbeat":
-		result, err := s.handleHeartbeat()
+		result, err := s.handleHeartbeat(req.Params)
 		if err != nil {
 			return marshalError(req.ID, -32000, err.Error()), true
 		}

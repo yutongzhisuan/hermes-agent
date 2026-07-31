@@ -4,13 +4,17 @@ import "time"
 
 // RouterConfig holds timeout and scheduling defaults (aligned with Python HubConfig M1).
 type RouterConfig struct {
-	QueueTimeoutSeconds   int
-	FirstProgressSeconds  int
-	TimeoutSeconds        int
-	CancelGraceSeconds    int
-	MaxAttempts           int
-	WorkerStaleSeconds    int
-	TickInterval          time.Duration
+	QueueTimeoutSeconds          int
+	FirstProgressSeconds         int
+	TimeoutSeconds               int
+	CancelGraceSeconds           int
+	MaxAttempts                  int
+	WorkerStaleSeconds           int
+	PollOfferSeconds             int
+	TickInterval                 time.Duration
+	JWTSecret                    string
+	EncryptInlineContextAtRest   bool
+	RequireSignedContextRef      bool
 }
 
 // DefaultRouterConfig returns design-spec defaults for the Go Hub port.
@@ -22,6 +26,7 @@ func DefaultRouterConfig() RouterConfig {
 		CancelGraceSeconds:   60,
 		MaxAttempts:          1,
 		WorkerStaleSeconds:   90,
+		PollOfferSeconds:     30,
 		TickInterval:         time.Second,
 	}
 }

@@ -4,7 +4,10 @@ const tasksSchema = `
 CREATE TABLE IF NOT EXISTS tasks (
     task_id TEXT PRIMARY KEY,
     batch_id TEXT,
+    master_session_id TEXT,
     goal TEXT NOT NULL,
+    params_json TEXT,
+    context_json TEXT,
     callback_topic TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     attempt INTEGER DEFAULT 0,
@@ -16,6 +19,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     depends_on_json TEXT,
     aggregate_key TEXT,
     min_resources_json TEXT,
+    trace_context_json TEXT,
+    allowed_worker_ids_json TEXT,
+    deny_worker_ids_json TEXT,
+    resume_from_checkpoint TEXT,
     error TEXT,
     priority INTEGER DEFAULT 0,
     queue_timeout_seconds INTEGER,
@@ -30,6 +37,17 @@ CREATE TABLE IF NOT EXISTS tasks (
     created_at REAL NOT NULL,
     completed_at REAL
 );
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_at REAL NOT NULL,
+    action TEXT NOT NULL,
+    task_id TEXT,
+    master_session_id TEXT,
+    payload_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_task ON audit_log(task_id, event_at DESC);
 
 CREATE TABLE IF NOT EXISTS batches (
     batch_id TEXT PRIMARY KEY,
@@ -57,13 +75,32 @@ var sqliteMigrations = []string{
 	`ALTER TABLE tasks ADD COLUMN error TEXT`,
 	`ALTER TABLE batches ADD COLUMN policy_json TEXT`,
 	`ALTER TABLE batches ADD COLUMN batch_deadline_at REAL`,
+	`ALTER TABLE tasks ADD COLUMN master_session_id TEXT`,
+	`ALTER TABLE tasks ADD COLUMN params_json TEXT`,
+	`ALTER TABLE tasks ADD COLUMN context_json TEXT`,
+	`ALTER TABLE tasks ADD COLUMN trace_context_json TEXT`,
+	`ALTER TABLE tasks ADD COLUMN allowed_worker_ids_json TEXT`,
+	`ALTER TABLE tasks ADD COLUMN deny_worker_ids_json TEXT`,
+	`ALTER TABLE tasks ADD COLUMN resume_from_checkpoint TEXT`,
+	`CREATE TABLE IF NOT EXISTS audit_log (
+		audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+		event_at REAL NOT NULL,
+		action TEXT NOT NULL,
+		task_id TEXT,
+		master_session_id TEXT,
+		payload_json TEXT
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_audit_task ON audit_log(task_id, event_at DESC)`,
 }
 
 const postgresSchema = `
 CREATE TABLE IF NOT EXISTS tasks (
     task_id TEXT PRIMARY KEY,
     batch_id TEXT,
+    master_session_id TEXT,
     goal TEXT NOT NULL,
+    params_json TEXT,
+    context_json TEXT,
     callback_topic TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     attempt INTEGER DEFAULT 0,
@@ -75,6 +112,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     depends_on_json TEXT,
     aggregate_key TEXT,
     min_resources_json TEXT,
+    trace_context_json TEXT,
+    allowed_worker_ids_json TEXT,
+    deny_worker_ids_json TEXT,
+    resume_from_checkpoint TEXT,
     error TEXT,
     priority INTEGER DEFAULT 0,
     queue_timeout_seconds INTEGER,
@@ -89,6 +130,17 @@ CREATE TABLE IF NOT EXISTS tasks (
     created_at DOUBLE PRECISION NOT NULL,
     completed_at DOUBLE PRECISION
 );
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    audit_id BIGSERIAL PRIMARY KEY,
+    event_at DOUBLE PRECISION NOT NULL,
+    action TEXT NOT NULL,
+    task_id TEXT,
+    master_session_id TEXT,
+    payload_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_task ON audit_log(task_id, event_at DESC);
 
 CREATE TABLE IF NOT EXISTS batches (
     batch_id TEXT PRIMARY KEY,

@@ -12,8 +12,10 @@ import (
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/grpcserver"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/metrics"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/orchestrator"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/runpayload"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
@@ -49,14 +51,24 @@ func New(cfg config.Config) (*Hub, error) {
 	}
 	bus := eventbus.New()
 	reg := registry.New()
-	rt := router.NewRouter(st, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
-	del := delivery.New(rt, reg, wsserver.BuildRunPayload)
+	rt := router.NewRouter(st, registry.NewRouterAdapter(reg), cfg.Router)
+	runBuilder := &runpayload.Builder{
+		Store: st, DecryptSecret: cfg.JWTSecret, EncryptAtRest: cfg.Router.EncryptInlineContextAtRest,
+	}
+	buildRun := func(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error) {
+		run, err := runBuilder.Build(ctx, claimed)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"run": run}, nil
+	}
+	del := delivery.New(rt, reg, buildRun)
 	rt.SetOrchestrator(orchestrator.New(st, newEventPublisher(bus)))
 	rt.SetOnTaskReady(func(ctx context.Context, taskID string) {
 		del.OnTaskPending(ctx, taskID)
 	})
 	ws := wsserver.New(wsserver.Deps{
-		Router: rt, Auth: verifier, Bus: bus, Registry: reg, Delivery: del,
+		Router: rt, Auth: verifier, Bus: bus, Registry: reg, Delivery: del, RunBuilder: runBuilder,
 	})
 	return &Hub{
 		cfg: cfg, auth: verifier, bus: bus, store: st, closeStore: closeFn,
@@ -64,11 +76,12 @@ func New(cfg config.Config) (*Hub, error) {
 	}, nil
 }
 
-func (h *Hub) EventBus() *eventbus.Bus       { return h.bus }
-func (h *Hub) Auth() *auth.Auth              { return h.auth }
-func (h *Hub) Router() *router.Router        { return h.router }
-func (h *Hub) Registry() *registry.Registry  { return h.registry }
+func (h *Hub) EventBus() *eventbus.Bus         { return h.bus }
+func (h *Hub) Auth() *auth.Auth                { return h.auth }
+func (h *Hub) Router() *router.Router          { return h.router }
+func (h *Hub) Registry() *registry.Registry    { return h.registry }
 func (h *Hub) Delivery() *delivery.Coordinator { return h.delivery }
+func (h *Hub) Config() config.Config          { return h.cfg }
 
 func (h *Hub) Close() error {
 	if h.closeStore == nil {
@@ -94,14 +107,20 @@ func (h *Hub) Run(ctx context.Context) error {
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsCfg)))
 	}
 	srv := grpc.NewServer(opts...)
-	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.router, h.bus, h.registry, h.delivery))
+	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.router, h.bus, h.registry, h.delivery, h.cfg.Router))
 
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 3)
 	go func() { errCh <- srv.Serve(grpcLis) }()
 	go func() {
 		addr := fmt.Sprintf("%s:%d", h.cfg.Host, h.cfg.WSPort)
 		errCh <- h.ws.ListenAndServe(ctx, addr, tlsCfg)
 	}()
+	if h.cfg.MetricsPort > 0 {
+		go func() {
+			addr := fmt.Sprintf("%s:%d", h.cfg.Host, h.cfg.MetricsPort)
+			errCh <- metrics.ListenAndServe(ctx, addr)
+		}()
+	}
 	go h.runTicks(ctx)
 
 	select {
@@ -121,12 +140,11 @@ func listenWithOptionalTLS(network, addr string, tlsCfg *tls.Config) (net.Listen
 	if tlsCfg == nil {
 		return ln, nil
 	}
-	return tls.NewListener(ln, tlsCfg), nil
+	return tls.Listen(network, addr, tlsCfg)
 }
 
 func (h *Hub) runTicks(ctx context.Context) {
-	cfg := h.router.Config()
-	ticker := time.NewTicker(cfg.TickInterval)
+	ticker := time.NewTicker(h.router.Config().TickInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -134,7 +152,8 @@ func (h *Hub) runTicks(ctx context.Context) {
 			return
 		case <-ticker.C:
 			_ = h.router.TickTimeouts(ctx)
-			h.registry.MarkStale(time.Now().Add(-time.Duration(cfg.WorkerStaleSeconds) * time.Second))
+			deadline := time.Now().Add(-time.Duration(h.router.Config().WorkerStaleSeconds) * time.Second)
+			h.registry.MarkStale(deadline)
 		}
 	}
 }

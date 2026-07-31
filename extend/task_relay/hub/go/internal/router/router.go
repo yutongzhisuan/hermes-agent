@@ -65,6 +65,13 @@ func (r *Router) SetOnTaskReady(fn func(ctx context.Context, taskID string)) {
 	r.onReady = fn
 }
 
+// SetNow overrides the clock used by the router (tests only).
+func (r *Router) SetNow(fn func() time.Time) {
+	if fn != nil {
+		r.now = fn
+	}
+}
+
 // Config returns router timeout settings.
 func (r *Router) Config() RouterConfig {
 	return r.cfg
@@ -89,50 +96,4 @@ func encodeStringList(items []string) string {
 	}
 	raw, _ := json.Marshal(items)
 	return string(raw)
-}
-
-func (r *Router) dispatchNewTask(ctx context.Context, spec TaskSpec) (*DispatchResponse, error) {
-	topic := spec.CallbackTopic
-	if topic == "" {
-		topic = "default"
-	}
-	now := r.now()
-	maxAttempts := spec.MaxAttempts
-	if maxAttempts <= 0 {
-		maxAttempts = r.cfg.MaxAttempts
-	}
-	queueTimeout := spec.QueueTimeoutSeconds
-	if queueTimeout <= 0 {
-		queueTimeout = r.cfg.QueueTimeoutSeconds
-	}
-	task := &Task{
-		TaskID:               spec.TaskID,
-		BatchID:              spec.BatchID,
-		Goal:                 spec.Goal,
-		CallbackTopic:        topic,
-		Status:               StatusPending,
-		Attempt:              0,
-		MaxAttempts:          maxAttempts,
-		TargetWorker:         spec.TargetWorker,
-		ToolsetsJSON:         encodeToolsets(spec.Toolsets),
-		DependsOnJSON:        encodeStringList(spec.DependsOn),
-		AggregateKey:         spec.AggregateKey,
-		MinResourcesJSON:     spec.MinResourcesJSON,
-		Priority:             spec.Priority,
-		QueueTimeoutSeconds:  spec.QueueTimeoutSeconds,
-		FirstProgressSeconds: spec.FirstProgressSeconds,
-		TimeoutSeconds:       spec.TimeoutSeconds,
-		CreatedAt:            now,
-		QueueDeadlineAt:      now.Add(time.Duration(queueTimeout) * time.Second),
-	}
-	if err := r.store.InsertTask(ctx, task); err != nil {
-		return nil, err
-	}
-	return &DispatchResponse{
-		TaskID:        task.TaskID,
-		CallbackTopic: task.CallbackTopic,
-		Status:        task.Status,
-		IdempotentHit: false,
-		Attempt:       task.Attempt,
-	}, nil
 }

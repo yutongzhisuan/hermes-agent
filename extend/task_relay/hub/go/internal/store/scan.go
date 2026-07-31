@@ -7,10 +7,23 @@ import (
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
+const taskSelectSQL = `
+SELECT task_id, batch_id, master_session_id, goal, params_json, context_json, callback_topic,
+       status, attempt, max_attempts, worker_id, claim_token, target_worker, toolsets_json,
+       depends_on_json, aggregate_key, min_resources_json, trace_context_json,
+       allowed_worker_ids_json, deny_worker_ids_json, resume_from_checkpoint, error, priority,
+       queue_timeout_seconds, first_progress_seconds, timeout_seconds, queue_deadline_at,
+       first_progress_deadline_at, claim_expires_at, started_at, summary, cancel_reason,
+       created_at, completed_at
+FROM tasks`
+
 func scanTaskRow(scanner interface {
 	Scan(dest ...any) error
 }) (*router.Task, error) {
 	var batchID sql.NullString
+	var masterSessionID sql.NullString
+	var paramsJSON sql.NullString
+	var contextJSON sql.NullString
 	var workerID sql.NullString
 	var claimToken sql.NullString
 	var targetWorker sql.NullString
@@ -18,6 +31,10 @@ func scanTaskRow(scanner interface {
 	var dependsOn sql.NullString
 	var aggregateKey sql.NullString
 	var minResources sql.NullString
+	var traceContext sql.NullString
+	var allowedWorkers sql.NullString
+	var denyWorkers sql.NullString
+	var resumeCheckpoint sql.NullString
 	var taskError sql.NullString
 	var summary sql.NullString
 	var cancelReason sql.NullString
@@ -35,7 +52,10 @@ func scanTaskRow(scanner interface {
 	if err := scanner.Scan(
 		&task.TaskID,
 		&batchID,
+		&masterSessionID,
 		&task.Goal,
+		&paramsJSON,
+		&contextJSON,
 		&task.CallbackTopic,
 		&task.Status,
 		&task.Attempt,
@@ -47,6 +67,10 @@ func scanTaskRow(scanner interface {
 		&dependsOn,
 		&aggregateKey,
 		&minResources,
+		&traceContext,
+		&allowedWorkers,
+		&denyWorkers,
+		&resumeCheckpoint,
 		&taskError,
 		&task.Priority,
 		&queueTimeout,
@@ -67,6 +91,9 @@ func scanTaskRow(scanner interface {
 		return nil, err
 	}
 	task.BatchID = batchID.String
+	task.MasterSessionID = masterSessionID.String
+	task.ParamsJSON = paramsJSON.String
+	task.ContextJSON = contextJSON.String
 	task.WorkerID = workerID.String
 	task.ClaimToken = claimToken.String
 	task.TargetWorker = targetWorker.String
@@ -74,6 +101,10 @@ func scanTaskRow(scanner interface {
 	task.DependsOnJSON = dependsOn.String
 	task.AggregateKey = aggregateKey.String
 	task.MinResourcesJSON = minResources.String
+	task.TraceContextJSON = traceContext.String
+	task.AllowedWorkerIDsJSON = allowedWorkers.String
+	task.DenyWorkerIDsJSON = denyWorkers.String
+	task.ResumeFromCheckpoint = resumeCheckpoint.String
 	task.Error = taskError.String
 	task.Summary = summary.String
 	task.CancelReason = cancelReason.String

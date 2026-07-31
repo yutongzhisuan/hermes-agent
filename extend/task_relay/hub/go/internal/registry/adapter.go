@@ -53,7 +53,11 @@ func (a *RouterAdapter) IsEligible(
 			MaxConcurrent:   claims.MaxConcurrent,
 		}
 	}
-	return IsEligibleForPoll(regWorker, TaskView(task.TargetWorker, task.ToolsetsJSON), regClaims)
+	return IsEligibleForPoll(
+		regWorker,
+		TaskView(task.TargetWorker, task.ToolsetsJSON, task.AllowedWorkerIDsJSON, task.DenyWorkerIDsJSON),
+		regClaims,
+	)
 }
 
 // IncRunning implements router.WorkerRegistry.

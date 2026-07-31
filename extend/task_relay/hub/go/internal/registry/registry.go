@@ -29,6 +29,7 @@ type Worker struct {
 	CreditAvailable int
 	Toolsets        []string
 	ResourcesJSON   string
+	LoadJSON        string
 	OS              string
 	Arch            string
 	Region          string
@@ -225,8 +226,14 @@ func (r *Registry) DecRunning(workerID string) {
 	}
 }
 
+// HeartbeatInput carries optional load/resources updates from worker.heartbeat.
+type HeartbeatInput struct {
+	Load      map[string]any
+	Resources map[string]any
+}
+
 // Heartbeat refreshes liveness for an online worker session.
-func (r *Registry) Heartbeat(workerID, sessionID string) bool {
+func (r *Registry) Heartbeat(workerID, sessionID string, input *HeartbeatInput) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	worker, ok := r.workers[workerID]
@@ -235,6 +242,18 @@ func (r *Registry) Heartbeat(workerID, sessionID string) bool {
 	}
 	now := r.now()
 	worker.LastHeartbeat = now
+	if input != nil {
+		if len(input.Load) > 0 {
+			if raw, err := json.Marshal(input.Load); err == nil {
+				worker.LoadJSON = string(raw)
+			}
+		}
+		if len(input.Resources) > 0 {
+			if raw, err := json.Marshal(input.Resources); err == nil {
+				worker.ResourcesJSON = string(raw)
+			}
+		}
+	}
 	if worker.Status == "stale" {
 		if worker.DrainRequested {
 			worker.Status = "draining"
@@ -312,6 +331,25 @@ func IsEligibleForPoll(worker *Worker, task *routerTaskView, claims *WorkerClaim
 	if task.TargetWorker != "" && worker.WorkerID != task.TargetWorker {
 		return false
 	}
+	if denied := decodeStringList(task.DenyWorkerIDsJSON); len(denied) > 0 {
+		for _, id := range denied {
+			if id == worker.WorkerID {
+				return false
+			}
+		}
+	}
+	if allowed := decodeStringList(task.AllowedWorkerIDsJSON); len(allowed) > 0 {
+		found := false
+		for _, id := range allowed {
+			if id == worker.WorkerID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
 	if len(task.Toolsets) > 0 {
 		authorized := worker.Toolsets
 		if claims != nil && len(claims.AllowedToolsets) > 0 {
@@ -326,17 +364,35 @@ func IsEligibleForPoll(worker *Worker, task *routerTaskView, claims *WorkerClaim
 
 // routerTaskView is a minimal task projection for eligibility checks.
 type routerTaskView struct {
-	TargetWorker string
-	Toolsets     []string
+	TargetWorker         string
+	Toolsets             []string
+	AllowedWorkerIDsJSON string
+	DenyWorkerIDsJSON    string
 }
 
 // TaskView builds eligibility input from router task fields.
-func TaskView(targetWorker, toolsetsJSON string) *routerTaskView {
+func TaskView(targetWorker, toolsetsJSON, allowedJSON, denyJSON string) *routerTaskView {
 	var toolsets []string
 	if toolsetsJSON != "" {
 		_ = json.Unmarshal([]byte(toolsetsJSON), &toolsets)
 	}
-	return &routerTaskView{TargetWorker: targetWorker, Toolsets: toolsets}
+	return &routerTaskView{
+		TargetWorker:         targetWorker,
+		Toolsets:             toolsets,
+		AllowedWorkerIDsJSON: allowedJSON,
+		DenyWorkerIDsJSON:    denyJSON,
+	}
+}
+
+func decodeStringList(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	var items []string
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return nil
+	}
+	return items
 }
 
 func intersectToolsets(left, right []string) []string {

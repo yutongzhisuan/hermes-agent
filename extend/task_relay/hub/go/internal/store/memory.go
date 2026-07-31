@@ -15,6 +15,14 @@ type Memory struct {
 	tasks       map[string]*router.Task
 	batches     map[string]*router.Batch
 	checkpoints map[string][]router.Checkpoint
+	auditLogs   []memoryAuditRow
+}
+
+type memoryAuditRow struct {
+	Action          string
+	TaskID          string
+	MasterSessionID string
+	PayloadJSON     string
 }
 
 // NewMemory returns an empty in-memory task store.
@@ -57,6 +65,27 @@ func (m *Memory) UpdateTask(_ context.Context, task *router.Task) error {
 	copy := *task
 	m.tasks[task.TaskID] = &copy
 	return nil
+}
+
+func (m *Memory) InsertAuditLog(_ context.Context, action, taskID, masterSessionID, payloadJSON string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.auditLogs = append(m.auditLogs, memoryAuditRow{
+		Action: action, TaskID: taskID, MasterSessionID: masterSessionID, PayloadJSON: payloadJSON,
+	})
+	return nil
+}
+
+func (m *Memory) CountAuditLogs(_ context.Context, taskID string) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	count := 0
+	for _, row := range m.auditLogs {
+		if row.TaskID == taskID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (m *Memory) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*router.Task, error) {

@@ -30,7 +30,7 @@ func TestDAGBlocksClaimUntilDependencyCompletes(t *testing.T) {
 	rt.SetOrchestrator(orch)
 
 	ctx := context.Background()
-	_, err := rt.DispatchTaskBatch(ctx, "dag-1", "topic", "", []router.TaskSpec{
+	_, err := rt.DispatchTaskBatch(ctx, "dag-1", "topic", "", "sess", []router.TaskSpec{
 		{TaskID: "a1", Goal: "first"},
 		{TaskID: "a2", Goal: "second", DependsOn: []string{"a1"}},
 	})
@@ -61,7 +61,7 @@ func TestFailFastCancelsBatchSibling(t *testing.T) {
 	ctx := context.Background()
 
 	policy := `{"fail_fast": true}`
-	_, err := rt.DispatchTaskBatch(ctx, "ff-1", "topic", policy, []router.TaskSpec{
+	_, err := rt.DispatchTaskBatch(ctx, "ff-1", "topic", policy, "sess", []router.TaskSpec{
 		{TaskID: "f1", Goal: "one"},
 		{TaskID: "f2", Goal: "two"},
 	})

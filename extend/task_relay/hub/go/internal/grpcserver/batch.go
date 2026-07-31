@@ -25,9 +25,15 @@ func (s *Server) DispatchTaskBatch(
 		if spec == nil {
 			return nil, status.Error(codes.InvalidArgument, "spec entry is required")
 		}
-		specs = append(specs, mapTaskSpec(spec))
+		mapped := mapTaskSpec(spec)
+		if err := validateContextJSON(mapped.ContextJSON, s.cfg); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		specs = append(specs, mapped)
 	}
-	resp, err := s.router.DispatchTaskBatch(ctx, req.BatchId, req.CallbackTopic, mapBatchPolicyJSON(req.Policy), specs)
+	resp, err := s.router.DispatchTaskBatch(
+		ctx, req.BatchId, req.CallbackTopic, mapBatchPolicyJSON(req.Policy), req.MasterSessionId, specs,
+	)
 	if err != nil {
 		return nil, routerStatusError(err)
 	}

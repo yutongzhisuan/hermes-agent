@@ -8,7 +8,6 @@ import (
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/wsserver"
 )
 
 type mockPusher struct {
@@ -20,27 +19,29 @@ func (m *mockPusher) PushTaskRun(payload map[string]any) bool {
 	return true
 }
 
+func testRunBuilder(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error) {
+	return map[string]any{
+		"run": map[string]any{"task_id": claimed.TaskID, "goal": claimed.Goal},
+	}, nil
+}
+
 func TestCoordinatorPushesPendingTaskOnCredit(t *testing.T) {
 	mem := store.NewMemory()
 	reg := registry.New()
 	rt := router.NewRouter(mem, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
-	coord := delivery.New(rt, reg, wsserver.BuildRunPayload)
+	coord := delivery.New(rt, reg, testRunBuilder)
 	ctx := context.Background()
 
 	credit := 1
 	pusher := &mockPusher{}
 	reg.Announce(ctx, registry.AnnounceInput{
-		WorkerID:        "wc1",
-		SessionModes:    []string{"A", "C"},
-		MaxConcurrent:   1,
-		InitialCredit:   &credit,
-		OnlineSessionID: "sess-1",
-		Pusher:          pusher,
+		WorkerID: "wc1", SessionModes: []string{"A", "C"}, MaxConcurrent: 1,
+		InitialCredit: &credit, OnlineSessionID: "sess-1", Pusher: pusher,
 	})
 
 	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-c-1", Goal: "push me", CallbackTopic: "topic-1",
-	}); err != nil {
+	}, "sess"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -48,7 +49,8 @@ func TestCoordinatorPushesPendingTaskOnCredit(t *testing.T) {
 	if len(pusher.payloads) != 1 {
 		t.Fatalf("expected one push, got %d", len(pusher.payloads))
 	}
-	if pusher.payloads[0]["task_id"] != "mode-c-1" {
+	run, _ := pusher.payloads[0]["run"].(map[string]any)
+	if run["task_id"] != "mode-c-1" {
 		t.Fatalf("unexpected payload: %+v", pusher.payloads[0])
 	}
 
@@ -62,24 +64,20 @@ func TestCoordinatorSkipsDrainingWorker(t *testing.T) {
 	mem := store.NewMemory()
 	reg := registry.New()
 	rt := router.NewRouter(mem, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
-	coord := delivery.New(rt, reg, wsserver.BuildRunPayload)
+	coord := delivery.New(rt, reg, testRunBuilder)
 	ctx := context.Background()
 
 	credit := 1
 	pusher := &mockPusher{}
 	reg.Announce(ctx, registry.AnnounceInput{
-		WorkerID:        "wc2",
-		SessionModes:    []string{"A", "C"},
-		MaxConcurrent:   1,
-		InitialCredit:   &credit,
-		OnlineSessionID: "sess-2",
-		Pusher:          pusher,
+		WorkerID: "wc2", SessionModes: []string{"A", "C"}, MaxConcurrent: 1,
+		InitialCredit: &credit, OnlineSessionID: "sess-2", Pusher: pusher,
 	})
 	reg.Drain("wc2")
 
 	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-c-2", Goal: "skip me", CallbackTopic: "topic-1",
-	}); err != nil {
+	}, "sess"); err != nil {
 		t.Fatal(err)
 	}
 

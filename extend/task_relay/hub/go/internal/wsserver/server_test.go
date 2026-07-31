@@ -47,7 +47,7 @@ func TestModeAPollComplete(t *testing.T) {
 	_, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-a-1",
 		Goal:   "execute via poll",
-	})
+	}, "test-session")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,12 +89,12 @@ func setupWS(t *testing.T) (*wsserver.Server, *router.Router, string) {
 	}
 	rt := router.NewRouter(store.NewMemory(), nil, router.DefaultRouterConfig())
 	reg := registry.New()
+	buildRun := func(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error) {
+		return map[string]any{"run": map[string]any{"task_id": claimed.TaskID, "goal": claimed.Goal}}, nil
+	}
 	srv := wsserver.New(wsserver.Deps{
-		Router:   rt,
-		Auth:     verifier,
-		Bus:      eventbus.New(),
-		Registry: reg,
-		Delivery: delivery.New(rt, reg, wsserver.BuildRunPayload),
+		Router: rt, Auth: verifier, Bus: eventbus.New(), Registry: reg,
+		Delivery: delivery.New(rt, reg, buildRun),
 	})
 	token, err := verifier.IssueWorkerJWT("worker-1", []string{"terminal"}, 2, time.Hour)
 	if err != nil {

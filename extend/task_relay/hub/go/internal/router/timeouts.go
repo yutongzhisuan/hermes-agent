@@ -33,6 +33,13 @@ func (r *Router) TickTimeouts(ctx context.Context) error {
 func (r *Router) timeoutTask(ctx context.Context, task *Task, now time.Time) error {
 	switch task.Status {
 	case StatusPending:
+		if task.ClaimToken != "" && !task.ClaimExpiresAt.IsZero() && !now.Before(task.ClaimExpiresAt) {
+			task.ClaimToken = ""
+			task.ClaimExpiresAt = time.Time{}
+			if err := r.store.UpdateTask(ctx, task); err != nil {
+				return err
+			}
+		}
 		if !task.QueueDeadlineAt.IsZero() && !now.Before(task.QueueDeadlineAt) {
 			return r.settleLost(ctx, task, now, "queue timeout")
 		}

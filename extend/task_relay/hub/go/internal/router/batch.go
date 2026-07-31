@@ -10,7 +10,7 @@ import (
 // DispatchTaskBatch creates tasks under one batch_id with idempotent replay.
 func (r *Router) DispatchTaskBatch(
 	ctx context.Context,
-	batchID, callbackTopic, policyJSON string,
+	batchID, callbackTopic, policyJSON, masterSessionID string,
 	specs []TaskSpec,
 ) (*BatchDispatchResponse, error) {
 	if batchID == "" {
@@ -81,7 +81,7 @@ func (r *Router) DispatchTaskBatch(
 	responses := make([]DispatchResponse, 0, len(normalized))
 	for _, spec := range normalized {
 		spec.BatchID = batchID
-		resp, err := r.dispatchNewTask(ctx, spec)
+		resp, err := r.dispatchNewTask(ctx, spec, masterSessionID)
 		if err != nil {
 			return nil, err
 		}

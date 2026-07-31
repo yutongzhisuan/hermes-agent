@@ -10,10 +10,11 @@ import (
 
 // ClaimedTask is returned to a worker after a successful poll claim.
 type ClaimedTask struct {
-	TaskID     string
-	Attempt    int
-	ClaimToken string
-	Goal       string
+	TaskID         string
+	Attempt        int
+	ClaimToken     string
+	Goal           string
+	TimeoutSeconds int
 }
 
 // ClaimForPoll atomically claims up to maxTasks pending tasks for a worker.
@@ -38,9 +39,13 @@ func (r *Router) ClaimForPoll(
 	}
 
 	claimed := make([]ClaimedTask, 0, maxTasks)
+	now := r.now()
 	for _, candidate := range candidates {
 		if len(claimed) >= maxTasks {
 			break
+		}
+		if hasActiveOffer(candidate, now) {
+			continue
 		}
 		item, err := r.claimOne(ctx, workerID, candidate.TaskID, claims)
 		if err != nil || item == nil {
@@ -57,6 +62,13 @@ func (r *Router) ClaimForWorker(
 	taskID, workerID string,
 	claims *WorkerClaims,
 ) (*ClaimedTask, error) {
+	fresh, err := r.store.GetTask(ctx, taskID)
+	if err != nil || fresh == nil {
+		return nil, err
+	}
+	if hasActiveOffer(fresh, r.now()) {
+		return nil, nil
+	}
 	return r.claimOne(ctx, workerID, taskID, claims)
 }
 
@@ -69,24 +81,8 @@ func (r *Router) claimOne(
 	if err != nil || fresh == nil || fresh.Status != StatusPending {
 		return nil, err
 	}
-	ready, err := r.isClaimable(ctx, fresh)
-	if err != nil || !ready {
-		return nil, err
-	}
-	if r.reg != nil {
-		worker := r.reg.Get(workerID)
-		if worker.WorkerID == "" || !r.reg.IsEligible(&worker, fresh, claims) {
-			return nil, nil
-		}
-		if worker.RunningTasks >= worker.MaxConcurrent {
-			return nil, nil
-		}
-		if fresh.MinResourcesJSON != "" {
-			req := resources.ParseMinResources(fresh.MinResourcesJSON)
-			if !resources.WorkerMeetsResources(resources.WorkerView{ResourcesJSON: worker.ResourcesJSON}, req) {
-				return nil, nil
-			}
-		}
+	if !r.canClaim(ctx, workerID, fresh, claims) {
+		return nil, nil
 	}
 	now := r.now()
 	fresh.Status = StatusRunning
@@ -103,12 +99,38 @@ func (r *Router) claimOne(
 	if r.reg != nil {
 		r.reg.IncRunning(workerID)
 	}
+	recordClaimed()
 	return &ClaimedTask{
-		TaskID:     fresh.TaskID,
-		Attempt:    fresh.Attempt,
-		ClaimToken: fresh.ClaimToken,
-		Goal:       fresh.Goal,
+		TaskID:         fresh.TaskID,
+		Attempt:        fresh.Attempt,
+		ClaimToken:     fresh.ClaimToken,
+		Goal:           fresh.Goal,
+		TimeoutSeconds: r.cfg.executionTimeout(fresh),
 	}, nil
+}
+
+func (r *Router) canClaim(ctx context.Context, workerID string, task *Task, claims *WorkerClaims) bool {
+	ready, err := r.isClaimable(ctx, task)
+	if err != nil || !ready {
+		return false
+	}
+	if r.reg == nil {
+		return true
+	}
+	worker := r.reg.Get(workerID)
+	if worker.WorkerID == "" || !r.reg.IsEligible(&worker, task, claims) {
+		return false
+	}
+	if worker.RunningTasks >= worker.MaxConcurrent {
+		return false
+	}
+	if task.MinResourcesJSON != "" {
+		req := resources.ParseMinResources(task.MinResourcesJSON)
+		if !resources.WorkerMeetsResources(resources.WorkerView{ResourcesJSON: worker.ResourcesJSON}, req) {
+			return false
+		}
+	}
+	return true
 }
 
 // CompleteOwned marks a terminal status for a task owned by workerID.
