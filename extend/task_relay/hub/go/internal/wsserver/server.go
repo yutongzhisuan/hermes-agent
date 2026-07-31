@@ -97,6 +97,11 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	sess := &session{server: s, conn: conn, claims: claims}
+	defer func() {
+		if sess.stopMonitor != nil {
+			sess.stopMonitor()
+		}
+	}()
 	sess.serve()
 	if s.deps.Registry != nil {
 		s.deps.Registry.UnregisterSession(claims.WorkerID)
@@ -104,13 +109,15 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 }
 
 type session struct {
-	server    *Server
-	conn      *websocket.Conn
-	claims    *auth.WorkerClaims
-	pushMu    sync.Mutex
-	sessionID string
-	announced bool
-	modeC     bool
+	server      *Server
+	conn        *websocket.Conn
+	claims      *auth.WorkerClaims
+	pushMu      sync.Mutex
+	monitorOnce sync.Once
+	stopMonitor context.CancelFunc
+	sessionID   string
+	announced   bool
+	modeC       bool
 }
 
 func (s *session) serve() {

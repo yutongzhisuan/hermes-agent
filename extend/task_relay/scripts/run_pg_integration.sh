@@ -17,3 +17,6 @@ cd "$(dirname "$ROOT")/.."
 PYTHONPATH=. uv run --extra task-relay pytest \
   -o addopts= \
   extend/task_relay/tests/test_m3_postgres.py -v "$@"
+
+echo "== Go Hub Postgres integration =="
+(cd "$ROOT/hub/go" && go test -tags=integration ./internal/store/ -run TestPostgres -v -count=1)

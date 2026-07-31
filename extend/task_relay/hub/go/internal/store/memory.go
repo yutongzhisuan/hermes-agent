@@ -107,6 +107,9 @@ func (m *Memory) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 		if query.CallbackTopic != "" && task.CallbackTopic != query.CallbackTopic {
 			continue
 		}
+		if query.WorkerID != "" && task.WorkerID != query.WorkerID {
+			continue
+		}
 		if len(statusSet) > 0 {
 			if _, ok := statusSet[task.Status]; !ok {
 				continue

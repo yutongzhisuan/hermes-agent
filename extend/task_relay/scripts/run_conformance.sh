@@ -68,6 +68,12 @@ run_go_conformance() {
 
   echo "== Go Master SDK E2E (Go Hub) =="
   HUB=go "$ROOT/scripts/run_go_master_e2e.sh"
+
+  echo "== Go Master mTLS E2E (Go Hub) =="
+  "$ROOT/scripts/run_go_hub_mtls_e2e.sh"
+
+  run_py "Go Hub two-step worker E2E" "test_e2e_go_hub_two_step_worker.py"
+  run_py "Go Hub cancel during tool E2E" "test_e2e_go_hub_cancel_during_tool.py"
 }
 
 	case "$HUB" in

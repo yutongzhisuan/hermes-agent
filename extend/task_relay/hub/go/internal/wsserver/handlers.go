@@ -118,6 +118,7 @@ func (s *session) handleAnnounce(raw json.RawMessage) (map[string]any, error) {
 			WakeURL: params.WakeURL, OnlineSessionID: s.sessionID, Pusher: s,
 		})
 	}
+	s.startCancelMonitor()
 	if s.modeC && s.server.deps.Delivery != nil {
 		s.server.deps.Delivery.OnCreditGranted(context.Background(), params.WorkerID)
 	}

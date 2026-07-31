@@ -4,6 +4,7 @@ package router
 type ListTasksQuery struct {
 	BatchID       string
 	CallbackTopic string
+	WorkerID      string
 	Statuses      []string
 	Limit         int
 }

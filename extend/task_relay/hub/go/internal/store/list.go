@@ -23,6 +23,10 @@ func (s *SQLite) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 		clauses = append(clauses, "callback_topic = ?")
 		args = append(args, query.CallbackTopic)
 	}
+	if query.WorkerID != "" {
+		clauses = append(clauses, "worker_id = ?")
+		args = append(args, query.WorkerID)
+	}
 	if len(query.Statuses) > 0 {
 		holders := make([]string, len(query.Statuses))
 		for i, status := range query.Statuses {

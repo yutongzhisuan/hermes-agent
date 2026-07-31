@@ -118,6 +118,11 @@ func (p *Postgres) ListTasks(ctx context.Context, query router.ListTasksQuery) (
 		args = append(args, query.CallbackTopic)
 		argN++
 	}
+	if query.WorkerID != "" {
+		clauses = append(clauses, fmt.Sprintf("worker_id = $%d", argN))
+		args = append(args, query.WorkerID)
+		argN++
+	}
 	if len(query.Statuses) > 0 {
 		holders := make([]string, len(query.Statuses))
 		for i, status := range query.Statuses {

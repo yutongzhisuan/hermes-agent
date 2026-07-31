@@ -132,15 +132,9 @@ func (h *Hub) Run(ctx context.Context) error {
 	}
 }
 
-func listenWithOptionalTLS(network, addr string, tlsCfg *tls.Config) (net.Listener, error) {
-	ln, err := net.Listen(network, addr)
-	if err != nil {
-		return nil, err
-	}
-	if tlsCfg == nil {
-		return ln, nil
-	}
-	return tls.Listen(network, addr, tlsCfg)
+func listenWithOptionalTLS(network, addr string, _ *tls.Config) (net.Listener, error) {
+	// gRPC TLS is applied via grpc.Creds; the TCP listener stays plain.
+	return net.Listen(network, addr)
 }
 
 func (h *Hub) runTicks(ctx context.Context) {
