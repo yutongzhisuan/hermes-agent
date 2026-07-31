@@ -5,11 +5,20 @@ import (
 	"time"
 )
 
+// ClaimedTask is returned to a worker after a successful poll claim.
+type ClaimedTask struct {
+	TaskID      string
+	Attempt     int
+	ClaimToken  string
+	Goal        string
+}
+
 // Store abstracts task persistence for the Go router port.
 type Store interface {
 	GetTask(ctx context.Context, taskID string) (*Task, error)
 	InsertTask(ctx context.Context, task *Task) error
 	UpdateTask(ctx context.Context, task *Task) error
+	ListTasks(ctx context.Context, query ListTasksQuery) ([]*Task, error)
 }
 
 // Router implements the core M1 dispatch/complete state machine (Go port scaffold).
@@ -87,6 +96,11 @@ func (r *Router) GetTask(ctx context.Context, taskID string) (*Task, error) {
 		return nil, &Error{Msg: "task not found: " + taskID}
 	}
 	return task, nil
+}
+
+// ListTasks returns filtered persisted tasks.
+func (r *Router) ListTasks(ctx context.Context, query ListTasksQuery) ([]*Task, error) {
+	return r.store.ListTasks(ctx, query)
 }
 
 // Complete marks a task terminal with idempotent semantics.

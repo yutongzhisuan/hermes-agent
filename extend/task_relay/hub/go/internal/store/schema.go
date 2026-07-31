@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     callback_topic TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     attempt INTEGER DEFAULT 0,
+    worker_id TEXT,
+    claim_token TEXT,
     summary TEXT,
     created_at REAL NOT NULL,
     completed_at REAL

@@ -294,3 +294,49 @@ func TestGoHubGRPCWatchTask(t *testing.T) {
 		t.Fatalf("unexpected terminal event: %+v", second)
 	}
 }
+
+func TestGoHubGRPCListTasks(t *testing.T) {
+	h, dialer, _ := startTestHubGRPC(t)
+	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
+	if err != nil {
+		t.Fatalf("issue jwt: %v", err)
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	master, err := client.New(ctx, client.Config{
+		Addr:      "passthrough:///bufnet",
+		MasterJWT: token,
+		ExtraDial: dialOpts,
+	})
+	if err != nil {
+		t.Fatalf("master client: %v", err)
+	}
+	t.Cleanup(func() { _ = master.Close() })
+
+	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+		TaskId:        "list-task-1",
+		Goal:          "listed",
+		CallbackTopic: "list-topic",
+	}, "sess", false)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	list, err := master.ListTasks(ctx, &pb.ListTasksRequest{
+		CallbackTopic: "list-topic",
+		Limit:         10,
+	})
+	if err != nil {
+		t.Fatalf("list tasks: %v", err)
+	}
+	if len(list.Tasks) != 1 || list.Tasks[0].TaskId != "list-task-1" {
+		t.Fatalf("unexpected list: %+v", list)
+	}
+}

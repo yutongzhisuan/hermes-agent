@@ -25,6 +25,12 @@ func OpenSQLite(path string) (*SQLite, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate sqlite: %w", err)
 	}
+	for _, stmt := range []string{
+		`ALTER TABLE tasks ADD COLUMN worker_id TEXT`,
+		`ALTER TABLE tasks ADD COLUMN claim_token TEXT`,
+	} {
+		_, _ = db.Exec(stmt)
+	}
 	return &SQLite{db: db}, nil
 }
 
@@ -35,11 +41,13 @@ func (s *SQLite) Close() error {
 
 func (s *SQLite) GetTask(_ context.Context, taskID string) (*router.Task, error) {
 	row := s.db.QueryRow(
-		`SELECT task_id, goal, callback_topic, status, attempt, summary, created_at, completed_at
+		`SELECT task_id, goal, callback_topic, status, attempt, worker_id, claim_token, summary, created_at, completed_at
 		 FROM tasks WHERE task_id = ?`,
 		taskID,
 	)
 	var summary sql.NullString
+	var workerID sql.NullString
+	var claimToken sql.NullString
 	var completedAt sql.NullFloat64
 	var createdUnix float64
 	task := &router.Task{}
@@ -49,6 +57,8 @@ func (s *SQLite) GetTask(_ context.Context, taskID string) (*router.Task, error)
 		&task.CallbackTopic,
 		&task.Status,
 		&task.Attempt,
+		&workerID,
+		&claimToken,
 		&summary,
 		&createdUnix,
 		&completedAt,
@@ -59,6 +69,8 @@ func (s *SQLite) GetTask(_ context.Context, taskID string) (*router.Task, error)
 		return nil, err
 	}
 	task.Summary = summary.String
+	task.WorkerID = workerID.String
+	task.ClaimToken = claimToken.String
 	task.CreatedAt = time.Unix(int64(createdUnix), 0)
 	if completedAt.Valid {
 		task.CompletedAt = time.Unix(int64(completedAt.Float64), 0)
@@ -86,10 +98,13 @@ func (s *SQLite) UpdateTask(_ context.Context, task *router.Task) error {
 		completed = float64(task.CompletedAt.Unix())
 	}
 	res, err := s.db.Exec(
-		`UPDATE tasks SET status = ?, summary = ?, completed_at = ? WHERE task_id = ?`,
+		`UPDATE tasks SET status = ?, summary = ?, completed_at = ?, worker_id = ?, claim_token = ?, attempt = ? WHERE task_id = ?`,
 		task.Status,
 		task.Summary,
 		completed,
+		nullString(task.WorkerID),
+		nullString(task.ClaimToken),
+		task.Attempt,
 		task.TaskID,
 	)
 	if err != nil {

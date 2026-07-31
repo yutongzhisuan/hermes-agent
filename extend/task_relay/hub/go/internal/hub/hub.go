@@ -38,13 +38,19 @@ func New(cfg config.Config) (*Hub, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	bus := eventbus.New()
+	rt := router.NewRouter(db)
 	return &Hub{
 		cfg:    cfg,
 		auth:   verifier,
-		bus:    eventbus.New(),
+		bus:    bus,
 		db:     db,
-		router: router.NewRouter(db),
-		ws:     wsserver.New(),
+		router: rt,
+		ws: wsserver.New(wsserver.Deps{
+			Router: rt,
+			Auth:   verifier,
+			Bus:    bus,
+		}),
 	}, nil
 }
 

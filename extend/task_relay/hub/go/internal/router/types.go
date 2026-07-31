@@ -23,6 +23,8 @@ type Task struct {
 	CallbackTopic string
 	Status        string
 	Attempt       int
+	WorkerID      string
+	ClaimToken    string
 	CreatedAt     time.Time
 	CompletedAt   time.Time
 	Summary       string
