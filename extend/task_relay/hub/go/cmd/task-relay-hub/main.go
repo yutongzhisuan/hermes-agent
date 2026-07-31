@@ -25,8 +25,14 @@ func run(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	runtime := gohub.New(cfg)
-	if err := runtime.Run(ctx); err != nil {
+	runtime, err := gohub.New(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "hub init: %v\n", err)
+		return 1
+	}
+	defer runtime.Close()
+
+	if err := runtime.Run(ctx); err != nil && err != context.Canceled {
 		fmt.Fprintf(os.Stderr, "hub: %v\n", err)
 		return 1
 	}

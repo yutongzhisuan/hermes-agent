@@ -7,11 +7,13 @@ import (
 
 // Config holds process-level Hub settings for the Go port (P4 scaffold).
 type Config struct {
-	Host      string
-	GRPCPort  int
-	WSPort    int
-	DBPath    string
-	JWTSecret string
+	Host       string
+	GRPCPort   int
+	WSPort     int
+	DBPath     string
+	JWTSecret  string
+	JWTIssuer  string
+	JWTAudience string
 }
 
 // Parse reads CLI flags into Config.
@@ -29,10 +31,12 @@ func Parse(args []string) (Config, error) {
 		return Config{}, fmt.Errorf("--jwt-secret is required")
 	}
 	return Config{
-		Host:      *host,
-		GRPCPort:  *grpcPort,
-		WSPort:    *wsPort,
-		DBPath:    *dbPath,
-		JWTSecret: *jwtSecret,
+		Host:        *host,
+		GRPCPort:    *grpcPort,
+		WSPort:      *wsPort,
+		DBPath:      *dbPath,
+		JWTSecret:   *jwtSecret,
+		JWTIssuer:   "hermes-relay-hub",
+		JWTAudience: "task-relay-hub",
 	}, nil
 }

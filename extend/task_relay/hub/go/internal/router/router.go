@@ -74,6 +74,21 @@ func (r *Router) DispatchTask(ctx context.Context, spec TaskSpec) (*DispatchResp
 	}, nil
 }
 
+// GetTask returns a persisted task row.
+func (r *Router) GetTask(ctx context.Context, taskID string) (*Task, error) {
+	if taskID == "" {
+		return nil, &Error{Msg: "task_id is required"}
+	}
+	task, err := r.store.GetTask(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	if task == nil {
+		return nil, &Error{Msg: "task not found: " + taskID}
+	}
+	return task, nil
+}
+
 // Complete marks a task terminal with idempotent semantics.
 func (r *Router) Complete(ctx context.Context, taskID, status, summary string) (*DispatchResponse, error) {
 	if !IsTerminal(status) {
