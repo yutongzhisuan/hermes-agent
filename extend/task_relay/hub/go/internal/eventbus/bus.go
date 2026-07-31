@@ -15,6 +15,7 @@ const (
 	KindStatus Kind = iota + 1
 	KindProgress
 	KindTerminal
+	KindAggregate
 )
 
 // Filter mirrors WatchTask oneof filter fields.
@@ -35,6 +36,7 @@ type Event struct {
 	ProgressSummary string
 	Status          string
 	Summary         string
+	AggregateJSON   string
 }
 
 // CursorOutOfRangeError is returned when since_event_id predates retained events.

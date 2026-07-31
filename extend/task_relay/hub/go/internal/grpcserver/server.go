@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,13 +16,20 @@ import (
 // Server implements the TaskRelay gRPC API (partial Go Hub port).
 type Server struct {
 	pb.UnimplementedTaskRelayServer
-	router *router.Router
-	bus    *eventbus.Bus
+	router   *router.Router
+	bus      *eventbus.Bus
+	registry *registry.Registry
+	delivery *delivery.Coordinator
 }
 
-// New returns a gRPC server wired to the Hub router and event bus.
-func New(r *router.Router, bus *eventbus.Bus) *Server {
-	return &Server{router: r, bus: bus}
+// New returns a gRPC server wired to Hub runtime services.
+func New(
+	r *router.Router,
+	bus *eventbus.Bus,
+	reg *registry.Registry,
+	del *delivery.Coordinator,
+) *Server {
+	return &Server{router: r, bus: bus, registry: reg, delivery: del}
 }
 
 // DispatchTask handles Master task dispatch (M1).
@@ -28,11 +37,7 @@ func (s *Server) DispatchTask(ctx context.Context, req *pb.DispatchTaskRequest) 
 	if req == nil || req.Spec == nil {
 		return nil, status.Error(codes.InvalidArgument, "spec is required")
 	}
-	spec := router.TaskSpec{
-		TaskID:        req.Spec.TaskId,
-		Goal:          req.Spec.Goal,
-		CallbackTopic: req.Spec.CallbackTopic,
-	}
+	spec := mapTaskSpec(req.Spec)
 	resp, err := s.router.DispatchTask(ctx, spec)
 	if err != nil {
 		return nil, routerStatusError(err)
@@ -40,6 +45,9 @@ func (s *Server) DispatchTask(ctx context.Context, req *pb.DispatchTaskRequest) 
 	if !resp.IdempotentHit {
 		if task, getErr := s.router.GetTask(ctx, resp.TaskID); getErr == nil {
 			s.publishStatus(task)
+			if s.delivery != nil {
+				s.delivery.OnTaskPending(ctx, resp.TaskID)
+			}
 		}
 	}
 	return &pb.DispatchTaskResponse{
@@ -56,14 +64,21 @@ func (s *Server) GetTaskResult(ctx context.Context, req *pb.TaskResultRequest) (
 	if req == nil || req.TaskId == "" {
 		return nil, status.Error(codes.InvalidArgument, "task_id is required")
 	}
-	if req.IncludeLatestCheckpoint {
-		return nil, status.Error(codes.Unimplemented, "checkpoints are not implemented in the Go hub yet")
-	}
 	task, err := s.router.GetTask(ctx, req.TaskId)
 	if err != nil {
 		return nil, routerStatusError(err)
 	}
-	return taskToProto(task), nil
+	result := taskToProto(task)
+	if req.IncludeLatestCheckpoint {
+		checkpoint, err := s.router.GetLatestCheckpoint(ctx, req.TaskId)
+		if err != nil {
+			return nil, routerStatusError(err)
+		}
+		if checkpoint != nil {
+			result.LatestCheckpointId = checkpoint.CheckpointID
+		}
+	}
+	return result, nil
 }
 
 func routerStatusError(err error) error {
@@ -85,6 +100,7 @@ func taskToProto(task *router.Task) *pb.TaskResult {
 		Attempt:       int32(task.Attempt),
 		MaxAttempts:   1,
 		SchemaVersion: 1,
+		BatchId:       task.BatchID,
 	}
 	if !task.CompletedAt.IsZero() {
 		result.CompletedAt = task.CompletedAt.UnixMilli()

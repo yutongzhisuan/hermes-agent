@@ -4,7 +4,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
-FIXTURE="$ROOT/scripts/e2e_go_master_fixture.py"
+FIXTURE="${HUB:-python}"
+case "$FIXTURE" in
+  go) FIXTURE="$ROOT/scripts/e2e_go_hub_fixture.py" ;;
+  *) FIXTURE="$ROOT/scripts/e2e_go_master_fixture.py" ;;
+esac
 PYTHON="${REPO_ROOT}/.venv/bin/python"
 
 if [[ ! -x "$PYTHON" ]]; then

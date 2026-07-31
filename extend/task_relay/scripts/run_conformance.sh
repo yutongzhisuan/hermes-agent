@@ -1,10 +1,31 @@
 #!/usr/bin/env bash
-# Cross-language Task Relay conformance runner (Python Hub + Go Master SDK).
+# Cross-language Task Relay conformance runner.
+# Default: Python Hub + Python tests + Go Master SDK against Python Hub.
+# --hub=go: Go Hub unit/integration tests + Go Master SDK against Go Hub.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
 cd "$REPO_ROOT"
+
+HUB="python"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --hub=*)
+      HUB="${1#*=}"
+      shift
+      ;;
+    --hub)
+      HUB="${2:-python}"
+      shift 2
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      echo "usage: $0 [--hub=python|go]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 PY="PYTHONPATH=. uv run --extra task-relay pytest -o addopts="
 
@@ -13,22 +34,44 @@ run_py() {
   $PY extend/task_relay/tests/$2 -q
 }
 
-run_py "Python Mode A E2E" "test_e2e_mode_a.py"
-run_py "M2 Mode C push" "test_m2_mode_c.py"
-run_py "M2 wake" "test_m2_wake.py"
-run_py "M2 ContextRef" "test_m2_context_ref.py"
-run_py "M3 orchestration" "test_m3_orchestration.py"
-run_py "M3 signed ContextRef" "test_m3_context_ref_sign.py"
-run_py "M3 security (encrypt + audit)" "test_m3_security.py"
-run_py "gRPC watch semantics" "test_grpc_watch.py"
+run_python_conformance() {
+  run_py "Python Mode A E2E" "test_e2e_mode_a.py"
+  run_py "M2 Mode C push" "test_m2_mode_c.py"
+  run_py "M2 wake" "test_m2_wake.py"
+  run_py "M2 ContextRef" "test_m2_context_ref.py"
+  run_py "M3 orchestration" "test_m3_orchestration.py"
+  run_py "M3 signed ContextRef" "test_m3_context_ref_sign.py"
+  run_py "M3 security (encrypt + audit)" "test_m3_security.py"
+  run_py "gRPC watch semantics" "test_grpc_watch.py"
 
-echo "== Go Master SDK E2E =="
-"$ROOT/scripts/run_go_master_e2e.sh"
+  echo "== Go Master SDK E2E (Python Hub) =="
+  HUB=python "$ROOT/scripts/run_go_master_e2e.sh"
+}
 
-echo "== Go Hub router unit tests =="
-(cd "$ROOT/hub/go" && go test ./...)
+run_go_conformance() {
+  echo "== Go Hub unit + integration tests =="
+  (cd "$ROOT/hub/go" && go test ./... -count=1)
 
-echo "== Go Hub scaffold build =="
-(cd "$ROOT/hub/go" && go build ./...)
+  echo "== Go Hub build =="
+  (cd "$ROOT/hub/go" && go build ./...)
 
-echo "Conformance suite passed."
+  echo "== Go Master SDK E2E (Go Hub) =="
+  HUB=go "$ROOT/scripts/run_go_master_e2e.sh"
+}
+
+	case "$HUB" in
+  python)
+    run_python_conformance
+    echo "== Go Hub unit tests (python conformance tail) =="
+    (cd "$ROOT/hub/go" && go test ./... -count=1)
+    ;;
+  go)
+    run_go_conformance
+    ;;
+  *)
+    echo "unsupported hub: $HUB (use python or go)" >&2
+    exit 2
+    ;;
+esac
+
+echo "Conformance suite passed (hub=$HUB)."

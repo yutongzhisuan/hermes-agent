@@ -10,7 +10,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/wsserver"
@@ -85,8 +87,15 @@ func setupWS(t *testing.T) (*wsserver.Server, *router.Router, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt := router.NewRouter(store.NewMemory())
-	srv := wsserver.New(wsserver.Deps{Router: rt, Auth: verifier, Bus: eventbus.New()})
+	rt := router.NewRouter(store.NewMemory(), nil, router.DefaultRouterConfig())
+	reg := registry.New()
+	srv := wsserver.New(wsserver.Deps{
+		Router:   rt,
+		Auth:     verifier,
+		Bus:      eventbus.New(),
+		Registry: reg,
+		Delivery: delivery.New(rt, reg, wsserver.BuildRunPayload),
+	})
 	token, err := verifier.IssueWorkerJWT("worker-1", []string{"terminal"}, 2, time.Hour)
 	if err != nil {
 		t.Fatal(err)

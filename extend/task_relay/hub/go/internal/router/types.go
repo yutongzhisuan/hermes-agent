@@ -9,25 +9,62 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Msg }
 
-// TaskSpec is the Master-facing dispatch input (subset for the Go port scaffold).
+// TaskSpec is the Master-facing dispatch input.
 type TaskSpec struct {
-	TaskID        string
-	Goal          string
-	CallbackTopic string
+	TaskID               string
+	Goal                 string
+	CallbackTopic        string
+	BatchID              string
+	TargetWorker         string
+	Toolsets             []string
+	DependsOn            []string
+	AggregateKey         string
+	MinResourcesJSON     string
+	Priority             int
+	QueueTimeoutSeconds  int
+	FirstProgressSeconds int
+	TimeoutSeconds       int
+	MaxAttempts          int
 }
 
-// Task is a persisted Hub row (subset for the Go port scaffold).
+// Task is a persisted Hub row.
 type Task struct {
-	TaskID        string
-	Goal          string
-	CallbackTopic string
-	Status        string
-	Attempt       int
-	WorkerID      string
-	ClaimToken    string
-	CreatedAt     time.Time
-	CompletedAt   time.Time
-	Summary       string
+	TaskID                  string
+	BatchID                 string
+	Goal                    string
+	CallbackTopic           string
+	Status                  string
+	Attempt                 int
+	MaxAttempts             int
+	WorkerID                string
+	ClaimToken              string
+	TargetWorker            string
+	ToolsetsJSON            string
+	DependsOnJSON           string
+	AggregateKey            string
+	MinResourcesJSON        string
+	Error                   string
+	Priority                int
+	QueueTimeoutSeconds     int
+	FirstProgressSeconds    int
+	TimeoutSeconds          int
+	QueueDeadlineAt         time.Time
+	FirstProgressDeadlineAt time.Time
+	ClaimExpiresAt          time.Time
+	StartedAt               time.Time
+	CreatedAt               time.Time
+	CompletedAt             time.Time
+	Summary                 string
+	CancelReason            string
+}
+
+// Checkpoint is a persisted L1/L2 checkpoint row.
+type Checkpoint struct {
+	CheckpointID string
+	TaskID       string
+	Summary      string
+	ResumeBlob   []byte
+	CheckpointAt time.Time
 }
 
 // DispatchResponse mirrors the gRPC dispatch ACK fields used by conformance tests.
@@ -37,4 +74,22 @@ type DispatchResponse struct {
 	Status        string
 	IdempotentHit bool
 	Attempt       int
+}
+
+// Batch is a persisted batch dispatch row.
+type Batch struct {
+	BatchID         string
+	CallbackTopic   string
+	BatchSpecHash   string
+	PolicyJSON      string
+	CreatedAt       time.Time
+	BatchDeadlineAt time.Time
+}
+
+// BatchDispatchResponse mirrors the gRPC batch ACK.
+type BatchDispatchResponse struct {
+	BatchID       string
+	CallbackTopic string
+	Tasks         []DispatchResponse
+	IdempotentHit bool
 }

@@ -1,6 +1,6 @@
 module github.com/infa/hermes-agent/extend/task_relay/gen/go
 
-go 1.22
+go 1.23
 
 require (
 	google.golang.org/grpc v1.72.0

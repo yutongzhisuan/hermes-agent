@@ -29,6 +29,7 @@ func (s *Server) ListTasks(ctx context.Context, req *pb.ListTasksRequest) (*pb.L
 		statuses = append(statuses, protoStatusToString(value))
 	}
 	tasks, err := s.router.ListTasks(ctx, router.ListTasksQuery{
+		BatchID:       req.BatchId,
 		CallbackTopic: req.CallbackTopic,
 		Statuses:      statuses,
 		Limit:         limit,

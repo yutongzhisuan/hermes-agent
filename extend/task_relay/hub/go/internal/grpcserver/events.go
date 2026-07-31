@@ -1,6 +1,8 @@
 package grpcserver
 
 import (
+	"encoding/json"
+
 	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
@@ -21,6 +23,14 @@ func eventToProto(event eventbus.Event) *pb.TaskEvent {
 		proto.Kind = pb.TaskEventKind_TASK_EVENT_KIND_PROGRESS
 	case eventbus.KindTerminal:
 		proto.Kind = pb.TaskEventKind_TASK_EVENT_KIND_TERMINAL
+	case eventbus.KindAggregate:
+		proto.Kind = pb.TaskEventKind_TASK_EVENT_KIND_AGGREGATE
+		if event.AggregateJSON != "" {
+			var payload map[string]any
+			if err := json.Unmarshal([]byte(event.AggregateJSON), &payload); err == nil {
+				proto.Aggregate = aggregateToProto(payload)
+			}
+		}
 	}
 	if event.Status != "" || event.Summary != "" {
 		proto.Result = &pb.TaskResult{
@@ -59,6 +69,7 @@ func (s *Server) publishStatus(task *router.Task) {
 	}
 	s.bus.Publish(eventbus.Event{
 		TaskID:        task.TaskID,
+		BatchID:       task.BatchID,
 		CallbackTopic: task.CallbackTopic,
 		Kind:          eventbus.KindStatus,
 		Status:        task.Status,
@@ -72,6 +83,7 @@ func (s *Server) publishProgress(task *router.Task, summary string) {
 	}
 	s.bus.Publish(eventbus.Event{
 		TaskID:          task.TaskID,
+		BatchID:         task.BatchID,
 		CallbackTopic:   task.CallbackTopic,
 		Kind:            eventbus.KindProgress,
 		ProgressSummary: summary,
@@ -85,6 +97,7 @@ func (s *Server) publishTerminal(task *router.Task) {
 	}
 	s.bus.Publish(eventbus.Event{
 		TaskID:        task.TaskID,
+		BatchID:       task.BatchID,
 		CallbackTopic: task.CallbackTopic,
 		Kind:          eventbus.KindTerminal,
 		Status:        task.Status,

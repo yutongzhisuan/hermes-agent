@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
@@ -10,13 +11,19 @@ import (
 
 // Memory is an in-memory Store for router unit tests and local scaffolding.
 type Memory struct {
-	mu    sync.Mutex
-	tasks map[string]*router.Task
+	mu          sync.Mutex
+	tasks       map[string]*router.Task
+	batches     map[string]*router.Batch
+	checkpoints map[string][]router.Checkpoint
 }
 
 // NewMemory returns an empty in-memory task store.
 func NewMemory() *Memory {
-	return &Memory{tasks: make(map[string]*router.Task)}
+	return &Memory{
+		tasks:       make(map[string]*router.Task),
+		batches:     make(map[string]*router.Batch),
+		checkpoints: make(map[string][]router.Checkpoint),
+	}
 }
 
 func (m *Memory) GetTask(_ context.Context, taskID string) (*router.Task, error) {
@@ -65,6 +72,9 @@ func (m *Memory) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 	}
 	out := make([]*router.Task, 0)
 	for _, task := range m.tasks {
+		if query.BatchID != "" && task.BatchID != query.BatchID {
+			continue
+		}
 		if query.CallbackTopic != "" && task.CallbackTopic != query.CallbackTopic {
 			continue
 		}
@@ -75,9 +85,37 @@ func (m *Memory) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 		}
 		copy := *task
 		out = append(out, &copy)
-		if len(out) >= limit {
-			break
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Priority != out[j].Priority {
+			return out[i].Priority > out[j].Priority
 		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
+}
+
+func (m *Memory) GetBatch(_ context.Context, batchID string) (*router.Batch, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	batch, ok := m.batches[batchID]
+	if !ok {
+		return nil, nil
+	}
+	copy := *batch
+	return &copy, nil
+}
+
+func (m *Memory) InsertBatch(_ context.Context, batch *router.Batch) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, exists := m.batches[batch.BatchID]; exists {
+		return fmt.Errorf("batch %s already exists", batch.BatchID)
+	}
+	copy := *batch
+	m.batches[batch.BatchID] = &copy
+	return nil
 }

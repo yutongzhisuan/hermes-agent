@@ -15,7 +15,7 @@ type SQLite struct {
 	db *sql.DB
 }
 
-// OpenSQLite opens path and ensures the tasks schema exists.
+// OpenSQLite opens path and ensures schema exists.
 func OpenSQLite(path string) (*SQLite, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -25,12 +25,7 @@ func OpenSQLite(path string) (*SQLite, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate sqlite: %w", err)
 	}
-	for _, stmt := range []string{
-		`ALTER TABLE tasks ADD COLUMN worker_id TEXT`,
-		`ALTER TABLE tasks ADD COLUMN claim_token TEXT`,
-	} {
-		_, _ = db.Exec(stmt)
-	}
+	applySQLiteMigrations(db)
 	return &SQLite{db: db}, nil
 }
 
@@ -39,72 +34,60 @@ func (s *SQLite) Close() error {
 	return s.db.Close()
 }
 
-func (s *SQLite) GetTask(_ context.Context, taskID string) (*router.Task, error) {
-	row := s.db.QueryRow(
-		`SELECT task_id, goal, callback_topic, status, attempt, worker_id, claim_token, summary, created_at, completed_at
-		 FROM tasks WHERE task_id = ?`,
-		taskID,
-	)
-	var summary sql.NullString
-	var workerID sql.NullString
-	var claimToken sql.NullString
-	var completedAt sql.NullFloat64
-	var createdUnix float64
-	task := &router.Task{}
-	if err := row.Scan(
-		&task.TaskID,
-		&task.Goal,
-		&task.CallbackTopic,
-		&task.Status,
-		&task.Attempt,
-		&workerID,
-		&claimToken,
-		&summary,
-		&createdUnix,
-		&completedAt,
-	); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	task.Summary = summary.String
-	task.WorkerID = workerID.String
-	task.ClaimToken = claimToken.String
-	task.CreatedAt = time.Unix(int64(createdUnix), 0)
-	if completedAt.Valid {
-		task.CompletedAt = time.Unix(int64(completedAt.Float64), 0)
-	}
-	return task, nil
+func (s *SQLite) GetTask(ctx context.Context, taskID string) (*router.Task, error) {
+	row := s.db.QueryRow(taskSelectSQL+` WHERE task_id = ?`, taskID)
+	return scanTaskRow(row)
 }
 
 func (s *SQLite) InsertTask(_ context.Context, task *router.Task) error {
 	_, err := s.db.Exec(
-		`INSERT INTO tasks (task_id, goal, callback_topic, status, attempt, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO tasks (
+		 task_id, batch_id, goal, callback_topic, status, attempt, max_attempts,
+		 target_worker, toolsets_json, depends_on_json, aggregate_key, min_resources_json,
+		 priority, queue_timeout_seconds, first_progress_seconds, timeout_seconds,
+		 queue_deadline_at, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		task.TaskID,
+		nullString(task.BatchID),
 		task.Goal,
 		task.CallbackTopic,
 		task.Status,
 		task.Attempt,
+		task.MaxAttempts,
+		nullString(task.TargetWorker),
+		nullString(task.ToolsetsJSON),
+		nullString(task.DependsOnJSON),
+		nullString(task.AggregateKey),
+		nullString(task.MinResourcesJSON),
+		task.Priority,
+		nullInt(task.QueueTimeoutSeconds),
+		nullInt(task.FirstProgressSeconds),
+		nullInt(task.TimeoutSeconds),
+		nullTime(task.QueueDeadlineAt),
 		float64(task.CreatedAt.Unix()),
 	)
 	return err
 }
 
 func (s *SQLite) UpdateTask(_ context.Context, task *router.Task) error {
-	var completed any
-	if !task.CompletedAt.IsZero() {
-		completed = float64(task.CompletedAt.Unix())
-	}
 	res, err := s.db.Exec(
-		`UPDATE tasks SET status = ?, summary = ?, completed_at = ?, worker_id = ?, claim_token = ?, attempt = ? WHERE task_id = ?`,
+		`UPDATE tasks SET
+		 status = ?, summary = ?, error = ?, attempt = ?, worker_id = ?, claim_token = ?,
+		 queue_deadline_at = ?, first_progress_deadline_at = ?, claim_expires_at = ?,
+		 started_at = ?, completed_at = ?, cancel_reason = ?
+		 WHERE task_id = ?`,
 		task.Status,
 		task.Summary,
-		completed,
+		nullString(task.Error),
+		task.Attempt,
 		nullString(task.WorkerID),
 		nullString(task.ClaimToken),
-		task.Attempt,
+		nullTime(task.QueueDeadlineAt),
+		nullTime(task.FirstProgressDeadlineAt),
+		nullTime(task.ClaimExpiresAt),
+		nullTime(task.StartedAt),
+		nullTime(task.CompletedAt),
+		nullString(task.CancelReason),
 		task.TaskID,
 	)
 	if err != nil {
@@ -118,4 +101,65 @@ func (s *SQLite) UpdateTask(_ context.Context, task *router.Task) error {
 		return fmt.Errorf("task %s not found", task.TaskID)
 	}
 	return nil
+}
+
+func (s *SQLite) GetBatch(_ context.Context, batchID string) (*router.Batch, error) {
+	row := s.db.QueryRow(
+		`SELECT batch_id, callback_topic, batch_spec_hash, policy_json, created_at, batch_deadline_at
+		 FROM batches WHERE batch_id = ?`,
+		batchID,
+	)
+	batch, err := scanBatchRow(row)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return batch, err
+}
+
+func (s *SQLite) InsertBatch(_ context.Context, batch *router.Batch) error {
+	created := batch.CreatedAt
+	if created.IsZero() {
+		created = time.Now()
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO batches (batch_id, callback_topic, batch_spec_hash, policy_json, created_at, batch_deadline_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		batch.BatchID,
+		batch.CallbackTopic,
+		batch.BatchSpecHash,
+		nullString(batch.PolicyJSON),
+		float64(created.Unix()),
+		nullTime(batch.BatchDeadlineAt),
+	)
+	return err
+}
+
+const taskSelectSQL = `
+SELECT task_id, batch_id, goal, callback_topic, status, attempt, max_attempts,
+       worker_id, claim_token, target_worker, toolsets_json, depends_on_json,
+       aggregate_key, min_resources_json, error, priority,
+       queue_timeout_seconds, first_progress_seconds, timeout_seconds,
+       queue_deadline_at, first_progress_deadline_at, claim_expires_at,
+       started_at, summary, cancel_reason, created_at, completed_at
+FROM tasks`
+
+func nullString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func nullInt(value int) any {
+	if value == 0 {
+		return nil
+	}
+	return value
+}
+
+func nullTime(value time.Time) any {
+	if value.IsZero() {
+		return nil
+	}
+	return float64(value.Unix())
 }

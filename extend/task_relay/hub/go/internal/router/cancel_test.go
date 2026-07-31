@@ -11,7 +11,7 @@ import (
 
 func TestCancelPendingTask(t *testing.T) {
 	mem := store.NewMemory()
-	r := router.NewRouter(mem)
+	r := router.NewRouter(mem, nil, router.DefaultRouterConfig())
 	ctx := context.Background()
 
 	_, err := r.DispatchTask(ctx, router.TaskSpec{
@@ -44,7 +44,7 @@ func TestCancelRunningTaskEntersCancelling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := router.NewRouter(mem).Cancel(ctx, "cancel-2", "stop")
+	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Cancel(ctx, "cancel-2", "stop")
 	if err != nil || resp.Status != router.StatusCancelling {
 		t.Fatalf("cancel running: %+v err=%v", resp, err)
 	}

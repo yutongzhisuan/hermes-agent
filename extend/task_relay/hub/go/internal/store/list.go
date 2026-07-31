@@ -2,10 +2,8 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
@@ -15,8 +13,12 @@ func (s *SQLite) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 	if limit <= 0 {
 		limit = 100
 	}
-	clauses := make([]string, 0, 2)
-	args := make([]any, 0, 4)
+	clauses := make([]string, 0, 3)
+	args := make([]any, 0, 5)
+	if query.BatchID != "" {
+		clauses = append(clauses, "batch_id = ?")
+		args = append(args, query.BatchID)
+	}
 	if query.CallbackTopic != "" {
 		clauses = append(clauses, "callback_topic = ?")
 		args = append(args, query.CallbackTopic)
@@ -31,12 +33,11 @@ func (s *SQLite) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 	}
 	where := ""
 	if len(clauses) > 0 {
-		where = "WHERE " + strings.Join(clauses, " AND ")
+		where = " WHERE " + strings.Join(clauses, " AND ")
 	}
 	args = append(args, limit)
 	rows, err := s.db.Query(
-		`SELECT task_id, goal, callback_topic, status, attempt, worker_id, claim_token, summary, created_at, completed_at
-		 FROM tasks `+where+` ORDER BY created_at ASC, task_id LIMIT ?`,
+		taskSelectSQL+where+` ORDER BY priority DESC, created_at ASC, task_id LIMIT ?`,
 		args...,
 	)
 	if err != nil {
@@ -53,44 +54,4 @@ func (s *SQLite) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 		tasks = append(tasks, task)
 	}
 	return tasks, rows.Err()
-}
-
-func scanTaskRow(scanner interface {
-	Scan(dest ...any) error
-}) (*router.Task, error) {
-	var summary sql.NullString
-	var workerID sql.NullString
-	var claimToken sql.NullString
-	var completedAt sql.NullFloat64
-	var createdUnix float64
-	task := &router.Task{}
-	if err := scanner.Scan(
-		&task.TaskID,
-		&task.Goal,
-		&task.CallbackTopic,
-		&task.Status,
-		&task.Attempt,
-		&workerID,
-		&claimToken,
-		&summary,
-		&createdUnix,
-		&completedAt,
-	); err != nil {
-		return nil, err
-	}
-	task.Summary = summary.String
-	task.WorkerID = workerID.String
-	task.ClaimToken = claimToken.String
-	task.CreatedAt = time.Unix(int64(createdUnix), 0)
-	if completedAt.Valid {
-		task.CompletedAt = time.Unix(int64(completedAt.Float64), 0)
-	}
-	return task, nil
-}
-
-func nullString(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
 }

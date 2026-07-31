@@ -10,6 +10,7 @@ import (
 	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/config"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/grpcserver"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	gohub "github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/hub"
 	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
@@ -41,7 +42,7 @@ func startTestHubGRPC(t *testing.T) (*gohub.Hub, func(context.Context, string) (
 		grpc.UnaryInterceptor(grpcserver.MasterAuthUnaryInterceptor(h.Auth())),
 		grpc.StreamInterceptor(grpcserver.MasterAuthStreamInterceptor(h.Auth())),
 	)
-	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.Router(), h.EventBus()))
+	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.Router(), h.EventBus(), h.Registry(), h.Delivery()))
 	go srv.Serve(lis)
 	t.Cleanup(srv.Stop)
 
@@ -338,5 +339,207 @@ func TestGoHubGRPCListTasks(t *testing.T) {
 	}
 	if len(list.Tasks) != 1 || list.Tasks[0].TaskId != "list-task-1" {
 		t.Fatalf("unexpected list: %+v", list)
+	}
+}
+
+func TestGoHubGRPCDispatchTaskBatch(t *testing.T) {
+	h, dialer, _ := startTestHubGRPC(t)
+	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
+	if err != nil {
+		t.Fatalf("issue jwt: %v", err)
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	master, err := client.New(ctx, client.Config{
+		Addr:      "passthrough:///bufnet",
+		MasterJWT: token,
+		ExtraDial: dialOpts,
+	})
+	if err != nil {
+		t.Fatalf("master client: %v", err)
+	}
+	t.Cleanup(func() { _ = master.Close() })
+
+	batch, err := master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
+		BatchId:       "go-batch-1",
+		CallbackTopic: "batch-topic",
+		Specs: []*pb.TaskSpec{
+			{TaskId: "go-batch-1-t1", Goal: "first"},
+			{TaskId: "go-batch-1-t2", Goal: "second"},
+		},
+	})
+	if err != nil || batch.IdempotentHit || len(batch.Tasks) != 2 {
+		t.Fatalf("dispatch batch: %+v err=%v", batch, err)
+	}
+
+	again, err := master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
+		BatchId:       "go-batch-1",
+		CallbackTopic: "batch-topic",
+		Specs: []*pb.TaskSpec{
+			{TaskId: "go-batch-1-t1", Goal: "first"},
+			{TaskId: "go-batch-1-t2", Goal: "second"},
+		},
+	})
+	if err != nil || !again.IdempotentHit || len(again.Tasks) != 2 {
+		t.Fatalf("idempotent batch: %+v err=%v", again, err)
+	}
+}
+
+func TestGoHubGRPCCancelBatch(t *testing.T) {
+	h, dialer, _ := startTestHubGRPC(t)
+	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
+	if err != nil {
+		t.Fatalf("issue jwt: %v", err)
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	master, err := client.New(ctx, client.Config{
+		Addr:      "passthrough:///bufnet",
+		MasterJWT: token,
+		ExtraDial: dialOpts,
+	})
+	if err != nil {
+		t.Fatalf("master client: %v", err)
+	}
+	t.Cleanup(func() { _ = master.Close() })
+
+	_, err = master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
+		BatchId:       "go-batch-cancel",
+		CallbackTopic: "cancel-topic",
+		Specs: []*pb.TaskSpec{
+			{TaskId: "go-batch-cancel-t1", Goal: "one"},
+			{TaskId: "go-batch-cancel-t2", Goal: "two"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dispatch batch: %v", err)
+	}
+
+	resp, err := master.CancelTask(ctx, &pb.CancelTaskRequest{
+		BatchId: "go-batch-cancel",
+		Reason:  "batch cancel",
+	})
+	if err != nil || len(resp.CancelledTaskIds) != 2 {
+		t.Fatalf("cancel batch: %+v err=%v", resp, err)
+	}
+}
+
+func TestGoHubGRPCListWorkers(t *testing.T) {
+	h, dialer, _ := startTestHubGRPC(t)
+	h.Registry().Announce(context.Background(), registry.AnnounceInput{
+		WorkerID:      "worker-a",
+		SessionModes:  []string{"A", "C"},
+		MaxConcurrent: 2,
+		Toolsets:      []string{"terminal", "file"},
+		Capabilities:  map[string]any{"os": "linux", "region": "ap-southeast-1"},
+	})
+
+	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
+	if err != nil {
+		t.Fatalf("issue jwt: %v", err)
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	master, err := client.New(ctx, client.Config{
+		Addr:      "passthrough:///bufnet",
+		MasterJWT: token,
+		ExtraDial: dialOpts,
+	})
+	if err != nil {
+		t.Fatalf("master client: %v", err)
+	}
+	t.Cleanup(func() { _ = master.Close() })
+
+	list, err := master.ListWorkers(ctx, &pb.ListWorkersRequest{
+		RequireToolsets: []string{"terminal"},
+	})
+	if err != nil {
+		t.Fatalf("list workers: %v", err)
+	}
+	if len(list.Workers) != 1 || list.Workers[0].WorkerId != "worker-a" {
+		t.Fatalf("unexpected workers: %+v", list)
+	}
+	if list.Workers[0].Region != "ap-southeast-1" {
+		t.Fatalf("unexpected region: %+v", list.Workers[0])
+	}
+}
+
+func TestGoHubGRPCGetTaskResultWithCheckpoint(t *testing.T) {
+	h, dialer, _ := startTestHubGRPC(t)
+	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
+	if err != nil {
+		t.Fatalf("issue jwt: %v", err)
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	master, err := client.New(ctx, client.Config{
+		Addr:      "passthrough:///bufnet",
+		MasterJWT: token,
+		ExtraDial: dialOpts,
+	})
+	if err != nil {
+		t.Fatalf("master client: %v", err)
+	}
+	t.Cleanup(func() { _ = master.Close() })
+
+	taskID := "go-hub-checkpoint-1"
+	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+		TaskId: taskID,
+		Goal:   "checkpoint task",
+	}, "sess", false)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	h.Registry().Announce(ctx, registry.AnnounceInput{
+		WorkerID:      "worker-cp",
+		SessionModes:  []string{"A"},
+		MaxConcurrent: 1,
+	})
+	claimed, err := h.Router().ClaimForWorker(ctx, taskID, "worker-cp", nil)
+	if err != nil || claimed == nil {
+		t.Fatalf("claim: %+v err=%v", claimed, err)
+	}
+	if err := h.Router().OnCheckpoint(ctx, taskID, "ckpt-go-1", "saved", []byte("blob")); err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+
+	result, err := master.GetTaskResult(ctx, taskID, true)
+	if err != nil {
+		t.Fatalf("get result: %v", err)
+	}
+	if result.LatestCheckpointId != "ckpt-go-1" {
+		t.Fatalf("unexpected checkpoint id: %+v", result)
+	}
+	if result.Status != pb.TaskStatus_TASK_STATUS_RUNNING {
+		t.Fatalf("expected running status: %+v", result)
 	}
 }
