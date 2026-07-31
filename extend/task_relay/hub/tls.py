@@ -30,6 +30,8 @@ def load_server_ssl_context(tls: TlsConfig) -> ssl.SSLContext | None:
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(tls.cert_file, tls.key_file)
+    # gRPC requires h2; WebSocket and HTTP listeners need http/1.1 on the same cert.
+    ctx.set_alpn_protocols(["h2", "http/1.1"])
 
     if tls.ca_file:
         ctx.load_verify_locations(tls.ca_file)
@@ -55,6 +57,7 @@ def load_client_ssl_context(
 ) -> ssl.SSLContext:
     """Build a client ``SSLContext`` for mTLS connections in tests/clients."""
     ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca_file)
+    ctx.set_alpn_protocols(["h2", "http/1.1"])
     ctx.check_hostname = check_hostname
     if cert_file and key_file:
         ctx.load_cert_chain(cert_file, key_file)

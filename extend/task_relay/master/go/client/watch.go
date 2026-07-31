@@ -2,33 +2,16 @@ package client
 
 import (
 	"context"
-	"fmt"
 
 	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
 )
 
 // WatchFilter selects the WatchTask subscription scope.
 type WatchFilter struct {
-	Topic         string
-	BatchID       string
-	TaskID        string
-	SinceEventID  int64
-}
-
-// Watch opens a server-streaming WatchTask subscription.
-func (c *Client) Watch(ctx context.Context, filter WatchFilter) (pb.TaskRelay_WatchTaskClient, error) {
-	req := &pb.WatchTaskRequest{SinceEventId: filter.SinceEventID}
-	switch {
-	case filter.Topic != "":
-		req.Filter = &pb.WatchTaskRequest_Topic{Topic: filter.Topic}
-	case filter.BatchID != "":
-		req.Filter = &pb.WatchTaskRequest_BatchId{BatchId: filter.BatchID}
-	case filter.TaskID != "":
-		req.Filter = &pb.WatchTaskRequest_TaskId{TaskId: filter.TaskID}
-	default:
-		return nil, fmt.Errorf("watch filter requires topic, batch_id, or task_id")
-	}
-	return c.rpc.WatchTask(ctx, req)
+	Topic        string
+	BatchID      string
+	TaskID       string
+	SinceEventID int64
 }
 
 // TerminalSnapshot accumulates TERMINAL results keyed by task_id.

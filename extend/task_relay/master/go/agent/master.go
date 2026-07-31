@@ -8,6 +8,7 @@ import (
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
 )
@@ -58,12 +59,19 @@ type Config struct {
 	DisableLocalPlanner bool
 	// SubAgents registers additional local subagents available through the "task" tool.
 	SubAgents []adk.Agent
+
+	HubTLS         client.TLSConfig
+	EnableMetrics  bool
+	MetricsAddr    string
+	EnableTracing  bool
+	OTelEndpoint   string
 }
 
 // Master wraps an Eino ADK Runner backed by Task Relay tools.
 type Master struct {
-	Runner *adk.Runner
-	Hub    *client.Client
+	Runner          *adk.Runner
+	Hub             *client.Client
+	shutdownTracing func(context.Context) error
 }
 
 // New dials the Hub, builds Relay tools, and returns a DeepAgent or ReAct agent runner.
@@ -71,6 +79,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	if cfg.HubAddr == "" {
 		return nil, fmt.Errorf("hub address is required")
 	}
+	var err error
 	if cfg.OpenAIAPIKey == "" {
 		return nil, fmt.Errorf("openai api key is required")
 	}
@@ -90,8 +99,28 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		cfg.Mode = ModeDeep
 	}
 
-	hub, err := client.New(ctx, client.Config{Addr: cfg.HubAddr, MasterJWT: cfg.MasterJWT})
+	shutdownTracing := func(context.Context) error { return nil }
+	if cfg.EnableTracing {
+		shutdownTracing, err = client.InitTracing(ctx, "task-relay-master", cfg.OTelEndpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg.EnableMetrics && cfg.MetricsAddr != "" {
+		go func() {
+			_ = client.StartMetricsServer(ctx, cfg.MetricsAddr, prometheus.DefaultGatherer)
+		}()
+	}
+
+	hub, err := client.New(ctx, client.Config{
+		Addr:          cfg.HubAddr,
+		MasterJWT:     cfg.MasterJWT,
+		TLS:           cfg.HubTLS,
+		EnableMetrics: cfg.EnableMetrics,
+		EnableTracing: cfg.EnableTracing,
+	})
 	if err != nil {
+		_ = shutdownTracing(context.Background())
 		return nil, err
 	}
 
@@ -105,12 +134,14 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	chatModel, err := openai.NewChatModel(ctx, modelCfg)
 	if err != nil {
 		_ = hub.Close()
+		_ = shutdownTracing(context.Background())
 		return nil, fmt.Errorf("openai chat model: %w", err)
 	}
 
 	tools, err := (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
 	if err != nil {
 		_ = hub.Close()
+		_ = shutdownTracing(context.Background())
 		return nil, err
 	}
 	toolsConfig := adk.ToolsConfig{
@@ -120,12 +151,14 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig)
 	if err != nil {
 		_ = hub.Close()
+		_ = shutdownTracing(context.Background())
 		return nil, err
 	}
 
 	return &Master{
-		Runner: adk.NewRunner(ctx, adk.RunnerConfig{Agent: agentImpl}),
-		Hub:    hub,
+		Runner:          adk.NewRunner(ctx, adk.RunnerConfig{Agent: agentImpl}),
+		Hub:             hub,
+		shutdownTracing: shutdownTracing,
 	}, nil
 }
 
@@ -165,12 +198,19 @@ func buildAgent(
 	}
 }
 
-// Close releases the Hub gRPC connection.
+// Close releases Hub and tracing resources.
 func (m *Master) Close() error {
-	if m == nil || m.Hub == nil {
+	if m == nil {
 		return nil
 	}
-	return m.Hub.Close()
+	var err error
+	if m.Hub != nil {
+		err = m.Hub.Close()
+	}
+	if m.shutdownTracing != nil {
+		_ = m.shutdownTracing(context.Background())
+	}
+	return err
 }
 
 // Run executes one user goal and returns the final assistant text.
