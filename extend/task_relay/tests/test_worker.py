@@ -507,18 +507,19 @@ async def test_worker_sends_single_failed_complete_when_backend_raises(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_executor_does_not_send_duplicate_complete_on_send_failure():
-    class FlakyWs:
+async def test_executor_allows_retry_after_send_failure():
+    class FlakyOnceWs:
         def __init__(self):
             self.complete_calls = 0
 
         async def request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
             if method == "task.complete":
                 self.complete_calls += 1
-                raise RuntimeError("transport down")
+                if self.complete_calls == 1:
+                    raise RuntimeError("transport down")
             return {}
 
-    ws = FlakyWs()
+    ws = FlakyOnceWs()
     executor = TaskExecutor(ws, StubBackend(StubBackendConfig(sleep_seconds=0)))
 
     with pytest.raises(RuntimeError, match="transport down"):
@@ -539,11 +540,19 @@ async def test_executor_does_not_send_duplicate_complete_on_send_failure():
         )
 
     assert ws.complete_calls == 1
+    assert not executor.completion_attempted
+
+    success = await executor._complete_once(
+        "t1",
+        TaskCompletePayload(status="failed", summary="fallback"),
+    )
+    assert success is True
+    assert ws.complete_calls == 2
     assert executor.completion_attempted
 
 
 @pytest.mark.asyncio
-async def test_worker_does_not_send_second_complete_when_first_raises(monkeypatch):
+async def test_worker_sends_fallback_complete_after_send_failure(monkeypatch):
     fake_ws = FakeWorkerWs()
     fake_ws.raise_on_complete = True
     monkeypatch.setattr(
@@ -562,12 +571,15 @@ async def test_worker_does_not_send_second_complete_when_first_raises(monkeypatc
 
     await _run_worker_until(
         worker,
-        lambda: fake_ws.complete_count > 0,
+        lambda: fake_ws.complete_count >= 2,
         timeout=2.0,
     )
 
-    # The first (and only) complete attempt failed; no second attempt.
-    assert fake_ws.complete_count == 1
+    # The first complete failed; the outer error handler must emit a fallback.
+    completes = [r for r in fake_ws.requests if r[0] == "task.complete"]
+    assert len(completes) == 2
+    assert completes[0][1]["status"] == "completed"
+    assert completes[1][1]["status"] == "failed"
 
 
 @pytest.mark.asyncio

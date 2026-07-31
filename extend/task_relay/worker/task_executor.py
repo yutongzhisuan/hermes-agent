@@ -102,12 +102,13 @@ class TaskExecutor:
         self.ws_client = ws_client
         self.backend = backend
         self.settlement_guard = settlement_guard
-        self._completion_state: str | None = None  # None | "pending" | "sent"
+        # None | "pending" | "sent" | "dropped" | "failed"
+        self._completion_state: str | None = None
 
     @property
     def completion_attempted(self) -> bool:
-        """True if ``task.complete`` has already been requested or dropped."""
-        return self._completion_state in ("pending", "sent", "dropped")
+        """True if ``task.complete`` was successfully sent or explicitly dropped."""
+        return self._completion_state in ("sent", "dropped")
 
     async def execute(
         self,
@@ -177,8 +178,13 @@ class TaskExecutor:
         task_id: str,
         payload: TaskCompletePayload,
     ) -> bool:
-        """Send ``task.complete`` exactly once. Returns True on success."""
-        if self._completion_state is not None:
+        """Send ``task.complete``. Returns True on success.
+
+        A failed send leaves the executor in the ``failed`` state so the worker
+        can emit a fallback failure completion; a successful send or an explicit
+        guard drop terminates further attempts.
+        """
+        if self._completion_state in ("sent", "dropped"):
             return False
         if self.settlement_guard is not None:
             if not await self.settlement_guard(task_id):
@@ -203,6 +209,7 @@ class TaskExecutor:
             await self.ws_client.request("task.complete", params)
         except Exception:
             logger.exception("task.complete failed for %s", task_id)
+            self._completion_state = "failed"
             raise
         self._completion_state = "sent"
         return True

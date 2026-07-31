@@ -790,3 +790,104 @@ cd /Users/suyanlong/github/hermes-agent
 ```
 
 Result: **197 passed in 30.17s** (pristine output, no warnings/failures).
+
+
+## Fix Report: Final Whole-Branch Review Important Findings
+
+**Date:** 2026-07-30  
+**Commit:** `27b47b7a2` — `fix(task-relay): target cancel to current session and use deterministic timeout marker`
+
+### Finding 1: Cancel push bypasses session ownership
+
+- **Problem:** `WsHubServer.push_cancel()` and the per-session `_cancel_monitor_loop()` selected the target socket by `worker_id` only. If a stale connection was still in `_sessions`, the `task.cancel` frame could be delivered to the wrong socket.
+- **Fix:**
+  - `push_cancel()` now looks up the worker's `online_session_id` and sends only to the session whose `session_id` matches.
+  - `_cancel_monitor_loop()` exits early (and stops pushing) when the session is no longer the active one for the worker, using the existing `_is_current_session_for_worker()` helper.
+- **Files touched:** `extend/task_relay/hub/ws_server.py`
+- **New tests:** `extend/task_relay/tests/test_cancel_session.py::test_push_cancel_targets_current_session`, `test_cancel_monitor_loop_targets_current_session`
+
+### Finding 2: Timeout attribution is fragile between Hub and worker
+
+- **Problem:** The Hub used `task.cancel_reason == "timeout"` while `AcpTaskBackend` checked `"timeout" in reason.lower()`. A master cancel with a reason containing "timeout" would be settled as `failed` by the worker even though the Hub intended `cancelled`.
+- **Fix:**
+  - Introduced a dedicated marker constant `CANCEL_REASON_TIMEOUT = "__timeout__"` in `extend/task_relay/constants.py`.
+  - Hub stores and delivers the marker for execution/lease timeout cancels (`task_router.py`, `ws_server.py`).
+  - Worker (`AcpTaskBackend`) now checks exact equality (`reason == CANCEL_REASON_TIMEOUT`) instead of substring matching.
+- **Files touched:**
+  - `extend/task_relay/constants.py` (new)
+  - `extend/task_relay/hub/task_router.py`
+  - `extend/task_relay/hub/ws_server.py`
+  - `extend/task_relay/worker/backends/acp_backend.py`
+- **Tests updated/added:**
+  - `extend/task_relay/tests/test_cancel.py::test_execution_timeout_marker_settles_failed`
+  - `extend/task_relay/tests/test_cancel.py::test_cancel_reason_containing_timeout_is_not_failed`
+  - `extend/task_relay/tests/test_rereview_fixes.py::test_execution_timeout_sets_cancel_reason_timeout`
+  - `extend/task_relay/tests/test_rereview_fixes.py::test_master_cancel_during_timeout_cancelling_settles_cancelled`
+  - `extend/task_relay/tests/test_task_router.py::test_execution_lease_timeout_enters_cancelling_with_timeout_reason`
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **200 passed in 31.88s**.
+
+
+## Fix Report: Final Whole-Branch Review — Remaining Important Findings
+
+**Date:** 2026-07-31  
+**Commit:** See git log for SHA (`git log --oneline -1`).
+
+### Finding 1: Redispatch gated on stored `task.allow_redispatch` flag
+
+- **Problem:** `_handle_existing()` required both the current request's `allow_redispatch` *and* the stored `task.allow_redispatch` to reopen a terminal task. The stored flag was also never updated, so a later dispatch could not change redispatchability.
+- **Fix:**
+  - Redispatch decision now uses only the current request's `allow_redispatch`.
+  - On every terminal-task redispatch, the stored `task.allow_redispatch` is updated to the requested value and persisted.
+- **Files touched:** `extend/task_relay/hub/task_router.py`
+- **New tests:**
+  - `extend/task_relay/tests/test_whole_branch_fixes.py::test_redispatch_uses_current_request_allow_redispatch`
+  - `extend/task_relay/tests/test_whole_branch_fixes.py::test_redispatch_updates_stored_allow_redispatch_flag`
+
+### Finding 2: `uv.lock` lost platform wheels for `greenlet`
+
+- **Problem:** `s390x` and `riscv64` Linux wheels for `greenlet==3.5.3` were missing from the lockfile.
+- **Fix:**
+  - Ran `uv lock` in `/Users/suyanlong/github/hermes-agent`; it did not regenerate the missing wheels (host platform does not produce them).
+  - Manually added the six missing wheels (cp311/cp312/cp313 × s390x/riscv64) with verified hashes, sizes, and upload times from PyPI.
+- **Files touched:** `uv.lock`
+- **Verification:** `uv lock` accepts the additions (no further diff).
+
+### Finding 3: `TaskExecutor` drops fallback completions after send failure
+
+- **Problem:** `_complete_once()` set `_completion_state = "pending"` before the network send; if `task.complete` raised, `completion_attempted` was true, so `TaskWorker._execute_one()` dropped its fallback failure completion.
+- **Fix:**
+  - Separated "attempted/sent/dropped/failed" states.
+  - `completion_attempted` is now true only for `sent` or `dropped`.
+  - A send failure sets state to `failed`, allowing one retry/fallback completion.
+- **Files touched:** `extend/task_relay/worker/task_executor.py`
+- **Tests updated/added:**
+  - `extend/task_relay/tests/test_worker.py::test_executor_allows_retry_after_send_failure` (updated)
+  - `extend/task_relay/tests/test_worker.py::test_worker_sends_fallback_complete_after_send_failure` (updated)
+  - `extend/task_relay/tests/test_whole_branch_fixes.py::test_executor_allows_retry_after_send_failure`
+  - `extend/task_relay/tests/test_whole_branch_fixes.py::test_worker_sends_fallback_complete_after_send_failure`
+
+### Finding 4: Lease-expiry requeue emits only PROGRESS, not STATUS pending
+
+- **Problem:** When `_settle_lost()` or `_settle_failed()` requeued a task because attempts remained, only a PROGRESS frame was emitted. Masters watching the task stream therefore did not see the state transition back to `pending`.
+- **Fix:** Both requeue paths now emit a `STATUS pending` event after the PROGRESS frame.
+- **Files touched:** `extend/task_relay/hub/task_router.py`
+- **New tests:**
+  - `extend/task_relay/tests/test_whole_branch_fixes.py::test_lost_requeue_emits_status_pending_event`
+  - `extend/task_relay/tests/test_whole_branch_fixes.py::test_failed_requeue_emits_status_pending_event`
+
+### Verification
+
+```bash
+cd /Users/suyanlong/github/hermes-agent
+.venv/bin/python -m pytest extend/task_relay/tests/ -v
+```
+
+Result: **206 passed in 36.16s** (pristine output, no warnings/failures).

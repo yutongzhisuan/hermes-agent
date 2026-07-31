@@ -379,9 +379,13 @@ class TaskRouter:
         if task.status not in TERMINAL_STATUSES:
             return self._response_from_task(task, idempotent_hit=True)
 
+        requested_allow_redispatch = 1 if allow_redispatch else 0
+        if task.allow_redispatch != requested_allow_redispatch:
+            task.allow_redispatch = requested_allow_redispatch
+            await self._persist_task(task)
+
         if (
             allow_redispatch
-            and task.allow_redispatch
             and task.status in REDISPATCHABLE_STATUSES
             and task.attempt < task.max_attempts
         ):
@@ -515,6 +519,7 @@ class TaskRouter:
             task.summary = f"{reason}; requeuing for attempt {task.attempt + 1}"
             await self._persist_task(task)
             await self._emit_progress(task, task.summary)
+            await self._emit_status(task, "pending")
             return
 
         task.status = "lost"
@@ -541,6 +546,7 @@ class TaskRouter:
             task.summary = f"{reason}; requeuing for attempt {task.attempt + 1}"
             await self._persist_task(task)
             await self._emit_progress(task, task.summary)
+            await self._emit_status(task, "pending")
             return
 
         task.status = "failed"
