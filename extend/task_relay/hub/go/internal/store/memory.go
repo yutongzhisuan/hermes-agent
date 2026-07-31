@@ -16,6 +16,9 @@ type Memory struct {
 	batches     map[string]*router.Batch
 	checkpoints map[string][]router.Checkpoint
 	auditLogs   []memoryAuditRow
+	events      []router.TaskEvent
+	nextEventID int64
+	workers     map[string]*router.Worker
 }
 
 type memoryAuditRow struct {
@@ -31,6 +34,7 @@ func NewMemory() *Memory {
 		tasks:       make(map[string]*router.Task),
 		batches:     make(map[string]*router.Batch),
 		checkpoints: make(map[string][]router.Checkpoint),
+		workers:     make(map[string]*router.Worker),
 	}
 }
 
@@ -105,6 +109,9 @@ func (m *Memory) ListTasks(_ context.Context, query router.ListTasksQuery) ([]*r
 			continue
 		}
 		if query.CallbackTopic != "" && task.CallbackTopic != query.CallbackTopic {
+			continue
+		}
+		if query.MasterSessionID != "" && task.MasterSessionID != query.MasterSessionID {
 			continue
 		}
 		if query.WorkerID != "" && task.WorkerID != query.WorkerID {

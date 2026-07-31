@@ -24,6 +24,20 @@ func observeTaskLatency(status, workerID string, seconds float64) {
 	}, seconds)
 }
 
+func recordCheckpoint(workerID string) {
+	metrics.Inc("relay_checkpoint_count", map[string]string{"worker_id": workerID}, 1)
+}
+
+func recordAggregateEmitted(batchID string) {
+	metrics.Inc("relay_aggregate_emitted_total", map[string]string{"batch_id": batchID}, 1)
+}
+
+func observeBatchCompletion(mode string, seconds float64) {
+	metrics.Observe("relay_batch_completion_seconds", map[string]string{
+		"completion_mode": mode,
+	}, seconds)
+}
+
 func boolLabel(value bool) string {
 	if value {
 		return "true"

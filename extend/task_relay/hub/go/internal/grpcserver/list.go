@@ -29,10 +29,12 @@ func (s *Server) ListTasks(ctx context.Context, req *pb.ListTasksRequest) (*pb.L
 		statuses = append(statuses, protoStatusToString(value))
 	}
 	tasks, err := s.router.ListTasks(ctx, router.ListTasksQuery{
-		BatchID:       req.BatchId,
-		CallbackTopic: req.CallbackTopic,
-		Statuses:      statuses,
-		Limit:         limit,
+		BatchID:         req.BatchId,
+		CallbackTopic:   req.CallbackTopic,
+		MasterSessionID: req.MasterSessionId,
+		WorkerID:        req.WorkerId,
+		Statuses:        statuses,
+		Limit:           limit,
 	})
 	if err != nil {
 		return nil, routerStatusError(err)

@@ -17,12 +17,12 @@ func TestCancelPendingTask(t *testing.T) {
 	_, err := r.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "cancel-1",
 		Goal:   "cancel me",
-	}, "test-session")
+	}, "test-session", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := r.Cancel(ctx, "cancel-1", "test cancel")
+	resp, err := r.Cancel(ctx, "cancel-1", "test cancel", 0)
 	if err != nil || resp.IdempotentHit || resp.Status != router.StatusCancelled {
 		t.Fatalf("cancel: %+v err=%v", resp, err)
 	}
@@ -44,7 +44,7 @@ func TestCancelRunningTaskEntersCancelling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Cancel(ctx, "cancel-2", "stop")
+	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Cancel(ctx, "cancel-2", "stop", 0)
 	if err != nil || resp.Status != router.StatusCancelling {
 		t.Fatalf("cancel running: %+v err=%v", resp, err)
 	}

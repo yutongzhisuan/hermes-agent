@@ -5,6 +5,7 @@ import (
 
 	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/resources"
 )
 
 // ListWorkers returns workers visible to the Master.
@@ -20,9 +21,17 @@ func (s *Server) ListWorkers(
 		requireToolsets[toolset] = struct{}{}
 	}
 
+	requireResources := protoResourceRequirements(req.GetRequireResources())
+
 	resp := &pb.ListWorkersResponse{}
 	for _, worker := range s.registry.List(req.OnlySchedulable) {
 		if len(requireToolsets) > 0 && !toolsetsSuperset(worker.Toolsets, requireToolsets) {
+			continue
+		}
+		if requireResources != nil && !resources.WorkerMeetsResources(
+			resources.WorkerView{ResourcesJSON: worker.ResourcesJSON},
+			requireResources,
+		) {
 			continue
 		}
 		resp.Workers = append(resp.Workers, workerToProto(worker))

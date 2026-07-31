@@ -27,9 +27,9 @@ func testRunBuilder(ctx context.Context, claimed router.ClaimedTask) (map[string
 
 func TestCoordinatorPushesPendingTaskOnCredit(t *testing.T) {
 	mem := store.NewMemory()
-	reg := registry.New()
+	reg := registry.New(nil)
 	rt := router.NewRouter(mem, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
-	coord := delivery.New(rt, reg, testRunBuilder)
+	coord := delivery.New(rt, reg, nil, testRunBuilder)
 	ctx := context.Background()
 
 	credit := 1
@@ -41,7 +41,7 @@ func TestCoordinatorPushesPendingTaskOnCredit(t *testing.T) {
 
 	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-c-1", Goal: "push me", CallbackTopic: "topic-1",
-	}, "sess"); err != nil {
+	}, "sess", false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -62,9 +62,9 @@ func TestCoordinatorPushesPendingTaskOnCredit(t *testing.T) {
 
 func TestCoordinatorSkipsDrainingWorker(t *testing.T) {
 	mem := store.NewMemory()
-	reg := registry.New()
+	reg := registry.New(nil)
 	rt := router.NewRouter(mem, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
-	coord := delivery.New(rt, reg, testRunBuilder)
+	coord := delivery.New(rt, reg, nil, testRunBuilder)
 	ctx := context.Background()
 
 	credit := 1
@@ -73,11 +73,11 @@ func TestCoordinatorSkipsDrainingWorker(t *testing.T) {
 		WorkerID: "wc2", SessionModes: []string{"A", "C"}, MaxConcurrent: 1,
 		InitialCredit: &credit, OnlineSessionID: "sess-2", Pusher: pusher,
 	})
-	reg.Drain("wc2")
+	reg.Drain(ctx, "wc2")
 
 	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-c-2", Goal: "skip me", CallbackTopic: "topic-1",
-	}, "sess"); err != nil {
+	}, "sess", false); err != nil {
 		t.Fatal(err)
 	}
 

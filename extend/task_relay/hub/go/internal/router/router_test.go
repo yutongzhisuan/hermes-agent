@@ -15,11 +15,11 @@ func TestDispatchTaskIdempotent(t *testing.T) {
 	ctx := context.Background()
 	spec := router.TaskSpec{TaskID: "t1", Goal: "hello", CallbackTopic: "topic-1"}
 
-	first, err := r.DispatchTask(ctx, spec, "test-session")
+	first, err := r.DispatchTask(ctx, spec, "test-session", false)
 	if err != nil || first.IdempotentHit {
 		t.Fatalf("first dispatch: %+v err=%v", first, err)
 	}
-	second, err := r.DispatchTask(ctx, spec, "test-session")
+	second, err := r.DispatchTask(ctx, spec, "test-session", false)
 	if err != nil || !second.IdempotentHit || second.Status != router.StatusPending {
 		t.Fatalf("second dispatch: %+v err=%v", second, err)
 	}
@@ -37,7 +37,7 @@ func TestCompleteTerminalTransition(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Complete(ctx, "t2", router.StatusCompleted, "done")
+	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Complete(ctx, "t2", router.StatusCompleted, "done", router.CompleteInput{})
 	if err != nil || resp.IdempotentHit || resp.Status != router.StatusCompleted {
 		t.Fatalf("complete: %+v err=%v", resp, err)
 	}

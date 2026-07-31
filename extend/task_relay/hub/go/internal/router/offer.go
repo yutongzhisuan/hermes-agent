@@ -137,6 +137,10 @@ func (r *Router) confirmOfferedClaim(
 	if r.reg != nil {
 		r.reg.IncRunning(workerID)
 	}
+	if r.emitter != nil {
+		_ = r.emitter.EmitStatus(ctx, task, StatusRunning)
+		_ = r.emitter.EmitProgress(ctx, task, claimProgressSummary(task.Goal))
+	}
 	recordClaimed()
 	return &ClaimedTask{
 		TaskID:         task.TaskID,

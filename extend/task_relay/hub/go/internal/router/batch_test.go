@@ -17,19 +17,19 @@ func TestDispatchTaskBatchIdempotent(t *testing.T) {
 		{TaskID: "b1-t2", Goal: "two", CallbackTopic: "batch-topic"},
 	}
 
-	first, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs)
+	first, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs, false)
 	if err != nil || first.IdempotentHit || len(first.Tasks) != 2 {
 		t.Fatalf("first batch: %+v err=%v", first, err)
 	}
 
-	second, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs)
+	second, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs, false)
 	if err != nil || !second.IdempotentHit || len(second.Tasks) != 2 {
 		t.Fatalf("second batch: %+v err=%v", second, err)
 	}
 
 	conflict, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", []router.TaskSpec{
 		{TaskID: "b1-t1", Goal: "changed", CallbackTopic: "batch-topic"},
-	})
+	}, false)
 	if err == nil {
 		t.Fatalf("expected spec hash conflict, got %+v", conflict)
 	}
@@ -41,7 +41,7 @@ func TestDispatchTaskBatchSetsBatchIDOnTasks(t *testing.T) {
 	ctx := context.Background()
 	_, err := r.DispatchTaskBatch(ctx, "batch-2", "topic", "", "sess", []router.TaskSpec{
 		{TaskID: "b2-t1", Goal: "goal"},
-	})
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

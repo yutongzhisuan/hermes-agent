@@ -26,6 +26,7 @@ func OpenPostgres(url string) (*Postgres, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate postgres: %w", err)
 	}
+	applyPostgresMigrations(db)
 	return &Postgres{db: db}, nil
 }
 
@@ -43,15 +44,16 @@ func (p *Postgres) InsertTask(ctx context.Context, task *router.Task) error {
 		 task_id, batch_id, master_session_id, goal, params_json, context_json, callback_topic,
 		 status, attempt, max_attempts, target_worker, toolsets_json, depends_on_json,
 		 aggregate_key, min_resources_json, trace_context_json, allowed_worker_ids_json,
-		 deny_worker_ids_json, resume_from_checkpoint, priority, queue_timeout_seconds,
-		 first_progress_seconds, timeout_seconds, queue_deadline_at, created_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+		 deny_worker_ids_json, resume_from_checkpoint, allow_redispatch, priority,
+		 queue_timeout_seconds, first_progress_seconds, timeout_seconds, queue_deadline_at, created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
 		task.TaskID, nullString(task.BatchID), nullString(task.MasterSessionID), task.Goal,
 		nullString(task.ParamsJSON), nullString(task.ContextJSON), task.CallbackTopic, task.Status,
 		task.Attempt, task.MaxAttempts, nullString(task.TargetWorker), nullString(task.ToolsetsJSON),
 		nullString(task.DependsOnJSON), nullString(task.AggregateKey), nullString(task.MinResourcesJSON),
 		nullString(task.TraceContextJSON), nullString(task.AllowedWorkerIDsJSON),
 		nullString(task.DenyWorkerIDsJSON), nullString(task.ResumeFromCheckpoint),
+		boolInt(task.AllowRedispatch),
 		task.Priority, nullInt(task.QueueTimeoutSeconds), nullInt(task.FirstProgressSeconds),
 		nullInt(task.TimeoutSeconds), nullTime(task.QueueDeadlineAt), float64(task.CreatedAt.Unix()),
 	)
@@ -61,11 +63,14 @@ func (p *Postgres) InsertTask(ctx context.Context, task *router.Task) error {
 func (p *Postgres) UpdateTask(ctx context.Context, task *router.Task) error {
 	res, err := p.db.ExecContext(ctx,
 		`UPDATE tasks SET status = $1, summary = $2, error = $3, attempt = $4, worker_id = $5,
-		 claim_token = $6, queue_deadline_at = $7, first_progress_deadline_at = $8,
-		 claim_expires_at = $9, started_at = $10, completed_at = $11, cancel_reason = $12
-		 WHERE task_id = $13`,
+		 claim_token = $6, result_json = $7, fields_json = $8, usage_json = $9,
+		 allow_redispatch = $10, queue_deadline_at = $11, first_progress_deadline_at = $12,
+		 claim_expires_at = $13, started_at = $14, completed_at = $15, cancel_reason = $16
+		 WHERE task_id = $17`,
 		task.Status, task.Summary, nullString(task.Error), task.Attempt, nullString(task.WorkerID),
-		nullString(task.ClaimToken), nullTime(task.QueueDeadlineAt), nullTime(task.FirstProgressDeadlineAt),
+		nullString(task.ClaimToken), nullString(task.ResultJSON), nullString(task.FieldsJSON),
+		nullString(task.UsageJSON), boolInt(task.AllowRedispatch),
+		nullTime(task.QueueDeadlineAt), nullTime(task.FirstProgressDeadlineAt),
 		nullTime(task.ClaimExpiresAt), nullTime(task.StartedAt), nullTime(task.CompletedAt),
 		nullString(task.CancelReason), task.TaskID,
 	)
@@ -116,6 +121,11 @@ func (p *Postgres) ListTasks(ctx context.Context, query router.ListTasksQuery) (
 	if query.CallbackTopic != "" {
 		clauses = append(clauses, fmt.Sprintf("callback_topic = $%d", argN))
 		args = append(args, query.CallbackTopic)
+		argN++
+	}
+	if query.MasterSessionID != "" {
+		clauses = append(clauses, fmt.Sprintf("master_session_id = $%d", argN))
+		args = append(args, query.MasterSessionID)
 		argN++
 	}
 	if query.WorkerID != "" {
@@ -200,34 +210,4 @@ func (p *Postgres) ListExpiredBatches(ctx context.Context, now time.Time) ([]*ro
 	}
 	defer rows.Close()
 	return scanBatchRows(rows)
-}
-
-func (p *Postgres) InsertCheckpoint(ctx context.Context, checkpoint *router.Checkpoint) error {
-	_, err := p.db.ExecContext(ctx,
-		`INSERT INTO checkpoints (checkpoint_id, task_id, summary, resume_blob, checkpoint_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		checkpoint.CheckpointID, checkpoint.TaskID, checkpoint.Summary,
-		checkpoint.ResumeBlob, float64(checkpoint.CheckpointAt.Unix()),
-	)
-	return err
-}
-
-func (p *Postgres) GetLatestCheckpoint(ctx context.Context, taskID string) (*router.Checkpoint, error) {
-	row := p.db.QueryRowContext(ctx,
-		`SELECT checkpoint_id, task_id, summary, resume_blob, checkpoint_at
-		 FROM checkpoints WHERE task_id = $1 ORDER BY checkpoint_at DESC LIMIT 1`, taskID)
-	var summary sql.NullString
-	var blob []byte
-	var at float64
-	checkpoint := &router.Checkpoint{}
-	if err := row.Scan(&checkpoint.CheckpointID, &checkpoint.TaskID, &summary, &blob, &at); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	checkpoint.Summary = summary.String
-	checkpoint.ResumeBlob = blob
-	checkpoint.CheckpointAt = time.Unix(int64(at), 0)
-	return checkpoint, nil
 }

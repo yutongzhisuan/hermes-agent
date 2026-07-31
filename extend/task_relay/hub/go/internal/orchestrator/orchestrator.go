@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
@@ -17,15 +16,16 @@ var (
 // TerminalPublisher emits watch events for orchestrator-driven transitions.
 type TerminalPublisher interface {
 	PublishTerminal(task *router.Task)
-	PublishAggregate(event eventbus.Event)
+	PublishAggregate(task *router.Task, payload map[string]any)
 }
 
 // Orchestrator implements M3 DAG, BatchPolicy, and AGGREGATE behavior.
 type Orchestrator struct {
-	store      router.Store
-	publisher  TerminalPublisher
-	now        func() time.Time
-	aggregates map[string]struct{}
+	store                   router.Store
+	publisher               TerminalPublisher
+	now                     func() time.Time
+	aggregates              map[string]struct{}
+	batchCompletionRecorded map[string]struct{}
 }
 
 // New constructs a batch orchestrator wired to store and event publisher.
@@ -33,6 +33,7 @@ func New(store router.Store, publisher TerminalPublisher) *Orchestrator {
 	return &Orchestrator{
 		store: store, publisher: publisher,
 		now: time.Now, aggregates: make(map[string]struct{}),
+		batchCompletionRecorded: make(map[string]struct{}),
 	}
 }
 
@@ -76,6 +77,9 @@ func (o *Orchestrator) OnTaskTerminal(ctx context.Context, task *router.Task, st
 			if err := o.maybeEmitAggregate(ctx, task); err != nil {
 				return ready, err
 			}
+		}
+		if err := o.maybeRecordBatchCompletion(ctx, task.BatchID); err != nil {
+			return ready, err
 		}
 	}
 	return ready, nil

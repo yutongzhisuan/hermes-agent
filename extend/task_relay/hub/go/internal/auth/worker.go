@@ -79,3 +79,23 @@ func (a *Auth) VerifyWorkerJWT(token string) (*WorkerClaims, error) {
 		MaxConcurrent:   maxConcurrent,
 	}, nil
 }
+
+// JWTExpiresAt returns the exp claim without verifying the signature.
+func JWTExpiresAt(token string) (int64, error) {
+	parsed, _, err := jwt.NewParser().ParseUnverified(token, jwt.MapClaims{})
+	if err != nil {
+		return 0, err
+	}
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok {
+		return 0, fmt.Errorf("invalid token claims")
+	}
+	switch exp := claims["exp"].(type) {
+	case float64:
+		return int64(exp), nil
+	case int64:
+		return exp, nil
+	default:
+		return 0, fmt.Errorf("missing exp claim")
+	}
+}

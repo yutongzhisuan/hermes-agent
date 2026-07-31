@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/batchpolicy"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/metrics"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
@@ -225,14 +225,52 @@ func (o *Orchestrator) maybeEmitAggregate(ctx context.Context, task *router.Task
 		"task_ids": taskIDs, "status_counts": statusCounts,
 		"summary": joinSummaries(summaries), "metrics": []any{}, "schema_version": 1,
 	}
-	raw, _ := json.Marshal(payload)
 	o.aggregates[key] = struct{}{}
 	if o.publisher != nil {
-		o.publisher.PublishAggregate(eventbus.Event{
-			BatchID: task.BatchID, CallbackTopic: task.CallbackTopic,
-			Kind: eventbus.KindAggregate, AggregateJSON: string(raw),
-		})
+		o.publisher.PublishAggregate(task, payload)
 	}
+	metrics.Inc("relay_aggregate_emitted_total", map[string]string{"batch_id": task.BatchID}, 1)
+	return nil
+}
+
+func (o *Orchestrator) maybeRecordBatchCompletion(ctx context.Context, batchID string) error {
+	if batchID == "" {
+		return nil
+	}
+	if _, seen := o.batchCompletionRecorded[batchID]; seen {
+		return nil
+	}
+	members, err := o.store.ListTasks(ctx, router.ListTasksQuery{BatchID: batchID, Limit: 1000})
+	if err != nil {
+		return err
+	}
+	if len(members) == 0 {
+		return nil
+	}
+	for _, member := range members {
+		if _, terminal := terminalStatuses[member.Status]; !terminal {
+			return nil
+		}
+	}
+	batch, err := o.store.GetBatch(ctx, batchID)
+	if err != nil || batch == nil {
+		return err
+	}
+	o.batchCompletionRecorded[batchID] = struct{}{}
+	mode := "ALL"
+	if batch.PolicyJSON != "" {
+		var policy map[string]any
+		if err := json.Unmarshal([]byte(batch.PolicyJSON), &policy); err == nil {
+			mode = batchpolicy.NormalizeCompletionMode(policy)
+		}
+	}
+	seconds := o.now().Sub(batch.CreatedAt).Seconds()
+	if seconds < 0 {
+		seconds = 0
+	}
+	metrics.Observe("relay_batch_completion_seconds", map[string]string{
+		"completion_mode": mode,
+	}, seconds)
 	return nil
 }
 

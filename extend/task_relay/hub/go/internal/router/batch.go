@@ -12,6 +12,7 @@ func (r *Router) DispatchTaskBatch(
 	ctx context.Context,
 	batchID, callbackTopic, policyJSON, masterSessionID string,
 	specs []TaskSpec,
+	allowRedispatch bool,
 ) (*BatchDispatchResponse, error) {
 	if batchID == "" {
 		return nil, &Error{Msg: "batch_id is required"}
@@ -80,8 +81,7 @@ func (r *Router) DispatchTaskBatch(
 
 	responses := make([]DispatchResponse, 0, len(normalized))
 	for _, spec := range normalized {
-		spec.BatchID = batchID
-		resp, err := r.dispatchNewTask(ctx, spec, masterSessionID)
+		resp, err := r.dispatchSingle(ctx, spec, masterSessionID, allowRedispatch, batchID)
 		if err != nil {
 			return nil, err
 		}

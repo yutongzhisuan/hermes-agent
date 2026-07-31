@@ -12,28 +12,64 @@ const (
 	masterRole = "master"
 )
 
+// BootstrapEntry scopes a long-lived bootstrap credential to one worker.
+type BootstrapEntry struct {
+	WorkerID        string
+	AllowedToolsets []string
+	MaxConcurrent   int
+}
+
 // Auth verifies and issues Hub JWTs (Master scope for the Go port scaffold).
 type Auth struct {
-	secret   []byte
-	issuer   string
-	audience string
-	ttl      time.Duration
+	secret          []byte
+	issuer          string
+	audience        string
+	ttl             time.Duration
+	bootstrapTokens map[string]BootstrapEntry
 }
 
 // New constructs an Auth verifier/signer.
-func New(secret, issuer, audience string, ttl time.Duration) (*Auth, error) {
+func New(secret, issuer, audience string, ttl time.Duration, bootstrap map[string]BootstrapEntry) (*Auth, error) {
 	if secret == "" {
 		return nil, fmt.Errorf("jwt secret is required")
 	}
 	if ttl <= 0 {
 		ttl = time.Hour
 	}
+	if bootstrap == nil {
+		bootstrap = map[string]BootstrapEntry{}
+	}
 	return &Auth{
-		secret:   []byte(secret),
-		issuer:   issuer,
-		audience: audience,
-		ttl:      ttl,
+		secret:          []byte(secret),
+		issuer:          issuer,
+		audience:        audience,
+		ttl:             ttl,
+		bootstrapTokens: bootstrap,
 	}, nil
+}
+
+// SecretBytes returns the HS256 signing key (shared with wake HMAC).
+func (a *Auth) SecretBytes() []byte {
+	if a == nil {
+		return nil
+	}
+	return a.secret
+}
+
+// ExchangeBootstrap validates a bootstrap token and issues a scoped worker JWT.
+func (a *Auth) ExchangeBootstrap(bootstrapToken, workerID string) (string, error) {
+	entry, ok := a.bootstrapTokens[bootstrapToken]
+	if !ok {
+		return "", fmt.Errorf("unknown bootstrap token")
+	}
+	if entry.WorkerID != workerID {
+		return "", fmt.Errorf("bootstrap token not issued for this worker_id")
+	}
+	maxConcurrent := entry.MaxConcurrent
+	if maxConcurrent <= 0 {
+		maxConcurrent = 1
+	}
+	return a.IssueWorkerJWT(workerID, append([]string(nil), entry.AllowedToolsets...), maxConcurrent, a.ttl)
 }
 
 // IssueMasterJWT returns a short-lived Master token.

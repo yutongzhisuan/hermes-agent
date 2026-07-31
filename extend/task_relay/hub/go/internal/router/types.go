@@ -69,24 +69,97 @@ type Task struct {
 	CompletedAt             time.Time
 	Summary                 string
 	CancelReason            string
+	ResultJSON              string
+	FieldsJSON              string
+	UsageJSON               string
+	AllowRedispatch         bool
 }
 
 // Checkpoint is a persisted L1/L2 checkpoint row.
 type Checkpoint struct {
 	CheckpointID string
 	TaskID       string
+	EventID      int64
 	Summary      string
+	FieldsJSON   string
 	ResumeBlob   []byte
 	CheckpointAt time.Time
+	LeaseUntil   time.Time
+}
+
+// CompleteInput carries terminal completion payload fields.
+type CompleteInput struct {
+	ResultJSON string
+	FieldsJSON string
+	UsageJSON  string
+	Error      string
+}
+
+// ExistingResult mirrors a prior terminal task result for idempotent dispatch.
+type ExistingResult struct {
+	TaskID               string
+	Status               string
+	Summary              string
+	ResultText           string
+	Error                string
+	WorkerID             string
+	Attempt              int
+	MaxAttempts          int
+	BatchID              string
+	LatestCheckpointID   string
+	StartedAt            time.Time
+	CompletedAt          time.Time
+	FieldsJSON           string
+	UsageJSON            string
+}
+
+// TaskEvent is a persisted row in the global event log.
+type TaskEvent struct {
+	EventID       int64
+	CallbackTopic string
+	TaskID        string
+	BatchID       string
+	Kind          string
+	PayloadJSON   string
+	EventAt       time.Time
+}
+
+// EventFilter selects events for WatchTask replay.
+type EventFilter struct {
+	Topic        string
+	BatchID      string
+	TaskID       string
+	AfterEventID int64
+	Limit        int
+}
+
+// Worker is a persisted worker registry row.
+type Worker struct {
+	WorkerID         string
+	WakeURL          string
+	SessionModes     string
+	CapabilitiesJSON string
+	ResourcesJSON    string
+	LoadJSON         string
+	MaxConcurrent    int
+	CreditAvailable  int
+	RunningTasks     int
+	LastAnnounceAt   time.Time
+	LastHeartbeatAt  time.Time
+	LastSeenAt       time.Time
+	Status           string
+	OnlineSessionID  string
+	DrainRequested   bool
 }
 
 // DispatchResponse mirrors the gRPC dispatch ACK fields used by conformance tests.
 type DispatchResponse struct {
-	TaskID        string
-	CallbackTopic string
-	Status        string
-	IdempotentHit bool
-	Attempt       int
+	TaskID         string
+	CallbackTopic  string
+	Status         string
+	IdempotentHit  bool
+	Attempt        int
+	ExistingResult *ExistingResult
 }
 
 // Batch is a persisted batch dispatch row.

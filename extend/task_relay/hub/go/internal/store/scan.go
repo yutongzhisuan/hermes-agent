@@ -11,10 +11,10 @@ const taskSelectSQL = `
 SELECT task_id, batch_id, master_session_id, goal, params_json, context_json, callback_topic,
        status, attempt, max_attempts, worker_id, claim_token, target_worker, toolsets_json,
        depends_on_json, aggregate_key, min_resources_json, trace_context_json,
-       allowed_worker_ids_json, deny_worker_ids_json, resume_from_checkpoint, error, priority,
+       allowed_worker_ids_json, deny_worker_ids_json, resume_from_checkpoint, result_json,
+       summary, cancel_reason, fields_json, usage_json, error, allow_redispatch, priority,
        queue_timeout_seconds, first_progress_seconds, timeout_seconds, queue_deadline_at,
-       first_progress_deadline_at, claim_expires_at, started_at, summary, cancel_reason,
-       created_at, completed_at
+       first_progress_deadline_at, claim_expires_at, started_at, created_at, completed_at
 FROM tasks`
 
 func scanTaskRow(scanner interface {
@@ -35,9 +35,13 @@ func scanTaskRow(scanner interface {
 	var allowedWorkers sql.NullString
 	var denyWorkers sql.NullString
 	var resumeCheckpoint sql.NullString
-	var taskError sql.NullString
+	var resultJSON sql.NullString
 	var summary sql.NullString
 	var cancelReason sql.NullString
+	var fieldsJSON sql.NullString
+	var usageJSON sql.NullString
+	var taskError sql.NullString
+	var allowRedispatch sql.NullInt64
 	var queueTimeout sql.NullInt64
 	var firstProgress sql.NullInt64
 	var timeoutSeconds sql.NullInt64
@@ -71,7 +75,13 @@ func scanTaskRow(scanner interface {
 		&allowedWorkers,
 		&denyWorkers,
 		&resumeCheckpoint,
+		&resultJSON,
+		&summary,
+		&cancelReason,
+		&fieldsJSON,
+		&usageJSON,
 		&taskError,
+		&allowRedispatch,
 		&task.Priority,
 		&queueTimeout,
 		&firstProgress,
@@ -80,8 +90,6 @@ func scanTaskRow(scanner interface {
 		&firstProgressDeadline,
 		&claimExpires,
 		&startedAt,
-		&summary,
-		&cancelReason,
 		&createdUnix,
 		&completedAt,
 	); err != nil {
@@ -105,9 +113,13 @@ func scanTaskRow(scanner interface {
 	task.AllowedWorkerIDsJSON = allowedWorkers.String
 	task.DenyWorkerIDsJSON = denyWorkers.String
 	task.ResumeFromCheckpoint = resumeCheckpoint.String
-	task.Error = taskError.String
+	task.ResultJSON = resultJSON.String
 	task.Summary = summary.String
 	task.CancelReason = cancelReason.String
+	task.FieldsJSON = fieldsJSON.String
+	task.UsageJSON = usageJSON.String
+	task.Error = taskError.String
+	task.AllowRedispatch = allowRedispatch.Int64 != 0
 	task.QueueTimeoutSeconds = int(queueTimeout.Int64)
 	task.FirstProgressSeconds = int(firstProgress.Int64)
 	task.TimeoutSeconds = int(timeoutSeconds.Int64)

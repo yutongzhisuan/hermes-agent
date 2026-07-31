@@ -1,42 +1,26 @@
 package eventbus
 
 import (
+	"context"
 	"fmt"
 	"sync"
-	"time"
+
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
-const defaultBufferSize = 64
+const defaultBufferSize = 1024
+const replayPage = 256
 
-// Kind identifies a TaskEvent category for WatchTask streams.
-type Kind int
-
-const (
-	KindStatus Kind = iota + 1
-	KindProgress
-	KindTerminal
-	KindAggregate
-)
+// DefaultBufferSize returns the design-spec watch stream buffer size.
+func DefaultBufferSize() int {
+	return defaultBufferSize
+}
 
 // Filter mirrors WatchTask oneof filter fields.
 type Filter struct {
 	Topic   string
 	BatchID string
 	TaskID  string
-}
-
-// Event is an in-memory watch event (Go Hub scaffold; no SQLite log yet).
-type Event struct {
-	EventID         int64
-	EventAt         time.Time
-	TaskID          string
-	BatchID         string
-	CallbackTopic   string
-	Kind            Kind
-	ProgressSummary string
-	Status          string
-	Summary         string
-	AggregateJSON   string
 }
 
 // CursorOutOfRangeError is returned when since_event_id predates retained events.
@@ -48,118 +32,282 @@ type CursorOutOfRangeError struct {
 
 func (e *CursorOutOfRangeError) Error() string {
 	return fmt.Sprintf(
-		"since_event_id %d is older than oldest retained %d (newest %d)",
-		e.Requested, e.Oldest, e.Newest,
+		"since_event_id %d is older than the oldest retained event %d (newest: %d); "+
+			"reconcile via GetTaskResult / ListTasks, then resubscribe with since_event_id=%d",
+		e.Requested, e.Oldest, e.Newest, e.Newest,
 	)
 }
 
 type subscription struct {
-	filter Filter
-	ch     chan Event
+	bus          *Bus
+	filter       Filter
+	sinceEventID int64
+	queue        chan *router.TaskEvent
+	overflow     int64
+	delivered    int64
+	replaying    bool
+	closed       bool
+	mu           sync.Mutex
 }
 
-// Bus is a minimal in-process event backbone for WatchTask (Go port scaffold).
+// Bus is a persist-first pub/sub backbone over the global event log.
 type Bus struct {
-	mu     sync.RWMutex
-	nextID int64
-	events []Event
-	subs   map[*subscription]struct{}
+	mu         sync.Mutex
+	store      router.Store
+	bufferSize int
+	subs       map[*subscription]struct{}
+	newestID   int64
 }
 
-// New returns an empty event bus.
-func New() *Bus {
-	return &Bus{subs: make(map[*subscription]struct{})}
-}
-
-// Publish assigns a monotonic event_id, retains the event, and fans out live.
-func (b *Bus) Publish(event Event) Event {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.nextID++
-	event.EventID = b.nextID
-	if event.EventAt.IsZero() {
-		event.EventAt = time.Now()
+// New returns a DB-backed event bus.
+func New(store router.Store, bufferSize int) *Bus {
+	if bufferSize <= 0 {
+		bufferSize = defaultBufferSize
 	}
-	b.events = append(b.events, event)
+	return &Bus{
+		store:      store,
+		bufferSize: bufferSize,
+		subs:       make(map[*subscription]struct{}),
+	}
+}
+
+// Publish persists the event first, then fans out to live subscribers.
+func (b *Bus) Publish(ctx context.Context, event *router.TaskEvent) (*router.TaskEvent, error) {
+	stored, err := b.store.AppendEvent(ctx, event)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	if stored.EventID > b.newestID {
+		b.newestID = stored.EventID
+	}
+	subs := make([]*subscription, 0, len(b.subs))
 	for sub := range b.subs {
-		if !matches(sub.filter, event) {
-			continue
-		}
-		select {
-		case sub.ch <- event:
-		default:
-		}
+		subs = append(subs, sub)
 	}
-	return event
+	b.mu.Unlock()
+	for _, sub := range subs {
+		sub.offer(stored)
+	}
+	return stored, nil
 }
 
-// Subscribe returns replayed then live events matching filter after sinceEventID.
-func (b *Bus) Subscribe(filter Filter, sinceEventID int64) (<-chan Event, func(), error) {
+// Subscribe replays events with event_id > sinceEventID, then streams live updates.
+func (b *Bus) Subscribe(
+	ctx context.Context,
+	filter Filter,
+	sinceEventID int64,
+) (<-chan *router.TaskEvent, <-chan error, func(), error) {
 	if filter.Topic == "" && filter.BatchID == "" && filter.TaskID == "" {
-		return nil, nil, fmt.Errorf("filter requires topic, batch_id, or task_id")
+		return nil, nil, nil, fmt.Errorf("filter requires topic, batch_id, or task_id")
+	}
+	if err := b.validateCursor(ctx, filter, sinceEventID); err != nil {
+		return nil, nil, nil, err
 	}
 
-	b.mu.Lock()
-	oldest, newest := b.cursorBoundsLocked(filter)
-	if sinceEventID > 0 && oldest > 0 && sinceEventID < oldest {
-		b.mu.Unlock()
-		return nil, nil, &CursorOutOfRangeError{
-			Requested: sinceEventID,
-			Oldest:    oldest,
-			Newest:    newest,
-		}
+	sub := &subscription{
+		bus:          b,
+		filter:       filter,
+		sinceEventID: sinceEventID,
+		queue:        make(chan *router.TaskEvent, b.bufferSize),
+		delivered:    sinceEventID,
+		replaying:    true,
 	}
-	replay := b.replayLocked(filter, sinceEventID)
-	sub := &subscription{filter: filter, ch: make(chan Event, defaultBufferSize)}
+	b.mu.Lock()
 	b.subs[sub] = struct{}{}
 	b.mu.Unlock()
 
-	out := make(chan Event, defaultBufferSize)
-	go func() {
-		defer close(out)
-		for _, event := range replay {
-			out <- event
-		}
-		for event := range sub.ch {
-			out <- event
-		}
-	}()
-	cancel := func() {
-		b.mu.Lock()
-		delete(b.subs, sub)
-		close(sub.ch)
-		b.mu.Unlock()
-	}
-	return out, cancel, nil
+	out := make(chan *router.TaskEvent, b.bufferSize)
+	errCh := make(chan error, 1)
+	go sub.run(ctx, out, errCh)
+
+	cancel := func() { sub.close() }
+	return out, errCh, cancel, nil
 }
 
-func (b *Bus) cursorBoundsLocked(filter Filter) (oldest, newest int64) {
-	for _, event := range b.events {
-		if !matches(filter, event) {
+func (b *Bus) validateCursor(ctx context.Context, filter Filter, sinceEventID int64) error {
+	if sinceEventID <= 0 {
+		return nil
+	}
+	oldest, err := b.store.OldestEventIDForFilter(ctx, filter.Topic, filter.BatchID, filter.TaskID)
+	if err != nil {
+		return err
+	}
+	floor := oldest
+	if floor == nil {
+		floor, err = b.store.OldestEventID(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	if floor == nil || sinceEventID >= *floor {
+		return nil
+	}
+	storedNewest, err := b.store.NewestEventID(ctx)
+	if err != nil {
+		return err
+	}
+	newest := *floor
+	if storedNewest != nil && *storedNewest > newest {
+		newest = *storedNewest
+	}
+	b.mu.Lock()
+	if b.newestID > newest {
+		newest = b.newestID
+	}
+	b.mu.Unlock()
+	return &CursorOutOfRangeError{Requested: sinceEventID, Oldest: *floor, Newest: newest}
+}
+
+func (b *Bus) drop(sub *subscription) {
+	b.mu.Lock()
+	delete(b.subs, sub)
+	b.mu.Unlock()
+}
+
+func (s *subscription) offer(event *router.TaskEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	if s.overflow > 0 {
+		if event.EventID > s.overflow {
+			s.overflow = event.EventID
+		}
+		return
+	}
+	if !matches(s.filter, event) {
+		return
+	}
+	select {
+	case s.queue <- event:
+	default:
+		s.overflow = event.EventID
+	}
+}
+
+func (s *subscription) run(ctx context.Context, out chan<- *router.TaskEvent, errCh chan<- error) {
+	defer close(out)
+	defer close(errCh)
+	defer s.bus.drop(s)
+
+	for {
+		if err := s.raiseIfOverflow(errCh); err != nil {
+			return
+		}
+		if s.replaying {
+			if s.isClosed() {
+				return
+			}
+			delivered := s.deliveredCursor()
+			events, err := s.bus.store.ListEventsForFilter(ctx, router.EventFilter{
+				Topic:        s.filter.Topic,
+				BatchID:      s.filter.BatchID,
+				TaskID:       s.filter.TaskID,
+				AfterEventID: delivered,
+				Limit:        replayPage,
+			})
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if len(events) == 0 {
+				s.setReplaying(false)
+				continue
+			}
+			for _, event := range events {
+				if err := s.raiseIfOverflow(errCh); err != nil {
+					return
+				}
+				if s.isClosed() {
+					return
+				}
+				s.setDelivered(event.EventID)
+				out <- event
+			}
 			continue
 		}
-		if oldest == 0 || event.EventID < oldest {
-			oldest = event.EventID
-		}
-		if event.EventID > newest {
-			newest = event.EventID
+
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-s.queue:
+			if !ok {
+				return
+			}
+			if event.EventID <= s.deliveredCursor() {
+				continue
+			}
+			if err := s.raiseIfOverflow(errCh); err != nil {
+				return
+			}
+			s.setDelivered(event.EventID)
+			out <- event
 		}
 	}
-	return oldest, newest
 }
 
-func (b *Bus) replayLocked(filter Filter, sinceEventID int64) []Event {
-	replay := make([]Event, 0)
-	for _, event := range b.events {
-		if event.EventID <= sinceEventID || !matches(filter, event) {
-			continue
-		}
-		replay = append(replay, event)
+func (s *subscription) close() {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
 	}
-	return replay
+	s.closed = true
+	s.mu.Unlock()
+	s.bus.drop(s)
+	close(s.queue)
 }
 
-func matches(filter Filter, event Event) bool {
+func (s *subscription) raiseIfOverflow(errCh chan<- error) error {
+	s.mu.Lock()
+	overflow := s.overflow
+	delivered := s.delivered
+	if overflow > 0 {
+		s.overflow = 0
+		s.closed = true
+	}
+	s.mu.Unlock()
+	if overflow == 0 {
+		return nil
+	}
+	newest := overflow
+	s.bus.mu.Lock()
+	if s.bus.newestID > newest {
+		newest = s.bus.newestID
+	}
+	s.bus.mu.Unlock()
+	s.bus.drop(s)
+	errCh <- &SlowConsumerError{Delivered: delivered, Newest: newest}
+	return fmt.Errorf("slow consumer")
+}
+
+func (s *subscription) deliveredCursor() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.delivered
+}
+
+func (s *subscription) setDelivered(id int64) {
+	s.mu.Lock()
+	s.delivered = id
+	s.mu.Unlock()
+}
+
+func (s *subscription) setReplaying(replaying bool) {
+	s.mu.Lock()
+	s.replaying = replaying
+	s.mu.Unlock()
+}
+
+func (s *subscription) isClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
+}
+
+func matches(filter Filter, event *router.TaskEvent) bool {
 	if filter.Topic != "" && event.CallbackTopic != filter.Topic {
 		return false
 	}

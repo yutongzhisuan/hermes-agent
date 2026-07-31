@@ -50,7 +50,7 @@ func TestPostgresInsertAndGetTask(t *testing.T) {
 func TestPostgresDispatchClaimComplete(t *testing.T) {
 	st := openTestPostgres(t)
 	ctx := context.Background()
-	reg := registry.New()
+	reg := registry.New(nil)
 	rt := router.NewRouter(st, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
 	reg.Announce(ctx, registry.AnnounceInput{
 		WorkerID: "pg-w1", SessionModes: []string{"A"}, MaxConcurrent: 1,
@@ -58,7 +58,7 @@ func TestPostgresDispatchClaimComplete(t *testing.T) {
 	})
 	resp, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "pg-dispatch-1", Goal: "execute", CallbackTopic: "pg-topic",
-	}, "m1")
+	}, "m1", false)
 	if err != nil || resp.TaskID != "pg-dispatch-1" {
 		t.Fatalf("dispatch: %+v err=%v", resp, err)
 	}
@@ -69,7 +69,7 @@ func TestPostgresDispatchClaimComplete(t *testing.T) {
 	if err := rt.OnProgress(ctx, "pg-dispatch-1", "started"); err != nil {
 		t.Fatalf("progress: %v", err)
 	}
-	if _, err := rt.Complete(ctx, "pg-dispatch-1", router.StatusCompleted, "ok"); err != nil {
+	if _, err := rt.Complete(ctx, "pg-dispatch-1", router.StatusCompleted, "ok", router.CompleteInput{}); err != nil {
 		t.Fatalf("complete: %v", err)
 	}
 	task, err := st.GetTask(ctx, "pg-dispatch-1")

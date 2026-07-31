@@ -33,6 +33,7 @@ func (s *Server) DispatchTaskBatch(
 	}
 	resp, err := s.router.DispatchTaskBatch(
 		ctx, req.BatchId, req.CallbackTopic, mapBatchPolicyJSON(req.Policy), req.MasterSessionId, specs,
+		req.GetAllowRedispatch(),
 	)
 	if err != nil {
 		return nil, routerStatusError(err)
@@ -43,13 +44,8 @@ func (s *Server) DispatchTaskBatch(
 		IdempotentHit: resp.IdempotentHit,
 	}
 	for _, task := range resp.Tasks {
-		if !task.IdempotentHit {
-			if row, getErr := s.router.GetTask(ctx, task.TaskID); getErr == nil {
-				s.publishStatus(row)
-				if s.delivery != nil {
-					s.delivery.OnTaskPending(ctx, task.TaskID)
-				}
-			}
+		if !task.IdempotentHit && s.delivery != nil {
+			s.delivery.OnTaskPending(ctx, task.TaskID)
 		}
 		out.Tasks = append(out.Tasks, &pb.DispatchTaskResponse{
 			TaskId:        task.TaskID,

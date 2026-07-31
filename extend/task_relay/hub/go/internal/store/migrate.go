@@ -7,3 +7,9 @@ func applySQLiteMigrations(db *sql.DB) {
 		_, _ = db.Exec(stmt)
 	}
 }
+
+func applyPostgresMigrations(db *sql.DB) {
+	for _, stmt := range postgresMigrations {
+		_, _ = db.Exec(stmt)
+	}
+}

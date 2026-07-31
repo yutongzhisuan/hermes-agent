@@ -19,6 +19,9 @@ var (
 	terminalStatuses = map[string]struct{}{
 		StatusCompleted: {}, StatusFailed: {}, StatusLost: {}, StatusCancelled: {},
 	}
+	redispatchableStatuses = map[string]struct{}{
+		StatusLost: {}, StatusFailed: {},
+	}
 )
 
 // ValidateTransition checks whether a status change is allowed.
@@ -61,5 +64,10 @@ func contains(set map[string]struct{}, key string) bool {
 
 func IsTerminal(status string) bool {
 	_, ok := terminalStatuses[status]
+	return ok
+}
+
+func isRedispatchable(status string) bool {
+	_, ok := redispatchableStatuses[status]
 	return ok
 }

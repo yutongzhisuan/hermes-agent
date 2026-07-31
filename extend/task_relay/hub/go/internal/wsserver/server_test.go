@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
@@ -47,7 +46,7 @@ func TestModeAPollComplete(t *testing.T) {
 	_, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-a-1",
 		Goal:   "execute via poll",
-	}, "test-session")
+	}, "test-session", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,18 +82,18 @@ func TestModeAPollComplete(t *testing.T) {
 
 func setupWS(t *testing.T) (*wsserver.Server, *router.Router, string) {
 	t.Helper()
-	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour)
+	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rt := router.NewRouter(store.NewMemory(), nil, router.DefaultRouterConfig())
-	reg := registry.New()
+	reg := registry.New(nil)
 	buildRun := func(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error) {
 		return map[string]any{"run": map[string]any{"task_id": claimed.TaskID, "goal": claimed.Goal}}, nil
 	}
 	srv := wsserver.New(wsserver.Deps{
-		Router: rt, Auth: verifier, Bus: eventbus.New(), Registry: reg,
-		Delivery: delivery.New(rt, reg, buildRun),
+		Router: rt, Auth: verifier, Registry: reg,
+		Delivery: delivery.New(rt, reg, nil, buildRun),
 	})
 	token, err := verifier.IssueWorkerJWT("worker-1", []string{"terminal"}, 2, time.Hour)
 	if err != nil {

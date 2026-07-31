@@ -139,7 +139,7 @@ func TestGoHubGRPCGetTaskResult(t *testing.T) {
 		t.Fatalf("unexpected pending result: %+v", pending)
 	}
 
-	_, err = h.Router().Complete(ctx, "go-hub-result-1", router.StatusLost, "worker timeout")
+	_, err = h.Router().Complete(ctx, "go-hub-result-1", router.StatusLost, "worker timeout", router.CompleteInput{})
 	if err != nil {
 		t.Fatalf("complete: %v", err)
 	}
@@ -528,7 +528,7 @@ func TestGoHubGRPCGetTaskResultWithCheckpoint(t *testing.T) {
 	if err != nil || claimed == nil {
 		t.Fatalf("claim: %+v err=%v", claimed, err)
 	}
-	if err := h.Router().OnCheckpoint(ctx, taskID, "ckpt-go-1", "saved", []byte("blob")); err != nil {
+	if err := h.Router().OnCheckpoint(ctx, taskID, "ckpt-go-1", "saved", "", []byte("blob")); err != nil {
 		t.Fatalf("checkpoint: %v", err)
 	}
 

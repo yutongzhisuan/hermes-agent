@@ -1,33 +1,30 @@
 package hub
 
 import (
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
+	"context"
+
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/orchestrator"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 type eventPublisher struct {
-	bus *eventbus.Bus
+	emitter router.EventEmitter
 }
 
-func newEventPublisher(bus *eventbus.Bus) orchestrator.TerminalPublisher {
-	return &eventPublisher{bus: bus}
+func newEventPublisher(emitter router.EventEmitter) orchestrator.TerminalPublisher {
+	return &eventPublisher{emitter: emitter}
 }
 
 func (p *eventPublisher) PublishTerminal(task *router.Task) {
-	if p == nil || p.bus == nil || task == nil {
+	if p == nil || p.emitter == nil || task == nil {
 		return
 	}
-	p.bus.Publish(eventbus.Event{
-		TaskID: task.TaskID, BatchID: task.BatchID, CallbackTopic: task.CallbackTopic,
-		Kind: eventbus.KindTerminal, Status: task.Status, Summary: task.Summary,
-	})
+	_ = p.emitter.EmitTerminal(context.Background(), task, task.Status, task.Summary, task.Error)
 }
 
-func (p *eventPublisher) PublishAggregate(event eventbus.Event) {
-	if p == nil || p.bus == nil {
+func (p *eventPublisher) PublishAggregate(task *router.Task, payload map[string]any) {
+	if p == nil || p.emitter == nil || task == nil {
 		return
 	}
-	event.Kind = eventbus.KindAggregate
-	p.bus.Publish(event)
+	_ = p.emitter.EmitAggregate(context.Background(), task, payload)
 }

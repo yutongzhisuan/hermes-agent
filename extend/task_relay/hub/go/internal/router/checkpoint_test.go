@@ -25,7 +25,7 @@ func TestOnCheckpointPersistsAndExtendsLease(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := r.OnCheckpoint(ctx, "cp1", "ckpt-1", "half done", []byte("blob")); err != nil {
+	if err := r.OnCheckpoint(ctx, "cp1", "ckpt-1", "half done", "", []byte("blob")); err != nil {
 		t.Fatal(err)
 	}
 

@@ -19,6 +19,8 @@ import (
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/tokenserver"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/wake"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/wsserver"
 	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
 	"google.golang.org/grpc"
@@ -35,6 +37,8 @@ type Hub struct {
 	router     *router.Router
 	registry   *registry.Registry
 	delivery   *delivery.Coordinator
+	wake       *wake.Scheduler
+	tokens     *tokenserver.Server
 	ws         *wsserver.Server
 }
 
@@ -44,14 +48,24 @@ func New(cfg config.Config) (*Hub, error) {
 	if err != nil {
 		return nil, err
 	}
-	verifier, err := auth.New(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience, time.Hour)
+	verifier, err := auth.New(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience, time.Hour, cfg.BootstrapTokens)
 	if err != nil {
 		_ = closeFn()
 		return nil, err
 	}
-	bus := eventbus.New()
-	reg := registry.New()
+	bufferSize := cfg.WatchStreamBufferEvents
+	if bufferSize <= 0 {
+		bufferSize = eventbus.DefaultBufferSize()
+	}
+	bus := eventbus.New(st, bufferSize)
+	reg := registry.New(st)
+	if err := reg.LoadFromStore(context.Background()); err != nil {
+		_ = closeFn()
+		return nil, err
+	}
 	rt := router.NewRouter(st, registry.NewRouterAdapter(reg), cfg.Router)
+	emitter := router.NewBusEmitter(bus)
+	rt.SetEmitter(emitter)
 	runBuilder := &runpayload.Builder{
 		Store: st, DecryptSecret: cfg.JWTSecret, EncryptAtRest: cfg.Router.EncryptInlineContextAtRest,
 	}
@@ -62,17 +76,30 @@ func New(cfg config.Config) (*Hub, error) {
 		}
 		return map[string]any{"run": run}, nil
 	}
-	del := delivery.New(rt, reg, buildRun)
-	rt.SetOrchestrator(orchestrator.New(st, newEventPublisher(bus)))
+	wsScheme := "ws"
+	if cfg.TLS.CertFile != "" {
+		wsScheme = "wss"
+	}
+	relayWSURL := fmt.Sprintf("%s://%s:%d", wsScheme, cfg.Host, cfg.WSPort)
+	wakeScheduler := wake.New(reg, verifier.SecretBytes(), relayWSURL, cfg.WakeTTLSeconds)
+	del := delivery.New(rt, reg, wakeScheduler, buildRun)
+	rt.SetOrchestrator(orchestrator.New(st, newEventPublisher(emitter)))
 	rt.SetOnTaskReady(func(ctx context.Context, taskID string) {
 		del.OnTaskPending(ctx, taskID)
 	})
+	rt.SetOnTaskTerminal(func(ctx context.Context, taskID, workerID string) {
+		del.OnTaskTerminal(ctx, taskID, workerID)
+	})
+	tokenSrv := tokenserver.New(verifier)
 	ws := wsserver.New(wsserver.Deps{
-		Router: rt, Auth: verifier, Bus: bus, Registry: reg, Delivery: del, RunBuilder: runBuilder,
+		Router: rt, Auth: verifier, Registry: reg, Delivery: del,
+		RunBuilder: runBuilder, Wake: wakeScheduler,
+		ResumeBlobMaxBytes: cfg.Router.ResumeBlobMaxBytes,
 	})
 	return &Hub{
 		cfg: cfg, auth: verifier, bus: bus, store: st, closeStore: closeFn,
-		router: rt, registry: reg, delivery: del, ws: ws,
+		router: rt, registry: reg, delivery: del, wake: wakeScheduler,
+		tokens: tokenSrv, ws: ws,
 	}, nil
 }
 
@@ -109,11 +136,15 @@ func (h *Hub) Run(ctx context.Context) error {
 	srv := grpc.NewServer(opts...)
 	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.router, h.bus, h.registry, h.delivery, h.cfg.Router))
 
-	errCh := make(chan error, 3)
+	errCh := make(chan error, 4)
 	go func() { errCh <- srv.Serve(grpcLis) }()
 	go func() {
 		addr := fmt.Sprintf("%s:%d", h.cfg.Host, h.cfg.WSPort)
 		errCh <- h.ws.ListenAndServe(ctx, addr, tlsCfg)
+	}()
+	go func() {
+		addr := fmt.Sprintf("%s:%d", h.cfg.Host, h.cfg.HTTPPort)
+		errCh <- h.tokens.ListenAndServe(ctx, addr, tlsCfg)
 	}()
 	if h.cfg.MetricsPort > 0 {
 		go func() {
@@ -133,7 +164,6 @@ func (h *Hub) Run(ctx context.Context) error {
 }
 
 func listenWithOptionalTLS(network, addr string, _ *tls.Config) (net.Listener, error) {
-	// gRPC TLS is applied via grpc.Creds; the TCP listener stays plain.
 	return net.Listen(network, addr)
 }
 
@@ -146,8 +176,9 @@ func (h *Hub) runTicks(ctx context.Context) {
 			return
 		case <-ticker.C:
 			_ = h.router.TickTimeouts(ctx)
+			_ = h.router.MaybePruneEvents(ctx)
 			deadline := time.Now().Add(-time.Duration(h.router.Config().WorkerStaleSeconds) * time.Second)
-			h.registry.MarkStale(deadline)
+			h.registry.MarkStale(ctx, deadline)
 		}
 	}
 }

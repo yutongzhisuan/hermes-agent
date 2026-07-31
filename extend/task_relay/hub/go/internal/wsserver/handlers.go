@@ -2,12 +2,13 @@ package wsserver
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/metrics"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/runpayload"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
@@ -32,8 +33,10 @@ type pollParams struct {
 }
 
 type claimParams struct {
-	TaskID     string `json:"task_id"`
-	ClaimToken string `json:"claim_token"`
+	TaskID     string  `json:"task_id"`
+	ClaimToken string  `json:"claim_token"`
+	WakeToken  string  `json:"wake_token"`
+	ExpiresAt  float64 `json:"expires_at"`
 }
 
 type nackParams struct {
@@ -55,9 +58,16 @@ type heartbeatParams struct {
 }
 
 type completeParams struct {
-	TaskID  string `json:"task_id"`
-	Status  string `json:"status"`
-	Summary string `json:"summary"`
+	TaskID     string         `json:"task_id"`
+	Status     string         `json:"status"`
+	Summary    string         `json:"summary"`
+	ResultText string         `json:"result_text"`
+	ResultJSON string         `json:"result_json"`
+	Fields     map[string]any `json:"fields"`
+	FieldsJSON string         `json:"fields_json"`
+	Usage      map[string]any `json:"usage"`
+	UsageJSON  string         `json:"usage_json"`
+	Error      string         `json:"error"`
 }
 
 type progressParams struct {
@@ -66,10 +76,11 @@ type progressParams struct {
 }
 
 type checkpointParams struct {
-	TaskID       string `json:"task_id"`
-	CheckpointID string `json:"checkpoint_id"`
-	Summary      string `json:"summary"`
-	ResumeBlob   string `json:"resume_blob"`
+	TaskID       string         `json:"task_id"`
+	CheckpointID string         `json:"checkpoint_id"`
+	Summary      string         `json:"summary"`
+	Fields       map[string]any `json:"fields"`
+	ResumeBlob   string         `json:"resume_blob"`
 }
 
 type creditParams struct {
@@ -183,9 +194,6 @@ func (s *session) handleAtomicPoll(ctx context.Context, maxTasks int, claims *ro
 			"claimed": true, "task_id": item.TaskID, "attempt": item.Attempt,
 			"claim_token": item.ClaimToken, "run": payload["run"],
 		})
-		if task, getErr := s.server.deps.Router.GetTask(ctx, item.TaskID); getErr == nil {
-			s.server.publishStatus(task)
-		}
 	}
 	return map[string]any{"offered": true, "tasks": tasks}, nil
 }
@@ -198,26 +206,47 @@ func (s *session) handleClaim(raw json.RawMessage) (map[string]any, error) {
 	if err := json.Unmarshal(raw, &params); err != nil {
 		return nil, fmt.Errorf("invalid params")
 	}
-	if params.TaskID == "" || params.ClaimToken == "" {
-		return nil, fmt.Errorf("task_id and claim_token are required")
+	if params.TaskID == "" {
+		return nil, fmt.Errorf("task_id is required")
 	}
-	claimed, err := s.server.deps.Router.ClaimOfferedTask(
-		context.Background(), params.TaskID, s.claims.WorkerID, params.ClaimToken, &router.WorkerClaims{
-			AllowedToolsets: s.claims.AllowedToolsets,
-			MaxConcurrent:   s.claims.MaxConcurrent,
-		},
-	)
+	ctx := context.Background()
+	claims := &router.WorkerClaims{
+		AllowedToolsets: s.claims.AllowedToolsets,
+		MaxConcurrent:   s.claims.MaxConcurrent,
+	}
+	if params.ClaimToken != "" {
+		claimed, err := s.server.deps.Router.ClaimOfferedTask(
+			ctx, params.TaskID, s.claims.WorkerID, params.ClaimToken, claims,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if claimed == nil {
+			return map[string]any{"claimed": false}, nil
+		}
+		payload := s.server.buildRun(ctx, *claimed)
+		return map[string]any{"claimed": true, "run": payload["run"]}, nil
+	}
+	task, err := s.server.deps.Router.GetTask(ctx, params.TaskID)
+	if err != nil || task.Status != router.StatusPending {
+		return nil, fmt.Errorf("task not claimable")
+	}
+	if params.WakeToken != "" {
+		if s.server.deps.Wake == nil || !s.server.deps.Wake.VerifyWakeToken(
+			params.TaskID, s.claims.WorkerID, params.WakeToken, params.ExpiresAt,
+		) {
+			return nil, fmt.Errorf("invalid wake_token")
+		}
+	}
+	claimed, err := s.server.deps.Router.ClaimForWorker(ctx, params.TaskID, s.claims.WorkerID, claims)
 	if err != nil {
 		return nil, err
 	}
 	if claimed == nil {
-		return map[string]any{"claimed": false}, nil
+		return nil, fmt.Errorf("claim failed")
 	}
-	payload := s.server.buildRun(context.Background(), *claimed)
-	if task, getErr := s.server.deps.Router.GetTask(context.Background(), params.TaskID); getErr == nil {
-		s.server.publishStatus(task)
-	}
-	return map[string]any{"claimed": true, "run": payload["run"]}, nil
+	payload := s.server.buildRun(ctx, *claimed)
+	return map[string]any{"claimed": true, "task_id": params.TaskID, "run": payload["run"]}, nil
 }
 
 func (s *session) handleNack(raw json.RawMessage) (map[string]any, error) {
@@ -270,9 +299,6 @@ func (s *session) handleProgress(raw json.RawMessage) (map[string]any, error) {
 	if err := s.server.deps.Router.OnProgress(context.Background(), params.TaskID, params.Summary); err != nil {
 		return nil, err
 	}
-	if task, err := s.server.deps.Router.GetTask(context.Background(), params.TaskID); err == nil {
-		s.server.publishProgress(task, params.Summary)
-	}
 	return map[string]any{"accepted": true}, nil
 }
 
@@ -286,13 +312,33 @@ func (s *session) handleCheckpoint(raw json.RawMessage) (map[string]any, error) 
 	}
 	var blob []byte
 	if params.ResumeBlob != "" {
-		blob = []byte(params.ResumeBlob)
+		decoded, err := decodeResumeBlob(params.ResumeBlob)
+		if err != nil {
+			return nil, err
+		}
+		blob = decoded
+	}
+	maxBytes := s.server.deps.ResumeBlobMaxBytes
+	if maxBytes <= 0 {
+		maxBytes = 1_048_576
+	}
+	if len(blob) > maxBytes {
+		return nil, fmt.Errorf("resume_blob exceeds %d bytes", maxBytes)
+	}
+	fieldsJSON := ""
+	if params.Fields != nil {
+		raw, err := json.Marshal(params.Fields)
+		if err != nil {
+			return nil, fmt.Errorf("invalid fields")
+		}
+		fieldsJSON = string(raw)
 	}
 	if err := s.server.deps.Router.OnCheckpoint(
-		context.Background(), params.TaskID, params.CheckpointID, params.Summary, blob,
+		context.Background(), params.TaskID, params.CheckpointID, params.Summary, fieldsJSON, blob,
 	); err != nil {
 		return nil, err
 	}
+	metrics.Inc("relay_checkpoint_count", map[string]string{"worker_id": s.claims.WorkerID}, 1)
 	return map[string]any{"checkpoint_id": params.CheckpointID}, nil
 }
 
@@ -313,12 +359,15 @@ func (s *session) handleComplete(raw json.RawMessage) (map[string]any, error) {
 	}
 	resp, err := s.server.deps.Router.CompleteOwned(
 		context.Background(), s.claims.WorkerID, params.TaskID, status, params.Summary,
+		router.CompleteInput{
+			ResultJSON: firstNonEmpty(params.ResultText, params.ResultJSON),
+			FieldsJSON: marshalOptionalJSON(params.Fields, params.FieldsJSON),
+			UsageJSON:  marshalOptionalJSON(params.Usage, params.UsageJSON),
+			Error:      params.Error,
+		},
 	)
 	if err != nil {
 		return nil, err
-	}
-	if task, getErr := s.server.deps.Router.GetTask(context.Background(), params.TaskID); getErr == nil {
-		s.server.publishTerminal(task)
 	}
 	if s.server.deps.Delivery != nil {
 		s.server.deps.Delivery.OnCreditGranted(context.Background(), s.claims.WorkerID)
@@ -336,7 +385,7 @@ func (s *session) handleHeartbeat(raw json.RawMessage) (map[string]any, error) {
 	}
 	if s.server.deps.Registry != nil {
 		input := &registry.HeartbeatInput{Load: params.Load, Resources: params.Resources}
-		if !s.server.deps.Registry.Heartbeat(s.claims.WorkerID, s.sessionID, input) {
+		if !s.server.deps.Registry.Heartbeat(context.Background(), s.claims.WorkerID, s.sessionID, input) {
 			return nil, fmt.Errorf("heartbeat rejected for stale session")
 		}
 	}
@@ -362,9 +411,50 @@ func (s *session) handleCredit(raw json.RawMessage) (map[string]any, error) {
 
 func (s *session) handleDrain(raw json.RawMessage) (map[string]any, error) {
 	if s.server.deps.Registry != nil {
-		s.server.deps.Registry.Drain(s.claims.WorkerID)
+		s.server.deps.Registry.Drain(context.Background(), s.claims.WorkerID)
 	}
 	return map[string]any{"status": "draining"}, nil
+}
+
+func (s *session) handleClose(_ json.RawMessage) (map[string]any, error) {
+	if !s.announced {
+		return nil, fmt.Errorf("worker must announce first")
+	}
+	if s.server.deps.Registry != nil {
+		s.server.deps.Registry.CloseSession(context.Background(), s.claims.WorkerID, s.sessionID)
+	}
+	s.closeAfter = true
+	return map[string]any{}, nil
+}
+
+func decodeResumeBlob(raw string) ([]byte, error) {
+	if decoded, err := base64.StdEncoding.DecodeString(raw); err == nil {
+		return decoded, nil
+	}
+	return []byte(raw), nil
+}
+
+func marshalOptionalJSON(value map[string]any, raw string) string {
+	if raw != "" {
+		return raw
+	}
+	if value == nil {
+		return ""
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (s *Server) buildRun(ctx context.Context, claimed router.ClaimedTask) map[string]any {
@@ -400,14 +490,4 @@ func supportsModeC(modes []string) bool {
 		}
 	}
 	return false
-}
-
-func (s *Server) publishProgress(task *router.Task, summary string) {
-	if s.deps.Bus == nil || task == nil {
-		return
-	}
-	s.deps.Bus.Publish(eventbus.Event{
-		TaskID: task.TaskID, BatchID: task.BatchID, CallbackTopic: task.CallbackTopic,
-		Kind: eventbus.KindProgress, ProgressSummary: summary, Status: task.Status,
-	})
 }

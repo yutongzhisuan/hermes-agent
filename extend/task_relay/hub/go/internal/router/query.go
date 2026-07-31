@@ -2,9 +2,10 @@ package router
 
 // ListTasksQuery filters task rows for ListTasks RPC and claim scanning.
 type ListTasksQuery struct {
-	BatchID       string
-	CallbackTopic string
-	WorkerID      string
-	Statuses      []string
-	Limit         int
+	BatchID         string
+	CallbackTopic   string
+	MasterSessionID string
+	WorkerID        string
+	Statuses        []string
+	Limit           int
 }

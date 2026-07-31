@@ -43,25 +43,16 @@ func (s *Server) DispatchTask(ctx context.Context, req *pb.DispatchTaskRequest) 
 	if err := validateContextJSON(spec.ContextJSON, s.cfg); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	resp, err := s.router.DispatchTask(ctx, spec, req.MasterSessionId)
+	resp, err := s.router.DispatchTask(ctx, spec, req.MasterSessionId, req.GetAllowRedispatch())
 	if err != nil {
 		return nil, routerStatusError(err)
 	}
 	if !resp.IdempotentHit {
-		if task, getErr := s.router.GetTask(ctx, resp.TaskID); getErr == nil {
-			s.publishStatus(task)
-			if s.delivery != nil {
-				s.delivery.OnTaskPending(ctx, resp.TaskID)
-			}
+		if s.delivery != nil {
+			s.delivery.OnTaskPending(ctx, resp.TaskID)
 		}
 	}
-	return &pb.DispatchTaskResponse{
-		TaskId:        resp.TaskID,
-		CallbackTopic: resp.CallbackTopic,
-		Status:        statusToProto(resp.Status),
-		IdempotentHit: resp.IdempotentHit,
-		Attempt:       int32(resp.Attempt),
-	}, nil
+	return dispatchResponseToProto(resp), nil
 }
 
 // GetTaskResult returns the latest persisted task result.
@@ -95,22 +86,6 @@ func routerStatusError(err error) error {
 		return status.Error(codes.InvalidArgument, routerErr.Msg)
 	}
 	return status.Errorf(codes.Internal, "router error: %v", err)
-}
-
-func taskToProto(task *router.Task) *pb.TaskResult {
-	result := &pb.TaskResult{
-		TaskId:        task.TaskID,
-		Status:        statusToProto(task.Status),
-		Summary:       task.Summary,
-		Attempt:       int32(task.Attempt),
-		MaxAttempts:   1,
-		SchemaVersion: 1,
-		BatchId:       task.BatchID,
-	}
-	if !task.CompletedAt.IsZero() {
-		result.CompletedAt = task.CompletedAt.UnixMilli()
-	}
-	return result
 }
 
 func asRouterError(err error, target **router.Error) bool {

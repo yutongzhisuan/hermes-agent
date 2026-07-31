@@ -62,6 +62,16 @@ func (r *Router) timeoutTask(ctx context.Context, task *Task, now time.Time) err
 }
 
 func (r *Router) settleLost(ctx context.Context, task *Task, now time.Time, reason string) error {
+	workerID := task.WorkerID
+	if task.AllowRedispatch && task.Attempt < task.MaxAttempts {
+		if err := r.requeueTask(ctx, task, now, reason); err != nil {
+			return err
+		}
+		if r.reg != nil && workerID != "" {
+			r.reg.DecRunning(workerID)
+		}
+		return nil
+	}
 	task.Status = StatusLost
 	task.Summary = reason
 	task.CompletedAt = now
@@ -70,35 +80,63 @@ func (r *Router) settleLost(ctx context.Context, task *Task, now time.Time, reas
 	if err := r.store.UpdateTask(ctx, task); err != nil {
 		return err
 	}
-	if r.reg != nil && task.WorkerID != "" {
-		r.reg.DecRunning(task.WorkerID)
+	if r.emitter != nil {
+		_ = r.emitter.EmitTerminal(ctx, task, StatusLost, reason, "")
+	}
+	if r.reg != nil && workerID != "" {
+		r.reg.DecRunning(workerID)
 	}
 	return nil
 }
 
 func (r *Router) settleFailed(ctx context.Context, task *Task, now time.Time, reason string) error {
+	workerID := task.WorkerID
+	if task.AllowRedispatch && task.Attempt < task.MaxAttempts {
+		if err := r.requeueTask(ctx, task, now, reason); err != nil {
+			return err
+		}
+		if r.reg != nil && workerID != "" {
+			r.reg.DecRunning(workerID)
+			r.reg.ReleaseCredit(workerID)
+		}
+		return nil
+	}
 	task.Status = StatusFailed
 	task.Summary = reason
 	task.CompletedAt = now
+	task.ClaimExpiresAt = time.Time{}
+	task.FirstProgressDeadlineAt = time.Time{}
 	if err := r.store.UpdateTask(ctx, task); err != nil {
 		return err
 	}
-	if r.reg != nil && task.WorkerID != "" {
-		r.reg.DecRunning(task.WorkerID)
-		r.reg.ReleaseCredit(task.WorkerID)
+	if r.emitter != nil {
+		_ = r.emitter.EmitTerminal(ctx, task, StatusFailed, reason, "")
+	}
+	if r.reg != nil && workerID != "" {
+		r.reg.DecRunning(workerID)
+		r.reg.ReleaseCredit(workerID)
 	}
 	return nil
 }
 
 func (r *Router) settleCancelled(ctx context.Context, task *Task, now time.Time) error {
+	workerID := task.WorkerID
 	task.Status = StatusCancelled
+	if task.Summary == "" {
+		task.Summary = "cancel grace expired"
+	}
 	task.CompletedAt = now
+	task.ClaimExpiresAt = time.Time{}
+	task.FirstProgressDeadlineAt = time.Time{}
 	if err := r.store.UpdateTask(ctx, task); err != nil {
 		return err
 	}
-	if r.reg != nil && task.WorkerID != "" {
-		r.reg.DecRunning(task.WorkerID)
-		r.reg.ReleaseCredit(task.WorkerID)
+	if r.emitter != nil {
+		_ = r.emitter.EmitTerminal(ctx, task, StatusCancelled, task.Summary, task.Error)
+	}
+	if r.reg != nil && workerID != "" {
+		r.reg.DecRunning(workerID)
+		r.reg.ReleaseCredit(workerID)
 	}
 	return nil
 }
@@ -108,5 +146,12 @@ func (r *Router) enterCancelling(ctx context.Context, task *Task, now time.Time,
 	task.CancelReason = reason
 	task.Summary = reason
 	task.ClaimExpiresAt = now.Add(time.Duration(r.cfg.CancelGraceSeconds) * time.Second)
-	return r.store.UpdateTask(ctx, task)
+	task.FirstProgressDeadlineAt = time.Time{}
+	if err := r.store.UpdateTask(ctx, task); err != nil {
+		return err
+	}
+	if r.emitter != nil {
+		_ = r.emitter.EmitProgress(ctx, task, "cancel requested: "+reason)
+	}
+	return nil
 }

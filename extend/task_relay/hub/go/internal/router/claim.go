@@ -99,6 +99,10 @@ func (r *Router) claimOne(
 	if r.reg != nil {
 		r.reg.IncRunning(workerID)
 	}
+	if r.emitter != nil {
+		_ = r.emitter.EmitStatus(ctx, fresh, StatusRunning)
+		_ = r.emitter.EmitProgress(ctx, fresh, claimProgressSummary(fresh.Goal))
+	}
 	recordClaimed()
 	return &ClaimedTask{
 		TaskID:         fresh.TaskID,
@@ -137,6 +141,7 @@ func (r *Router) canClaim(ctx context.Context, workerID string, task *Task, clai
 func (r *Router) CompleteOwned(
 	ctx context.Context,
 	workerID, taskID, status, summary string,
+	input CompleteInput,
 ) (*DispatchResponse, error) {
 	task, err := r.store.GetTask(ctx, taskID)
 	if err != nil {
@@ -148,7 +153,7 @@ func (r *Router) CompleteOwned(
 	if task.WorkerID != "" && task.WorkerID != workerID {
 		return nil, &Error{Msg: "task not owned by worker " + workerID}
 	}
-	return r.Complete(ctx, taskID, status, summary)
+	return r.Complete(ctx, taskID, status, summary, input)
 }
 
 func (r *Router) isClaimable(ctx context.Context, task *Task) (bool, error) {

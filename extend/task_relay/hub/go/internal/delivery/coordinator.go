@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"context"
+	"sync"
 
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/resources"
@@ -11,19 +12,30 @@ import (
 // RunBuilder builds task.run payloads for worker delivery.
 type RunBuilder func(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error)
 
-// Coordinator routes pending tasks to Mode C sessions (M2 subset).
+// WakeScheduler schedules Mode B wake POSTs.
+type WakeScheduler interface {
+	ScheduleWake(ctx context.Context, taskID, workerID string) bool
+}
+
+// Coordinator routes pending tasks to Mode C sessions or Mode B wake URLs.
 type Coordinator struct {
-	router   *router.Router
-	registry *registry.Registry
-	buildRun RunBuilder
+	router      *router.Router
+	registry    *registry.Registry
+	wake        WakeScheduler
+	buildRun    RunBuilder
+	pushedTasks map[string]string
+	mu          sync.Mutex
 }
 
 // New constructs a delivery coordinator.
-func New(rt *router.Router, reg *registry.Registry, build RunBuilder) *Coordinator {
-	return &Coordinator{router: rt, registry: reg, buildRun: build}
+func New(rt *router.Router, reg *registry.Registry, wake WakeScheduler, build RunBuilder) *Coordinator {
+	return &Coordinator{
+		router: rt, registry: reg, wake: wake, buildRun: build,
+		pushedTasks: make(map[string]string),
+	}
 }
 
-// OnTaskPending attempts Mode C push for a newly pending task.
+// OnTaskPending attempts Mode C push, then Mode B wake for a newly pending task.
 func (c *Coordinator) OnTaskPending(ctx context.Context, taskID string) {
 	if c == nil || c.registry == nil {
 		return
@@ -33,7 +45,10 @@ func (c *Coordinator) OnTaskPending(ctx context.Context, taskID string) {
 		return
 	}
 	if task.TargetWorker != "" {
-		c.tryPush(ctx, taskID, task.TargetWorker)
+		if c.tryPush(ctx, taskID, task.TargetWorker) {
+			return
+		}
+		c.scheduleWake(ctx, taskID, task.TargetWorker)
 		return
 	}
 	workers := workerScheduleViews(c.registry.List(false))
@@ -43,6 +58,22 @@ func (c *Coordinator) OnTaskPending(ctx context.Context, taskID string) {
 			return
 		}
 	}
+	for _, view := range ordered {
+		if c.scheduleWake(ctx, taskID, view.WorkerID) {
+			return
+		}
+	}
+}
+
+func (c *Coordinator) scheduleWake(ctx context.Context, taskID, workerID string) bool {
+	if c.wake == nil {
+		return false
+	}
+	worker := c.registry.Get(workerID)
+	if worker == nil || worker.WakeURL == "" || !registry.SupportsMode(worker, "B") {
+		return false
+	}
+	return c.wake.ScheduleWake(ctx, taskID, workerID)
 }
 
 func workerScheduleViews(workers []registry.Worker) []resources.WorkerScheduleView {
@@ -85,6 +116,23 @@ func (c *Coordinator) OnCreditGranted(ctx context.Context, workerID string) {
 	}
 }
 
+// OnTaskTerminal releases Mode C push credit after terminal completion.
+func (c *Coordinator) OnTaskTerminal(ctx context.Context, taskID, workerID string) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	if _, ok := c.pushedTasks[taskID]; ok {
+		delete(c.pushedTasks, taskID)
+	}
+	c.mu.Unlock()
+	if workerID == "" || c.registry == nil {
+		return
+	}
+	c.registry.ReleaseCredit(workerID)
+	c.OnCreditGranted(ctx, workerID)
+}
+
 func (c *Coordinator) tryPush(ctx context.Context, taskID, workerID string) bool {
 	worker := c.registry.Get(workerID)
 	if worker == nil || !registry.SupportsMode(worker, "C") {
@@ -102,13 +150,16 @@ func (c *Coordinator) tryPush(ctx context.Context, taskID, workerID string) bool
 	}
 	payload, err := c.buildRun(ctx, *claimed)
 	if err != nil {
-		_, _ = c.router.Complete(ctx, taskID, router.StatusLost, "Mode C payload build failed")
+		_, _ = c.router.Complete(ctx, taskID, router.StatusLost, "Mode C payload build failed", router.CompleteInput{})
 		return false
 	}
 	if !c.registry.PushTaskRun(workerID, payload) {
-		_, _ = c.router.Complete(ctx, taskID, router.StatusLost, "Mode C push delivery failed")
+		_, _ = c.router.Complete(ctx, taskID, router.StatusLost, "Mode C push delivery failed", router.CompleteInput{})
 		return false
 	}
 	c.registry.ConsumeCredit(workerID)
+	c.mu.Lock()
+	c.pushedTasks[taskID] = workerID
+	c.mu.Unlock()
 	return true
 }

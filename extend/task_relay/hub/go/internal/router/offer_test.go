@@ -12,7 +12,7 @@ import (
 
 func TestTwoStepOfferClaimRelease(t *testing.T) {
 	mem := store.NewMemory()
-	reg := registry.New()
+	reg := registry.New(nil)
 	cfg := router.DefaultRouterConfig()
 	cfg.PollOfferSeconds = 30
 	rt := router.NewRouter(mem, registry.NewRouterAdapter(reg), cfg)
@@ -23,7 +23,7 @@ func TestTwoStepOfferClaimRelease(t *testing.T) {
 	})
 	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "ts1", Goal: "work", Toolsets: []string{"terminal"},
-	}, "m1"); err != nil {
+	}, "m1", false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -52,11 +52,11 @@ func TestTwoStepOfferClaimRelease(t *testing.T) {
 
 func TestActiveOfferBlocksAtomicClaim(t *testing.T) {
 	mem := store.NewMemory()
-	reg := registry.New()
+	reg := registry.New(nil)
 	rt := router.NewRouter(mem, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
 	ctx := context.Background()
 	reg.Announce(ctx, registry.AnnounceInput{WorkerID: "w1", SessionModes: []string{"A"}, MaxConcurrent: 2})
-	if _, err := rt.DispatchTask(ctx, router.TaskSpec{TaskID: "ts2", Goal: "work"}, "m1"); err != nil {
+	if _, err := rt.DispatchTask(ctx, router.TaskSpec{TaskID: "ts2", Goal: "work"}, "m1", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := rt.OfferTasksForPoll(ctx, "w1", 1, nil); err != nil {
@@ -70,7 +70,7 @@ func TestActiveOfferBlocksAtomicClaim(t *testing.T) {
 
 func TestExpiredOfferClearedByTimeoutTick(t *testing.T) {
 	mem := store.NewMemory()
-	reg := registry.New()
+	reg := registry.New(nil)
 	cfg := router.DefaultRouterConfig()
 	cfg.PollOfferSeconds = 1
 	now := time.Unix(1_700_000_000, 0)
@@ -78,7 +78,7 @@ func TestExpiredOfferClearedByTimeoutTick(t *testing.T) {
 	rt.SetNow(func() time.Time { return now })
 	ctx := context.Background()
 	reg.Announce(ctx, registry.AnnounceInput{WorkerID: "w1", SessionModes: []string{"A"}, MaxConcurrent: 2})
-	if _, err := rt.DispatchTask(ctx, router.TaskSpec{TaskID: "ts3", Goal: "work"}, "m1"); err != nil {
+	if _, err := rt.DispatchTask(ctx, router.TaskSpec{TaskID: "ts3", Goal: "work"}, "m1", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := rt.OfferTasksForPoll(ctx, "w1", 1, nil); err != nil {

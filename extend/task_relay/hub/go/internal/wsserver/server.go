@@ -12,10 +12,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/runpayload"
 	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/wake"
 )
 
 const (
@@ -30,12 +30,13 @@ var upgrader = websocket.Upgrader{
 
 // Deps wires worker JSON-RPC handlers to Hub runtime services.
 type Deps struct {
-	Router     *router.Router
-	Auth       *auth.Auth
-	Bus        *eventbus.Bus
-	Registry   *registry.Registry
-	Delivery   *delivery.Coordinator
-	RunBuilder *runpayload.Builder
+	Router             *router.Router
+	Auth               *auth.Auth
+	Registry           *registry.Registry
+	Delivery           *delivery.Coordinator
+	RunBuilder         *runpayload.Builder
+	Wake               *wake.Scheduler
+	ResumeBlobMaxBytes int
 }
 
 // Server serves worker WebSocket JSON-RPC (Go Hub port).
@@ -104,7 +105,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}()
 	sess.serve()
 	if s.deps.Registry != nil {
-		s.deps.Registry.UnregisterSession(claims.WorkerID)
+		s.deps.Registry.UnregisterSession(context.Background(), claims.WorkerID)
 	}
 }
 
@@ -118,6 +119,7 @@ type session struct {
 	sessionID   string
 	announced   bool
 	modeC       bool
+	closeAfter  bool
 }
 
 func (s *session) serve() {
@@ -131,6 +133,9 @@ func (s *session) serve() {
 			continue
 		}
 		if err := s.conn.WriteMessage(websocket.TextMessage, resp); err != nil {
+			return
+		}
+		if s.closeAfter {
 			return
 		}
 	}
@@ -218,6 +223,12 @@ func (s *session) dispatch(payload []byte) ([]byte, bool) {
 			return marshalError(req.ID, -32000, err.Error()), true
 		}
 		return marshalResult(req.ID, result, "worker.drain_ok"), true
+	case "worker.close":
+		result, err := s.handleClose(req.Params)
+		if err != nil {
+			return marshalError(req.ID, -32000, err.Error()), true
+		}
+		return marshalResult(req.ID, result, "worker.close_ok"), true
 	case "hub.ping":
 		return marshalResult(req.ID, map[string]any{"ok": true}, ""), true
 	default:
@@ -248,32 +259,4 @@ func marshalError(id any, code int, message string) []byte {
 		"error":   map[string]any{"code": code, "message": message},
 	})
 	return body
-}
-
-func (s *Server) publishStatus(task *router.Task) {
-	if s.deps.Bus == nil || task == nil {
-		return
-	}
-	s.deps.Bus.Publish(eventbus.Event{
-		TaskID:        task.TaskID,
-		BatchID:       task.BatchID,
-		CallbackTopic: task.CallbackTopic,
-		Kind:          eventbus.KindStatus,
-		Status:        task.Status,
-		Summary:       task.Summary,
-	})
-}
-
-func (s *Server) publishTerminal(task *router.Task) {
-	if s.deps.Bus == nil || task == nil {
-		return
-	}
-	s.deps.Bus.Publish(eventbus.Event{
-		TaskID:        task.TaskID,
-		BatchID:       task.BatchID,
-		CallbackTopic: task.CallbackTopic,
-		Kind:          eventbus.KindTerminal,
-		Status:        task.Status,
-		Summary:       task.Summary,
-	})
 }

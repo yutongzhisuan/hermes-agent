@@ -8,12 +8,15 @@ import (
 
 // Router implements the Hub dispatch/claim state machine for the Go port.
 type Router struct {
-	store   Store
-	reg     WorkerRegistry
-	orch    TaskOrchestrator
-	cfg     RouterConfig
-	now     func() time.Time
-	onReady func(ctx context.Context, taskID string)
+	store       Store
+	reg         WorkerRegistry
+	orch        TaskOrchestrator
+	emitter     EventEmitter
+	cfg         RouterConfig
+	now         func() time.Time
+	onReady     func(ctx context.Context, taskID string)
+	onTerminal  func(ctx context.Context, taskID, workerID string)
+	lastPruneAt time.Time
 }
 
 // WorkerRegistry is the subset of registry used by the router.
@@ -58,6 +61,16 @@ func NewRouter(store Store, reg WorkerRegistry, cfg RouterConfig) *Router {
 // SetOrchestrator attaches the M3 batch orchestrator.
 func (r *Router) SetOrchestrator(orch TaskOrchestrator) {
 	r.orch = orch
+}
+
+// SetEmitter attaches the watch event emitter.
+func (r *Router) SetEmitter(emitter EventEmitter) {
+	r.emitter = emitter
+}
+
+// SetOnTaskTerminal registers a callback after an active task reaches terminal status.
+func (r *Router) SetOnTaskTerminal(fn func(ctx context.Context, taskID, workerID string)) {
+	r.onTerminal = fn
 }
 
 // SetOnTaskReady registers a callback for newly ready DAG tasks.

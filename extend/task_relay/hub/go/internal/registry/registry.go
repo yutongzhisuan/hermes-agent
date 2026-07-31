@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/metrics"
+	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 // Pusher delivers task.run to an online Mode C session.
@@ -53,25 +57,53 @@ type AnnounceInput struct {
 	Pusher          Pusher
 }
 
+// WorkerStore persists worker registry rows.
+type WorkerStore interface {
+	UpsertWorker(ctx context.Context, worker *router.Worker) error
+	ListWorkers(ctx context.Context, onlySchedulable bool) ([]*router.Worker, error)
+}
+
 // Registry tracks live workers for ListWorkers, poll eligibility, and Mode C push.
 type Registry struct {
 	mu      sync.RWMutex
+	store   WorkerStore
 	workers map[string]*Worker
 	pushers map[string]Pusher
 	now     func() time.Time
 }
 
 // New returns an empty worker registry.
-func New() *Registry {
+func New(store WorkerStore) *Registry {
 	return &Registry{
+		store:   store,
 		workers: make(map[string]*Worker),
 		pushers: make(map[string]Pusher),
 		now:     time.Now,
 	}
 }
 
+// LoadFromStore hydrates in-memory workers from persistence.
+func (r *Registry) LoadFromStore(ctx context.Context) error {
+	if r == nil || r.store == nil {
+		return nil
+	}
+	rows, err := r.store.ListWorkers(ctx, false)
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, row := range rows {
+		if row == nil || row.WorkerID == "" {
+			continue
+		}
+		r.workers[row.WorkerID] = workerFromStore(row)
+	}
+	return nil
+}
+
 // Announce upserts a worker row after worker.announce.
-func (r *Registry) Announce(_ context.Context, input AnnounceInput) {
+func (r *Registry) Announce(ctx context.Context, input AnnounceInput) {
 	if input.WorkerID == "" {
 		return
 	}
@@ -135,6 +167,23 @@ func (r *Registry) Announce(_ context.Context, input AnnounceInput) {
 	if input.Pusher != nil {
 		r.pushers[input.WorkerID] = input.Pusher
 	}
+	r.persistLocked(ctx, r.workers[input.WorkerID])
+	r.refreshWorkerSessionMetricsLocked()
+}
+
+// CloseSession marks a worker offline when the active session closes gracefully.
+func (r *Registry) CloseSession(ctx context.Context, workerID, sessionID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	worker, ok := r.workers[workerID]
+	if !ok || worker.OnlineSessionID != sessionID {
+		return
+	}
+	worker.OnlineSessionID = ""
+	worker.Status = "offline"
+	delete(r.pushers, workerID)
+	r.persistLocked(ctx, worker)
+	r.refreshWorkerSessionMetricsLocked()
 }
 
 // Get returns a worker copy or nil.
@@ -233,7 +282,7 @@ type HeartbeatInput struct {
 }
 
 // Heartbeat refreshes liveness for an online worker session.
-func (r *Registry) Heartbeat(workerID, sessionID string, input *HeartbeatInput) bool {
+func (r *Registry) Heartbeat(ctx context.Context, workerID, sessionID string, input *HeartbeatInput) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	worker, ok := r.workers[workerID]
@@ -261,11 +310,13 @@ func (r *Registry) Heartbeat(workerID, sessionID string, input *HeartbeatInput) 
 			worker.Status = "idle"
 		}
 	}
-	return true
+	okResult := true
+	r.persistLocked(ctx, worker)
+	return okResult
 }
 
 // MarkStale marks workers whose heartbeat is older than deadline.
-func (r *Registry) MarkStale(deadline time.Time) {
+func (r *Registry) MarkStale(ctx context.Context, deadline time.Time) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, worker := range r.workers {
@@ -274,29 +325,33 @@ func (r *Registry) MarkStale(deadline time.Time) {
 		}
 		if worker.LastHeartbeat.Before(deadline) {
 			worker.Status = "stale"
+			r.persistLocked(ctx, worker)
 		}
 	}
 }
 
 // Drain marks a worker as draining and stops new offers.
-func (r *Registry) Drain(workerID string) {
+func (r *Registry) Drain(ctx context.Context, workerID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if worker, ok := r.workers[workerID]; ok {
 		worker.DrainRequested = true
 		worker.Status = "draining"
+		r.persistLocked(ctx, worker)
 	}
 }
 
 // UnregisterSession removes push handle when WS disconnects.
-func (r *Registry) UnregisterSession(workerID string) {
+func (r *Registry) UnregisterSession(ctx context.Context, workerID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.pushers, workerID)
 	if worker, ok := r.workers[workerID]; ok {
 		worker.OnlineSessionID = ""
 		worker.Status = "offline"
+		r.persistLocked(ctx, worker)
 	}
+	r.refreshWorkerSessionMetricsLocked()
 }
 
 // SupportsMode reports whether worker advertises a session mode.
@@ -487,4 +542,140 @@ func resourcesJSONFromCapabilities(caps map[string]any) string {
 	}
 	raw, _ := json.Marshal(payload)
 	return string(raw)
+}
+
+func (r *Registry) persistLocked(ctx context.Context, worker *Worker) {
+	if r == nil || r.store == nil || worker == nil {
+		return
+	}
+	_ = r.store.UpsertWorker(ctx, workerToStore(worker, r.now()))
+}
+
+func workerToStore(worker *Worker, now time.Time) *router.Worker {
+	caps := map[string]any{"toolsets": append([]string(nil), worker.Toolsets...)}
+	if worker.OS != "" {
+		caps["os"] = worker.OS
+	}
+	if worker.Arch != "" {
+		caps["arch"] = worker.Arch
+	}
+	if worker.Region != "" {
+		caps["region"] = worker.Region
+	}
+	capsJSON, _ := json.Marshal(caps)
+	lastSeen := worker.LastHeartbeat
+	if lastSeen.IsZero() {
+		lastSeen = now
+	}
+	return &router.Worker{
+		WorkerID:         worker.WorkerID,
+		WakeURL:          worker.WakeURL,
+		SessionModes:     encodeSessionModes(worker.SessionModes),
+		CapabilitiesJSON: string(capsJSON),
+		ResourcesJSON:    worker.ResourcesJSON,
+		LoadJSON:         worker.LoadJSON,
+		MaxConcurrent:    worker.MaxConcurrent,
+		CreditAvailable:  worker.CreditAvailable,
+		RunningTasks:     worker.RunningTasks,
+		LastAnnounceAt:   worker.LastAnnounce,
+		LastHeartbeatAt:  worker.LastHeartbeat,
+		LastSeenAt:       lastSeen,
+		Status:           worker.Status,
+		OnlineSessionID:  worker.OnlineSessionID,
+		DrainRequested:   worker.DrainRequested,
+	}
+}
+
+func workerFromStore(row *router.Worker) *Worker {
+	toolsets := []string{}
+	osName, arch, region := "", "", ""
+	if row.CapabilitiesJSON != "" {
+		var caps map[string]any
+		if err := json.Unmarshal([]byte(row.CapabilitiesJSON), &caps); err == nil {
+			osName = stringField(caps, "os")
+			arch = stringField(caps, "arch")
+			region = stringField(caps, "region")
+			if raw, ok := caps["toolsets"].([]any); ok {
+				for _, item := range raw {
+					if s, ok := item.(string); ok && s != "" {
+						toolsets = append(toolsets, s)
+					}
+				}
+			}
+		}
+	}
+	lastHeartbeat := row.LastHeartbeatAt
+	if lastHeartbeat.IsZero() {
+		lastHeartbeat = row.LastSeenAt
+	}
+	return &Worker{
+		WorkerID:        row.WorkerID,
+		Status:          row.Status,
+		SessionModes:    decodeSessionModes(row.SessionModes),
+		MaxConcurrent:   row.MaxConcurrent,
+		RunningTasks:    row.RunningTasks,
+		CreditAvailable: row.CreditAvailable,
+		Toolsets:        toolsets,
+		ResourcesJSON:   row.ResourcesJSON,
+		LoadJSON:        row.LoadJSON,
+		OS:              osName,
+		Arch:            arch,
+		Region:          region,
+		LastAnnounce:    row.LastAnnounceAt,
+		LastHeartbeat:   lastHeartbeat,
+		WakeURL:         row.WakeURL,
+		OnlineSessionID: row.OnlineSessionID,
+		DrainRequested:  row.DrainRequested,
+	}
+}
+
+func encodeSessionModes(modes []string) string {
+	if len(modes) == 0 {
+		return "A"
+	}
+	var b strings.Builder
+	for _, mode := range modes {
+		mode = strings.TrimSpace(mode)
+		if mode == "" {
+			continue
+		}
+		if len(mode) == 1 {
+			b.WriteByte(strings.ToUpper(mode)[0])
+			continue
+		}
+		b.WriteString(strings.ToUpper(mode))
+	}
+	if b.Len() == 0 {
+		return "A"
+	}
+	return b.String()
+}
+
+func decodeSessionModes(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{"A"}
+	}
+	modes := make([]string, 0, len(raw))
+	for _, ch := range strings.ToUpper(raw) {
+		modes = append(modes, string(ch))
+	}
+	return modes
+}
+
+func (r *Registry) refreshWorkerSessionMetricsLocked() {
+	for _, worker := range r.workers {
+		if worker == nil {
+			continue
+		}
+		modes := strings.ToLower(strings.Join(worker.SessionModes, ","))
+		value := 0.0
+		if worker.OnlineSessionID != "" {
+			value = 1.0
+		}
+		metrics.SetGauge("relay_worker_sessions_active", map[string]string{
+			"worker_id":     worker.WorkerID,
+			"session_modes": modes,
+		}, value)
+	}
 }

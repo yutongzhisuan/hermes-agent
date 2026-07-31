@@ -8,7 +8,7 @@ import (
 )
 
 func TestIssueAndVerifyMasterJWT(t *testing.T) {
-	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour)
+	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour, nil)
 	if err != nil {
 		t.Fatalf("new auth: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestIssueAndVerifyMasterJWT(t *testing.T) {
 }
 
 func TestVerifyMasterJWTRejectsWorkerRole(t *testing.T) {
-	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour)
+	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour, nil)
 	if err != nil {
 		t.Fatalf("new auth: %v", err)
 	}

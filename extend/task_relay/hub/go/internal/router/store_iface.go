@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Store abstracts task, batch, and checkpoint persistence.
+// Store abstracts task, batch, checkpoint, event, and worker persistence.
 type Store interface {
 	GetTask(ctx context.Context, taskID string) (*Task, error)
 	InsertTask(ctx context.Context, task *Task) error
@@ -19,6 +19,18 @@ type Store interface {
 	GetLatestCheckpoint(ctx context.Context, taskID string) (*Checkpoint, error)
 	InsertAuditLog(ctx context.Context, action, taskID, masterSessionID, payloadJSON string) error
 	CountAuditLogs(ctx context.Context, taskID string) (int, error)
+
+	AppendEvent(ctx context.Context, event *TaskEvent) (*TaskEvent, error)
+	ListEventsForFilter(ctx context.Context, filter EventFilter) ([]*TaskEvent, error)
+	OldestEventIDForFilter(ctx context.Context, topic, batchID, taskID string) (*int64, error)
+	OldestEventID(ctx context.Context) (*int64, error)
+	NewestEventID(ctx context.Context) (*int64, error)
+	PruneEventsBefore(ctx context.Context, cutoff time.Time) (int64, error)
+
+	UpsertWorker(ctx context.Context, worker *Worker) error
+	GetWorker(ctx context.Context, workerID string) (*Worker, error)
+	ListWorkers(ctx context.Context, onlySchedulable bool) ([]*Worker, error)
+	DeleteWorker(ctx context.Context, workerID string) error
 }
 
 // TaskOrchestrator implements M3 DAG and batch policy hooks.

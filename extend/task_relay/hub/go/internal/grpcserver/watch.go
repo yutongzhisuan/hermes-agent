@@ -18,20 +18,10 @@ func (s *Server) WatchTask(req *pb.WatchTaskRequest, stream pb.TaskRelay_WatchTa
 	if err != nil {
 		return routerStatusError(err)
 	}
-	ch, cancel, err := s.bus.Subscribe(filter, req.GetSinceEventId())
+	events, errCh, cancel, err := s.bus.Subscribe(stream.Context(), filter, req.GetSinceEventId())
 	if err != nil {
 		if cursorErr, ok := err.(*eventbus.CursorOutOfRangeError); ok {
-			detail, derr := anypb.New(&pb.CursorOutOfRange{
-				RequestedSinceEventId:  cursorErr.Requested,
-				OldestAvailableEventId: cursorErr.Oldest,
-				NewestEventId:          cursorErr.Newest,
-			})
-			if derr != nil {
-				return status.Errorf(codes.Internal, "cursor detail: %v", derr)
-			}
-			st := status.New(codes.FailedPrecondition, cursorErr.Error())
-			st, _ = st.WithDetails(detail)
-			return st.Err()
+			return cursorOutOfRangeStatus(cursorErr)
 		}
 		return status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -41,7 +31,15 @@ func (s *Server) WatchTask(req *pb.WatchTaskRequest, stream pb.TaskRelay_WatchTa
 		select {
 		case <-stream.Context().Done():
 			return stream.Context().Err()
-		case event, ok := <-ch:
+		case err := <-errCh:
+			if err == nil {
+				continue
+			}
+			if slowErr, ok := err.(*eventbus.SlowConsumerError); ok {
+				return slowConsumerStatus(slowErr)
+			}
+			return status.Errorf(codes.Internal, "watch stream: %v", err)
+		case event, ok := <-events:
 			if !ok {
 				return nil
 			}
@@ -51,11 +49,38 @@ func (s *Server) WatchTask(req *pb.WatchTaskRequest, stream pb.TaskRelay_WatchTa
 				}
 				return err
 			}
-			if filter.TaskID != "" && event.Kind == eventbus.KindTerminal {
+			if filter.TaskID != "" && event.Kind == router.EventKindTerminal {
 				return nil
 			}
 		}
 	}
+}
+
+func cursorOutOfRangeStatus(cursorErr *eventbus.CursorOutOfRangeError) error {
+	detail, derr := anypb.New(&pb.CursorOutOfRange{
+		RequestedSinceEventId:  cursorErr.Requested,
+		OldestAvailableEventId: cursorErr.Oldest,
+		NewestEventId:          cursorErr.Newest,
+	})
+	if derr != nil {
+		return status.Errorf(codes.Internal, "cursor detail: %v", derr)
+	}
+	st := status.New(codes.FailedPrecondition, cursorErr.Error())
+	st, _ = st.WithDetails(detail)
+	return st.Err()
+}
+
+func slowConsumerStatus(slowErr *eventbus.SlowConsumerError) error {
+	detail, derr := anypb.New(&pb.SlowConsumer{
+		DeliveredEventId: slowErr.Delivered,
+		NewestEventId:    slowErr.Newest,
+	})
+	if derr != nil {
+		return status.Errorf(codes.Internal, "slow consumer detail: %v", derr)
+	}
+	st := status.New(codes.ResourceExhausted, slowErr.Error())
+	st, _ = st.WithDetails(detail)
+	return st.Err()
 }
 
 // CancelTask cancels one task or every task in a batch.
@@ -94,6 +119,7 @@ func (s *Server) CancelTask(ctx context.Context, req *pb.CancelTaskRequest) (*pb
 		reason = "cancelled by master"
 	}
 	resp := &pb.CancelTaskResponse{}
+	grace := graceSeconds(req.GraceSeconds)
 	for _, taskID := range taskIDs {
 		task, err := s.router.GetTask(ctx, taskID)
 		if err != nil {
@@ -103,23 +129,23 @@ func (s *Server) CancelTask(ctx context.Context, req *pb.CancelTaskRequest) (*pb
 			resp.AlreadyTerminalTaskIds = append(resp.AlreadyTerminalTaskIds, taskID)
 			continue
 		}
-		cancelResp, err := s.router.Cancel(ctx, taskID, reason)
-		if err != nil {
-			return nil, routerStatusError(err)
-		}
-		updated, err := s.router.GetTask(ctx, taskID)
+		cancelResp, err := s.router.Cancel(ctx, taskID, reason, grace)
 		if err != nil {
 			return nil, routerStatusError(err)
 		}
 		switch cancelResp.Status {
-		case router.StatusCancelled:
-			s.publishTerminal(updated)
-		case router.StatusCancelling:
-			s.publishProgress(updated, "cancel requested: "+updated.Summary)
+		case router.StatusCancelled, router.StatusCancelling:
+			resp.CancelledTaskIds = append(resp.CancelledTaskIds, taskID)
 		}
-		resp.CancelledTaskIds = append(resp.CancelledTaskIds, taskID)
 	}
 	return resp, nil
+}
+
+func graceSeconds(value *int32) int {
+	if value == nil {
+		return 0
+	}
+	return int(*value)
 }
 
 func containsString(values []string, target string) bool {
