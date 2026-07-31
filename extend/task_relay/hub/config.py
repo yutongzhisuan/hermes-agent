@@ -76,6 +76,10 @@ class HubConfig:
     # Long-lived bootstrap credentials: token -> worker scope. Workers present
     # one to the token endpoint once, then refresh the issued JWT before exp.
     bootstrap_tokens: Mapping[str, BootstrapEntry] = field(default_factory=dict)
+    # Reject ContextRef dispatches without a valid HMAC signature (M3).
+    require_signed_context_ref: bool = False
+    # Encrypt inline / inline_gzip context before persisting tasks.context_json.
+    encrypt_inline_context_at_rest: bool = False
 
 
 def load_bootstrap_tokens(raw: str) -> dict[str, BootstrapEntry]:
@@ -142,6 +146,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="HTTP worker token port (default: 9001)",
     )
     parser.add_argument(
+        "--metrics-port",
+        type=int,
+        default=0,
+        help="Prometheus metrics HTTP port; 0 disables (default: 0)",
+    )
+    parser.add_argument(
         "--db",
         default=_default_db_path(),
         help="SQLite path or postgres:// URL (default: SQLite under Hermes home)",
@@ -164,7 +174,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Require mTLS client certificates (requires --tls-ca)",
     )
+    parser.add_argument(
+        "--require-signed-context-ref",
+        action="store_true",
+        help="Reject ContextRef dispatches without a valid HMAC signature (M3)",
+    )
+    parser.add_argument(
+        "--encrypt-inline-context-at-rest",
+        action="store_true",
+        help="Encrypt inline / inline_gzip context before persisting tasks.context_json (M3)",
+    )
     return parser.parse_args(argv)
+
+
+def hub_config_from_args(args: argparse.Namespace) -> HubConfig:
+    """Build :class:`HubConfig` from parsed CLI arguments."""
+    return HubConfig(
+        jwt_secret=args.jwt_secret,
+        bootstrap_tokens=load_bootstrap_tokens(args.bootstrap_tokens),
+        require_signed_context_ref=args.require_signed_context_ref,
+        encrypt_inline_context_at_rest=args.encrypt_inline_context_at_rest,
+    )
 
 
 def tls_config_from_args(args: argparse.Namespace) -> TlsConfig:

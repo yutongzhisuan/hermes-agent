@@ -12,6 +12,7 @@ from typing import Iterable
 
 from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.db import Database
+from extend.task_relay.hub.metrics import refresh_worker_sessions_gauge
 from extend.task_relay.hub.models import Task, Worker, _json_list
 from extend.task_relay.hub.resource_scheduler import (
     parse_min_resources,
@@ -66,6 +67,7 @@ class WorkerRegistry:
             drain_requested=drain_requested,
         )
         await self._db.upsert_worker(worker)
+        await refresh_worker_sessions_gauge(self._db)
         return worker
 
     async def _count_running_tasks(self, worker_id: str) -> int:

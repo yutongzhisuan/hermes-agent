@@ -23,6 +23,7 @@ from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayBase
 from extend.task_relay.hub.auth import Auth, AuthError
 from extend.task_relay.hub.config import HubConfig
+from extend.task_relay.hub.context_ref import ContextRefSignError, verify_context_ref
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.json_util import safe_json_loads
 from extend.task_relay.hub.resource_scheduler import worker_meets_resources
@@ -153,6 +154,7 @@ class TaskRelayService(TaskRelayBase):
     async def DispatchTask(self, stream: Stream) -> None:
         request: pb.DispatchTaskRequest = await stream.recv_message()
         spec = _spec_from_proto(request.spec)
+        _validate_context_json(spec.context_json, self._config)
         try:
             resp = await self._router.dispatch_task(
                 spec,
@@ -166,6 +168,8 @@ class TaskRelayService(TaskRelayBase):
     async def DispatchTaskBatch(self, stream: Stream) -> None:
         request: pb.DispatchTaskBatchRequest = await stream.recv_message()
         specs = [_spec_from_proto(s) for s in request.specs]
+        for spec in specs:
+            _validate_context_json(spec.context_json, self._config)
         policy_json = _json_dumps(_message_to_dict(request.policy)) if request.HasField("policy") else None
         try:
             resp = await self._router.dispatch_task_batch(
@@ -373,14 +377,30 @@ def _context_payload_to_dict(ctx: pb.ContextPayload) -> dict:
             }
         }
     if ctx.HasField("ref"):
-        return {
-            "ref": {
-                "uri": ctx.ref.uri,
-                "sha256": ctx.ref.sha256,
-                "content_encoding": ctx.ref.content_encoding,
-            }
+        ref = {
+            "uri": ctx.ref.uri,
+            "sha256": ctx.ref.sha256,
+            "content_encoding": ctx.ref.content_encoding,
         }
+        if ctx.ref.signature:
+            ref["signature"] = ctx.ref.signature
+        return {"ref": ref}
     return {}
+
+
+def _validate_context_json(context_json: str | None, config: HubConfig) -> None:
+    if not context_json:
+        return
+    payload = safe_json_loads(context_json) or {}
+    ref = payload.get("ref")
+    if not isinstance(ref, dict):
+        return
+    signature = ref.get("signature")
+    if config.require_signed_context_ref or signature:
+        try:
+            verify_context_ref(ref, config.jwt_secret)
+        except ContextRefSignError as exc:
+            raise GRPCError(Status.INVALID_ARGUMENT, str(exc)) from exc
 
 
 def _message_to_dict(message: Any) -> dict:

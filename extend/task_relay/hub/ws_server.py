@@ -36,6 +36,7 @@ from extend.task_relay.hub.auth import Auth, AuthError, WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.json_util import safe_json_dict_loads
+from extend.task_relay.hub.metrics import inc
 from extend.task_relay.hub.models import Checkpoint, Task
 from extend.task_relay.hub.run_payload import build_run_payload as build_task_run_payload
 from extend.task_relay.hub.task_router import TaskRouter, TaskRouterError
@@ -219,7 +220,13 @@ class WsHubServer:
         return False
 
     async def build_run_payload(self, task_id: str, claimed: Any) -> dict[str, Any]:
-        return await build_task_run_payload(self.db, task_id, claimed)
+        return await build_task_run_payload(
+            self.db,
+            task_id,
+            claimed,
+            decrypt_secret=self.config.jwt_secret,
+            encrypt_at_rest=self.config.encrypt_inline_context_at_rest,
+        )
 
 
 class WsServerSession:
@@ -549,6 +556,7 @@ class WsServerSession:
             lease_until=lease_until,
         )
         await self.hub.db.insert_checkpoint(checkpoint)
+        inc("relay_checkpoint_count", worker_id=self.worker_id)
 
         # Update task.resume_from_checkpoint so redispatch can attach it.
         task = await self.hub.db.get_task(task_id)

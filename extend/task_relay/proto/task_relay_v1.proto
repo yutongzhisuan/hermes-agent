@@ -9,6 +9,8 @@ syntax = "proto3";
 
 package task_relay.v1;
 
+option go_package = "github.com/infa/hermes-agent/extend/task_relay/gen/go;taskrelayv1";
+
 // gRPC Service (Master ↔ Hub)
 service TaskRelay {
   rpc DispatchTask(DispatchTaskRequest) returns (DispatchTaskResponse);
@@ -113,6 +115,7 @@ message ContextRef {
   string uri = 1;                // https:// presigned, s3://, …
   string sha256 = 2;             // over the DECOMPRESSED plaintext
   string content_encoding = 3;   // "" | "gzip" — encoding of the fetched bytes
+  string signature = 4;          // optional HMAC-SHA256 over uri+sha256+encoding (M3)
 }
 
 // ---- TaskEvent & TaskResult ----

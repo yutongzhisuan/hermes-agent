@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
 
 from extend.task_relay.hub.bootstrap import wire_orchestration
 from extend.task_relay.hub.models import TaskSpec, Worker
-from extend.task_relay.hub.resource_scheduler import worker_meets_resources
+from extend.task_relay.hub.resource_scheduler import (
+    sort_workers_by_load,
+    worker_load_score,
+    worker_meets_resources,
+)
 from extend.task_relay.tests.conftest import make_task_spec
 
 
@@ -105,6 +110,43 @@ async def test_min_resources_blocks_ineligible_worker(router, registry, db, bus)
 
 
 @pytest.mark.asyncio
+async def test_min_resources_unsatisfiable_queue_timeout_marks_lost(
+    router, registry, db, bus
+):
+    wire_orchestration(router, db, bus)
+    await _announce(registry, "small", resources={"cpu_cores": 1, "memory_gb": 4})
+    spec = _spec(
+        task_id="rq1",
+        goal="heavy",
+        queue_timeout_seconds=1,
+        min_resources_json=json.dumps({"min_cpu_cores": 4, "min_memory_gb": 16}),
+    )
+    await router.dispatch_task(spec, "m1")
+    await asyncio.sleep(1.1)
+    await router.tick_timeouts()
+    task = await db.get_task("rq1")
+    assert task.status == "lost"
+
+
+def test_sort_workers_by_load_prefers_idle_worker():
+    heavy = Worker(
+        worker_id="heavy",
+        max_concurrent=2,
+        running_tasks=2,
+        load_json=json.dumps({"running_tasks": 2, "cpu_percent": 80.0}),
+    )
+    light = Worker(
+        worker_id="light",
+        max_concurrent=2,
+        running_tasks=0,
+        load_json=json.dumps({"running_tasks": 0, "cpu_percent": 10.0}),
+    )
+    assert worker_load_score(light) < worker_load_score(heavy)
+    ordered = sort_workers_by_load([heavy, light])
+    assert [worker.worker_id for worker in ordered] == ["light", "heavy"]
+
+
+@pytest.mark.asyncio
 async def test_aggregate_emitted_when_group_terminal(router, registry, db, bus):
     wire_orchestration(router, db, bus)
     await _announce(registry, "w1")
@@ -134,6 +176,55 @@ async def test_aggregate_emitted_when_group_terminal(router, registry, db, bus):
     payload = json.loads(rows[0]["payload_json"])
     assert payload["aggregate_key"] == "grp"
     assert set(payload["task_ids"]) == {"g1", "g2"}
+
+
+@pytest.mark.asyncio
+async def test_completion_mode_any_cancels_siblings(router, registry, db, bus):
+    wire_orchestration(router, db, bus)
+    await _announce(registry, "w1")
+    policy = json.dumps({"completion_mode": "ANY"})
+    await router.dispatch_task_batch(
+        [
+            _spec(task_id="any1", goal="one"),
+            _spec(task_id="any2", goal="two"),
+            _spec(task_id="any3", goal="three"),
+        ],
+        batch_id="any-1",
+        master_session_id="m1",
+        callback_topic="t1",
+        policy_json=policy,
+    )
+    await router.atomic_claim_for_poll("w1", 1)
+    await router.on_complete("any1", status="completed", summary="done")
+    for task_id in ("any2", "any3"):
+        task = await db.get_task(task_id)
+        assert task.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_completion_mode_threshold_cancels_remaining(router, registry, db, bus):
+    wire_orchestration(router, db, bus)
+    await _announce(registry, "w1")
+    policy = json.dumps({"completion_mode": "THRESHOLD", "success_threshold": 2})
+    await router.dispatch_task_batch(
+        [
+            _spec(task_id="th1", goal="one"),
+            _spec(task_id="th2", goal="two"),
+            _spec(task_id="th3", goal="three"),
+        ],
+        batch_id="th-1",
+        master_session_id="m1",
+        callback_topic="t1",
+        policy_json=policy,
+    )
+    await router.atomic_claim_for_poll("w1", 1)
+    await router.on_complete("th1", status="completed", summary="s1")
+    pending = await db.get_task("th3")
+    assert pending.status == "pending"
+    await router.atomic_claim_for_poll("w1", 1)
+    await router.on_complete("th2", status="completed", summary="s2")
+    remaining = await db.get_task("th3")
+    assert remaining.status == "cancelled"
 
 
 def test_worker_meets_resources_gpu_gate():

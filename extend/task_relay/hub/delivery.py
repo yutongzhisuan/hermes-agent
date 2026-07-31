@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from extend.task_relay.hub.worker_registry import WorkerRegistry
     from extend.task_relay.hub.ws_server import WsHubServer
 
+from extend.task_relay.hub.resource_scheduler import sort_workers_by_load
+
 logger = logging.getLogger("task_relay.hub.delivery")
 
 
@@ -52,15 +54,19 @@ class DeliveryCoordinator:
                 await self._wake.schedule_wake(task_id, task.target_worker)
             return
 
-        workers = await self._db.list_workers()
+        workers = sort_workers_by_load(await self._db.list_workers())
         for worker in workers:
             if await self._try_mode_c_push(task_id, worker.worker_id):
                 return
         if self._wake is not None:
-            for worker in workers:
-                if worker.wake_url and "B" in worker.session_modes.upper():
-                    await self._wake.schedule_wake(task_id, worker.worker_id)
-                    break
+            wake_candidates = [
+                worker
+                for worker in workers
+                if worker.wake_url and "B" in worker.session_modes.upper()
+            ]
+            for worker in wake_candidates:
+                await self._wake.schedule_wake(task_id, worker.worker_id)
+                break
 
     async def on_credit_granted(self, worker_id: str) -> None:
         workers = await self._db.list_workers()

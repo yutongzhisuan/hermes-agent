@@ -25,12 +25,14 @@ from dataclasses import asdict, dataclass
 from typing import Any, Iterable
 
 from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
+from extend.task_relay.hub.audit_log import record_acl_dispatch
+from extend.task_relay.hub.context_crypto import encrypt_context_json, decrypt_context_json
 from extend.task_relay.hub.auth import WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.json_util import safe_json_loads
-from extend.task_relay.hub.metrics import inc
+from extend.task_relay.hub.metrics import inc, observe
 from extend.task_relay.hub.models import Batch, Task, TaskSpec, Worker, _json_list
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
@@ -124,10 +126,11 @@ class TaskRouter:
 
             task = self._task_from_spec(spec, master_session_id, allow_redispatch)
             await self._db.insert_task(task)
+            await record_acl_dispatch(self._db, task, master_session_id=master_session_id)
             await self._emit_status(task, "pending")
             response = self._response_from_task(task, idempotent_hit=False)
         if not response.idempotent_hit:
-            inc("relay_tasks_dispatched_total")
+            inc("relay_tasks_dispatched_total", status="pending", batch="false")
         if self._delivery is not None:
             await self._delivery.on_task_pending(spec.task_id)
         return response
@@ -344,6 +347,13 @@ class TaskRouter:
             if was_active:
                 await self._release_task_slot(task.worker_id)
             response = self._response_from_task(task, idempotent_hit=False)
+        if task.created_at and task.completed_at:
+            observe(
+                "relay_task_latency_seconds",
+                max(0.0, task.completed_at - task.created_at),
+                status=status,
+                worker_id=worker_id or "",
+            )
         ready: list[str] = []
         if self._orchestrator is not None:
             ready = await self._orchestrator.on_task_terminal(task, status)
@@ -523,7 +533,17 @@ class TaskRouter:
         task = self._task_from_spec(spec, master_session_id, allow_redispatch)
         task.batch_id = batch_id
         await self._db.insert_task(task)
+        await record_acl_dispatch(
+            self._db,
+            task,
+            master_session_id=master_session_id,
+        )
         await self._emit_status(task, "pending")
+        inc(
+            "relay_tasks_dispatched_total",
+            status="pending",
+            batch="true" if batch_id else "false",
+        )
         return self._response_from_task(task, idempotent_hit=False)
 
     async def _claim_task(self, task: Task, worker_id: str) -> ClaimedTask | None:
@@ -685,6 +705,9 @@ class TaskRouter:
         )
         timeout = self._effective_int(spec.timeout_seconds, self._config.timeout_seconds)
         max_attempts = self._effective_int(spec.max_attempts, self._config.max_attempts)
+        context_json = spec.context_json
+        if context_json and self._config.encrypt_inline_context_at_rest:
+            context_json = encrypt_context_json(context_json, self._config.jwt_secret)
 
         return Task(
             task_id=spec.task_id,
@@ -693,7 +716,7 @@ class TaskRouter:
             created_at=now,
             master_session_id=master_session_id,
             params_json=spec.params_json,
-            context_json=spec.context_json,
+            context_json=context_json,
             toolsets_json=spec.toolsets_json,
             target_worker=spec.target_worker,
             timeout_seconds=timeout,

@@ -100,6 +100,17 @@ CREATE TABLE IF NOT EXISTS checkpoints (
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkpoints_task ON checkpoints(task_id, checkpoint_at DESC);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_at REAL NOT NULL,
+    action TEXT NOT NULL,
+    task_id TEXT,
+    master_session_id TEXT,
+    payload_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_task ON audit_log(task_id, event_at DESC);
 """
 
 SCHEMA_POSTGRES = """
@@ -202,6 +213,17 @@ CREATE TABLE IF NOT EXISTS checkpoints (
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkpoints_task ON checkpoints(task_id, checkpoint_at DESC);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    audit_id BIGSERIAL PRIMARY KEY,
+    event_at DOUBLE PRECISION NOT NULL,
+    action TEXT NOT NULL,
+    task_id TEXT,
+    master_session_id TEXT,
+    payload_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_task ON audit_log(task_id, event_at DESC);
 """
 
 POSTGRES_MIGRATIONS = (

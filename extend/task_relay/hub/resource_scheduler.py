@@ -54,6 +54,13 @@ def worker_load_score(worker: Worker) -> float:
     """Lower score means less loaded (preferred for scheduling)."""
     load = safe_json_loads(worker.load_json) or {}
     running = float(load.get("running_tasks") or worker.running_tasks or 0)
+    max_concurrent = max(1, int(worker.max_concurrent or 1))
+    utilization = running / max_concurrent
     cpu = float(load.get("cpu_percent") or load.get("cpu") or 0.0)
     memory = float(load.get("memory_percent") or load.get("memory") or 0.0)
-    return running * 1000.0 + cpu + memory
+    return utilization * 1000.0 + cpu + memory
+
+
+def sort_workers_by_load(workers: list[Worker]) -> list[Worker]:
+    """Return workers ordered by ascending load (least loaded first)."""
+    return sorted(workers, key=worker_load_score)

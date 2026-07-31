@@ -18,7 +18,7 @@ from typing import Sequence
 from extend.task_relay.hub.auth import Auth, AuthError
 from extend.task_relay.hub.config import (
     HubConfig,
-    load_bootstrap_tokens,
+    hub_config_from_args,
     parse_args,
     tls_config_from_args,
 )
@@ -27,6 +27,7 @@ from extend.task_relay.hub.db_conn import is_postgres_url
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
 from extend.task_relay.hub.bootstrap import serve_ws_with_delivery, wire_orchestration
+from extend.task_relay.hub.metrics_server import serve_metrics_http
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.tls import load_server_ssl_context
 from extend.task_relay.hub.token_server import serve_token_http
@@ -139,9 +140,19 @@ async def run(
             ssl_context=ssl_ctx,
         )
 
+        metrics_runner = None
+        if args.metrics_port:
+            metrics_runner = await serve_metrics_http(
+                host=args.host,
+                port=args.metrics_port,
+                ssl_context=ssl_ctx,
+            )
+
         await shutdown.wait()
 
         logger.info("closing servers")
+        if metrics_runner is not None:
+            await metrics_runner.cleanup()
         await token_runner.cleanup()
         grpc_server.close()
         ws_server.close()
@@ -180,15 +191,10 @@ def _main_sync(argv: Sequence[str] | None = None) -> int:
             return 1
 
     try:
-        bootstrap_tokens = load_bootstrap_tokens(args.bootstrap_tokens)
+        hub_config = hub_config_from_args(args)
     except ValueError as exc:
-        logger.error("invalid bootstrap tokens: %s", exc)
+        logger.error("invalid hub configuration: %s", exc)
         return 1
-
-    hub_config = HubConfig(
-        jwt_secret=args.jwt_secret,
-        bootstrap_tokens=bootstrap_tokens,
-    )
 
     try:
         return asyncio.run(run(db_target, hub_config, args))

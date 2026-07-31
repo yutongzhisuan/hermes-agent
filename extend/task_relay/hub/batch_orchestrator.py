@@ -7,8 +7,12 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
+from extend.task_relay.hub.batch_policy import (
+    completion_threshold_met,
+    normalize_completion_mode,
+)
 from extend.task_relay.hub.json_util import safe_json_loads
-from extend.task_relay.hub.metrics import inc
+from extend.task_relay.hub.metrics import inc, observe
 from extend.task_relay.hub.models import Batch, Task, TaskSpec, _json_list
 from extend.task_relay.hub.task_router import TaskRouterError
 
@@ -30,6 +34,7 @@ class BatchOrchestrator:
         self._router = router
         self._db = db
         self._bus = bus
+        self._batch_completion_recorded: set[str] = set()
 
     async def is_task_ready(self, task: Task) -> bool:
         """True when all depends_on tasks are completed."""
@@ -139,13 +144,26 @@ class BatchOrchestrator:
 
     async def _apply_batch_policy(self, task: Task, status: str) -> None:
         batch = await self._db.get_batch(task.batch_id)
-        if batch is None or not batch.policy_json:
+        if batch is None:
             return
-        policy = safe_json_loads(batch.policy_json)
-        if not isinstance(policy, dict):
-            return
-        if policy.get("fail_fast") and status in FAILED_DEPENDENCY_STATUSES:
-            await self._cancel_batch_siblings(task.batch_id, exclude=task.task_id, reason="fail_fast")
+
+        policy = safe_json_loads(batch.policy_json) if batch.policy_json else None
+        if isinstance(policy, dict):
+            if policy.get("fail_fast") and status in FAILED_DEPENDENCY_STATUSES:
+                await self._cancel_batch_siblings(
+                    task.batch_id, exclude=task.task_id, reason="fail_fast"
+                )
+            if status == "completed":
+                members = await self._db.list_tasks_by_batch(task.batch_id)
+                if completion_threshold_met(members, policy):
+                    mode = normalize_completion_mode(policy)
+                    await self._cancel_batch_siblings(
+                        task.batch_id,
+                        exclude=task.task_id,
+                        reason=f"batch {mode} threshold met",
+                    )
+
+        await self._maybe_record_batch_completion(task.batch_id)
 
     async def _cancel_batch_siblings(self, batch_id: str, *, exclude: str, reason: str) -> None:
         for member in await self._db.list_tasks_by_batch(batch_id):
@@ -206,3 +224,24 @@ class BatchOrchestrator:
             payload=payload,
         )
         inc("relay_aggregate_emitted_total", batch_id=task.batch_id)
+
+    async def _maybe_record_batch_completion(self, batch_id: str) -> None:
+        if batch_id in self._batch_completion_recorded:
+            return
+        members = await self._db.list_tasks_by_batch(batch_id)
+        if not members or any(t.status not in TERMINAL_STATUSES for t in members):
+            return
+        batch = await self._db.get_batch(batch_id)
+        if batch is None:
+            return
+        self._batch_completion_recorded.add(batch_id)
+        mode = "ALL"
+        if batch.policy_json:
+            policy = safe_json_loads(batch.policy_json)
+            if isinstance(policy, dict):
+                mode = normalize_completion_mode(policy)
+        observe(
+            "relay_batch_completion_seconds",
+            max(0.0, time.time() - batch.created_at),
+            completion_mode=mode,
+        )
