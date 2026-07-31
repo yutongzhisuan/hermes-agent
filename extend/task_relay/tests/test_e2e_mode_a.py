@@ -19,12 +19,15 @@ from grpclib.exceptions import GRPCError
 
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayStub
-from extend.task_relay.hub.config import HubConfig
-from extend.task_relay.hub.event_bus import EventBus
-from extend.task_relay.hub.grpc_server import serve_grpc
-from extend.task_relay.hub.task_router import TaskRouter
-from extend.task_relay.hub.bootstrap import start_ws_server
 from extend.task_relay.tests.conftest import SECRET, make_worker_jwt
+from extend.task_relay.tests.live_hub import (
+    HubLaunchConfig,
+    LiveHub,
+    delete_task_events_for_topic,
+    start_live_hub,
+    stop_live_hub,
+    wait_for_task_status,
+)
 from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
 from extend.task_relay.worker.task_executor import TaskBackend, TaskExecutor
 from extend.task_relay.worker.task_worker import TaskWorker
@@ -40,6 +43,19 @@ class HubRunner:
     db: Any
     registry: Any
     auth: Any
+    live: LiveHub | None = None
+
+
+def _hub_from_live(live: LiveHub) -> HubRunner:
+    return HubRunner(
+        grpc_channel=live.grpc_channel,
+        ws_url=live.ws_url,
+        router=live.router,
+        db=live.db,
+        registry=live.registry,
+        auth=live.auth,
+        live=live,
+    )
 
 
 def _spec(task_id: str, goal: str, callback_topic: str) -> pb.TaskSpec:
@@ -52,14 +68,16 @@ def _bearer_metadata(token: str) -> dict[str, str]:
 
 
 async def _wait_for_status(
-    router,
+    hub: HubRunner,
     task_id: str,
     statuses: set[str],
     timeout: float = 5.0,
 ) -> str:
+    if hub.live is not None:
+        return await wait_for_task_status(hub.live, task_id, statuses, timeout=timeout)
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
-        status = await router.get_status(task_id)
+        status = await hub.router.get_status(task_id)
         if status in statuses:
             return status
         await asyncio.sleep(0.05)
@@ -114,83 +132,26 @@ async def _stop_worker(worker: TaskWorker, run_task: asyncio.Task) -> None:
             pass
 
 
-async def _run_hub(router, registry, db, bus, auth):
-    """Start gRPC + WS servers and a timeout ticker on ephemeral ports."""
-    grpc_server = await serve_grpc(
-        router, auth, router._config, db, bus, registry, host="127.0.0.1", port=0
-    )
-    ws_server = await start_ws_server(
-        router,
-        auth,
-        registry,
-        db,
-        router._config,
-        host="127.0.0.1",
-        port=0,
-    )
+@pytest_asyncio.fixture
+async def hub(tmp_path):
+    """Live Hub with the default router config."""
+    live = await start_live_hub(tmp_path)
+    try:
+        yield _hub_from_live(live)
+    finally:
+        await stop_live_hub(live)
 
-    shutdown = asyncio.Event()
 
-    async def ticker() -> None:
-        while not shutdown.is_set():
-            await router.tick_timeouts()
-            try:
-                await asyncio.wait_for(shutdown.wait(), timeout=0.25)
-            except asyncio.TimeoutError:
-                pass
-
-    ticker_task = asyncio.create_task(ticker())
-
-    grpc_port = grpc_server._server.sockets[0].getsockname()[1]
-    ws_port = ws_server.sockets[0].getsockname()[1]
-    channel = Channel(host="127.0.0.1", port=grpc_port)
-
-    runner = HubRunner(
-        grpc_channel=channel,
-        ws_url=f"ws://127.0.0.1:{ws_port}",
-        router=router,
-        db=db,
-        registry=registry,
-        auth=auth,
+@pytest_asyncio.fixture
+async def hub_fast_first_progress(tmp_path):
+    """Live Hub configured with a zero first-progress deadline."""
+    live = await start_live_hub(
+        tmp_path, HubLaunchConfig(first_progress_seconds=0)
     )
     try:
-        yield runner
+        yield _hub_from_live(live)
     finally:
-        shutdown.set()
-        await ticker_task
-        channel.close()
-        ws_server.close()
-        grpc_server.close()
-        await ws_server.wait_closed()
-        await grpc_server.wait_closed()
-
-
-@pytest_asyncio.fixture
-async def hub(router, registry, db, bus, auth):
-    """Live Hub with the default router config."""
-    async for runner in _run_hub(router, registry, db, bus, auth):
-        yield runner
-
-
-@pytest_asyncio.fixture
-async def hub_fast_first_progress(registry, db, auth):
-    """Live Hub configured with a zero first-progress deadline.
-
-    Use this fixture when the test needs first-progress timeouts to fire
-    immediately after claim, without mutating config after startup.
-    """
-    cfg = HubConfig(
-        jwt_secret=SECRET,
-        queue_timeout_seconds=900,
-        first_progress_seconds=0,
-        timeout_seconds=600,
-        cancel_grace_seconds=60,
-        max_attempts=1,
-    )
-    bus = EventBus(db, cfg)
-    router = TaskRouter(db, bus, cfg, registry)
-    async for runner in _run_hub(router, registry, db, bus, auth):
-        yield runner
+        await stop_live_hub(live)
 
 
 @pytest.fixture
@@ -311,7 +272,7 @@ async def test_cancel_running_cancelled_with_partial_summary(hub, master_jwt):
             metadata=_bearer_metadata(master_jwt),
         )
 
-        await _wait_for_status(hub.router, task_id, {"running"})
+        await _wait_for_status(hub, task_id, {"running"})
         await stub.CancelTask(
             pb.CancelTaskRequest(task_id=task_id, reason="master requested"),
             metadata=_bearer_metadata(master_jwt),
@@ -404,7 +365,7 @@ async def test_watch_reconnect_since_event_id(hub, master_jwt, backend):
             assert event is not None
             first_event_id = event.event_id
 
-        await _wait_for_status(hub.router, task_id, {"completed"})
+        await _wait_for_status(hub, task_id, {"completed"})
 
         # Reconnect from the cursor of the first delivered event.
         # WatchTask replays events with event_id > since_event_id (exclusive),
@@ -440,10 +401,13 @@ async def test_watch_cursor_out_of_range_since_too_old(hub, master_jwt):
         ),
         metadata=_bearer_metadata(master_jwt),
     )
-    await hub.db._conn.execute(
-        "DELETE FROM task_events WHERE callback_topic = 'cursor-topic'"
-    )
-    await hub.db._conn.commit()
+    if hub.live is not None and hub.live.backend == "go":
+        delete_task_events_for_topic(hub.live, "cursor-topic")
+    else:
+        await hub.db._conn.execute(
+            "DELETE FROM task_events WHERE callback_topic = 'cursor-topic'"
+        )
+        await hub.db._conn.commit()
 
     with pytest.raises(GRPCError) as exc:
         async with stub.WatchTask.open(
@@ -466,9 +430,11 @@ async def test_watch_cursor_out_of_range_since_too_old(hub, master_jwt):
 
 @pytest.mark.asyncio
 async def test_unauthorized_ws_rejected(hub):
-    # Connect to the worker endpoint path for fidelity; auth is checked before
-    # any path-specific handling, so any path without a valid JWT is rejected.
+    # Go Hub serves WS at / and /ws; Python Hub uses /ws/worker.
+    ws_target = hub.ws_url
+    if hub.live is None or hub.live.backend != "go":
+        ws_target = f"{hub.ws_url}/ws/worker"
     with pytest.raises(websockets.exceptions.InvalidStatus) as exc:
-        async with websockets.connect(f"{hub.ws_url}/ws/worker"):
+        async with websockets.connect(ws_target):
             pass
     assert exc.value.response.status_code == 401

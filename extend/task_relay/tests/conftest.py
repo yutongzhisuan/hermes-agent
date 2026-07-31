@@ -21,6 +21,33 @@ ISSUER = "hermes-relay-hub"
 AUDIENCE = "task-relay-hub"
 
 
+def hub_backend() -> str:
+    value = __import__("os").environ.get("TASK_RELAY_HUB", __import__("os").environ.get("HUB", "python"))
+    return value.strip().lower()
+
+
+def is_go_hub() -> bool:
+    return hub_backend() == "go"
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "python_hub: test requires Python in-process hub (skipped when TASK_RELAY_HUB=go)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if not is_go_hub():
+        return
+    skip = pytest.mark.skip(
+        reason="requires Python in-process hub (set TASK_RELAY_HUB=python to run)"
+    )
+    for item in items:
+        if "python_hub" in item.keywords:
+            item.add_marker(skip)
+
+
 def make_auth(**kwargs) -> Auth:
     defaults = dict(secret=SECRET, issuer=ISSUER, audience=AUDIENCE)
     defaults.update(kwargs)

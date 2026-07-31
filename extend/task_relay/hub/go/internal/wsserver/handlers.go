@@ -467,7 +467,11 @@ func (s *session) PushTaskRun(payload map[string]any) bool {
 	if !s.announced {
 		return false
 	}
-	body, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": "task.run", "params": payload})
+	params := payload
+	if run, ok := payload["run"].(map[string]any); ok {
+		params = run
+	}
+	body, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": "task.run", "params": params})
 	if err != nil {
 		return false
 	}

@@ -60,6 +60,7 @@ run_python_conformance() {
 }
 
 run_go_conformance() {
+  export TASK_RELAY_HUB=go
   echo "== Go Hub unit + integration tests =="
   (cd "$ROOT/hub/go" && go test ./... -count=1)
 
@@ -94,6 +95,15 @@ run_go_conformance() {
   run_py "Watch SlowConsumer" "test_event_bus.py"
   run_py "gRPC watch semantics" "test_grpc_watch.py"
 
+  run_py "Go Hub token HTTP E2E" "test_e2e_go_hub_token_http.py"
+  run_py "Go Hub event bus E2E" "test_e2e_go_hub_event_bus.py"
+  run_py "Go Hub orchestration E2E" "test_e2e_go_hub_orchestration.py"
+  run_py "Go Hub lifecycle E2E" "test_e2e_go_hub_lifecycle.py"
+  run_py "Go Hub wake E2E" "test_e2e_go_hub_wake.py"
+  run_py "Go Hub Mode C E2E" "test_e2e_go_hub_mode_c.py"
+  run_py "Go Hub WS poll E2E" "test_e2e_go_hub_ws_poll.py"
+  run_py "Go Hub security E2E" "test_e2e_go_hub_security.py"
+  run_py "Go Hub metrics E2E" "test_e2e_go_hub_metrics.py"
   run_py "Go Hub two-step worker E2E" "test_e2e_go_hub_two_step_worker.py"
   run_py "Go Hub cancel during tool E2E" "test_e2e_go_hub_cancel_during_tool.py"
 }

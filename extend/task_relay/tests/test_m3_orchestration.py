@@ -7,6 +7,8 @@ import json
 
 import pytest
 
+pytestmark = pytest.mark.python_hub
+
 from extend.task_relay.hub.bootstrap import wire_orchestration
 from extend.task_relay.hub.models import TaskSpec, Worker
 from extend.task_relay.hub.resource_scheduler import (

@@ -20,6 +20,12 @@ from extend.task_relay.hub.models import TaskEvent, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 from extend.task_relay.tests.conftest import SECRET, make_auth
+from extend.task_relay.tests.live_hub import (
+    delete_task_events_for_topic,
+    is_go_hub,
+    start_live_hub,
+    stop_live_hub,
+)
 
 @pytest_asyncio.fixture
 async def db(tmp_path):
@@ -74,7 +80,22 @@ async def grpc_server(router, auth, db, bus, registry):
 
 
 @pytest_asyncio.fixture
-async def grpc_channel(grpc_server):
+async def _go_live_hub(tmp_path):
+    if not is_go_hub():
+        yield None
+        return
+    live = await start_live_hub(tmp_path)
+    try:
+        yield live
+    finally:
+        await stop_live_hub(live)
+
+
+@pytest_asyncio.fixture
+async def grpc_channel(grpc_server, _go_live_hub):
+    if _go_live_hub is not None:
+        yield _go_live_hub.grpc_channel
+        return
     port = grpc_server._server.sockets[0].getsockname()[1]
     channel = Channel(host="127.0.0.1", port=port)
     yield channel
@@ -226,6 +247,7 @@ async def test_auth_interceptor_rejects_all_rpcs(method, case, grpc_channel, mas
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.python_hub
 @pytest.mark.asyncio
 async def test_watch_receives_terminal(grpc_channel, master_jwt, router_via_worker_complete):
     task_id, topic = router_via_worker_complete
@@ -270,6 +292,7 @@ async def test_event_to_proto_maps_checkpoint_payload():
     assert proto.checkpoint.fields.metrics[0].name == "m1"
 
 
+@pytest.mark.python_hub
 @pytest.mark.asyncio
 async def test_dispatch_task_batch(grpc_channel, master_jwt, router):
     stub = TaskRelayStub(grpc_channel)
@@ -294,6 +317,7 @@ async def test_dispatch_task_batch(grpc_channel, master_jwt, router):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.python_hub
 @pytest.mark.asyncio
 async def test_get_task_result_returns_terminal(grpc_channel, master_jwt, router, registry):
     task_id = "result-task"
@@ -356,6 +380,7 @@ async def test_list_tasks_clamps_limit(grpc_channel, master_jwt):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.python_hub
 @pytest.mark.asyncio
 async def test_cancel_pending_task(grpc_channel, master_jwt, router):
     task_id = "cancel-task"
@@ -393,6 +418,7 @@ async def test_cancel_unknown_task_returns_not_found(grpc_channel, master_jwt):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.python_hub
 @pytest.mark.asyncio
 async def test_list_workers_filters_toolsets(grpc_channel, master_jwt, registry):
     await registry.announce(
@@ -421,7 +447,7 @@ async def test_list_workers_filters_toolsets(grpc_channel, master_jwt, registry)
 
 
 @pytest.mark.asyncio
-async def test_watch_cursor_out_of_range(grpc_channel, master_jwt, db):
+async def test_watch_cursor_out_of_range(grpc_channel, master_jwt, db, _go_live_hub):
     stub = TaskRelayStub(grpc_channel)
     # Create two tasks so the global event log has a floor. Delete the events
     # for the watched topic; the cursor pointing at the pruned gap is older
@@ -440,8 +466,11 @@ async def test_watch_cursor_out_of_range(grpc_channel, master_jwt, db):
         ),
         metadata=_bearer_metadata(master_jwt),
     )
-    await db._conn.execute("DELETE FROM task_events WHERE callback_topic = 'cursor-topic'")
-    await db._conn.commit()
+    if _go_live_hub is not None:
+        delete_task_events_for_topic(_go_live_hub, "cursor-topic")
+    else:
+        await db._conn.execute("DELETE FROM task_events WHERE callback_topic = 'cursor-topic'")
+        await db._conn.commit()
 
     with pytest.raises(GRPCError) as exc:
         async with stub.WatchTask.open(metadata=_bearer_metadata(master_jwt)) as stream:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.python_hub
+
 from extend.task_relay.hub.bootstrap import start_ws_server
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.wake_scheduler import WakeScheduler

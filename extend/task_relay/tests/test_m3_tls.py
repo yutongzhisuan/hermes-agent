@@ -5,6 +5,10 @@ from __future__ import annotations
 import ssl
 
 import pytest
+
+pytestmark = pytest.mark.python_hub
+
+import pytest
 import pytest_asyncio
 from grpclib.client import Channel
 

@@ -168,6 +168,7 @@ async def _run_worker_until(worker: TaskWorker, predicate, timeout: float = 5.0)
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.python_hub
 @pytest.mark.asyncio
 async def test_worker_stub_backend_executes_task_to_completion(
     router, registry, db, backend

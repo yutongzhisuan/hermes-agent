@@ -46,6 +46,10 @@ func Parse(args []string) (Config, error) {
 	cancelGraceSeconds := fs.Int("cancel-grace-seconds", 60, "cancel grace before hub settles")
 	resumeBlobMaxBytes := fs.Int("resume-blob-max-bytes", 1_048_576, "max checkpoint resume_blob bytes")
 	pollOfferSeconds := fs.Int("poll-offer-seconds", 30, "two-step poll offer window (seconds)")
+	queueTimeoutSeconds := fs.Int("queue-timeout-seconds", 900, "default queue timeout (seconds)")
+	firstProgressSeconds := fs.Int("first-progress-seconds", 120, "default first-progress deadline (seconds)")
+	timeoutSeconds := fs.Int("timeout-seconds", 600, "default execution lease (seconds)")
+	maxAttempts := fs.Int("max-attempts", 1, "default max dispatch attempts")
 	encryptAtRest := fs.Bool("encrypt-inline-context", false, "encrypt inline context at rest")
 	requireSignedRef := fs.Bool("require-signed-context-ref", false, "reject unsigned ContextRef dispatches")
 	tlsCert := fs.String("tls-cert", "", "TLS certificate file")
@@ -64,6 +68,10 @@ func Parse(args []string) (Config, error) {
 	}
 	routerCfg := router.DefaultRouterConfig()
 	routerCfg.PollOfferSeconds = *pollOfferSeconds
+	routerCfg.QueueTimeoutSeconds = *queueTimeoutSeconds
+	routerCfg.FirstProgressSeconds = *firstProgressSeconds
+	routerCfg.TimeoutSeconds = *timeoutSeconds
+	routerCfg.MaxAttempts = *maxAttempts
 	routerCfg.CancelGraceSeconds = *cancelGraceSeconds
 	routerCfg.ResumeBlobMaxBytes = *resumeBlobMaxBytes
 	routerCfg.RetentionDays = *eventRetentionDays

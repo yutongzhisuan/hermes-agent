@@ -7,6 +7,8 @@ import asyncio
 import pytest
 import websockets
 
+pytestmark = pytest.mark.python_hub
+
 from extend.task_relay.hub.bootstrap import start_ws_server
 from extend.task_relay.tests.conftest import make_worker_jwt, make_task_spec
 from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig

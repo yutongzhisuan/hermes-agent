@@ -41,7 +41,7 @@ async def test_cancel_during_tool_execution_e2e(hub, master_jwt):
             metadata=_bearer_metadata(master_jwt),
         )
 
-        await _wait_for_status(hub.router, task_id, {"running"})
+        await _wait_for_status(hub, task_id, {"running"})
         await stub.CancelTask(
             pb.CancelTaskRequest(task_id=task_id, reason="cancel during tool"),
             metadata=_bearer_metadata(master_jwt),

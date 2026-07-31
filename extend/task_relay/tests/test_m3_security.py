@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+pytestmark = pytest.mark.python_hub
+
 from extend.task_relay.hub.audit_log import record_acl_dispatch
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.context_crypto import (

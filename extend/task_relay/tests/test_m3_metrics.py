@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.python_hub
+
 from extend.task_relay.hub.bootstrap import wire_orchestration
 from extend.task_relay.hub.metrics import inc, observe, render_prometheus, reset, set_gauge, snapshot
 from extend.task_relay.hub.metrics_server import METRICS_PATH, create_metrics_app

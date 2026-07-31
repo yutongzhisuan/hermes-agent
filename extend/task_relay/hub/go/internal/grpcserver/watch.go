@@ -43,16 +43,42 @@ func (s *Server) WatchTask(req *pb.WatchTaskRequest, stream pb.TaskRelay_WatchTa
 			if !ok {
 				return nil
 			}
-			if err := stream.Send(eventToProto(event)); err != nil {
-				if err == io.EOF {
-					return nil
-				}
-				return err
+			sendErr := sendWatchEvent(stream, errCh, eventToProto(event))
+			if sendErr != nil {
+				return sendErr
 			}
 			if filter.TaskID != "" && event.Kind == router.EventKindTerminal {
 				return nil
 			}
 		}
+	}
+}
+
+func sendWatchEvent(
+	stream pb.TaskRelay_WatchTaskServer,
+	errCh <-chan error,
+	msg *pb.TaskEvent,
+) error {
+	sent := make(chan error, 1)
+	go func() {
+		err := stream.Send(msg)
+		if err == io.EOF {
+			sent <- nil
+			return
+		}
+		sent <- err
+	}()
+	select {
+	case err := <-errCh:
+		if err == nil {
+			return nil
+		}
+		if slowErr, ok := err.(*eventbus.SlowConsumerError); ok {
+			return slowConsumerStatus(slowErr)
+		}
+		return status.Errorf(codes.Internal, "watch stream: %v", err)
+	case err := <-sent:
+		return err
 	}
 }
 

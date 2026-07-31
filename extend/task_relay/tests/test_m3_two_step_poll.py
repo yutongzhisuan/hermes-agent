@@ -8,6 +8,8 @@ import pytest
 import pytest_asyncio
 import websockets
 
+pytestmark = pytest.mark.python_hub
+
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
