@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import gzip
+import hashlib
 import json
 import time
 
@@ -20,9 +21,9 @@ from extend.task_relay.hub.grpc_server import _context_payload_to_dict
 from extend.task_relay.hub.models import Checkpoint
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-from extend.task_relay.worker.task_worker import _run_payload_from_dict
-
-SECRET = "t" * 32
+from extend.task_relay.worker.context_loader import resolve_context_payload
+from extend.task_relay.worker.run_payload import run_payload_from_dict
+from extend.task_relay.tests.conftest import SECRET
 
 
 @pytest_asyncio.fixture
@@ -138,21 +139,19 @@ def test_context_payload_to_dict_base64_encodes_gzip_data():
     assert encoded == base64.b64encode(gzip_data).decode("ascii")
 
 
-def test_run_payload_decodes_inline_gzip_base64_to_bytes():
+@pytest.mark.asyncio
+async def test_resolve_context_payload_decodes_inline_gzip_base64():
     original = b"round-trip payload"
     gzip_data = gzip.compress(original)
     ctx_dict = {
         "inline_gzip": {
             "gzip_data": base64.b64encode(gzip_data).decode("ascii"),
-            "sha256": "abc123",
+            "sha256": hashlib.sha256(original.decode("utf-8").encode("utf-8")).hexdigest(),
         }
     }
-    run = _run_payload_from_dict({"task_id": "t1", "context": ctx_dict})
-
-    assert run.context is not None
-    decoded = run.context["inline_gzip"]["gzip_data"]
-    assert isinstance(decoded, bytes)
-    assert decoded == gzip_data
+    run = run_payload_from_dict({"task_id": "t1", "context": ctx_dict})
+    result = await resolve_context_payload(run.context)
+    assert result == original.decode("utf-8")
 
 
 # -----------------------------------------------------------------------------

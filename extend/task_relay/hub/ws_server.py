@@ -20,7 +20,11 @@ import logging
 import time
 import uuid
 from dataclasses import asdict
-from typing import Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+if TYPE_CHECKING:
+    from extend.task_relay.hub.delivery import DeliveryCoordinator
+    from extend.task_relay.hub.wake_scheduler import WakeScheduler
 
 logger = logging.getLogger("task_relay.hub.ws")
 
@@ -31,7 +35,9 @@ from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.hub.auth import Auth, AuthError, WorkerClaims
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
+from extend.task_relay.hub.json_util import safe_json_dict_loads
 from extend.task_relay.hub.models import Checkpoint, Task
+from extend.task_relay.hub.run_payload import build_run_payload as build_task_run_payload
 from extend.task_relay.hub.task_router import TaskRouter, TaskRouterError
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
@@ -45,8 +51,10 @@ JSONRPC_DOMAIN_ERROR = -32000
 _RESULT_METHOD_LABELS = {
     "worker.announce": "worker.announce_ok",
     "worker.poll": "worker.poll_result",
+    "worker.claim": "worker.claim_ok",
     "worker.heartbeat": "worker.heartbeat_ok",
     "worker.drain": "worker.drain_ok",
+    "worker.credit": "worker.credit_ok",
     "task.checkpoint": "checkpoint.ack",
 }
 
@@ -84,20 +92,7 @@ def _parse_authorization(headers: Headers) -> str | None:
 
 
 def _safe_json_loads(data: bytes | str | None) -> dict | None:
-    if data is None:
-        return None
-    if isinstance(data, bytes):
-        try:
-            data = data.decode("utf-8")
-        except UnicodeDecodeError:
-            return None
-    if not data:
-        return None
-    try:
-        loaded = json.loads(data)
-    except json.JSONDecodeError:
-        return None
-    return loaded if isinstance(loaded, dict) else None
+    return safe_json_dict_loads(data)
 
 
 def _json_dumps(payload: dict) -> str:
@@ -114,12 +109,16 @@ class WsHubServer:
         registry: WorkerRegistry,
         db: Database,
         config: HubConfig,
+        delivery: DeliveryCoordinator | None = None,
+        wake: WakeScheduler | None = None,
     ):
         self.router = router
         self.auth = auth
         self.registry = registry
         self.db = db
         self.config = config
+        self.delivery = delivery
+        self.wake = wake
         self._resume_blob_max_bytes = config.resume_blob_max_bytes
         self._sessions: set[WsServerSession] = set()
 
@@ -203,6 +202,25 @@ class WsHubServer:
                 )
                 break
 
+    async def push_task_run(
+        self,
+        worker_id: str,
+        session_id: str,
+        run_payload: dict[str, Any],
+    ) -> bool:
+        for session in list(self._sessions):
+            if (
+                session.worker_id == worker_id
+                and session.session_id == session_id
+                and session.announced
+            ):
+                await session.send_notification("task.run", run_payload)
+                return True
+        return False
+
+    async def build_run_payload(self, task_id: str, claimed: Any) -> dict[str, Any]:
+        return await build_task_run_payload(self.db, task_id, claimed)
+
 
 class WsServerSession:
     """One authenticated worker WebSocket session."""
@@ -220,6 +238,7 @@ class WsServerSession:
         self.session_id: str | None = None
         self.announced = False
         self.draining = False
+        self._mode_c = False
         self._closed = False
         self._close_after_response = False
         self._cancel_monitor_task: asyncio.Task | None = None
@@ -370,6 +389,11 @@ class WsServerSession:
             capabilities["toolsets"] = list(toolsets)
 
         self.session_id = str(uuid.uuid4())
+        initial_credit = params.get("credit")
+        credit_available = 0
+        if "C" in modes_upper and initial_credit is not None:
+            credit_available = max(0, min(int(initial_credit), max_concurrent))
+
         await self.hub.registry.announce(
             worker_id,
             session_modes="".join(modes_upper),
@@ -383,10 +407,19 @@ class WsServerSession:
             online_session_id=self.session_id,
             drain_requested=False,
         )
+        if credit_available:
+            worker = await self.hub.registry.get_worker(worker_id)
+            if worker is not None:
+                worker.credit_available = credit_available
+                await self.hub.db.upsert_worker(worker)
 
         self.worker_id = worker_id
         self.announced = True
+        self._mode_c = "C" in modes_upper
         self._cancel_monitor_task = asyncio.create_task(self._cancel_monitor_loop())
+
+        if self._mode_c and self.hub.delivery is not None:
+            await self.hub.delivery.on_credit_granted(worker_id)
 
         return {
             "session_id": self.session_id,
@@ -417,7 +450,7 @@ class WsServerSession:
         tasks_out = []
         for claimed_task in claimed:
             task = await self.hub.db.get_task(claimed_task.task_id)
-            run_payload = await self._build_run_payload(task, claimed_task)
+            run_payload = await self.hub.build_run_payload(claimed_task.task_id, claimed_task)
             tasks_out.append(
                 {
                     "claimed": True,
@@ -572,6 +605,50 @@ class WsServerSession:
         await self._verify_task_owner(task_id)
         return {"acknowledged": True}
 
+    async def _handle_worker_credit(self, params: dict) -> dict:
+        """Refresh Mode C push credit and attempt to deliver pending tasks."""
+        self._require_announced()
+        if not await self._is_current_session_for_worker():
+            return {}
+        available = int(params.get("available", 0))
+        worker = await self.hub.registry.get_worker(self.worker_id)
+        if worker is None:
+            return {}
+        free = max(0, worker.max_concurrent - worker.running_tasks)
+        worker.credit_available = max(0, min(available, free))
+        await self.hub.db.upsert_worker(worker)
+        if self.hub.delivery is not None:
+            await self.hub.delivery.on_credit_granted(self.worker_id)
+        return {"accepted": worker.credit_available}
+
+    async def _handle_worker_claim(self, params: dict) -> dict:
+        """Claim a task after Mode B wake or optional two-step poll."""
+        self._require_announced()
+        task_id = params.get("task_id")
+        wake_token = params.get("wake_token")
+        if not task_id:
+            raise WsServerError("task_id is required", JSONRPC_INVALID_PARAMS)
+
+        task = await self.hub.db.get_task(task_id)
+        if task is None or task.status != "pending":
+            raise WsServerError("task not claimable", JSONRPC_DOMAIN_ERROR)
+
+        if wake_token:
+            expires_at = float(params.get("expires_at", 0))
+            if self.hub.wake is None or not self.hub.wake.verify_wake_token(
+                task_id, self.worker_id, wake_token, expires_at
+            ):
+                raise WsServerError("invalid wake_token", JSONRPC_DOMAIN_ERROR)
+
+        claimed_list = await self.hub.router.claim_task_for_worker(
+            task_id, self.worker_id, self.claims
+        )
+        if claimed_list is None:
+            raise WsServerError("claim failed", JSONRPC_DOMAIN_ERROR)
+        claimed = claimed_list
+        run_payload = await self.hub.build_run_payload(task_id, claimed)
+        return {"claimed": True, "task_id": task_id, "run": run_payload}
+
     async def _handle_worker_heartbeat(self, params: dict) -> dict:
         """Refresh the worker heartbeat timestamp.
 
@@ -703,38 +780,6 @@ class WsServerSession:
                 # clean up the session.
                 break
 
-    async def _build_run_payload(self, task: Task | None, claimed: Any) -> dict:
-        """Build the ``task.run`` payload delivered inside a poll result.
-
-        The checkpoint ``resume_blob`` is stored as an opaque BLOB and is
-        base64-encoded before being placed in JSON so binary data survives
-        redispatch without a UTF-8 decode step.
-        """
-        if task is None:
-            return {}
-        latest = None
-        if task.resume_from_checkpoint:
-            latest = await self.hub.db.get_latest_checkpoint(task.task_id)
-        run: dict[str, Any] = {
-            "task_id": task.task_id,
-            "attempt": claimed.attempt,
-            "goal": task.goal,
-            "params": _safe_json_loads(task.params_json),
-            "context": _safe_json_loads(task.context_json),
-            "toolsets": _safe_json_loads(task.toolsets_json) or [],
-            "timeout_seconds": claimed.timeout_seconds,
-            "first_progress_seconds": task.first_progress_seconds,
-            "trace_context": _safe_json_loads(task.trace_context_json),
-            "resume_from_checkpoint": task.resume_from_checkpoint,
-            "claim_token": claimed.claim_token,
-        }
-        if latest is not None:
-            run["resume_blob"] = (
-                base64.b64encode(latest.resume_blob).decode("ascii")
-                if latest.resume_blob else None
-            )
-        return run
-
 
 # ------------------------------------------------------------------
 # Factory helpers
@@ -746,15 +791,14 @@ def serve_ws(
     registry: WorkerRegistry,
     db: Database,
     config: HubConfig,
+    delivery: DeliveryCoordinator | None = None,
+    wake: WakeScheduler | None = None,
     host: str = "127.0.0.1",
     port: int = 0,
     **kwargs: Any,
-) -> Awaitable:
-    """Factory for a ``websockets.serve`` awaitable running the Mode A server.
-
-    Example::
-
-        server = await serve_ws(router, auth, registry, db, config, port=9000)
-    """
-    hub = WsHubServer(router, auth, registry, db, config)
-    return hub.serve(host=host, port=port, **kwargs)
+) -> tuple[WsHubServer, Awaitable]:
+    """Factory returning the hub instance and the websockets serve awaitable."""
+    hub = WsHubServer(router, auth, registry, db, config, delivery=delivery, wake=wake)
+    if delivery is not None:
+        delivery.attach_ws_hub(hub)
+    return hub, hub.serve(host=host, port=port, **kwargs)

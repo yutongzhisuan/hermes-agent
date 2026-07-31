@@ -22,7 +22,7 @@ import json
 import time
 import uuid
 from dataclasses import asdict, dataclass
-from typing import Iterable
+from typing import Any, Iterable
 
 from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.hub.auth import WorkerClaims
@@ -91,6 +91,10 @@ class TaskRouter:
         self._registry = registry
         self._lock = asyncio.Lock()
         self._last_prune_at = 0.0
+        self._delivery: Any | None = None
+
+    def set_delivery(self, delivery: Any) -> None:
+        self._delivery = delivery
 
     # ------------------------------------------------------------------
     # Public API
@@ -115,7 +119,10 @@ class TaskRouter:
             task = self._task_from_spec(spec, master_session_id, allow_redispatch)
             await self._db.insert_task(task)
             await self._emit_status(task, "pending")
-            return self._response_from_task(task, idempotent_hit=False)
+            response = self._response_from_task(task, idempotent_hit=False)
+        if self._delivery is not None:
+            await self._delivery.on_task_pending(spec.task_id)
+        return response
 
     async def dispatch_task_batch(
         self,
@@ -176,12 +183,17 @@ class TaskRouter:
                 )
                 responses.append(resp)
 
-        return BatchDispatchResponse(
+        batch_response = BatchDispatchResponse(
             batch_id=batch_id,
             callback_topic=callback_topic,
             tasks=responses,
             idempotent_hit=False,
         )
+        if self._delivery is not None:
+            for resp in responses:
+                if not resp.idempotent_hit and resp.status == "pending":
+                    await self._delivery.on_task_pending(resp.task_id)
+        return batch_response
 
     async def atomic_claim_for_poll(
         self,
@@ -233,6 +245,34 @@ class TaskRouter:
 
         return claimed
 
+    async def claim_task_for_worker(
+        self,
+        task_id: str,
+        worker_id: str,
+        worker_claims: WorkerClaims | None = None,
+    ) -> ClaimedTask | None:
+        """Atomically claim a specific pending task for a worker."""
+        async with self._lock:
+            worker = await self._registry.get_worker(worker_id)
+            if worker is None:
+                return None
+            if worker.status in {"offline", "stale", "draining"}:
+                return None
+            task = await self._db.get_task(task_id)
+            if task is None or task.status != "pending":
+                return None
+            if not self._registry.is_eligible_for_poll(worker, task, worker_claims):
+                return None
+            claimed = await self._claim_task(task, worker_id)
+            if claimed is None:
+                return None
+            worker.running_tasks += 1
+            now = time.time()
+            worker.last_heartbeat_at = now
+            worker.last_seen_at = now
+            await self._db.upsert_worker(worker)
+            return claimed
+
     async def on_progress(self, task_id: str, summary: str) -> None:
         async with self._lock:
             task = await self._get_task_or_raise(task_id)
@@ -260,10 +300,11 @@ class TaskRouter:
         if status not in TERMINAL_STATUSES:
             raise TaskRouterError(f"on_complete requires a terminal status, got {status}")
 
+        worker_id: str | None = None
+        was_active = False
         async with self._lock:
             task = await self._get_task_or_raise(task_id)
             if task.status in TERMINAL_STATUSES:
-                # Terminal monotonic: first wins.
                 return self._response_from_task(task, idempotent_hit=True)
             previous_status = task.status
             self._validate_transition(task.status, status)
@@ -280,9 +321,14 @@ class TaskRouter:
             task.claim_expires_at = None
             await self._persist_task(task)
             await self._emit_terminal(task, status, summary, error)
-            if previous_status in {"running", "cancelling"}:
+            worker_id = task.worker_id
+            was_active = previous_status in {"running", "cancelling"}
+            if was_active:
                 await self._release_task_slot(task.worker_id)
-            return self._response_from_task(task, idempotent_hit=False)
+            response = self._response_from_task(task, idempotent_hit=False)
+        if self._delivery is not None and was_active:
+            await self._delivery.on_task_terminal(task_id, worker_id)
+        return response
 
     async def on_cancel(
         self, task_id: str, *, reason: str, grace_seconds: int | None = None

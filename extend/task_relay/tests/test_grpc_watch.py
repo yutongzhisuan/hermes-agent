@@ -12,7 +12,6 @@ from grpclib.exceptions import GRPCError
 
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayStub
-from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
@@ -20,17 +19,7 @@ from extend.task_relay.hub.grpc_server import _event_to_proto, serve_grpc
 from extend.task_relay.hub.models import TaskEvent, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-
-SECRET = "t" * 32
-ISSUER = "hermes-relay-hub"
-AUDIENCE = "task-relay-hub"
-
-
-def make_auth(**kwargs) -> Auth:
-    defaults = dict(secret=SECRET, issuer=ISSUER, audience=AUDIENCE)
-    defaults.update(kwargs)
-    return Auth(**defaults)
-
+from extend.task_relay.tests.conftest import SECRET, make_auth
 
 @pytest_asyncio.fixture
 async def db(tmp_path):

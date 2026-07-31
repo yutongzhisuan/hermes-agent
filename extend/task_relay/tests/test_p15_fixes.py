@@ -13,8 +13,7 @@ from grpclib.client import Channel
 
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayStub
-from extend.task_relay.hub.auth import Auth
-from extend.task_relay.hub.config import BootstrapEntry, HubConfig
+from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
@@ -22,28 +21,8 @@ from extend.task_relay.hub.models import Checkpoint, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.token_server import create_token_app
 from extend.task_relay.hub.worker_registry import WorkerRegistry
+from extend.task_relay.tests.conftest import SECRET, make_p15_auth
 from extend.task_relay.worker.jwt_manager import derive_token_url, ensure_worker_jwt
-
-SECRET = "t" * 32
-ISSUER = "hermes-relay-hub"
-AUDIENCE = "task-relay-hub"
-
-
-def make_auth(**kwargs) -> Auth:
-    defaults = dict(
-        secret=SECRET,
-        issuer=ISSUER,
-        audience=AUDIENCE,
-        bootstrap_tokens={
-            "boot-w1": BootstrapEntry(
-                worker_id="w1",
-                allowed_toolsets=("terminal",),
-                max_concurrent=2,
-            )
-        },
-    )
-    defaults.update(kwargs)
-    return Auth(**defaults)
 
 
 @pytest_asyncio.fixture
@@ -85,7 +64,7 @@ async def test_claim_respects_target_worker(router, registry):
 
 @pytest.mark.asyncio
 async def test_token_http_bootstrap_exchange():
-    auth = make_auth()
+    auth = make_p15_auth()
     app = create_token_app(auth)
     async with TestClient(TestServer(app)) as client:
         resp = await client.post(
@@ -103,7 +82,7 @@ async def test_token_http_bootstrap_exchange():
 
 @pytest.mark.asyncio
 async def test_token_http_refresh_existing_jwt():
-    auth = make_auth()
+    auth = make_p15_auth()
     original = auth.issue_worker_jwt("w1", ["terminal"], max_concurrent=2, ttl_s=60)
     app = create_token_app(auth)
     async with TestClient(TestServer(app)) as client:
@@ -128,7 +107,7 @@ async def test_derive_token_url_from_ws():
 
 @pytest.mark.asyncio
 async def test_ensure_worker_jwt_exchanges_bootstrap(tmp_path):
-    auth = make_auth()
+    auth = make_p15_auth()
     app = create_token_app(auth)
     bootstrap_file = tmp_path / "bootstrap.txt"
     bootstrap_file.write_text("boot-w1", encoding="utf-8")
@@ -151,7 +130,7 @@ async def test_get_task_result_include_latest_checkpoint(db, tmp_path):
     bus = EventBus(db, HubConfig(jwt_secret=SECRET))
     registry = WorkerRegistry(db)
     router = TaskRouter(db, bus, HubConfig(jwt_secret=SECRET), registry)
-    auth = make_auth()
+    auth = make_p15_auth()
     master_jwt = auth.issue_master_jwt("master-1")
 
     await router.dispatch_task(

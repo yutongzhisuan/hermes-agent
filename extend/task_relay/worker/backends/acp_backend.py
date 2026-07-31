@@ -74,6 +74,7 @@ class AcpTaskBackend(TaskBackend):
         if manager is None:
             manager = _import_session_manager()()
 
+        user_message = _resume_goal(run)
         state = manager.create_session(cwd=".")
         session_id = state.session_id
         agent = state.agent
@@ -130,10 +131,10 @@ class AcpTaskBackend(TaskBackend):
 
         def _run_agent() -> dict[str, Any]:
             return agent.run_conversation(
-                user_message=run.goal,
+                user_message=user_message,
                 conversation_history=state.history,
                 task_id=session_id,
-                persist_user_message=run.goal,
+                persist_user_message=user_message,
             )
 
         async def _watch_cancel() -> None:
@@ -268,3 +269,15 @@ class AcpTaskBackend(TaskBackend):
         if run.params:
             fields["params"] = run.params
         return fields if fields else None
+
+
+def _resume_goal(run: TaskRunPayload) -> str:
+    """Build the user message, injecting L1 summary when L2 blob is unavailable."""
+    goal = run.goal or ""
+    if not run.resume_from_checkpoint:
+        return goal
+    if isinstance(run.resume_blob, bytes):
+        return f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{goal}"
+    if isinstance(run.resume_blob, str) and run.resume_blob.strip():
+        return f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{run.resume_blob}\n{goal}"
+    return f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{goal}"

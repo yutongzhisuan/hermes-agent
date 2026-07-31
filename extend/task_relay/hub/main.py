@@ -20,10 +20,10 @@ from extend.task_relay.hub.config import HubConfig, load_bootstrap_tokens, parse
 from extend.task_relay.hub.db import Database, open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
+from extend.task_relay.hub.bootstrap import serve_ws_with_delivery
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.token_server import serve_token_http
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-from extend.task_relay.hub.ws_server import serve_ws
 
 logger = logging.getLogger("task_relay.hub")
 
@@ -98,15 +98,18 @@ async def run(
         )
         logger.info("gRPC listening on %s:%d", args.host, args.grpc_port)
 
-        ws_server = await serve_ws(
+        relay_ws_url = f"ws://{args.host}:{args.ws_port}"
+        _, ws_coro, _runtime = serve_ws_with_delivery(
             router,
             auth,
             registry,
             db,
             hub_config,
+            relay_ws_url=relay_ws_url,
             host=args.host,
             port=args.ws_port,
         )
+        ws_server = await ws_coro
         ws_addrs = _format_sockets(ws_server.sockets, args.host)
         logger.info("WebSocket listening on %s", ", ".join(ws_addrs))
 

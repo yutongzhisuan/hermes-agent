@@ -12,14 +12,14 @@ import jwt as pyjwt
 import pytest
 import pytest_asyncio
 
-from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.models import TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-from extend.task_relay.hub.ws_server import serve_ws
+from extend.task_relay.hub.bootstrap import start_ws_server
+from extend.task_relay.tests.conftest import SECRET, make_auth, make_worker_jwt
 from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
 from extend.task_relay.worker.task_executor import (
     TaskBackend,
@@ -28,28 +28,8 @@ from extend.task_relay.worker.task_executor import (
     TaskRunPayload,
 )
 from extend.task_relay.worker.task_worker import TaskWorker
-from extend.task_relay.worker.__main__ import _load_jwt, _build_arg_parser
-
-SECRET = "t" * 32
-ISSUER = "hermes-relay-hub"
-AUDIENCE = "task-relay-hub"
-
-
-def make_auth(**kwargs) -> Auth:
-    defaults = dict(secret=SECRET, issuer=ISSUER, audience=AUDIENCE)
-    defaults.update(kwargs)
-    return Auth(**defaults)
-
-
-def make_worker_jwt(worker_id: str, allowed_toolsets=None, max_concurrent: int = 1) -> str:
-    auth = make_auth()
-    return auth.issue_worker_jwt(
-        worker_id,
-        allowed_toolsets or [],
-        max_concurrent=max_concurrent,
-        ttl_s=3600,
-    )
-
+from extend.task_relay.worker.__main__ import _build_arg_parser
+from extend.task_relay.worker.jwt_manager import _read_cached
 
 def _spec(
     task_id: str = "t1",
@@ -193,7 +173,7 @@ async def test_worker_stub_backend_executes_task_to_completion(
     router, registry, db, backend
 ):
     auth = make_auth()
-    server = await serve_ws(
+    server = await start_ws_server(
         router,
         auth,
         registry,
@@ -631,7 +611,7 @@ async def test_worker_fallback_complete_uses_settlement_guard(monkeypatch):
 def test_load_jwt_reads_and_strips_file(tmp_path):
     path = tmp_path / "jwt.txt"
     path.write_text("  bearer-token-123\n\n", encoding="utf-8")
-    assert _load_jwt(path) == "bearer-token-123"
+    assert _read_cached(path) == "bearer-token-123"
 
 
 def test_worker_announce_uses_session_modes_from_cli(monkeypatch):

@@ -7,7 +7,6 @@ runs each claimed task through a :class:`TaskBackend` with bounded concurrency.
 from __future__ import annotations
 
 import asyncio
-import base64
 import logging
 import signal
 import traceback
@@ -15,6 +14,7 @@ from typing import Any
 
 import jwt
 
+from extend.task_relay.worker.run_payload import run_payload_from_dict
 from extend.task_relay.worker.task_executor import (
     TaskBackend,
     TaskCancelEvent,
@@ -23,6 +23,7 @@ from extend.task_relay.worker.task_executor import (
     TaskRunPayload,
 )
 from extend.task_relay.worker.task_worker_ws import TaskWorkerWs, WsClientError
+from extend.task_relay.worker.wake_http import WakeHttpServer
 
 logger = logging.getLogger("task_relay.worker")
 
@@ -51,6 +52,9 @@ class TaskWorker:
         self.jwt = jwt
         self.backend = backend
         self.session_modes = [str(m).lower() for m in (session_modes or ["a"])]
+        self._mode_a = "a" in self.session_modes
+        self._mode_c = "c" in self.session_modes
+        self._mode_b = "b" in self.session_modes
         self.poll_wait_ms = poll_wait_ms
         self.initial_backoff_seconds = initial_backoff_seconds
         self.max_backoff_seconds = max_backoff_seconds
@@ -75,6 +79,8 @@ class TaskWorker:
         self._shutdown = asyncio.Event()
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval_ms: int = 30_000
+        self._wake_server: WakeHttpServer | None = None
+        self._wake_url: str | None = None
 
     @staticmethod
     def _extract_jwt_max_concurrent(token: str) -> int | None:
@@ -97,15 +103,27 @@ class TaskWorker:
         self._ws = TaskWorkerWs(self.relay_url, self.jwt)
         await self._ws.connect()
         try:
+            if self._mode_b:
+                self._wake_server = WakeHttpServer(self._on_wake)
+                self._wake_url = await self._wake_server.start()
+
             self._ws.on_notification("task.cancel", self._on_cancel)
+            if self._mode_c:
+                self._ws.on_notification("task.run", self._on_task_run)
+
+            announce_params: dict[str, Any] = {
+                "worker_id": self.worker_id,
+                "session_modes": self.session_modes,
+                "max_concurrent": self.max_concurrent,
+            }
+            if self._mode_c:
+                announce_params["credit"] = self._available_credit()
+            if self._wake_url:
+                announce_params["wake_url"] = self._wake_url
 
             announce_result = await self._ws.request(
                 "worker.announce",
-                {
-                    "worker_id": self.worker_id,
-                    "session_modes": self.session_modes,
-                    "max_concurrent": self.max_concurrent,
-                },
+                announce_params,
             )
             self._heartbeat_interval_ms = announce_result.get(
                 "heartbeat_interval_ms", self._heartbeat_interval_ms
@@ -117,13 +135,69 @@ class TaskWorker:
             )
 
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-            await self._poll_loop()
+            if self._mode_a:
+                await self._poll_loop()
+            else:
+                await self._shutdown.wait()
         finally:
             await self._shutdown_cleanup()
 
     async def shutdown(self) -> None:
         """Signal the worker to stop accepting new work."""
         self._shutdown.set()
+
+    def _available_credit(self) -> int:
+        return max(0, self.max_concurrent - len(self._running_tasks))
+
+    async def _refresh_credit(self) -> None:
+        if not self._mode_c or self._ws is None:
+            return
+        try:
+            await self._ws.request(
+                "worker.credit",
+                {"available": self._available_credit()},
+            )
+        except Exception:
+            logger.exception("worker.credit refresh failed")
+
+    async def _dispatch_run(self, run_payload: TaskRunPayload) -> None:
+        cancel_event = TaskCancelEvent()
+        self._cancel_events[run_payload.task_id] = cancel_event
+        task = asyncio.create_task(self._execute_one(run_payload, cancel_event))
+        self._running_tasks.add(task)
+        task.add_done_callback(self._running_tasks.discard)
+
+    async def _on_task_run(self, params: dict[str, Any]) -> None:
+        """Handle a Hub-pushed ``task.run`` (Mode C)."""
+        if self._shutdown.is_set():
+            return
+        run_payload = run_payload_from_dict(params)
+        logger.info("received pushed task.run for %s", run_payload.task_id)
+        await self._dispatch_run(run_payload)
+
+    async def _on_wake(self, body: dict[str, Any]) -> None:
+        """Claim a task after a Mode B wake POST."""
+        if self._ws is None or self._shutdown.is_set():
+            return
+        task_id = body.get("task_id")
+        if not task_id:
+            return
+        try:
+            result = await self._ws.request(
+                "worker.claim",
+                {
+                    "task_id": task_id,
+                    "wake_token": body.get("token"),
+                    "expires_at": body.get("expires_at"),
+                },
+            )
+        except Exception:
+            logger.exception("worker.claim failed for wake task %s", task_id)
+            return
+        if not result.get("claimed"):
+            return
+        run_payload = run_payload_from_dict(result.get("run", {}))
+        await self._dispatch_run(run_payload)
 
     async def _poll_loop(self) -> None:
         """Poll for work and dispatch tasks while honoring concurrency."""
@@ -170,14 +244,8 @@ class TaskWorker:
 
             backoff = self.initial_backoff_seconds
             for task_info in result.get("tasks", []):
-                run_payload = _run_payload_from_dict(task_info.get("run", {}))
-                cancel_event = TaskCancelEvent()
-                self._cancel_events[run_payload.task_id] = cancel_event
-                task = asyncio.create_task(
-                    self._execute_one(run_payload, cancel_event)
-                )
-                self._running_tasks.add(task)
-                task.add_done_callback(self._running_tasks.discard)
+                run_payload = run_payload_from_dict(task_info.get("run", {}))
+                await self._dispatch_run(run_payload)
 
     async def _execute_one(
         self,
@@ -216,6 +284,7 @@ class TaskWorker:
                         )
             finally:
                 self._cancel_events.pop(run.task_id, None)
+                await self._refresh_credit()
 
     async def _on_cancel(self, params: dict[str, Any]) -> None:
         """Handle a server-pushed ``task.cancel`` notification."""
@@ -317,6 +386,9 @@ class TaskWorker:
             logger.info("waiting for %d running task(s) to finish", len(self._running_tasks))
             await asyncio.gather(*self._running_tasks, return_exceptions=True)
 
+        if self._wake_server is not None:
+            await self._wake_server.stop()
+
         if self._ws is not None:
             try:
                 await self._ws.request("worker.close", {})
@@ -340,63 +412,6 @@ class TaskWorker:
             await asyncio.wait_for(self._shutdown.wait(), timeout=seconds)
         except asyncio.TimeoutError:
             pass
-
-
-def _run_payload_from_dict(run: dict[str, Any]) -> TaskRunPayload:
-    """Convert the Hub's ``task.run`` dict into a typed payload."""
-    context = _decode_inline_gzip(run.get("context"))
-    return TaskRunPayload(
-        task_id=run.get("task_id", ""),
-        attempt=int(run.get("attempt", 1)),
-        goal=run.get("goal", ""),
-        params=run.get("params"),
-        context=context,
-        toolsets=list(run.get("toolsets") or []),
-        timeout_seconds=int(run.get("timeout_seconds", 600)),
-        first_progress_seconds=run.get("first_progress_seconds"),
-        trace_context=run.get("trace_context"),
-        resume_from_checkpoint=run.get("resume_from_checkpoint"),
-        resume_blob=_decode_resume_blob(run.get("resume_blob")),
-        claim_token=run.get("claim_token"),
-    )
-
-
-def _decode_inline_gzip(context: Any) -> Any:
-    """Decode base64-encoded ``inline_gzip.gzip_data`` back to bytes.
-
-    The Hub stores binary gzip payloads as base64 inside JSON; the worker
-    backend expects the original bytes for decompression.
-    """
-    if not isinstance(context, dict):
-        return context
-    inline_gzip = context.get("inline_gzip")
-    if not isinstance(inline_gzip, dict):
-        return context
-    encoded = inline_gzip.get("gzip_data")
-    if isinstance(encoded, str):
-        try:
-            inline_gzip["gzip_data"] = base64.b64decode(encoded, validate=True)
-        except Exception:
-            # Leave malformed payloads as-is so the backend can fail cleanly.
-            pass
-    return context
-
-
-def _decode_resume_blob(blob: Any) -> str | bytes | None:
-    """Decode a base64 ``resume_blob`` string back to bytes.
-
-    The Hub base64-encodes the opaque checkpoint blob when embedding it in
-    the JSON ``task.run`` payload. The worker backend receives the original
-    bytes so it can resume from binary state without a UTF-8 round-trip.
-    """
-    if not isinstance(blob, str):
-        return blob
-    try:
-        return base64.b64decode(blob, validate=True)
-    except Exception:
-        # Not a valid base64 payload (e.g. an older plain-string blob);
-        # leave it as a string for the backend to interpret.
-        return blob
 
 
 def install_signal_handlers(worker: TaskWorker) -> None:

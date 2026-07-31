@@ -24,9 +24,7 @@ from extend.task_relay.hub.task_router import (
     TaskRouter,
     TaskRouterError,
 )
-
-
-SECRET = "t" * 32
+from extend.task_relay.tests.conftest import SECRET
 
 
 @pytest_asyncio.fixture

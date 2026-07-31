@@ -12,35 +12,14 @@ import pytest
 import pytest_asyncio
 import websockets
 
-from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.models import Checkpoint, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-from extend.task_relay.hub.ws_server import serve_ws
-
-SECRET = "t" * 32
-ISSUER = "hermes-relay-hub"
-AUDIENCE = "task-relay-hub"
-
-
-def make_auth(**kwargs) -> Auth:
-    defaults = dict(secret=SECRET, issuer=ISSUER, audience=AUDIENCE)
-    defaults.update(kwargs)
-    return Auth(**defaults)
-
-
-def make_worker_jwt(worker_id: str, allowed_toolsets=None, max_concurrent: int = 1) -> str:
-    auth = make_auth()
-    return auth.issue_worker_jwt(
-        worker_id,
-        allowed_toolsets or [],
-        max_concurrent=max_concurrent,
-        ttl_s=3600,
-    )
-
+from extend.task_relay.hub.bootstrap import start_ws_server
+from extend.task_relay.tests.conftest import SECRET, make_auth, make_worker_jwt
 
 def spec(
     task_id="t1",
@@ -175,7 +154,7 @@ async def router(db, bus, registry):
 @pytest_asyncio.fixture
 async def ws_server(router, registry, db):
     auth = make_auth()
-    server = await serve_ws(
+    server = await start_ws_server(
         router,
         auth,
         registry,

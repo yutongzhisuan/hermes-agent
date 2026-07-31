@@ -7,13 +7,14 @@ import pytest_asyncio
 from grpclib.client import Channel
 
 from extend.task_relay.hub.auth import Auth
-from extend.task_relay.hub.config import HubConfig
+from extend.task_relay.hub.config import BootstrapEntry, HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
+from extend.task_relay.hub.bootstrap import start_ws_server
+from extend.task_relay.hub.models import TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-from extend.task_relay.hub.ws_server import serve_ws
 
 SECRET = "t" * 32
 ISSUER = "hermes-relay-hub"
@@ -36,6 +37,35 @@ def make_worker_jwt(
         allowed_toolsets or [],
         max_concurrent=max_concurrent,
         ttl_s=3600,
+    )
+
+
+def make_task_spec(**kwargs) -> TaskSpec:
+    """Build a :class:`TaskSpec` with sensible test defaults."""
+    defaults = dict(
+        task_id="t1",
+        goal="test goal",
+        callback_topic="topic-1",
+        priority=0,
+        timeout_seconds=600,
+        first_progress_seconds=120,
+        max_attempts=1,
+    )
+    defaults.update(kwargs)
+    return TaskSpec(**defaults)
+
+
+def make_p15_auth(**kwargs) -> Auth:
+    """Auth with the bootstrap token fixture used by P1.5 HTTP token tests."""
+    return make_auth(
+        bootstrap_tokens={
+            "boot-w1": BootstrapEntry(
+                worker_id="w1",
+                allowed_toolsets=("terminal",),
+                max_concurrent=2,
+            )
+        },
+        **kwargs,
     )
 
 
@@ -106,7 +136,7 @@ async def grpc_channel(grpc_server):
 
 @pytest_asyncio.fixture
 async def ws_server(router, registry, db, auth):
-    server = await serve_ws(
+    server = await start_ws_server(
         router,
         auth,
         registry,

@@ -16,6 +16,7 @@ from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.models import TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
+from extend.task_relay.tests.conftest import SECRET, make_worker_jwt
 from extend.task_relay.worker.task_executor import (
     TaskBackend,
     TaskCompletePayload,
@@ -23,8 +24,6 @@ from extend.task_relay.worker.task_executor import (
     TaskRunPayload,
 )
 from extend.task_relay.worker.task_worker import TaskWorker
-
-SECRET = "t" * 32
 
 
 @pytest_asyncio.fixture
@@ -222,7 +221,7 @@ async def test_worker_sends_fallback_complete_after_send_failure(monkeypatch):
     worker = TaskWorker(
         worker_id="w1",
         relay_url="ws://x",
-        jwt=_make_worker_jwt("w1"),
+        jwt=make_worker_jwt("w1"),
         backend=_ImmediateBackend(),
         poll_wait_ms=10_000,
     )
@@ -234,13 +233,6 @@ async def test_worker_sends_fallback_complete_after_send_failure(monkeypatch):
     assert len(completes) == 2
     assert completes[0][1]["status"] == "completed"
     assert completes[1][1]["status"] == "failed"
-
-
-def _make_worker_jwt(worker_id: str, max_concurrent: int = 1) -> str:
-    from extend.task_relay.hub.auth import Auth
-
-    auth = Auth(secret=SECRET, issuer="hub", audience="task-relay-hub")
-    return auth.issue_worker_jwt(worker_id, [], max_concurrent=max_concurrent, ttl_s=3600)
 
 
 async def _run_worker_until(worker: TaskWorker, predicate, timeout: float = 5.0) -> None:

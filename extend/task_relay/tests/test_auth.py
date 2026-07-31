@@ -7,17 +7,7 @@ import pytest
 
 from extend.task_relay.hub.auth import Auth, AuthError, WorkerClaims, MasterClaims
 from extend.task_relay.hub.config import BootstrapEntry, HubConfig
-
-SECRET = "t" * 32  # ≥32 bytes: PyJWT warns on short HS256 keys
-ISSUER = "hermes-relay-hub"
-AUDIENCE = "task-relay-hub"
-
-
-def make_auth(**kwargs) -> Auth:
-    defaults = dict(secret=SECRET, issuer=ISSUER, audience=AUDIENCE)
-    defaults.update(kwargs)
-    return Auth(**defaults)
-
+from extend.task_relay.tests.conftest import AUDIENCE, ISSUER, SECRET, make_auth
 
 def raw_token(claims: dict, secret: str = SECRET) -> str:
     return pyjwt.encode(claims, secret, algorithm="HS256")

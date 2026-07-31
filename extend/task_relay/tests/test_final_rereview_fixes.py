@@ -16,7 +16,6 @@ from grpclib.exceptions import GRPCError
 
 from extend.task_relay.gen.py import task_relay_v1_pb2 as pb
 from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayStub
-from extend.task_relay.hub.auth import Auth
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import open_db
 from extend.task_relay.hub.event_bus import EventBus
@@ -24,22 +23,8 @@ from extend.task_relay.hub.grpc_server import _event_to_proto
 from extend.task_relay.hub.models import Task, TaskEvent, TaskSpec
 from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
-from extend.task_relay.hub.ws_server import serve_ws
-
-SECRET = "t" * 32
-ISSUER = "hermes-relay-hub"
-AUDIENCE = "task-relay-hub"
-
-
-def make_auth(**kwargs) -> Auth:
-    defaults = dict(secret=SECRET, issuer=ISSUER, audience=AUDIENCE)
-    defaults.update(kwargs)
-    return Auth(**defaults)
-
-
-def make_worker_jwt(worker_id: str, max_concurrent: int = 1) -> str:
-    return make_auth().issue_worker_jwt(worker_id, [], max_concurrent=max_concurrent, ttl_s=3600)
-
+from extend.task_relay.hub.bootstrap import start_ws_server
+from extend.task_relay.tests.conftest import SECRET, make_auth, make_worker_jwt
 
 def jsonrpc_request(msg_id: Any, method: str, params: dict | None = None) -> str:
     return json.dumps(
@@ -101,7 +86,7 @@ async def router(db, bus, registry):
 @pytest_asyncio.fixture
 async def ws_server(router, registry, db):
     auth = make_auth()
-    server = await serve_ws(
+    server = await start_ws_server(
         router,
         auth,
         registry,

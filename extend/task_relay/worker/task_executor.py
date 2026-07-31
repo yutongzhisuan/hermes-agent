@@ -13,6 +13,8 @@ import traceback
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Protocol
 
+from extend.task_relay.worker.context_loader import ContextLoadError, resolve_context_payload
+
 logger = logging.getLogger("task_relay.worker.executor")
 
 
@@ -117,6 +119,34 @@ class TaskExecutor:
     ) -> None:
         """Send claimed progress, run the backend, then send ``task.complete``."""
         task_id = run.task_id
+        try:
+            resolved = await resolve_context_payload(run.context)
+        except ContextLoadError as exc:
+            await self._complete_once(
+                task_id,
+                TaskCompletePayload(
+                    status="failed",
+                    summary="context load failed",
+                    error=str(exc),
+                ),
+            )
+            return
+        if resolved is not run.context:
+            run = TaskRunPayload(
+                task_id=run.task_id,
+                attempt=run.attempt,
+                goal=run.goal,
+                params=run.params,
+                context=resolved if isinstance(resolved, dict) else {"text": resolved},
+                toolsets=run.toolsets,
+                timeout_seconds=run.timeout_seconds,
+                first_progress_seconds=run.first_progress_seconds,
+                trace_context=run.trace_context,
+                resume_from_checkpoint=run.resume_from_checkpoint,
+                resume_blob=run.resume_blob,
+                claim_token=run.claim_token,
+            )
+
         await self._progress(task_id, f"claimed, starting {run.goal[:80]}")
 
         async def on_progress(summary: str) -> None:

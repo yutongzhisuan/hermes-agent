@@ -23,7 +23,7 @@ from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.event_bus import EventBus
 from extend.task_relay.hub.grpc_server import serve_grpc
 from extend.task_relay.hub.task_router import TaskRouter
-from extend.task_relay.hub.ws_server import serve_ws
+from extend.task_relay.hub.bootstrap import start_ws_server
 from extend.task_relay.tests.conftest import SECRET, make_worker_jwt
 from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
 from extend.task_relay.worker.task_executor import TaskBackend, TaskExecutor
@@ -119,7 +119,7 @@ async def _run_hub(router, registry, db, bus, auth):
     grpc_server = await serve_grpc(
         router, auth, router._config, db, bus, registry, host="127.0.0.1", port=0
     )
-    ws_server = await serve_ws(
+    ws_server = await start_ws_server(
         router,
         auth,
         registry,

@@ -23,6 +23,7 @@ from extend.task_relay.gen.py.task_relay_v1_grpc import TaskRelayBase
 from extend.task_relay.hub.auth import Auth, AuthError
 from extend.task_relay.hub.config import HubConfig
 from extend.task_relay.hub.db import Database
+from extend.task_relay.hub.json_util import safe_json_loads
 from extend.task_relay.hub.event_bus import (
     CursorOutOfRangeError,
     EventFilter,
@@ -411,22 +412,6 @@ def _json_dumps(obj: Any) -> str | None:
     return json.dumps(obj, separators=(",", ":"))
 
 
-def _safe_json_loads(data: str | bytes | None) -> Any:
-    if data is None:
-        return None
-    if isinstance(data, bytes):
-        try:
-            data = data.decode("utf-8")
-        except UnicodeDecodeError:
-            return None
-    if not data:
-        return None
-    try:
-        return json.loads(data)
-    except json.JSONDecodeError:
-        return None
-
-
 def _dispatch_response_to_proto(resp: DispatchTaskResponse) -> pb.DispatchTaskResponse:
     proto = pb.DispatchTaskResponse(
         task_id=resp.task_id,
@@ -472,12 +457,12 @@ def _existing_result_to_proto(result: dict) -> pb.TaskResult:
         proto.completed_at = _seconds_to_ms(result["completed_at"])
     fields_json = result.get("fields_json")
     if fields_json:
-        fields_dict = _safe_json_loads(fields_json)
+        fields_dict = safe_json_loads(fields_json)
         if isinstance(fields_dict, dict):
             proto.fields.MergeFrom(_fields_from_dict(fields_dict))
     usage_json = result.get("usage_json")
     if usage_json:
-        usage_dict = _safe_json_loads(usage_json)
+        usage_dict = safe_json_loads(usage_json)
         if isinstance(usage_dict, dict):
             proto.usage.MergeFrom(_usage_from_dict(usage_dict))
     return proto
@@ -506,7 +491,7 @@ def _task_to_result_proto(
         if checkpoint.summary and not proto.summary:
             proto.summary = checkpoint.summary
         if checkpoint.fields_json:
-            fields_dict = _safe_json_loads(checkpoint.fields_json)
+            fields_dict = safe_json_loads(checkpoint.fields_json)
             if isinstance(fields_dict, dict):
                 proto.fields.MergeFrom(_fields_from_dict(fields_dict))
     if task.started_at is not None:
@@ -514,11 +499,11 @@ def _task_to_result_proto(
     if task.completed_at is not None:
         proto.completed_at = _seconds_to_ms(task.completed_at)
     if task.fields_json:
-        fields_dict = _safe_json_loads(task.fields_json)
+        fields_dict = safe_json_loads(task.fields_json)
         if isinstance(fields_dict, dict):
             proto.fields.MergeFrom(_fields_from_dict(fields_dict))
     if task.usage_json:
-        usage_dict = _safe_json_loads(task.usage_json)
+        usage_dict = safe_json_loads(task.usage_json)
         if isinstance(usage_dict, dict):
             proto.usage.MergeFrom(_usage_from_dict(usage_dict))
     return proto
@@ -588,7 +573,7 @@ async def _event_to_proto(
         batch_id=event.batch_id or "",
         kind=_KIND_TO_PROTO.get(event.kind, pb.TaskEventKind.TASK_EVENT_KIND_UNSPECIFIED),
     )
-    payload = _safe_json_loads(event.payload_json) or {}
+    payload = safe_json_loads(event.payload_json) or {}
     attempt = payload.get("attempt", 0)
     if event.kind == "TERMINAL":
         if db is not None and event.task_id:
@@ -636,7 +621,7 @@ async def _event_to_proto(
         proto.checkpoint.summary = payload.get("summary") or ""
         fields_json = payload.get("fields_json")
         if fields_json:
-            fields_dict = _safe_json_loads(fields_json)
+            fields_dict = safe_json_loads(fields_json)
             if isinstance(fields_dict, dict):
                 proto.checkpoint.fields.MergeFrom(_fields_from_dict(fields_dict))
     return proto
@@ -660,7 +645,7 @@ def _worker_to_proto(
         if mode is not None:
             info.session_modes.append(mode)
 
-    caps = _safe_json_loads(worker.capabilities_json) or {}
+    caps = safe_json_loads(worker.capabilities_json) or {}
     if caps.get("os"):
         info.os = caps["os"]
     if caps.get("arch"):
@@ -670,11 +655,11 @@ def _worker_to_proto(
     for fmt in caps.get("resume_formats") or []:
         info.resume_formats.append(fmt)
 
-    resources = _safe_json_loads(worker.resources_json) or {}
+    resources = safe_json_loads(worker.resources_json) or {}
     if resources:
         info.resources.CopyFrom(_worker_resources_from_dict(resources))
 
-    load = _safe_json_loads(worker.load_json) or {}
+    load = safe_json_loads(worker.load_json) or {}
     if load:
         info.load.CopyFrom(_worker_load_from_dict(load))
 
@@ -706,7 +691,7 @@ def _worker_load_from_dict(data: dict) -> pb.WorkerLoad:
 
 
 def _worker_meets_resources(worker: Worker, requirements: pb.ResourceRequirements) -> bool:
-    resources = _safe_json_loads(worker.resources_json) or {}
+    resources = safe_json_loads(worker.resources_json) or {}
     if requirements.min_cpu_cores and resources.get("cpu_cores", resources.get("cpu", 0)) < requirements.min_cpu_cores:
         return False
     if requirements.min_memory_gb and resources.get("memory_gb", resources.get("memory", 0)) < requirements.min_memory_gb:
