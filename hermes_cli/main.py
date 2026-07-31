@@ -467,6 +467,9 @@ from hermes_cli.subcommands.logs import build_logs_parser
 from hermes_cli.subcommands.prompt_size import build_prompt_size_parser
 from hermes_cli.subcommands.memory import build_memory_parser
 from hermes_cli.subcommands.acp import build_acp_parser
+from hermes_cli.subcommands.relay_hub import build_relay_hub_parser
+from hermes_cli.subcommands.task_worker import build_task_worker_parser
+from hermes_cli.subcommands.relay_acp_rpc import build_relay_acp_rpc_parser
 from hermes_cli.subcommands.tools import build_tools_parser
 from hermes_cli.subcommands.insights import build_insights_parser
 from hermes_cli.subcommands.monitoring import build_monitoring_parser
@@ -10466,7 +10469,7 @@ _BUILTIN_SUBCOMMANDS = frozenset(
         "journey", "memory-graph", "learning",
         "model", "monitoring", "pairing", "pets", "plugins", "portal", "profile",
         "project", "proxy",
-        "prompt-size",
+        "relay-acp-rpc", "relay-hub", "task-worker",
         "send", "sessions", "setup",
         "skin", "skills", "slack", "status", "sync", "tools", "uninstall", "update",
         "version", "webhook", "whatsapp", "whatsapp-cloud", "chat", "secrets", "security",
@@ -10913,6 +10916,34 @@ def cmd_acp(args):
         print("ACP dependencies not installed.", file=sys.stderr)
         print("Install them with:  pip install -e '.[acp]'", file=sys.stderr)
         sys.exit(1)
+
+
+def _relay_remainder_argv(args, attr: str) -> list[str]:
+    argv = list(getattr(args, attr, None) or [])
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    return argv
+
+
+def cmd_relay_hub(args):
+    """Run the Task Relay Hub."""
+    from extend.task_relay.hub.main import main as relay_hub_main
+
+    sys.exit(relay_hub_main(_relay_remainder_argv(args, "hub_args")))
+
+
+def cmd_task_worker(args):
+    """Run a Task Relay worker."""
+    from extend.task_relay.worker.__main__ import main as task_worker_main
+
+    sys.exit(task_worker_main(_relay_remainder_argv(args, "worker_args")))
+
+
+def cmd_relay_acp_rpc(args):
+    """Run the Hermes ACP JSON-RPC server for remote-acp workers."""
+    from extend.task_relay.worker.acp_rpc_server import main as relay_acp_rpc_main
+
+    sys.exit(relay_acp_rpc_main(_relay_remainder_argv(args, "rpc_args")))
 
 
 def cmd_tools(args):
@@ -12220,6 +12251,13 @@ def main():
     # acp command  (parser built in hermes_cli/subcommands/acp.py)
     # =========================================================================
     build_acp_parser(subparsers, cmd_acp=cmd_acp)
+
+    # =========================================================================
+    # task relay commands
+    # =========================================================================
+    build_relay_hub_parser(subparsers, cmd_relay_hub=cmd_relay_hub)
+    build_task_worker_parser(subparsers, cmd_task_worker=cmd_task_worker)
+    build_relay_acp_rpc_parser(subparsers, cmd_relay_acp_rpc=cmd_relay_acp_rpc)
 
     # =========================================================================
     # profile command  (parser built in hermes_cli/subcommands/profile.py)

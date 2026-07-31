@@ -41,6 +41,7 @@ run_python_conformance() {
   run_py "Resource probe" "test_resource_probe.py"
   run_py "Structured output" "test_structured_output.py"
   run_py "Remote ACP backend" "test_remote_acp_backend.py"
+  run_py "ACP RPC server" "test_acp_rpc_server.py"
   run_py "M2 Mode C push" "test_m2_mode_c.py"
   run_py "M2 wake" "test_m2_wake.py"
   run_py "M2 ContextRef" "test_m2_context_ref.py"

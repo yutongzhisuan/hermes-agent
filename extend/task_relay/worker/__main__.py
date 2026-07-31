@@ -76,7 +76,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--remote-acp-url",
         default="",
-        help="JSON-RPC endpoint URL for the remote-acp backend",
+        help="JSON-RPC endpoint URL for remote-acp (default: TASK_RELAY_ACP_RPC_URL or http://127.0.0.1:9105/rpc)",
     )
     parser.add_argument(
         "--max-concurrent",
@@ -133,11 +133,14 @@ def _create_backend(args: argparse.Namespace):
         from extend.task_relay.worker.backends.remote_acp_backend import (
             RemoteAcpBackend,
             RemoteAcpBackendConfig,
+            resolve_remote_acp_url,
         )
 
-        if not args.remote_acp_url:
-            raise ValueError("--remote-acp-url is required for remote-acp backend")
-        return RemoteAcpBackend(RemoteAcpBackendConfig(endpoint_url=args.remote_acp_url))
+        return RemoteAcpBackend(
+            RemoteAcpBackendConfig(
+                endpoint_url=resolve_remote_acp_url(args.remote_acp_url or None)
+            )
+        )
     raise ValueError(f"unknown backend: {args.backend}")
 
 

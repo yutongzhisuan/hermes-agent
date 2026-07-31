@@ -196,7 +196,7 @@ class TaskExecutor:
                 error=traceback.format_exc(),
             )
 
-        complete = enrich_structured_output(complete, run)
+        complete = await enrich_structured_output(complete, run)
         await self._complete_once(task_id, complete)
 
     async def _progress(self, task_id: str, summary: str) -> None:

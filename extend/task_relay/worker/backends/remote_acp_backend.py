@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -21,21 +22,32 @@ from extend.task_relay.worker.task_executor import (
 
 logger = logging.getLogger("task_relay.worker.backends.remote_acp")
 
+DEFAULT_ACP_RPC_URL = "http://127.0.0.1:9105/rpc"
+
 
 @dataclass(frozen=True)
 class RemoteAcpBackendConfig:
-    endpoint_url: str
+    endpoint_url: str = DEFAULT_ACP_RPC_URL
     request_timeout_seconds: float = 600.0
     cancel_timeout_seconds: float = 5.0
+
+
+def resolve_remote_acp_url(explicit: str | None = None) -> str:
+    """Resolve the remote ACP JSON-RPC endpoint from CLI or environment."""
+    if explicit and explicit.strip():
+        return explicit.strip()
+    return os.environ.get("TASK_RELAY_ACP_RPC_URL", DEFAULT_ACP_RPC_URL).strip()
 
 
 class RemoteAcpBackend(TaskBackend):
     """Execute tasks by delegating to a local JSON-RPC ACP endpoint."""
 
-    def __init__(self, config: RemoteAcpBackendConfig):
-        if not config.endpoint_url:
+    def __init__(self, config: RemoteAcpBackendConfig | None = None):
+        self._config = config or RemoteAcpBackendConfig(
+            endpoint_url=resolve_remote_acp_url()
+        )
+        if not self._config.endpoint_url:
             raise ValueError("RemoteAcpBackend requires endpoint_url")
-        self._config = config
         self._active_runs: dict[str, asyncio.Task] = {}
 
     async def run(
@@ -54,8 +66,13 @@ class RemoteAcpBackend(TaskBackend):
                     "run_id": run_id,
                     "goal": run.goal,
                     "params": run.params or {},
+                    "context": run.context,
                     "toolsets": run.toolsets,
                     "timeout_seconds": run.timeout_seconds,
+                    "first_progress_seconds": run.first_progress_seconds,
+                    "trace_context": run.trace_context,
+                    "resume_from_checkpoint": run.resume_from_checkpoint,
+                    "resume_blob": run.resume_blob,
                 },
             )
         )
