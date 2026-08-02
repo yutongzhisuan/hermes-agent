@@ -82,7 +82,7 @@ def resolve_hermes_bin() -> Optional[str]:
 
     Priority:
       1. ``sys.argv[0]`` if it resolves to a real executable.
-      2. ``shutil.which("hermes")`` on PATH.
+      2. ``shutil.which("xhermes")`` on PATH.
       3. ``None`` → caller should fall back to ``python -m hermes_cli.main``.
 
     Windows note: ``os.access(path, os.X_OK)`` returns True for ``.py`` and
@@ -114,7 +114,7 @@ def resolve_hermes_bin() -> Optional[str]:
                 return abs_path
 
     # PATH lookup
-    path_bin = shutil.which("hermes")
+    path_bin = shutil.which("xhermes")
     if path_bin:
         return path_bin
 

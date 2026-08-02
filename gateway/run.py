@@ -3179,7 +3179,7 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
     """Resolve the Hermes update command as argv parts.
 
     Tries in order:
-    1. ``shutil.which("hermes")`` — standard PATH lookup
+    1. ``shutil.which("xhermes")`` — standard PATH lookup
     2. ``sys.executable -m hermes_cli.main`` — fallback when Hermes is running
        from a venv/module invocation and the ``hermes`` shim is not on PATH
 
@@ -3187,7 +3187,7 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
     """
     import shutil
 
-    hermes_bin = shutil.which("hermes")
+    hermes_bin = shutil.which("xhermes")
     if hermes_bin:
         return [hermes_bin]
 
@@ -9802,7 +9802,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
 
                 service_name = get_service_name()
             except Exception:
-                service_name = "hermes-gateway"
+                service_name = "xhermes-gateway"
 
             current_pid = os.getpid()
 
@@ -10210,7 +10210,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # resume_pending, so a real user message can still continue it (a human
         # is now in the loop). Defenses 1-2 cover the cron/CLI/terminal paths;
         # this catches every other SIGTERM source (e.g. a raw `terminal(
-        # "launchctl kickstart ai.hermes.gateway")`).
+        # "launchctl kickstart ai.xhermes.gateway")`).
         if candidates:
             try:
                 from gateway import restart_loop_guard as _rlg

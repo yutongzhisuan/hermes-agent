@@ -82,7 +82,7 @@ def _runtime_resource_attributes(
     attrs = _safe_resource_attributes(gh.get("resource_attributes"))
     from agent.monitoring.gateway_health import _safe_instance_id
 
-    attrs["service.name"] = "hermes-gateway"
+    attrs["service.name"] = "xhermes-gateway"
     attrs["service.instance.id"] = _safe_instance_id(_install_id(config))
     attrs["telemetry.scope"] = telemetry_scope
     return attrs
@@ -151,7 +151,7 @@ class GatewayHealthExportRuntime:
         if closeables:
             worker = threading.Thread(
                 target=_close,
-                name="hermes-gateway-health-export-shutdown",
+                name="xhermes-gateway-health-export-shutdown",
                 daemon=True,
             )
             worker.start()
@@ -563,7 +563,7 @@ def _start_snapshot_thread(config: Dict[str, Any], stop_event: threading.Event) 
         while not stop_event.wait(interval):
             _emit_snapshot_events(config)
 
-    thread = threading.Thread(target=_run, name="hermes-gateway-health-export", daemon=True)
+    thread = threading.Thread(target=_run, name="xhermes-gateway-health-export", daemon=True)
     thread.start()
     return thread
 

@@ -754,7 +754,7 @@ def _spawn_gateway_restart_watcher(old_pid: int, run_argv: list[str]) -> bool:
     # Windows — ``start_new_session`` is silently accepted but does NOT
     # detach.  The watcher stays attached to the CLI's console and dies
     # when the user closes the terminal, leaving ``hermes update`` users
-    # with no running gateway until they re-invoke ``hermes gateway``
+    # with no running gateway until they re-invoke ``xhermes gateway``
     # manually.  The Win32 equivalent is the ``CREATE_NEW_PROCESS_GROUP |
     # DETACHED_PROCESS | CREATE_NO_WINDOW`` creationflags bundle.
     #
@@ -1404,7 +1404,7 @@ def _print_gateway_process_mismatch(snapshot: GatewayRuntimeSnapshot) -> None:
             "⚠ Gateway process is running for this profile, but the service is not active"
         )
         print(f"  PID(s): {_format_gateway_pids(snapshot.gateway_pids, limit=None)}")
-        print("  This is usually a manual foreground/tmux/nohup run, so `hermes gateway`")
+        print("  This is usually a manual foreground/tmux/nohup run, so `xhermes gateway`")
         print("  can refuse to start another copy until this process stops.")
 
 
@@ -1698,7 +1698,7 @@ def is_windows() -> bool:
 def _windows_gateway_should_absorb_console_controls() -> bool:
     """Return True for detached Windows gateway runs that should ignore Ctrl+C.
 
-    Foreground ``hermes gateway run`` must remain interruptible from
+    Foreground ``xhermes gateway run`` must remain interruptible from
     PowerShell/CMD. Detached service-style launches opt in via
     ``HERMES_GATEWAY_DETACHED=1``; older wrappers without the env marker are
     treated as detached when no interactive stdin is attached.
@@ -1720,7 +1720,7 @@ def _windows_gateway_should_absorb_console_controls() -> bool:
 # Service Configuration
 # =============================================================================
 
-_SERVICE_BASE = "hermes-gateway"
+_SERVICE_BASE = "xhermes-gateway"
 SERVICE_DESCRIPTION = "Hermes Agent Gateway - Messaging Platform Integration"
 
 
@@ -2011,7 +2011,7 @@ def _raise_user_systemd_unavailable(
         "\n"
         "  Alternative: run the gateway in the foreground (stays up until\n"
         "  you exit / close the terminal):\n"
-        "    hermes gateway run"
+        "    xhermes gateway run"
     )
     raise UserSystemdUnavailableError(msg)
 
@@ -2481,11 +2481,11 @@ def _launchd_user_home() -> Path:
 def get_launchd_plist_path() -> Path:
     """Return the launchd plist path, scoped per profile.
 
-    Default ``~/.hermes`` → ``ai.hermes.gateway.plist`` (backward compatible).
-    Profile ``~/.hermes/profiles/coder`` → ``ai.hermes.gateway-coder.plist``.
+    Default ``~/.hermes`` → ``ai.xhermes.gateway.plist`` (backward compatible).
+    Profile ``~/.hermes/profiles/coder`` → ``ai.xhermes.gateway-coder.plist``.
     """
     suffix = _profile_suffix()
-    name = f"ai.hermes.gateway-{suffix}" if suffix else "ai.hermes.gateway"
+    name = f"ai.xhermes.gateway-{suffix}" if suffix else "ai.xhermes.gateway"
     return _launchd_user_home() / "Library" / "LaunchAgents" / f"{name}.plist"
 
 
@@ -3645,7 +3645,7 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
 def get_launchd_label() -> str:
     """Return the launchd service label, scoped per profile."""
     suffix = _profile_suffix()
-    return f"ai.hermes.gateway-{suffix}" if suffix else "ai.hermes.gateway"
+    return f"ai.xhermes.gateway-{suffix}" if suffix else "ai.xhermes.gateway"
 
 
 # Cached launchd domain result — probing is cheap but should only run once per
@@ -3734,7 +3734,7 @@ _LAUNCHD_JOB_UNLOADED_EXIT_CODES = frozenset({3, 113, 125})
 #   2. The domain genuinely can't manage services (macOS 26+, neither
 #      `gui/<uid>` nor `user/<uid>` supports service management). Here launchd
 #      cannot supervise the gateway at all and we degrade to a detached
-#      background process (the `nohup hermes gateway run` workaround). See #23387.
+#      background process (the `nohup xhermes gateway run` workaround). See #23387.
 # `_launchctl_bootstrap()` disambiguates by trying the bootout+retry (case 1)
 # first; only when that retry ALSO returns 5/125 do callers treat the domain as
 # unsupported (case 2) via `_launchctl_domain_unsupported`.
@@ -3944,7 +3944,7 @@ def _spawn_detached_gateway() -> bool:
     """Launch the gateway as a detached background process (launchd fallback).
 
     Used when launchctl can no longer bootstrap/kickstart the gateway on
-    macOS 26+ (issue #23387). Mirrors the `nohup hermes gateway run --replace`
+    macOS 26+ (issue #23387). Mirrors the `nohup xhermes gateway run --replace`
     workaround but keeps it CLI-managed: stdout/stderr go to the profile's
     gateway logs and the PID is tracked via the gateway.pid file that
     `run_gateway` writes, so stop/status/restart keep working.
@@ -3993,7 +3993,7 @@ def _launchd_fallback_to_detached(reason: str, *, exit_on_failure: bool = True) 
         return True
     print_error("Failed to start the gateway as a background process.")
     print(
-        f"  Try manually: nohup hermes gateway run --replace "
+        f"  Try manually: nohup xhermes gateway run --replace "
         f"> {_dhh()}/logs/gateway.log 2>&1 &"
     )
     if exit_on_failure:
@@ -4678,7 +4678,7 @@ def _guard_named_profile_under_multiplexer(force: bool = False) -> None:
     it is the sole inbound process for EVERY profile on the host. Starting a
     separate gateway for a named profile would double-bind that profile's
     platforms (two pollers on one bot token, port fights). In that mode a
-    named-profile ``hermes gateway run`` is always a misconfiguration, so we
+    named-profile ``xhermes gateway run`` is always a misconfiguration, so we
     hard-error with a pointer to the multiplexer. ``--force`` overrides.
 
     Inert unless ALL of: (a) this invocation is a named profile, (b) a default-
@@ -4770,7 +4770,7 @@ def _guard_named_profile_under_multiplexer(force: bool = False) -> None:
 def _guard_supervised_gateway_conflict(force: bool = False) -> None:
     """Refuse a foreground gateway when a service manager already supervises one.
 
-    Running ``hermes gateway run [--replace]`` (or the manual-restart fallback)
+    Running ``xhermes gateway run [--replace]`` (or the manual-restart fallback)
     from a shell on a systemd/launchd host spawns a second, long-lived
     dispatcher that escapes the service cgroup, survives
     ``systemctl restart``, and becomes a silent concurrent writer on the shared
@@ -4813,7 +4813,7 @@ def _guard_existing_gateway_process_conflict(replace: bool = False) -> None:
     ``gateway.run`` performs the authoritative PID/lock check, but importing it
     is expensive: it pulls in model_tools/plugin discovery first. On small
     instances, a supervisor or dashboard loop repeatedly running bare
-    ``hermes gateway run`` can burn memory/CPU just to fail with "already
+    ``xhermes gateway run`` can burn memory/CPU just to fail with "already
     running" after plugin discovery. This cheap PID-file preflight preserves the
     same user-facing contract while avoiding that startup work without scanning
     unrelated gateway processes from other HERMES_HOME roots.
@@ -4835,7 +4835,7 @@ def _guard_existing_gateway_process_conflict(replace: bool = False) -> None:
     )
     print("  Use 'hermes gateway restart' to replace it,")
     print("  or 'hermes gateway stop' first.")
-    print("  Or use 'hermes gateway run --replace' to auto-replace.")
+    print("  Or use 'xhermes gateway run --replace' to auto-replace.")
     sys.exit(1)
 
 
@@ -4885,7 +4885,7 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False, fo
     sys.path.insert(0, str(PROJECT_ROOT))
 
     # Detached Windows gateway runs must ignore console-control broadcasts
-    # from sibling CLI processes, but foreground `hermes gateway run` still
+    # from sibling CLI processes, but foreground `xhermes gateway run` still
     # needs to obey the banner's "Press Ctrl+C to stop" contract.
     # Service-style launchers set HERMES_GATEWAY_DETACHED=1; older wrappers
     # without the marker are handled by the non-TTY fallback.
@@ -5062,7 +5062,7 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False, fo
         logger.debug("respawn-storm breaker check failed (non-fatal): %s", _be)
 
     def _hard_exit_after_gateway_teardown(code: int) -> None:
-        # ``hermes gateway run`` enters through this CLI wrapper, not through
+        # ``xhermes gateway run`` enters through this CLI wrapper, not through
         # ``gateway.run.main()``.  Mirror that module's wedge-proof exit path:
         # once start_gateway() has completed graceful teardown, bypass Python
         # finalization so non-daemon worker threads (notably in-flight cron
@@ -6540,12 +6540,12 @@ def gateway_setup():
                         print_info(
                             "  Or as a boot-time service: sudo hermes gateway install --system"
                         )
-                    print_info("  Or run in foreground:  hermes gateway run")
+                    print_info("  Or run in foreground:  xhermes gateway run")
             elif is_wsl():
                 print_info("  WSL detected but systemd is not running.")
-                print_info("  Run in foreground: hermes gateway run")
+                print_info("  Run in foreground: xhermes gateway run")
                 print_info(
-                    "  For persistence:   tmux new -s hermes 'hermes gateway run'"
+                    "  For persistence:   tmux new -s xhermes 'xhermes gateway run'"
                 )
                 print_info(
                     "  To enable systemd: add systemd=true to /etc/wsl.conf, then 'wsl --shutdown'"
@@ -6554,13 +6554,13 @@ def gateway_setup():
                 from hermes_constants import display_hermes_home as _dhh
 
                 print_info("  Termux does not use systemd/launchd services.")
-                print_info("  Run in foreground: hermes gateway run")
+                print_info("  Run in foreground: xhermes gateway run")
                 print_info(
-                    f"  Or start it manually in the background (best effort): nohup hermes gateway run >{_dhh()}/logs/gateway.log 2>&1 &"
+                    f"  Or start it manually in the background (best effort): nohup xhermes gateway run >{_dhh()}/logs/gateway.log 2>&1 &"
                 )
             else:
                 print_info("  Service install not supported on this platform.")
-                print_info("  Run in foreground: hermes gateway run")
+                print_info("  Run in foreground: xhermes gateway run")
     else:
         print()
         print_info("No platforms configured. Run 'hermes gateway setup' when ready.")
@@ -6714,7 +6714,7 @@ def _maybe_redirect_run_to_s6_supervision(args) -> bool:
 
       1. ``_dispatch_via_service_manager_if_s6`` returns False unless
          we're in a container with s6 as PID 1. Host runs of
-         ``hermes gateway run`` are unaffected.
+         ``xhermes gateway run`` are unaffected.
       2. ``HERMES_S6_SUPERVISED_CHILD`` is exported by
          ``S6ServiceManager._render_run_script`` for the supervised
          process itself — i.e. when s6-supervise execs ``hermes gateway
@@ -6849,10 +6849,10 @@ def _gateway_command_inner(args):
                     "WSL detected — systemd services may not survive WSL restarts."
                 )
                 print_info(
-                    "  Consider running in foreground instead: hermes gateway run"
+                    "  Consider running in foreground instead: xhermes gateway run"
                 )
                 print_info(
-                    "  Or use tmux/screen for persistence: tmux new -s hermes 'hermes gateway run'"
+                    "  Or use tmux/screen for persistence: tmux new -s xhermes 'xhermes gateway run'"
                 )
                 print()
             # Honor CLI flags (--start-now / --no-start-now, --start-on-login /
@@ -6902,13 +6902,13 @@ def _gateway_command_inner(args):
             print("or run the gateway in foreground mode:")
             print()
             print(
-                "  hermes gateway run                              # direct foreground"
+                "  xhermes gateway run                              # direct foreground"
             )
             print(
-                "  tmux new -s hermes 'hermes gateway run'         # persistent via tmux"
+                "  tmux new -s xhermes 'xhermes gateway run'         # persistent via tmux"
             )
             print(
-                "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background"
+                "  nohup xhermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background"
             )
             sys.exit(1)
         elif is_container():
@@ -6937,11 +6937,11 @@ def _gateway_command_inner(args):
             )
             print("  docker restart <container>                # manual restart")
             print()
-            print("To run the gateway: hermes gateway run")
+            print("To run the gateway: xhermes gateway run")
             sys.exit(0)
         else:
             print("Service installation not supported on this platform.")
-            print("Run manually: hermes gateway run")
+            print("Run manually: xhermes gateway run")
             sys.exit(1)
 
     elif subcmd == "uninstall":
@@ -7021,13 +7021,13 @@ def _gateway_command_inner(args):
             print("Run the gateway in foreground mode instead:")
             print()
             print(
-                "  hermes gateway run                              # direct foreground"
+                "  xhermes gateway run                              # direct foreground"
             )
             print(
-                "  tmux new -s hermes 'hermes gateway run'         # persistent via tmux"
+                "  tmux new -s xhermes 'xhermes gateway run'         # persistent via tmux"
             )
             print(
-                "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background"
+                "  nohup xhermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background"
             )
             print()
             print(
@@ -7046,7 +7046,7 @@ def _gateway_command_inner(args):
             print("  docker start <container>     # start a stopped container")
             print("  docker restart <container>   # restart a running container")
             print()
-            print("Or run the gateway directly: hermes gateway run")
+            print("Or run the gateway directly: xhermes gateway run")
             sys.exit(0)
         else:
             print("Not supported on this platform.")
@@ -7372,17 +7372,17 @@ def _gateway_command_inner(args):
                         print(f"  {line}")
                 print()
                 print("To start:")
-                print("  hermes gateway run      # Run in foreground")
+                print("  xhermes gateway run      # Run in foreground")
                 if is_termux():
                     print(
-                        "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # Best-effort background start"
+                        "  nohup xhermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # Best-effort background start"
                     )
                 elif is_wsl():
                     print(
-                        "  tmux new -s hermes 'hermes gateway run'         # persistent via tmux"
+                        "  tmux new -s xhermes 'xhermes gateway run'         # persistent via tmux"
                     )
                     print(
-                        "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background"
+                        "  nohup xhermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background"
                     )
                 elif is_windows():
                     print(

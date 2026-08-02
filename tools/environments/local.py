@@ -1083,7 +1083,7 @@ def _resolve_hermes_bin_dir() -> str | None:
     regardless of how the gateway was started.
 
     Resolution order (cheap, no heavy imports):
-      1. ``shutil.which("hermes")`` — normal PATH-installed shim.
+      1. ``shutil.which("xhermes")`` — normal PATH-installed shim.
       2. The directory of ``sys.argv[0]`` when it's an absolute path to a
          real ``hermes`` executable (covers nix-store / venv wrappers).
       3. The directory of ``sys.executable`` — the running interpreter's
@@ -1095,7 +1095,7 @@ def _resolve_hermes_bin_dir() -> str | None:
 
     candidate: str | None = None
 
-    which = shutil.which("hermes")
+    which = shutil.which("xhermes")
     if which:
         candidate = os.path.dirname(which)
 

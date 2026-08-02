@@ -38,7 +38,7 @@ def _scan_dashboard_processes(
     auth headers the old backend doesn't recognise → every API call 401s).
 
     The dashboard may be manually started or managed by the optional
-    ``hermes-dashboard.service`` systemd unit.  Managed units are restarted
+    ``xhermes-dashboard.service`` systemd unit.  Managed units are restarted
     through their owning systemd scope; only manually-started processes use
     the kill path because we can't know their original launch args.
 
@@ -54,13 +54,13 @@ def _scan_dashboard_processes(
     Returns an empty list on any scan error (missing ps/wmic, timeout, etc.).
     """
     patterns = [
-        "hermes dashboard",
+        "xhermes dashboard",
         "hermes_cli.main dashboard",
         "hermes_cli/main.py dashboard",
         # The headless backend (`hermes serve`) is the same long-lived server
         # under a different command name — the desktop app spawns it. Reap it
         # on update for the same frontend/backend-mismatch reason.
-        "hermes serve",
+        "xhermes serve",
         "hermes_cli.main serve",
         "hermes_cli/main.py serve",
     ]
@@ -166,9 +166,9 @@ def _kill_stale_dashboard_processes(
     Manually-started dashboards are not auto-restarted because we don't know
     the original launch args (--host, --port, --insecure, --tui, --no-open).
     When ``restart_managed`` is true (the ``hermes update`` path), a detected
-    ``hermes-dashboard.service`` is restarted through systemd; any OTHER
+    ``xhermes-dashboard.service`` is restarted through systemd; any OTHER
     killed PID that was supervised by a systemd unit (custom unit names —
-    e.g. a remote backend's ``hermes-serve.service``) has its owning unit
+    e.g. a remote backend's ``xhermes-serve.service``) has its owning unit
     restarted after the kill, because systemd treats our SIGTERM as a clean
     stop and ``Restart=on-failure`` would never fire (#68934).
     """

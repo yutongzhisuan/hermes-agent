@@ -2457,7 +2457,7 @@ DEFAULT_CONFIG = {
         # (launchd KeepAlive / systemd Restart=), it auto-resumes the
         # restart-interrupted session on the next boot. If the resumed turn
         # keeps triggering another kill (e.g. the agent runs a raw
-        # `launchctl kickstart ai.hermes.gateway` that defenses 1-2 don't
+        # `launchctl kickstart ai.xhermes.gateway` that defenses 1-2 don't
         # cover), the result is a tight SIGTERM-respawn loop. This breaker
         # counts restart-interrupted boots in a rolling window and, once
         # `max_restarts` boots happen within `window_seconds`, SKIPS

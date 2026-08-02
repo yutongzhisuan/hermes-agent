@@ -30,7 +30,7 @@ def _resolve_hermes_executable(hermes_repo: Path) -> Path:
         candidate = hermes_repo / relative_path
         if candidate.is_file():
             return candidate
-    discovered = shutil.which("hermes")
+    discovered = shutil.which("xhermes")
     if discovered:
         return Path(discovered)
     raise SystemExit(

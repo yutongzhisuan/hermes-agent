@@ -224,7 +224,7 @@ def _set_process_title() -> None:
       2. ctypes ``prctl(PR_SET_NAME)`` (Linux only, 15-char limit).
       3. ctypes ``pthread_setname_np`` (macOS only, kernel thread name —
          changes lldb/top but not ``ps aux``).
-      4. No-op on Windows (the .exe name is already ``hermes.exe``).
+      4. No-op on Windows (the .exe name is already ``xhermes.exe``).
     """
     # Strategy 1: setproctitle (best — works on macOS, Linux, BSD)
     try:
@@ -247,7 +247,7 @@ def _set_process_title() -> None:
         elif system == "Darwin":
             libc = ctypes.CDLL("libc.dylib", use_errno=True)
             libc.pthread_setname_np(b"hermes")
-        # Windows: the .exe name is already ``hermes.exe`` — nothing to do.
+        # Windows: the .exe name is already ``xhermes.exe`` — nothing to do.
     except Exception:
         pass
 
@@ -7286,7 +7286,7 @@ def _dashboard_probe_host(host: str | None) -> str:
     return normalized
 
 
-_DASHBOARD_SYSTEMD_UNIT = "hermes-dashboard.service"
+_DASHBOARD_SYSTEMD_UNIT = "xhermes-dashboard.service"
 
 
 def _restart_managed_dashboard_service(
@@ -7401,7 +7401,7 @@ def _get_systemd_service_for_pid(pid: int) -> str | None:
     """If *pid* belongs to a systemd service unit, return the unit name.
 
     Reads ``/proc/<pid>/cgroup`` and extracts the service name (e.g.
-    ``hermes-serve.service``).  Returns ``None`` when the PID is not
+    ``xhermes-serve.service``).  Returns ``None`` when the PID is not
     part of a systemd service, when the file is unreadable, or on
     non-Linux platforms.
     """
@@ -7821,7 +7821,7 @@ def _recover_core_update_marker_locked() -> None:
         "finishing dependency installation now..."
     )
 
-    # Windows: a normal ``hermes.exe`` launch always has the launcher as an
+    # Windows: a normal ``xhermes.exe`` launch always has the launcher as an
     # ancestor. Full editable reinstall uses quarantine so the live shim can
     # still be replaced. Package-only import repair may help as first aid but
     # must NEVER clear this core marker on its own (#58004 review).
@@ -7829,7 +7829,7 @@ def _recover_core_update_marker_locked() -> None:
     if self_locked:
         install_prefix, install_env = _default_venv_install_target()
         print(
-            "  → Running from hermes.exe; applying package-only first aid, "
+            "  → Running from xhermes.exe; applying package-only first aid, "
             "then quarantined full reinstall (core marker stays until that "
             "succeeds)..."
         )
@@ -8017,15 +8017,15 @@ def _hermes_exe_shims(scripts_dir: Path) -> list[Path]:
 def _quarantine_running_hermes_exe(
     scripts_dir: Path, *, max_attempts: int = 4
 ) -> list[tuple[Path, Path]]:
-    """Pre-empt Windows file lock on the running ``hermes.exe``.
+    """Pre-empt Windows file lock on the running ``xhermes.exe``.
 
     Windows allows RENAMING a mapped/running executable (the kernel tracks the
     file by handle, not path), but blocks DELETE/REPLACE while it's loaded. uv
     needs to overwrite the entry-point shims during ``pip install -e .``;
-    when ``hermes update`` runs, ``hermes.exe`` IS the live process, and uv
+    when ``hermes update`` runs, ``xhermes.exe`` IS the live process, and uv
     fails with ``Access is denied. (os error 5)``.
 
-    We rename live shims to ``hermes.exe.old.<unix-ms>`` first. uv then writes
+    We rename live shims to ``xhermes.exe.old.<unix-ms>`` first. uv then writes
     fresh shims at the original paths. The ``.old`` files are cleaned up on
     the next hermes invocation by ``_cleanup_quarantined_exes``.
 
@@ -8168,10 +8168,10 @@ def _run_quarantined_install(
     env: dict[str, str] | None = None,
     scripts_dir: Path | None = None,
 ) -> None:
-    """Run an editable install, quarantining the running ``hermes.exe`` first.
+    """Run an editable install, quarantining the running ``xhermes.exe`` first.
 
     Any ``pip install -e .`` (or ``--reinstall``) rewrites the entry-point
-    shims, and on Windows the live ``hermes.exe`` is the running process —
+    shims, and on Windows the live ``xhermes.exe`` is the running process —
     pip can neither delete nor overwrite it, so without quarantine the shim
     is left missing and ``hermes`` drops off PATH. This wraps
     :func:`_run_install_with_heartbeat` with the same rename-out-of-the-way /
@@ -8197,7 +8197,7 @@ def _run_quarantined_install(
 
 
 def _cleanup_quarantined_exes(scripts_dir: Path | None = None) -> None:
-    """Sweep ``hermes.exe.old.*`` left by prior updates.
+    """Sweep ``xhermes.exe.old.*`` left by prior updates.
 
     Called early on every hermes invocation. The .old files are unlocked once
     their owning process exited, so deletion succeeds the next run. Silent
@@ -8241,7 +8241,7 @@ def _run_package_only_install(
     """Run a package-only pip/uv install without quarantining entry-point shims.
 
     ``pip install --upgrade pip`` and ``--force-reinstall <pkg>`` do not
-    rewrite ``hermes.exe``. The editable-install quarantine path would rename
+    rewrite ``xhermes.exe``. The editable-install quarantine path would rename
     shims without uv recreating them on Windows (#57828).
     """
     _run_install_with_heartbeat(cmd, env=env)
@@ -8400,7 +8400,7 @@ def _repair_venv_via_import_probes(
 
     Uses real ``import`` checks (not distribution metadata) so a venv where
     METADATA remains but ``.py`` files were wiped mid-install is still
-    detected (#57828). Package-only reinstall — never rewrites ``hermes.exe``.
+    detected (#57828). Package-only reinstall — never rewrites ``xhermes.exe``.
 
     Never raises. Returns one of:
       - ``"healthy"`` — probes ran and found nothing broken
@@ -8446,7 +8446,7 @@ def _install_python_dependencies_with_optional_fallback(
     By default this targets ``.[all]``; Termux callers can pass
     ``group='termux-all'`` to use the curated Android-compatible profile.
 
-    On Windows, pre-renames live ``hermes.exe`` / ``hermes-gateway.exe`` shims
+    On Windows, pre-renames live ``xhermes.exe`` / ``hermes-gateway.exe`` shims
     in the venv Scripts dir before each install attempt so uv can write fresh
     copies (Windows blocks REPLACE on a running .exe but allows RENAME). See
     ``_quarantine_running_hermes_exe`` for the rationale.
@@ -8529,11 +8529,11 @@ def _verify_console_scripts_installed(
 ) -> None:
     """Ensure every declared console_script shim exists on disk after install.
 
-    On Windows, ``uv pip install -e .`` can register ``hermes.exe`` in the
+    On Windows, ``uv pip install -e .`` can register ``xhermes.exe`` in the
     wheel RECORD while the file never lands on disk — typically when the live
-    ``hermes.exe`` shim is locked during ``hermes update``, or when uv/distlib
+    ``xhermes.exe`` shim is locked during ``hermes update``, or when uv/distlib
     skips a launcher write. The symptom is ``hermes-agent.exe`` and
-    ``hermes-acp.exe`` present but ``hermes.exe`` missing, so ``hermes`` drops
+    ``hermes-acp.exe`` present but ``xhermes.exe`` missing, so ``hermes`` drops
     off PATH even though the install reported success (issue #52931).
 
     If any shim is missing we reinstall with ``--reinstall -e .`` under the
@@ -8716,7 +8716,7 @@ def _verify_core_dependencies_installed(
     # extras install can cost minutes and trips on whatever optional extra
     # was already broken upstream. Base is fast and is what's actually wrong.
     #
-    # Quarantine the running ``hermes.exe`` first: ``--reinstall -e .``
+    # Quarantine the running ``xhermes.exe`` first: ``--reinstall -e .``
     # rewrites the entry-point shims, and on Windows pip can't overwrite the
     # live launcher, which would leave ``hermes`` off PATH.
     scripts_dir = _venv_scripts_dir() if _is_windows() else None
@@ -11185,7 +11185,7 @@ def main():
     except Exception:
         pass
 
-    # Sweep stale ``hermes.exe.old.*`` quarantine files left by previous
+    # Sweep stale ``xhermes.exe.old.*`` quarantine files left by previous
     # ``hermes update`` runs on Windows. Silent no-op on non-Windows or when
     # there's nothing to clean. See ``_quarantine_running_hermes_exe``.
     try:

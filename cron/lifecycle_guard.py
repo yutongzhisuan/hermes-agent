@@ -1,8 +1,8 @@
 """Gateway lifecycle guard for cron job creation (#30719).
 
 An agent running inside a gateway can schedule a cron job that calls
-``hermes gateway restart`` (or ``launchctl kickstart ai.hermes.gateway``
-or ``systemctl restart hermes-gateway``).  When the cron fires, the
+``hermes gateway restart`` (or ``launchctl kickstart ai.xhermes.gateway``
+or ``systemctl restart xhermes-gateway``).  When the cron fires, the
 gateway dies, the supervisor (launchd KeepAlive / systemd Restart=)
 revives it, auto-resume picks up the offending session, and the resumed
 turn re-runs the same logic — a SIGTERM-respawn loop every ~10 seconds
@@ -15,8 +15,8 @@ direct shell-level gateway-lifecycle command.  It is enforced at
 tool (which calls ``create_job`` directly, bypassing the CLI layer).
 
 The pattern is intentionally command-shaped: it anchors on a concrete
-command identifier (``hermes gateway``, ``launchctl ... hermes-gateway``,
-``systemctl ... hermes-gateway``, ``pkill`` against the gateway) so it
+command identifier (``hermes gateway``, ``launchctl ... xhermes-gateway``,
+``systemctl ... xhermes-gateway``, ``pkill`` against the gateway) so it
 cannot fire on prose.  A cron ``prompt`` is fed to a future LLM, not a
 shell, so an over-broad substring match on English ("Kong API gateway
 autoscaling and restart behavior") would produce a high false-positive
@@ -57,12 +57,12 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # gateway is benign (a no-op or "already running" error), and a
     # legitimate cron job might start a sibling profile's gateway.
     r"(?:hermes\s+gateway\s+(?:restart|stop))"
-    # Branch B: launchctl ops on a hermes-gateway label. macOS launchd
-    # labels look like `ai.hermes.gateway` / `hermes-gateway`. Requiring the
+    # Branch B: launchctl ops on a xhermes-gateway label. macOS launchd
+    # labels look like `ai.xhermes.gateway` / `xhermes-gateway`. Requiring the
     # gateway identifier prevents blocking unrelated hermes services (e.g.
     # `launchctl unload ai.hermes.update-checker.plist`).
     # `submit` and `bootstrap` are included alongside the direct verbs
-    # (kickstart/etc.): `launchctl submit -l ai.hermes.gateway-<suffix> --
+    # (kickstart/etc.): `launchctl submit -l ai.xhermes.gateway-<suffix> --
     # <helper-script>` (or `launchctl bootstrap gui/<uid> <plist>`) creates
     # a NEW keepalive job wrapping an arbitrary helper, which is how a
     # blocked direct restart/kill gets laundered into a persistent restart
@@ -70,7 +70,7 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # submissions that dodge this text anchor are caught separately by
     # `contains_launchctl_submit_command` (execution-aware, label-independent).
     r"|(?:launchctl\s+(?:kickstart|unload|load|stop|restart|submit|bootstrap)\b[^\n]*\bhermes[.\-]?gateway)"
-    # Branch C: systemctl ops on a hermes-gateway unit.
+    # Branch C: systemctl ops on a xhermes-gateway unit.
     r"|(?:systemctl\s+(?:-\S+\s+)*(?:restart|stop|start)\b[^\n]*\bhermes[.\-]?gateway)"
     # Branch D: pkill / kill targeting the hermes gateway process. Both
     # token orders because real reproductions show both.
@@ -84,7 +84,7 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
 # above uses `[^\n]*` between its verb and the gateway identifier so the
 # match can't span unrelated lines of a longer cron prompt/script, but that
 # also means a real multi-line shell invocation split across continuation
-# lines (e.g. `launchctl submit \` / `  -l ai.hermes.gateway-... \` / `  -- ...`,
+# lines (e.g. `launchctl submit \` / `  -l ai.xhermes.gateway-... \` / `  -- ...`,
 # the exact reported shape in #62891) would otherwise slip past. Collapse
 # continuations to a single space before matching, mirroring what the shell
 # itself does, rather than loosening `[^\n]*` and risking false positives

@@ -120,7 +120,7 @@ def _resource_attributes(config: Dict[str, Any]) -> Dict[str, str]:
     from agent.monitoring.policy import ensure_install_id
 
     return {
-        "service.name": "hermes-gateway",
+        "service.name": "xhermes-gateway",
         "service.instance.id": _safe_instance_id(ensure_install_id(config)),
         "telemetry.scope": "gateway_monitoring",
     }
