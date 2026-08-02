@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
+    return Path(os.environ.get("HERMES_HOME") or (Path.home() / ".xhermes"))
 
 
 def data_dir() -> Path:

@@ -25,7 +25,7 @@ def _default_db_path() -> str:
 
         return str(get_hermes_home() / "relay" / "tasks.db")
     except Exception:
-        return str(Path.home() / ".hermes" / "relay" / "tasks.db")
+        return str(Path.home() / ".xhermes" / "relay" / "tasks.db")
 
 
 @dataclass(frozen=True)

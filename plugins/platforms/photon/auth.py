@@ -93,7 +93,7 @@ def _auth_json_path() -> Path:
         from hermes_constants import get_hermes_home
         return Path(get_hermes_home()) / "auth.json"
     except Exception:
-        return Path(os.path.expanduser("~/.hermes")) / "auth.json"
+        return Path(os.path.expanduser("~/.xhermes")) / "auth.json"
 
 
 def _load_auth() -> Dict[str, Any]:
