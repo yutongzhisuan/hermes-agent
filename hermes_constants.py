@@ -74,20 +74,25 @@ def _get_platform_default_hermes_home() -> Path:
         base = (
             Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
         )
-        return base / "hermes"
-    return Path.home() / ".hermes"
+        return base / WIN_HOME_DIRNAME
+    return Path.home() / HOME_DIRNAME
 
 
 def _hermes_home_from_env() -> Path:
-    """Resolve HERMES_HOME from the process environment only.
+    """Resolve the Hermes home from the process environment only.
 
-    Reads the ``HERMES_HOME`` env var, falling back to the platform-native
-    default.  Deliberately ignores the context-local override installed by
-    :func:`set_hermes_home_override`, so this reflects the process/launch
-    scope rather than a per-task profile.  Shared by :func:`get_hermes_home`
-    and :func:`get_process_hermes_home` so the two never drift.
+    Prefers the ``XHERMES_HOME`` env var, falling back to the legacy
+    ``HERMES_HOME`` (subprocess spawners still propagate the legacy name),
+    then to the platform-native default.  Deliberately ignores the
+    context-local override installed by :func:`set_hermes_home_override`, so
+    this reflects the process/launch scope rather than a per-task profile.
+    Shared by :func:`get_hermes_home` and :func:`get_process_hermes_home` so
+    the two never drift.
     """
-    val = os.environ.get("HERMES_HOME", "").strip()
+    val = (
+        os.environ.get("XHERMES_HOME", "").strip()
+        or os.environ.get("HERMES_HOME", "").strip()
+    )
     if val:
         return Path(val)
     return _get_platform_default_hermes_home()
@@ -156,7 +161,10 @@ def get_hermes_home() -> Path:
     if override:
         return Path(override)
 
-    if not os.environ.get("HERMES_HOME", "").strip():
+    if not (
+        os.environ.get("XHERMES_HOME", "").strip()
+        or os.environ.get("HERMES_HOME", "").strip()
+    ):
         _warn_profile_fallback_once()
 
     return _hermes_home_from_env()
@@ -185,27 +193,54 @@ def get_default_hermes_root() -> Path:
     """Return the root Hermes directory for profile-level operations.
 
     In standard deployments this is the platform-native Hermes home
-    (``~/.hermes`` on POSIX, ``%LOCALAPPDATA%\\hermes`` on native Windows).
+    (``~/.xhermes`` on POSIX, ``%LOCALAPPDATA%\\xhermes`` on native Windows).
 
-    In Docker or custom deployments where ``HERMES_HOME`` points outside
-    ``~/.hermes`` (e.g. ``/opt/data``), returns ``HERMES_HOME`` directly
+    In Docker or custom deployments where the home env points outside
+    ``~/.xhermes`` (e.g. ``/opt/data``), returns the env path directly
     — that IS the root.
 
-    In profile mode where ``HERMES_HOME`` is ``<root>/profiles/<name>``,
+    In profile mode where the home env is ``<root>/profiles/<name>``,
     returns ``<root>`` so that ``profile list`` can see all profiles.
-    Works both for standard (``~/.hermes/profiles/coder``) and Docker
+    Works both for standard (``~/.xhermes/profiles/coder``) and Docker
     (``/opt/data/profiles/coder``) layouts.
+
+    Prefers ``XHERMES_HOME`` over legacy ``HERMES_HOME`` so a leaked
+    ``HERMES_HOME=~/.hermes`` can never make xhermes treat hermes's home
+    as its own root.
 
     Import-safe — no dependencies beyond stdlib.
     """
     native_home = _get_platform_default_hermes_home()
-    env_home = os.environ.get("HERMES_HOME", "")
+    env_home = (
+        os.environ.get("XHERMES_HOME", "").strip()
+        or os.environ.get("HERMES_HOME", "").strip()
+    )
     if not env_home:
         return native_home
     env_path = Path(env_home)
+    # Legacy hermes default home leaked via HERMES_HOME (e.g. the user's own
+    # hermes install exporting it globally) — never adopt it as xhermes's root.
+    # Profile-level ops (profile list / gateway status) must stay on ~/.xhermes.
+    legacy_defaults = [Path.home() / ".hermes"]
+    if sys.platform == "win32":
+        local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
+        legacy_defaults.append(
+            (
+                Path(local_appdata)
+                if local_appdata
+                else Path.home() / "AppData" / "Local"
+            )
+            / "hermes"
+        )
+    for legacy in legacy_defaults:
+        try:
+            if env_path.resolve() == legacy.resolve():
+                return native_home
+        except OSError:
+            continue
     try:
         env_path.resolve().relative_to(native_home.resolve())
-        # HERMES_HOME is under ~/.hermes (normal or profile mode)
+        # The home env is under ~/.xhermes (normal or profile mode)
         return native_home
     except ValueError:
         pass
@@ -859,7 +894,9 @@ def _profile_home_path(env: dict[str, str] | None = None) -> str | None:
     """Return ``{HERMES_HOME}/home`` when the profile-home directory exists."""
     hermes_home = (
         get_hermes_home_override()
+        or (env or {}).get("XHERMES_HOME")
         or (env or {}).get("HERMES_HOME")
+        or os.getenv("XHERMES_HOME")
         or os.getenv("HERMES_HOME")
     )
     if not hermes_home:
