@@ -126,7 +126,7 @@ class TestCmdUpdateNpmLockfileCache:
         checkout = tmp_path / "checkout"
         checkout.mkdir()
         (checkout / "package.json").write_text("{}")
-        shared_root = tmp_path / ".hermes"
+        shared_root = tmp_path / ".xhermes"
         named_profile = shared_root / "profiles" / "work"
         named_profile.mkdir(parents=True)
 
