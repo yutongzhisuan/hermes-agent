@@ -3,6 +3,7 @@
 from pathlib import Path
 import tomllib
 
+
 def _load_optional_dependencies():
     pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
     with pyproject_path.open("rb") as handle:
@@ -30,13 +31,12 @@ def test_matrix_extra_not_in_all():
     """
     optional_dependencies = _load_optional_dependencies()
 
-    assert "matrix" in optional_dependencies, "[matrix] extra must still exist for `uv sync --extra matrix`"
+    assert "matrix" in optional_dependencies, (
+        "[matrix] extra must still exist for `uv sync --extra matrix`"
+    )
     # Must NOT appear in [all] in any form — neither unconditional nor
     # platform-gated. Lazy-install handles it.
-    matrix_in_all = [
-        dep for dep in optional_dependencies["all"]
-        if "matrix" in dep
-    ]
+    matrix_in_all = [dep for dep in optional_dependencies["all"] if "matrix" in dep]
     assert not matrix_in_all, (
         "matrix must not appear in [all] — it's lazy-installed via "
         "tools/lazy_deps.py LAZY_DEPS['platform.matrix']. Found: "
@@ -64,22 +64,33 @@ def test_lazy_installable_extras_excluded_from_all():
     # someone adds a new lazy-install backend, they have to update
     # this list AND verify [all] doesn't contain it.
     lazy_covered_extras = {
-        "anthropic", "bedrock",
-        "exa", "firecrawl", "parallel-web",
+        "anthropic",
+        "bedrock",
+        "exa",
+        "firecrawl",
+        "parallel-web",
         "fal",
-        "edge-tts", "tts-premium",
+        "edge-tts",
+        "tts-premium",
         "voice",  # faster-whisper / sounddevice / numpy
-        "modal", "daytona", "vercel",
-        "messaging", "slack", "matrix", "dingtalk", "feishu",
-        "honcho", "hindsight",
-        "supermemory", "mem0",
+        "modal",
+        "daytona",
+        "vercel",
+        "messaging",
+        "slack",
+        "matrix",
+        "dingtalk",
+        "feishu",
+        "honcho",
+        "hindsight",
+        "supermemory",
+        "mem0",
         "mistral",  # mistralai — Voxtral STT/TTS, lazy-installed (stt.mistral / tts.mistral)
     }
     all_extra_specs = optional_dependencies["all"]
     for extra in lazy_covered_extras:
         offending = [
-            spec for spec in all_extra_specs
-            if f"hermes-agent[{extra}]" in spec
+            spec for spec in all_extra_specs if f"hermes-agent[{extra}]" in spec
         ]
         assert not offending, (
             f"[{extra}] is in [all] but also in LAZY_DEPS. "
@@ -98,8 +109,6 @@ def _exact_pins(specs):
         package = package.split("[", 1)[0].lower().replace("_", "-")
         pins[package] = version
     return pins
-
-
 
 
 def test_pyproject_pins_match_lazy_deps_pins():
@@ -135,7 +144,9 @@ def test_pyproject_pins_match_lazy_deps_pins():
             lazy_pins.setdefault(package, set()).add(version)
 
     shared = sorted(set(pyproject_pins) & set(lazy_pins))
-    assert shared, "expected at least one package pinned in both pyproject and LAZY_DEPS"
+    assert shared, (
+        "expected at least one package pinned in both pyproject and LAZY_DEPS"
+    )
 
     drift = {
         package: {
@@ -153,10 +164,6 @@ def test_pyproject_pins_match_lazy_deps_pins():
     )
 
 
-
-
-
-
 def test_dingtalk_extra_includes_qrcode_for_qr_auth():
     """DingTalk's QR-code device-flow auth (hermes_cli/dingtalk_auth.py)
     needs the qrcode package."""
@@ -166,15 +173,13 @@ def test_dingtalk_extra_includes_qrcode_for_qr_auth():
     assert any(dep.startswith("qrcode") for dep in dingtalk_extra)
 
 
-
-
-
-
 def _uv_lock_version(package: str) -> str:
     """Resolved version of ``package`` in uv.lock, or fail loudly."""
     versions = _uv_lock_versions(package)
     assert versions, f"{package} not found in uv.lock"
-    assert len(versions) == 1, f"{package} resolves to multiple versions in uv.lock: {versions}"
+    assert len(versions) == 1, (
+        f"{package} resolves to multiple versions in uv.lock: {versions}"
+    )
     return next(iter(versions))
 
 
@@ -290,11 +295,17 @@ def test_huggingface_hub_lazy_pin_inside_transformers_window():
         "package and break Hindsight local embeddings (#60783)."
     )
 
+
 def test_fork_identity_constants():
     from hermes_constants import (
-        PRODUCT_SLUG, HOME_DIRNAME, WIN_HOME_DIRNAME,
-        INSTALL_SUBDIR, SERVICE_BASE, PYPI_DIST_NAME,
+        PRODUCT_SLUG,
+        HOME_DIRNAME,
+        WIN_HOME_DIRNAME,
+        INSTALL_SUBDIR,
+        SERVICE_BASE,
+        PYPI_DIST_NAME,
     )
+
     assert PRODUCT_SLUG == "xhermes"
     assert HOME_DIRNAME == ".xhermes"
     assert WIN_HOME_DIRNAME == "xhermes"
