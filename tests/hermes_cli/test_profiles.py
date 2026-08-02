@@ -52,16 +52,17 @@ from hermes_cli.config import DEFAULT_CONFIG
 # Shared fixture: redirect Path.home() and HERMES_HOME for profile tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def profile_env(tmp_path, monkeypatch):
     """Set up an isolated environment for profile tests.
 
-    * Path.home() -> tmp_path  (so _get_profiles_root() = tmp_path/.hermes/profiles)
-    * HERMES_HOME  -> tmp_path/.hermes  (so get_hermes_home() agrees)
-    * Creates the bare-minimum ~/.hermes directory.
+    * Path.home() -> tmp_path  (so _get_profiles_root() = tmp_path/.xhermes/profiles)
+    * HERMES_HOME  -> tmp_path/.xhermes  (so get_hermes_home() agrees)
+    * Creates the bare-minimum ~/.xhermes directory.
     """
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    default_home = tmp_path / ".hermes"
+    default_home = tmp_path / ".xhermes"
     default_home.mkdir(exist_ok=True)
     monkeypatch.setenv("HERMES_HOME", str(default_home))
     return tmp_path
@@ -70,6 +71,7 @@ def profile_env(tmp_path, monkeypatch):
 # ===================================================================
 # TestValidateProfileName
 # ===================================================================
+
 
 class TestNormalizeProfileName:
     """Tests for normalize_profile_name()."""
@@ -87,7 +89,6 @@ class TestValidateProfileName:
         # Should not raise
         validate_profile_name(name)
 
-
     @pytest.mark.parametrize("name", ["UPPER", "has space", ".hidden", "-leading"])
     def test_invalid_names_rejected(self, name):
         with pytest.raises(ValueError):
@@ -98,46 +99,44 @@ class TestValidateProfileName:
 # TestGetProfileDir
 # ===================================================================
 
+
 class TestGetProfileDir:
     """Tests for get_profile_dir()."""
 
     def test_default_returns_hermes_home(self, profile_env):
         tmp_path = profile_env
         result = get_profile_dir("default")
-        assert result == tmp_path / ".hermes"
+        assert result == tmp_path / ".xhermes"
 
 
 # ===================================================================
 # TestCreateProfile
 # ===================================================================
 
+
 class TestCreateProfile:
     """Tests for create_profile()."""
-
 
     def test_seeds_placeholder_env_file(self, profile_env):
         """Fresh profiles get their own .env (owner-only) so channel/env
         writes are profile-scoped from day one instead of falling through
         to the shell environment / root install."""
         import stat
+
         profile_dir = create_profile("coder", no_alias=True)
         env_path = profile_dir / ".env"
         assert env_path.exists()
         content = env_path.read_text(encoding="utf-8")
         # Placeholder only — no credentials leak in from anywhere.
         assert all(
-            line.startswith("#") or not line.strip()
-            for line in content.splitlines()
+            line.startswith("#") or not line.strip() for line in content.splitlines()
         )
         mode = stat.S_IMODE(env_path.stat().st_mode)
         assert mode == 0o600
 
-
-
-
     def test_clone_config_copies_files(self, profile_env):
         tmp_path = profile_env
-        default_home = tmp_path / ".hermes"
+        default_home = tmp_path / ".xhermes"
         # Create source config files in default profile
         (default_home / "config.yaml").write_text("model: test")
         (default_home / ".env").write_text("KEY=val")
@@ -152,12 +151,10 @@ class TestCreateProfile:
         assert (profile_dir / "SOUL.md").read_text() == "Be helpful."
 
 
-
-
-
 # ===================================================================
 # TestNoSkillsOptOut
 # ===================================================================
+
 
 class TestNoSkillsOptOut:
     """Tests for `hermes profile create --no-skills` and the opt-out marker."""
@@ -178,9 +175,6 @@ class TestNoSkillsOptOut:
         assert (profile_dir / "skills").is_dir()
         assert list((profile_dir / "skills").iterdir()) == []
 
-
-
-
     def test_delete_marker_re_enables_seeding(self, profile_env, monkeypatch):
         """Deleting .no-bundled-skills opts the profile back in."""
         import subprocess as _sp
@@ -192,9 +186,12 @@ class TestNoSkillsOptOut:
         called = []
         monkeypatch.setattr(
             "subprocess.run",
-            lambda *a, **kw: (called.append(a), _sp.CompletedProcess(
-                args=a, returncode=0, stdout='{"copied": []}', stderr=""
-            ))[1],
+            lambda *a, **kw: (
+                called.append(a),
+                _sp.CompletedProcess(
+                    args=a, returncode=0, stdout='{"copied": []}', stderr=""
+                ),
+            )[1],
         )
         r1 = seed_profile_skills(profile_dir, quiet=True)
         assert r1.get("skipped_opt_out") is True
@@ -212,6 +209,7 @@ class TestNoSkillsOptOut:
 # TestBackfillProfileEnvs
 # ===================================================================
 
+
 class TestBackfillProfileEnvs:
     """Tests for backfill_profile_envs() — the `hermes update` pass that
     gives pre-#44792 profiles (created before .env seeding) their own
@@ -219,8 +217,9 @@ class TestBackfillProfileEnvs:
 
     def test_copies_default_env_into_envless_profiles(self, profile_env):
         import stat
+
         tmp_path = profile_env
-        (tmp_path / ".hermes" / ".env").write_text("OPENROUTER_API_KEY=root-key\n")
+        (tmp_path / ".xhermes" / ".env").write_text("OPENROUTER_API_KEY=root-key\n")
         p1 = create_profile("old1", no_alias=True)
         p2 = create_profile("old2", no_alias=True)
         # Simulate pre-#44792 profiles: no .env
@@ -234,7 +233,6 @@ class TestBackfillProfileEnvs:
             assert (p / ".env").read_text() == "OPENROUTER_API_KEY=root-key\n"
             assert stat.S_IMODE((p / ".env").stat().st_mode) == 0o600
 
-
     def test_placeholder_when_default_has_no_env(self, profile_env):
         p = create_profile("noroot", no_alias=True)
         (p / ".env").unlink()
@@ -244,8 +242,7 @@ class TestBackfillProfileEnvs:
         assert backfilled == ["noroot"]
         content = (p / ".env").read_text(encoding="utf-8")
         assert all(
-            line.startswith("#") or not line.strip()
-            for line in content.splitlines()
+            line.startswith("#") or not line.strip() for line in content.splitlines()
         )
 
     def test_no_profiles_root_is_noop(self, profile_env):
@@ -256,24 +253,29 @@ class TestBackfillProfileEnvs:
 # TestDeleteProfile
 # ===================================================================
 
+
 class TestDeleteProfile:
     """Tests for delete_profile()."""
-
 
     def test_rmtree_failure_raises(self, profile_env):
         profile_dir = create_profile("coder", no_alias=True)
         set_active_profile("coder")
 
-        with patch("hermes_cli.profiles._cleanup_gateway_service"), \
-             patch("hermes_cli.profiles.time.sleep"), \
-             patch("hermes_cli.profiles.shutil.rmtree", side_effect=PermissionError("locked")):
-            with pytest.raises(RuntimeError, match="Could not remove profile directory"):
+        with (
+            patch("hermes_cli.profiles._cleanup_gateway_service"),
+            patch("hermes_cli.profiles.time.sleep"),
+            patch(
+                "hermes_cli.profiles.shutil.rmtree",
+                side_effect=PermissionError("locked"),
+            ),
+        ):
+            with pytest.raises(
+                RuntimeError, match="Could not remove profile directory"
+            ):
                 delete_profile("coder", yes=True)
 
         assert profile_dir.is_dir()
         assert get_active_profile() == "default"
-
-
 
     def test_backend_scan_only_matches_this_profile(self, profile_env, monkeypatch):
         """The backend PID scan binds by --profile selector and skips self."""
@@ -283,7 +285,12 @@ class TestDeleteProfile:
         class FakeProc:
             def __init__(self, pid, cmdline, username="me"):
                 self.pid = pid
-                self.info = {"pid": pid, "name": "python", "username": username, "cmdline": cmdline}
+                self.info = {
+                    "pid": pid,
+                    "name": "python",
+                    "username": username,
+                    "cmdline": cmdline,
+                }
 
             def parent(self):
                 return None
@@ -297,13 +304,22 @@ class TestDeleteProfile:
         self_pid = os.getpid()
         procs = [
             # Backend bound to coder → matched.
-            FakeProc(101, ["python", "-m", "hermes_cli.main", "--profile", "coder", "serve"]),
+            FakeProc(
+                101, ["python", "-m", "hermes_cli.main", "--profile", "coder", "serve"]
+            ),
             # Interactive chat for coder → NOT a backend subcommand, skipped.
-            FakeProc(102, ["python", "-m", "hermes_cli.main", "--profile", "coder", "chat"]),
+            FakeProc(
+                102, ["python", "-m", "hermes_cli.main", "--profile", "coder", "chat"]
+            ),
             # Backend for a different profile → skipped.
-            FakeProc(103, ["python", "-m", "hermes_cli.main", "--profile", "other", "serve"]),
+            FakeProc(
+                103, ["python", "-m", "hermes_cli.main", "--profile", "other", "serve"]
+            ),
             # This very process → skipped even if it matched.
-            FakeProc(self_pid, ["python", "-m", "hermes_cli.main", "--profile", "coder", "serve"]),
+            FakeProc(
+                self_pid,
+                ["python", "-m", "hermes_cli.main", "--profile", "coder", "serve"],
+            ),
         ]
 
         fake_psutil = types.SimpleNamespace(
@@ -322,6 +338,7 @@ class TestDeleteProfile:
 # ===================================================================
 # TestListProfiles
 # ===================================================================
+
 
 class TestListProfiles:
     """Tests for list_profiles()."""
@@ -344,15 +361,15 @@ class TestListProfiles:
 # TestActiveProfile
 # ===================================================================
 
+
 class TestActiveProfile:
     """Tests for set_active_profile() / get_active_profile()."""
-
 
     def test_set_to_default_removes_file(self, profile_env):
         tmp_path = profile_env
         create_profile("coder", no_alias=True)
         set_active_profile("coder")
-        active_path = tmp_path / ".hermes" / "active_profile"
+        active_path = tmp_path / ".xhermes" / "active_profile"
         assert active_path.exists()
 
         set_active_profile("default")
@@ -363,14 +380,14 @@ class TestActiveProfile:
 # TestGetActiveProfileName
 # ===================================================================
 
+
 class TestGetActiveProfileName:
     """Tests for get_active_profile_name()."""
-
 
     def test_profile_path_returns_profile_name(self, profile_env, monkeypatch):
         tmp_path = profile_env
         create_profile("coder", no_alias=True)
-        profile_dir = tmp_path / ".hermes" / "profiles" / "coder"
+        profile_dir = tmp_path / ".xhermes" / "profiles" / "coder"
         monkeypatch.setenv("HERMES_HOME", str(profile_dir))
         assert get_active_profile_name() == "coder"
 
@@ -391,27 +408,24 @@ class TestGetActiveProfileName:
 # ===================================================================
 
 
-
 # ===================================================================
 # TestAliasCollision
 # ===================================================================
 
+
 class TestAliasCollision:
     """Tests for check_alias_collision()."""
 
-
-
-
-
     def test_windows_checks_bat_extension(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "win32")
-        wrapper_dir = profile_env / ".local" / "bin"
+        wrapper_dir = profile_env / ".xhermes" / "bin"
         wrapper_dir.mkdir(parents=True, exist_ok=True)
         bat_path = wrapper_dir / "mybot.bat"
-        bat_path.write_text("@echo off\r\nhermes -p mybot %*\r\n")
+        bat_path.write_text("@echo off\r\nxhermes -p mybot %*\r\n")
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=0, stdout=str(bat_path),
+                returncode=0,
+                stdout=str(bat_path),
             )
             result = check_alias_collision("mybot")
         assert result is None  # our own wrapper, safe to overwrite
@@ -429,13 +443,17 @@ class TestAliasCollision:
 # TestWrapperScript
 # ===================================================================
 
+
 class TestWrapperScript:
     """Tests for create_wrapper_script() and remove_wrapper_script()."""
 
     def test_creates_sh_on_posix(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "darwin")
-        monkeypatch.setattr("hermes_cli.profiles.shutil.which", lambda name: "/opt/hermes/bin/hermes")
+        monkeypatch.setattr(
+            "hermes_cli.profiles.shutil.which", lambda name: "/opt/hermes/bin/hermes"
+        )
         from hermes_cli.profiles import create_wrapper_script
+
         wrapper = create_wrapper_script("mybot")
         assert wrapper is not None
         assert wrapper.name == "mybot"
@@ -443,10 +461,10 @@ class TestWrapperScript:
         assert content.startswith("#!/bin/sh")
         assert "exec /opt/hermes/bin/hermes -p mybot" in content
 
-
     def test_remove_finds_bat_on_windows(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "win32")
         from hermes_cli.profiles import create_wrapper_script, remove_wrapper_script
+
         wrapper = create_wrapper_script("mybot")
         assert wrapper is not None
         assert wrapper.exists()
@@ -455,19 +473,13 @@ class TestWrapperScript:
         assert not wrapper.exists()
 
 
-
-
-
-
 # ===================================================================
 # TestWrapperScriptSecurity — path-traversal hardening
 # ===================================================================
 
+
 class TestWrapperScriptSecurity:
     """A crafted alias name must not escape the wrapper directory."""
-
-
-
 
     def test_create_wrapper_rejects_traversal(self, profile_env):
         sentinel = profile_env / ".bashrc"
@@ -484,10 +496,10 @@ class TestWrapperScriptSecurity:
         assert not target.exists()
 
 
-
 # ===================================================================
 # TestFindAliasForProfile — display-side reverse lookup
 # ===================================================================
+
 
 class TestFindAliasForProfile:
     """Tests for find_alias_for_profile() and alias display in list/show."""
@@ -495,19 +507,19 @@ class TestFindAliasForProfile:
     def test_profile_named_alias(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "darwin")
         from hermes_cli.profiles import create_wrapper_script, find_alias_for_profile
+
         create_wrapper_script("steve")
         assert find_alias_for_profile("steve") == "steve"
-
 
     def test_ignores_unrelated_files(self, profile_env, monkeypatch):
         # ~/.local/bin commonly holds unrelated binaries; they must not match.
         monkeypatch.setattr("sys.platform", "darwin")
         from hermes_cli.profiles import _get_wrapper_dir, find_alias_for_profile
+
         wrapper_dir = _get_wrapper_dir()
         wrapper_dir.mkdir(parents=True, exist_ok=True)
-        (wrapper_dir / "pip").write_text("#!/bin/sh\nexec python -m pip \"$@\"\n")
+        (wrapper_dir / "pip").write_text('#!/bin/sh\nexec python -m pip "$@"\n')
         assert find_alias_for_profile("steve") is None
-
 
     def test_list_profiles_surfaces_custom_alias(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "darwin")
@@ -516,6 +528,7 @@ class TestFindAliasForProfile:
             create_wrapper_script,
             list_profiles,
         )
+
         create_profile("steve", no_alias=True)
         create_wrapper_script("qiaobusi", target="steve")
         info = next(p for p in list_profiles() if p.name == "steve")
@@ -528,13 +541,14 @@ class TestFindAliasForProfile:
 # TestRenameProfile
 # ===================================================================
 
+
 class TestRenameProfile:
     """Tests for rename_profile()."""
 
     def test_renames_directory(self, profile_env):
         tmp_path = profile_env
         create_profile("oldname", no_alias=True)
-        old_dir = tmp_path / ".hermes" / "profiles" / "oldname"
+        old_dir = tmp_path / ".xhermes" / "profiles" / "oldname"
         assert old_dir.is_dir()
 
         # Mock alias collision to avoid subprocess calls
@@ -543,26 +557,28 @@ class TestRenameProfile:
 
         assert not old_dir.is_dir()
         assert new_dir.is_dir()
-        assert new_dir == tmp_path / ".hermes" / "profiles" / "newname"
+        assert new_dir == tmp_path / ".xhermes" / "profiles" / "newname"
 
     def test_renames_root_honcho_host_without_changing_ai_peer(self, profile_env):
         tmp_path = profile_env
         create_profile("ssi_health", no_alias=True)
-        honcho_path = tmp_path / ".hermes" / "honcho.json"
-        honcho_path.write_text(json.dumps({
-            "hosts": {
-                "hermes.ssi_health": {
-                    "recallMode": "hybrid",
-                    "writeFrequency": "async",
-                    "sessionStrategy": "per-session",
-                    "saveMessages": True,
-                    "peerName": "user-peer",
-                    "aiPeer": "ssi_health",
-                    "workspace": "hermes",
-                    "enabled": True,
+        honcho_path = tmp_path / ".xhermes" / "honcho.json"
+        honcho_path.write_text(
+            json.dumps({
+                "hosts": {
+                    "hermes.ssi_health": {
+                        "recallMode": "hybrid",
+                        "writeFrequency": "async",
+                        "sessionStrategy": "per-session",
+                        "saveMessages": True,
+                        "peerName": "user-peer",
+                        "aiPeer": "ssi_health",
+                        "workspace": "hermes",
+                        "enabled": True,
+                    }
                 }
-            }
-        }))
+            })
+        )
 
         with patch("hermes_cli.profiles.check_alias_collision", return_value="skip"):
             rename_profile("ssi_health", "heimdall")
@@ -577,19 +593,13 @@ class TestRenameProfile:
 # TestExportImport
 # ===================================================================
 
+
 class TestExportImport:
     """Tests for export_profile() / import_profile()."""
-
-
-
-
-
-
 
     # ---------------------------------------------------------------
     # Default profile export / import
     # ---------------------------------------------------------------
-
 
     def test_export_default_includes_profile_data(self, profile_env, tmp_path):
         """Profile data files end up in the archive (credentials excluded)."""
@@ -613,7 +623,6 @@ class TestExportImport:
         assert "default/SOUL.md" in names
         assert "default/memories/MEMORY.md" in names
 
-
     def test_export_default_handles_broken_symlinks(self, profile_env, tmp_path):
         """Broken symlinks inside allowed artifacts are preserved, not crashed (#58394).
 
@@ -633,9 +642,7 @@ class TestExportImport:
         (broken_dir / "broken_link").symlink_to("/nonexistent/path")
         # Valid symlink for comparison
         (broken_dir / "valid_target.txt").write_text("real data")
-        (broken_dir / "valid_link").symlink_to(
-            broken_dir / "valid_target.txt"
-        )
+        (broken_dir / "valid_link").symlink_to(broken_dir / "valid_target.txt")
 
         output = tmp_path / "export" / "default.tar.gz"
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -648,9 +655,7 @@ class TestExportImport:
         assert any(n.endswith("config.yaml") for n in names)
         # Broken symlink inside an allowed dir was preserved as a symlink
         # (without crashing) — tar entry name recorded as the link path.
-        assert any(
-            "with-broken-links/broken_link" in n for n in names
-        ), (
+        assert any("with-broken-links/broken_link" in n for n in names), (
             f"broken_link should survive; tarfile names: {sorted(names)[:30]}"
         )
         # Valid symlink + target also kept
@@ -658,11 +663,10 @@ class TestExportImport:
         assert any("valid_target.txt" in n for n in names)
 
 
-
-
 # ===================================================================
 # TestProfileIsolation
 # ===================================================================
+
 
 class TestProfileIsolation:
     """Verify that two profiles have completely separate paths."""
@@ -680,10 +684,9 @@ class TestProfileIsolation:
 # TestGetProfilesRoot / TestGetDefaultHermesHome (internal helpers)
 # ===================================================================
 
+
 class TestInternalHelpers:
     """Tests for _get_profiles_root() and _get_default_hermes_home()."""
-
-
 
     def test_default_hermes_home_docker(self, tmp_path, monkeypatch):
         """In Docker, _get_default_hermes_home() returns HERMES_HOME itself."""
@@ -693,8 +696,6 @@ class TestInternalHelpers:
         monkeypatch.setenv("HERMES_HOME", str(docker_home))
         home = _get_default_hermes_home()
         assert home == docker_home
-
-
 
     def test_create_profile_docker(self, tmp_path, monkeypatch):
         """Profile created in Docker lands under HERMES_HOME/profiles/."""
@@ -708,18 +709,13 @@ class TestInternalHelpers:
         assert expected.is_dir()
 
 
-
-
 # ===================================================================
 # Edge cases and additional coverage
 # ===================================================================
 
+
 class TestEdgeCases:
     """Additional edge-case tests."""
-
-
-
-
 
     def test_gateway_running_check_falls_back_to_runtime_state(self, profile_env):
         """A live gateway whose PID-file/lock check fails closed (separate-process
@@ -736,23 +732,21 @@ class TestEdgeCases:
         from hermes_cli.profiles import _check_gateway_running
 
         tmp_path = profile_env
-        default_home = tmp_path / ".hermes"
+        default_home = tmp_path / ".xhermes"
         default_home.mkdir(parents=True, exist_ok=True)
 
         # Write a realistic gateway_state.json pointing at THIS live process with
         # a gateway-shaped argv, so get_runtime_status_running_pid validates it.
         live_pid = os.getpid()
         (default_home / "gateway_state.json").write_text(
-            json.dumps(
-                {
-                    "pid": live_pid,
-                    "kind": "hermes-gateway",
-                    "argv": ["hermes", "gateway", "run"],
-                    "start_time": gw_status._get_process_start_time(live_pid),
-                    "gateway_state": "running",
-                    "active_agents": 0,
-                }
-            ),
+            json.dumps({
+                "pid": live_pid,
+                "kind": "hermes-gateway",
+                "argv": ["hermes", "gateway", "run"],
+                "start_time": gw_status._get_process_start_time(live_pid),
+                "gateway_state": "running",
+                "active_agents": 0,
+            }),
             encoding="utf-8",
         )
 
@@ -763,17 +757,14 @@ class TestEdgeCases:
         # scenario that PID belongs to the live gateway, so mock its command
         # line to a bare ``gateway run`` (this is the default/root home, which
         # runs the gateway with no profile flag).
-        with patch("gateway.status.get_running_pid", return_value=None), patch(
-            "gateway.status._read_process_cmdline",
-            return_value="hermes gateway run --replace",
+        with (
+            patch("gateway.status.get_running_pid", return_value=None),
+            patch(
+                "gateway.status._read_process_cmdline",
+                return_value="hermes gateway run --replace",
+            ),
         ):
             assert _check_gateway_running(default_home) is True
-
-
-
-
-
-
 
     def test_clone_from_named_profile(self, profile_env):
         """Clone config from a named (non-default) profile."""
@@ -784,7 +775,10 @@ class TestEdgeCases:
         (source_dir / ".env").write_text("SECRET=yes")
 
         target_dir = create_profile(
-            "target", clone_from="source", clone_config=True, no_alias=True,
+            "target",
+            clone_from="source",
+            clone_config=True,
+            no_alias=True,
         )
         cloned_config = yaml.safe_load((target_dir / "config.yaml").read_text())
         assert cloned_config["_config_version"] == DEFAULT_CONFIG["_config_version"]
@@ -792,10 +786,8 @@ class TestEdgeCases:
         assert (target_dir / ".env").read_text().strip() == "SECRET=yes"
 
 
-
 class TestProfilesToServe:
     """profiles_to_serve(multiplex) — the gateway's profile-enumeration chokepoint."""
-
 
     def test_off_returns_only_active_named(self, profile_env, monkeypatch):
         # A named profile's gateway runs with HERMES_HOME pointing at the
@@ -814,6 +806,3 @@ class TestProfilesToServe:
         assert set(serve) == {"default", "coder", "writer"}
         assert serve["default"] == _get_default_hermes_home()
         assert serve["coder"] == get_profile_dir("coder")
-
-
-
