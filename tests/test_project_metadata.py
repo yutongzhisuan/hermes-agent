@@ -289,3 +289,15 @@ def test_huggingface_hub_lazy_pin_inside_transformers_window():
         "range (>=1.5.0,<2). The lazy refresh would downgrade the shared "
         "package and break Hindsight local embeddings (#60783)."
     )
+
+def test_fork_identity_constants():
+    from hermes_constants import (
+        PRODUCT_SLUG, HOME_DIRNAME, WIN_HOME_DIRNAME,
+        INSTALL_SUBDIR, SERVICE_BASE, PYPI_DIST_NAME,
+    )
+    assert PRODUCT_SLUG == "xhermes"
+    assert HOME_DIRNAME == ".xhermes"
+    assert WIN_HOME_DIRNAME == "xhermes"
+    assert INSTALL_SUBDIR == "xhermes-agent"
+    assert SERVICE_BASE == "xhermes-gateway"
+    assert PYPI_DIST_NAME == "xhermes-agent"

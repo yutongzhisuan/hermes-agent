@@ -50,6 +50,23 @@ def get_hermes_home_override() -> str | None:
     return str(override)
 
 
+# ---------------------------------------------------------------------------
+# xhermes fork identity — single source for rename surfaces.
+# Upstream sync: keep these constants stable; re-run apply_xhermes_overlay.sh
+# after merging upstream to re-assert the fork's naming.
+# ---------------------------------------------------------------------------
+
+PRODUCT_SLUG = "xhermes"                 # CLI 命令名 / 进程 basename 前缀
+PRODUCT_DISPLAY = "xHermes"              # 品牌显示名（skin 默认等）
+PYPI_DIST_NAME = "xhermes-agent"         # PyPI 发行名
+HOME_DIRNAME = ".xhermes"                # POSIX 家目录名
+WIN_HOME_DIRNAME = "xhermes"             # Windows %LOCALAPPDATA% 下目录名
+INSTALL_SUBDIR = "xhermes-agent"         # 家目录下代码安装子目录
+SERVICE_BASE = "xhermes-gateway"         # systemd unit 基名
+LAUNCHD_LABEL = "ai.xhermes.gateway"     # launchd label
+DESKTOP_APP_ID = "com.xhermes.app"       # Electron appId（用户自行定）
+
+
 def _get_platform_default_hermes_home() -> Path:
     """Return the platform-native default Hermes home path."""
     if sys.platform == "win32":
