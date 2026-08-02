@@ -90,7 +90,7 @@ def test_lazy_installable_extras_excluded_from_all():
     all_extra_specs = optional_dependencies["all"]
     for extra in lazy_covered_extras:
         offending = [
-            spec for spec in all_extra_specs if f"hermes-agent[{extra}]" in spec
+            spec for spec in all_extra_specs if f"xhermes-agent[{extra}]" in spec
         ]
         assert not offending, (
             f"[{extra}] is in [all] but also in LAZY_DEPS. "
