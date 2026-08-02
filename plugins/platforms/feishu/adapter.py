@@ -212,7 +212,7 @@ _DEFAULT_TEXT_BATCH_MAX_CHARS = 4000
 _DEFAULT_MEDIA_BATCH_DELAY_SECONDS = 0.8
 _DEFAULT_DEDUP_CACHE_SIZE = 2048
 _DEFAULT_WEBHOOK_HOST = "127.0.0.1"
-_DEFAULT_WEBHOOK_PORT = 8765
+_DEFAULT_WEBHOOK_PORT = 8865
 _DEFAULT_WEBHOOK_PATH = "/feishu/webhook"
 # ---------------------------------------------------------------------------
 # TTL, rate-limit and webhook security constants

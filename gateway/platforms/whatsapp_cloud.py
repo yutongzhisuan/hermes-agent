@@ -92,7 +92,7 @@ DEFAULT_API_VERSION = "v20.0"
 # bug as the LINE adapter (NS-603) and gateway/platforms/webhook.py
 # (d542894ad). Pin a host via WHATSAPP_CLOUD_WEBHOOK_HOST or extra.webhook_host.
 DEFAULT_WEBHOOK_HOST = None
-DEFAULT_WEBHOOK_PORT = 8090
+DEFAULT_WEBHOOK_PORT = 8190
 DEFAULT_WEBHOOK_PATH = "/whatsapp/webhook"
 GRAPH_API_BASE = "https://graph.facebook.com"
 WEBHOOK_MAX_BODY_BYTES = 3 * 1024 * 1024

@@ -7261,7 +7261,7 @@ def _parse_dashboard_runtime(command: str) -> tuple[str, str, int] | None:
     if mode is None:
         return None
 
-    port = 9119
+    port = 9219
     host = "127.0.0.1"
 
     port_match = re.search(r"(?:^|\s)--port(?:=|\s+)(\d+)", command)

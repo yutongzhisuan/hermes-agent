@@ -111,7 +111,7 @@ async def _self_post_chat_completion(
     if host in ("0.0.0.0", "::", "*"):
         # Wildcard bind address — connect over loopback.
         host = "127.0.0.1"
-    port = int(getattr(adapter, "_port", 0) or 8642)
+    port = int(getattr(adapter, "_port", 0) or 8742)
     api_key = str(getattr(adapter, "_api_key", "") or "")
     if not api_key:
         raise RuntimeError(

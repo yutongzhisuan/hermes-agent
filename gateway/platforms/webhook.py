@@ -127,7 +127,7 @@ _BUILTIN_DELIVER_PLATFORMS = {
 #     of the bindv6only sysctl. Users can still pin a specific host via
 #     ``platforms.webhook.extra.host``.
 DEFAULT_HOST = None
-DEFAULT_PORT = 8644
+DEFAULT_PORT = 8744
 _INSECURE_NO_AUTH = "INSECURE_NO_AUTH"
 _DYNAMIC_ROUTES_FILENAME = "webhook_subscriptions.json"
 _RATE_WINDOW_SECONDS = 60.0

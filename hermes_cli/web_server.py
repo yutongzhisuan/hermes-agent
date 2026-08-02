@@ -2785,15 +2785,15 @@ from hermes_cli.web_routers.git import (  # noqa: E402,F401 — legacy re-export
 # DEFAULT_PORT / DEFAULT_WEBHOOK_PORT constant.  Used only for the dashboard's
 # gateway-topology readout — best-effort display data, not a bind source.
 _PORT_BINDING_PLATFORM_PORTS: Dict[str, Tuple[str, int]] = {
-    "webhook": ("port", 8644),
-    "api_server": ("port", 8642),
-    "msgraph_webhook": ("port", 8646),
-    "feishu": ("webhook_port", 8765),
-    "wecom_callback": ("port", 8645),
-    "bluebubbles": ("webhook_port", 8645),
-    "sms": ("webhook_port", 8080),
-    "whatsapp_cloud": ("webhook_port", 8090),
-    "line": ("port", 8646),
+    "webhook": ("port", 8744),
+    "api_server": ("port", 8742),
+    "msgraph_webhook": ("port", 8746),
+    "feishu": ("webhook_port", 8865),
+    "wecom_callback": ("port", 8745),
+    "bluebubbles": ("webhook_port", 8745),
+    "sms": ("webhook_port", 8180),
+    "whatsapp_cloud": ("webhook_port", 8190),
+    "line": ("port", 8746),
 }
 
 # Platform states that mean the adapter is NOT serving its port right now.
@@ -17058,7 +17058,7 @@ def _maybe_open_browser(
 
 def start_server(
     host: str = "127.0.0.1",
-    port: int = 9119,
+    port: int = 9219,
     open_browser: bool = True,
     allow_public: bool = False,
     initial_profile: str = "",

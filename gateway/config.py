@@ -2326,7 +2326,7 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             # falsy so the adapter's dual-stack DEFAULT_HOST=None applies
             # (binds IPv4 + IPv6; "0.0.0.0" was IPv4-only, NS-603).
             "host": getenv("WECOM_CALLBACK_HOST", ""),
-            "port": getenv_int("WECOM_CALLBACK_PORT", 8645),
+            "port": getenv_int("WECOM_CALLBACK_PORT", 8745),
         })
 
     # Weixin (personal WeChat via iLink Bot API)
@@ -2382,7 +2382,7 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             "server_url": bluebubbles_server_url.rstrip("/"),
             "password": bluebubbles_password,
             "webhook_host": getenv("BLUEBUBBLES_WEBHOOK_HOST", "127.0.0.1"),
-            "webhook_port": getenv_int("BLUEBUBBLES_WEBHOOK_PORT", 8645),
+            "webhook_port": getenv_int("BLUEBUBBLES_WEBHOOK_PORT", 8745),
             "webhook_path": getenv("BLUEBUBBLES_WEBHOOK_PATH", "/bluebubbles-webhook"),
             "send_read_receipts": is_truthy_value(getenv("BLUEBUBBLES_SEND_READ_RECEIPTS", "true")),
         })

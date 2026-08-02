@@ -47,7 +47,6 @@ from gateway.platforms.api_server import (
 
 
 class TestCheckRequirements:
-
     @patch("gateway.platforms.api_server.AIOHTTP_AVAILABLE", False)
     def test_returns_false_without_aiohttp(self):
         assert check_api_server_requirements() is False
@@ -71,7 +70,9 @@ class TestRedactApiErrorText:
         # force=True must mask even when global redaction is disabled.
         secret = "sk-forced-redaction-0987654321"
         with patch("agent.redact._REDACT_ENABLED", False):
-            out = _redact_api_error_text(Exception(f"boom AWS_SECRET_ACCESS_KEY={secret}"))
+            out = _redact_api_error_text(
+                Exception(f"boom AWS_SECRET_ACCESS_KEY={secret}")
+            )
         assert secret not in out
 
     def test_limit_truncates_after_redaction(self):
@@ -103,7 +104,6 @@ class TestResponseStore:
         assert store.get("resp_1") is None
         assert store.get("resp_2") is not None
         assert len(store) == 3
-
 
     def test_delete_clears_conversation_mapping(self):
         """Deleting a response also removes conversation mappings that reference it."""
@@ -157,7 +157,7 @@ class TestAdapterInit:
         config = PlatformConfig(enabled=True)
         adapter = APIServerAdapter(config)
         assert adapter._host == "127.0.0.1"
-        assert adapter._port == 8642
+        assert adapter._port == 8742
         assert adapter._api_key == ""
         assert adapter.platform == Platform.API_SERVER
 
@@ -176,7 +176,6 @@ class TestAdapterInit:
         assert adapter._port == 9999
         assert adapter._api_key == "sk-test"
         assert adapter._cors_origins == ("http://localhost:3000",)
-
 
     def test_create_agent_forwards_runtime_config(self, monkeypatch):
         captured = {}
@@ -211,8 +210,12 @@ class TestAdapterInit:
             "gateway.run.GatewayRunner._load_reasoning_config",
             staticmethod(lambda: {"enabled": True, "effort": "xhigh"}),
         )
-        monkeypatch.setattr("gateway.run.GatewayRunner._load_fallback_model", staticmethod(lambda: None))
-        monkeypatch.setattr("hermes_cli.tools_config._get_platform_tools", lambda *_: set())
+        monkeypatch.setattr(
+            "gateway.run.GatewayRunner._load_fallback_model", staticmethod(lambda: None)
+        )
+        monkeypatch.setattr(
+            "hermes_cli.tools_config._get_platform_tools", lambda *_: set()
+        )
 
         adapter = APIServerAdapter(PlatformConfig(enabled=True))
         monkeypatch.setattr(adapter, "_ensure_session_db", lambda: None)
@@ -240,7 +243,6 @@ class TestAuth:
         mock_request.headers = {}
         assert adapter._check_auth(mock_request) is None
 
-
     def test_non_ascii_bearer_token_returns_401_not_500(self):
         """A non-ASCII byte in the bearer token must be rejected with 401, not
         crash the handler: hmac.compare_digest raises TypeError on a str with
@@ -260,12 +262,10 @@ class TestAuth:
 
 
 class TestConcurrencyCap:
-
     def test_resolve_reads_config_value(self):
         cfg = {"gateway": {"api_server": {"max_concurrent_runs": 3}}}
         with patch("hermes_cli.config.load_config", return_value=cfg):
             assert APIServerAdapter._resolve_max_concurrent_runs() == 3
-
 
     def test_under_cap_returns_none(self):
         adapter = _make_adapter()
@@ -301,7 +301,9 @@ def _make_adapter(api_key: str = "", cors_origins=None) -> APIServerAdapter:
 
 def _create_app(adapter: APIServerAdapter) -> web.Application:
     """Create the aiohttp app from the adapter (without starting the full server)."""
-    mws = [mw for mw in (cors_middleware, security_headers_middleware) if mw is not None]
+    mws = [
+        mw for mw in (cors_middleware, security_headers_middleware) if mw is not None
+    ]
     app = web.Application(middlewares=mws)
     app["api_server_adapter"] = adapter
     app.router.add_get("/health", adapter._handle_health)
@@ -313,11 +315,15 @@ def _create_app(adapter: APIServerAdapter) -> web.Application:
     app.router.add_get("/v1/skills", adapter._handle_skills)
     app.router.add_get("/v1/toolsets", adapter._handle_toolsets)
     app.router.add_post("/api/sessions/{session_id}/chat", adapter._handle_session_chat)
-    app.router.add_post("/api/sessions/{session_id}/chat/stream", adapter._handle_session_chat_stream)
+    app.router.add_post(
+        "/api/sessions/{session_id}/chat/stream", adapter._handle_session_chat_stream
+    )
     app.router.add_post("/v1/chat/completions", adapter._handle_chat_completions)
     app.router.add_post("/v1/responses", adapter._handle_responses)
     app.router.add_get("/v1/responses/{response_id}", adapter._handle_get_response)
-    app.router.add_delete("/v1/responses/{response_id}", adapter._handle_delete_response)
+    app.router.add_delete(
+        "/v1/responses/{response_id}", adapter._handle_delete_response
+    )
     app.router.add_post(
         "/api/platforms/{platform}/events",
         adapter._handle_platform_event_callback,
@@ -365,7 +371,9 @@ class TestAgentExecution:
         mock_agent.session_total_tokens = 3
 
         model_options = {"reasoning": {"enabled": False}, "fast": False}
-        with patch.object(adapter, "_create_agent", return_value=mock_agent) as mock_create_agent:
+        with patch.object(
+            adapter, "_create_agent", return_value=mock_agent
+        ) as mock_create_agent:
             result, usage = await adapter._run_agent(
                 user_message="hello",
                 conversation_history=[],
@@ -442,10 +450,9 @@ class TestDisconnectedAgentReap:
         monkeypatch.setattr(
             process_registry,
             "kill_started_since",
-            lambda task_id, baseline, *, source: calls.append(
-                (task_id, baseline, source)
-            )
-            or 1,
+            lambda task_id, baseline, *, source: (
+                calls.append((task_id, baseline, source)) or 1
+            ),
         )
         agent = types.SimpleNamespace(
             _gateway_turn_process_task_id="session-abc",
@@ -597,10 +604,9 @@ class TestDisconnectedAgentReap:
         monkeypatch.setattr(
             process_registry,
             "kill_started_since",
-            lambda task_id, baseline, *, source: calls.append(
-                (task_id, baseline, source)
-            )
-            or 1,
+            lambda task_id, baseline, *, source: (
+                calls.append((task_id, baseline, source)) or 1
+            ),
         )
         monkeypatch.setattr(
             process_registry, "snapshot_running_ids", lambda _tid: frozenset()
@@ -623,9 +629,10 @@ class TestDisconnectedAgentReap:
 
 
 class TestRunEventCallback:
-
     @pytest.mark.asyncio
-    async def test_subagent_events_redact_secrets_and_carry_child_session(self, adapter):
+    async def test_subagent_events_redact_secrets_and_carry_child_session(
+        self, adapter
+    ):
         """Free-text fields (goal/summary/output_tail/preview) must pass the
         forced secret redaction before hitting the public /v1/runs stream,
         and child_session_id must survive the allowlist so clients can
@@ -668,14 +675,22 @@ class TestHealthEndpoint:
         async with TestClient(TestServer(app)) as cli:
             resp = await cli.get("/health")
             assert resp.status == 200
-            assert resp.headers.get("Content-Security-Policy") == "default-src 'none'; frame-ancestors 'none'"
-            assert resp.headers.get("Permissions-Policy") == "camera=(), microphone=(), geolocation=()"
-            assert resp.headers.get("Strict-Transport-Security") == "max-age=31536000; includeSubDomains"
+            assert (
+                resp.headers.get("Content-Security-Policy")
+                == "default-src 'none'; frame-ancestors 'none'"
+            )
+            assert (
+                resp.headers.get("Permissions-Policy")
+                == "camera=(), microphone=(), geolocation=()"
+            )
+            assert (
+                resp.headers.get("Strict-Transport-Security")
+                == "max-age=31536000; includeSubDomains"
+            )
             assert resp.headers.get("X-Content-Type-Options") == "nosniff"
             assert resp.headers.get("X-Frame-Options") == "DENY"
             assert resp.headers.get("X-XSS-Protection") == "0"
             assert resp.headers.get("Referrer-Policy") == "no-referrer"
-
 
     @pytest.mark.asyncio
     async def test_health_reports_version(self, adapter):
@@ -702,13 +717,19 @@ class TestHealthDetailedEndpoint:
     async def test_health_detailed_returns_ok(self, adapter):
         """GET /health/detailed returns status, platform, and runtime fields."""
         app = _create_app(adapter)
-        with patch("gateway.status.read_runtime_status", return_value={
-            "gateway_state": "running",
-            "platforms": {"telegram": {"state": "connected"}},
-            "active_agents": 2,
-            "exit_reason": None,
-            "updated_at": "2026-04-14T00:00:00Z",
-        }), patch("gateway.run._resolve_gateway_model", return_value="test/model"):
+        with (
+            patch(
+                "gateway.status.read_runtime_status",
+                return_value={
+                    "gateway_state": "running",
+                    "platforms": {"telegram": {"state": "connected"}},
+                    "active_agents": 2,
+                    "exit_reason": None,
+                    "updated_at": "2026-04-14T00:00:00Z",
+                },
+            ),
+            patch("gateway.run._resolve_gateway_model", return_value="test/model"),
+        ):
             async with TestClient(TestServer(app)) as cli:
                 resp = await cli.get("/health/detailed")
                 assert resp.status == 200
@@ -725,7 +746,6 @@ class TestHealthDetailedEndpoint:
                 assert isinstance(data["pid"], int)
                 assert "updated_at" in data
 
-
     @pytest.mark.asyncio
     async def test_public_health_does_not_run_readiness_probes(self, adapter):
         app = _create_app(adapter)
@@ -735,7 +755,6 @@ class TestHealthDetailedEndpoint:
                 assert resp.status == 200
                 assert (await resp.json())["status"] == "ok"
         probe.assert_not_called()
-
 
     def test_readiness_work_counts_include_stopping_runs(self, adapter):
         """Regression: _handle_stop_run() sets status="stopping" and holds it
@@ -753,8 +772,13 @@ class TestHealthDetailedEndpoint:
             "cancelled": {"status": "cancelled"},
         }
 
-        with patch("tools.process_registry.process_registry.completion_queue.qsize", return_value=0), \
-             patch("tools.async_delegation.active_count", return_value=0):
+        with (
+            patch(
+                "tools.process_registry.process_registry.completion_queue.qsize",
+                return_value=0,
+            ),
+            patch("tools.async_delegation.active_count", return_value=0),
+        ):
             assert adapter._readiness_work_counts() == (4, 0, 0)
 
 
@@ -779,7 +803,10 @@ class TestModelsEndpoint:
     @pytest.mark.asyncio
     async def test_models_returns_profile_name(self):
         """When running under a named profile, /v1/models advertises the profile name."""
-        with patch("gateway.platforms.api_server.APIServerAdapter._resolve_model_name", return_value="lucas"):
+        with patch(
+            "gateway.platforms.api_server.APIServerAdapter._resolve_model_name",
+            return_value="lucas",
+        ):
             adapter = _make_adapter()
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
@@ -789,12 +816,12 @@ class TestModelsEndpoint:
             assert data["data"][0]["id"] == "lucas"
             assert data["data"][0]["root"] == "lucas"
 
-
     def test_resolve_model_name_default_profile(self):
         """Default profile falls back to 'hermes-agent'."""
-        with patch("hermes_cli.profiles.get_active_profile_name", return_value="default"):
+        with patch(
+            "hermes_cli.profiles.get_active_profile_name", return_value="default"
+        ):
             assert APIServerAdapter._resolve_model_name("") == "hermes-agent"
-
 
     @pytest.mark.asyncio
     async def test_model_options_returns_shared_inventory(self, adapter, monkeypatch):
@@ -803,7 +830,9 @@ class TestModelsEndpoint:
 
         ctx = object()
         payload = {
-            "providers": [{"slug": "nous", "name": "Nous Portal", "models": ["gpt-5.5"]}],
+            "providers": [
+                {"slug": "nous", "name": "Nous Portal", "models": ["gpt-5.5"]}
+            ],
             "model": "gpt-5.5",
             "provider": "nous",
         }
@@ -871,11 +900,22 @@ class TestCapabilitiesEndpoint:
             assert data["features"]["run_status"] is True
             assert data["features"]["run_events_sse"] is True
             assert data["features"]["model_options"] is True
-            assert data["features"]["session_continuity_header"] == "X-Hermes-Session-Id"
+            assert (
+                data["features"]["session_continuity_header"] == "X-Hermes-Session-Id"
+            )
             assert data["endpoints"]["run_status"]["path"] == "/v1/runs/{run_id}"
-            assert data["endpoints"]["model_options"] == {"method": "GET", "path": "/api/model/options"}
-            assert data["endpoints"]["skills"] == {"method": "GET", "path": "/v1/skills"}
-            assert data["endpoints"]["toolsets"] == {"method": "GET", "path": "/v1/toolsets"}
+            assert data["endpoints"]["model_options"] == {
+                "method": "GET",
+                "path": "/api/model/options",
+            }
+            assert data["endpoints"]["skills"] == {
+                "method": "GET",
+                "path": "/v1/skills",
+            }
+            assert data["endpoints"]["toolsets"] == {
+                "method": "GET",
+                "path": "/v1/toolsets",
+            }
 
 
 # ---------------------------------------------------------------------------
@@ -887,8 +927,16 @@ class TestSkillsEndpoint:
     @pytest.mark.asyncio
     async def test_skills_returns_list_envelope(self, adapter):
         fake_skills = [
-            {"name": "github", "description": "GitHub workflow skill", "category": "github"},
-            {"name": "ascii-art", "description": "ASCII art generation", "category": "creative"},
+            {
+                "name": "github",
+                "description": "GitHub workflow skill",
+                "category": "github",
+            },
+            {
+                "name": "ascii-art",
+                "description": "ASCII art generation",
+                "category": "creative",
+            },
         ]
         with patch(
             "tools.skills_tool._find_all_skills",
@@ -913,21 +961,26 @@ class TestToolsetsEndpoint:
             ("default", "Default Tools", "Core tools"),
             ("web", "Web Tools", "Search and extract"),
         ]
-        with patch(
-            "hermes_cli.tools_config._get_effective_configurable_toolsets",
-            return_value=fake_toolsets,
-        ), patch(
-            "hermes_cli.tools_config._get_platform_tools",
-            return_value={"default"},
-        ), patch(
-            "hermes_cli.tools_config._toolset_has_keys",
-            return_value=True,
-        ), patch(
-            "toolsets.resolve_toolset",
-            side_effect=lambda name: {
-                "default": ["terminal", "read_file"],
-                "web": ["web_search"],
-            }[name],
+        with (
+            patch(
+                "hermes_cli.tools_config._get_effective_configurable_toolsets",
+                return_value=fake_toolsets,
+            ),
+            patch(
+                "hermes_cli.tools_config._get_platform_tools",
+                return_value={"default"},
+            ),
+            patch(
+                "hermes_cli.tools_config._toolset_has_keys",
+                return_value=True,
+            ),
+            patch(
+                "toolsets.resolve_toolset",
+                side_effect=lambda name: {
+                    "default": ["terminal", "read_file"],
+                    "web": ["web_search"],
+                }[name],
+            ),
         ):
             app = _create_app(adapter)
             async with TestClient(TestServer(app)) as cli:
@@ -972,11 +1025,16 @@ class TestChatCompletionsEndpoint:
             data = await resp.json()
             assert "messages" in data["error"]["message"]
 
-
     @pytest.mark.asyncio
-    async def test_chat_completions_stream_passes_request_model_provider_options(self, adapter):
+    async def test_chat_completions_stream_passes_request_model_provider_options(
+        self, adapter
+    ):
         app = _create_app(adapter)
-        model_options = {"reasoning": {"enabled": False}, "reasoning_effort": "none", "fast": False}
+        model_options = {
+            "reasoning": {"enabled": False},
+            "reasoning_effort": "none",
+            "fast": False,
+        }
 
         async def _mock_run_agent(**kwargs):
             cb = kwargs.get("stream_delta_callback")
@@ -989,7 +1047,9 @@ class TestChatCompletionsEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", side_effect=_mock_run_agent) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", side_effect=_mock_run_agent
+            ) as mock_run:
                 resp = await cli.post(
                     "/v1/chat/completions",
                     json={
@@ -1009,15 +1069,22 @@ class TestChatCompletionsEndpoint:
         assert kwargs["requested_provider"] == "minimax"
         assert kwargs["model_options"] == model_options
 
-
     @pytest.mark.asyncio
-    async def test_session_chat_stream_passes_request_model_provider_options(self, adapter):
+    async def test_session_chat_stream_passes_request_model_provider_options(
+        self, adapter
+    ):
         app = _create_app(adapter)
         model_options = {"reasoning_effort": "medium", "service_tier": "priority"}
         async with TestClient(TestServer(app)) as cli:
             with (
-                patch.object(adapter, "_get_existing_session_or_404", return_value=({"id": "s1"}, None)),
-                patch.object(adapter, "_conversation_history_for_session", return_value=[]),
+                patch.object(
+                    adapter,
+                    "_get_existing_session_or_404",
+                    return_value=({"id": "s1"}, None),
+                ),
+                patch.object(
+                    adapter, "_conversation_history_for_session", return_value=[]
+                ),
                 patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run,
             ):
                 mock_run.return_value = (
@@ -1042,12 +1109,14 @@ class TestChatCompletionsEndpoint:
         assert kwargs["requested_provider"] == "minimax"
         assert kwargs["model_options"] == model_options
 
-
     @pytest.mark.asyncio
-    async def test_stream_task_done_callback_enqueues_eos_for_chat_completions(self, adapter):
+    async def test_stream_task_done_callback_enqueues_eos_for_chat_completions(
+        self, adapter
+    ):
         """Regression guard for #24451: completion callback must signal SSE EOS."""
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
+
             class _FakeTask:
                 def __init__(self):
                     self.callbacks = []
@@ -1073,8 +1142,13 @@ class TestChatCompletionsEndpoint:
                         )
                     ),
                 ),
-                patch("gateway.platforms.api_server.asyncio.ensure_future", side_effect=_fake_ensure_future),
-                patch.object(adapter, "_write_sse_chat_completion", new_callable=AsyncMock) as mock_write_sse,
+                patch(
+                    "gateway.platforms.api_server.asyncio.ensure_future",
+                    side_effect=_fake_ensure_future,
+                ),
+                patch.object(
+                    adapter, "_write_sse_chat_completion", new_callable=AsyncMock
+                ) as mock_write_sse,
             ):
                 mock_write_sse.return_value = web.Response(status=200, text="ok")
                 resp = await cli.post(
@@ -1093,7 +1167,6 @@ class TestChatCompletionsEndpoint:
             fake_task.callbacks[0](fake_task)
             assert stream_q.get_nowait() is None
 
-
     @pytest.mark.asyncio
     async def test_stream_includes_tool_progress(self, adapter):
         """tool_start_callback fires → progress appears as custom SSE event, not in delta.content."""
@@ -1101,6 +1174,7 @@ class TestChatCompletionsEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
+
             async def _mock_run_agent(**kwargs):
                 cb = kwargs.get("stream_delta_callback")
                 ts_cb = kwargs.get("tool_start_callback")
@@ -1111,7 +1185,11 @@ class TestChatCompletionsEndpoint:
                     await asyncio.sleep(0.05)
                     cb("Here are the files.")
                 return (
-                    {"final_response": "Here are the files.", "messages": [], "api_calls": 1},
+                    {
+                        "final_response": "Here are the files.",
+                        "messages": [],
+                        "api_calls": 1,
+                    },
                     {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
                 )
 
@@ -1139,20 +1217,23 @@ class TestChatCompletionsEndpoint:
                 # The progress marker must NOT appear inside any
                 # chat.completion.chunk delta.content field.
                 import json as _json
+
                 for line in body.splitlines():
                     if line.startswith("data: ") and line.strip() != "data: [DONE]":
                         try:
-                            chunk = _json.loads(line[len("data: "):])
+                            chunk = _json.loads(line[len("data: ") :])
                         except _json.JSONDecodeError:
                             continue
                         if chunk.get("object") == "chat.completion.chunk":
                             for choice in chunk.get("choices", []):
                                 content = choice.get("delta", {}).get("content", "")
                                 # Tool emoji markers must never leak into content
-                                assert "ls -la" not in content or content == "Here are the files."
+                                assert (
+                                    "ls -la" not in content
+                                    or content == "Here are the files."
+                                )
                 # Final content must also be present
                 assert "Here are the files." in body
-
 
     @pytest.mark.asyncio
     async def test_stream_emits_tool_lifecycle_with_call_id(self, adapter):
@@ -1174,6 +1255,7 @@ class TestChatCompletionsEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
+
             async def _mock_run_agent(**kwargs):
                 cb = kwargs.get("stream_delta_callback")
                 ts_cb = kwargs.get("tool_start_callback")
@@ -1214,10 +1296,10 @@ class TestChatCompletionsEndpoint:
             for i, line in enumerate(lines):
                 if line.strip() != "event: hermes.tool.progress":
                     continue
-                for follow in lines[i + 1: i + 4]:
+                for follow in lines[i + 1 : i + 4]:
                     if follow.startswith("data: "):
                         try:
-                            payload = _json.loads(follow[len("data: "):])
+                            payload = _json.loads(follow[len("data: ") :])
                         except _json.JSONDecodeError:
                             break
                         pairs.append((payload.get("status"), payload.get("toolCallId")))
@@ -1227,12 +1309,16 @@ class TestChatCompletionsEndpoint:
             # legacy + new emit), and each lifecycle pair must carry the
             # same toolCallId on every event — not just somewhere in the
             # aggregate.
-            assert len(pairs) == 2, f"expected 2 events (running+completed), got {pairs}"
+            assert len(pairs) == 2, (
+                f"expected 2 events (running+completed), got {pairs}"
+            )
             assert pairs[0] == ("running", "call_terminal_1"), pairs
             assert pairs[1] == ("completed", "call_terminal_1"), pairs
 
     @pytest.mark.asyncio
-    async def test_stream_tool_lifecycle_skips_internal_and_orphan_completes(self, adapter):
+    async def test_stream_tool_lifecycle_skips_internal_and_orphan_completes(
+        self, adapter
+    ):
         """Internal tools (``_thinking``-style) and ``completed`` events
         without a prior matching ``running`` must produce no lifecycle
         events on the wire — otherwise clients would see orphaned
@@ -1241,6 +1327,7 @@ class TestChatCompletionsEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
+
             async def _mock_run_agent(**kwargs):
                 cb = kwargs.get("stream_delta_callback")
                 ts_cb = kwargs.get("tool_start_callback")
@@ -1293,7 +1380,6 @@ class TestDeriveChatSessionId:
         b = _derive_chat_session_id("sys", "hello")
         assert a == b
 
-
     def test_different_system_prompt(self):
         a = _derive_chat_session_id("You are a pirate.", "Hello")
         b = _derive_chat_session_id("You are a robot.", "Hello")
@@ -1306,8 +1392,6 @@ class TestDeriveChatSessionId:
 
 
 class TestResponsesEndpoint:
-
-
     @pytest.mark.asyncio
     async def test_successful_response_with_string_input(self, adapter):
         """String input is wrapped in a user message."""
@@ -1319,8 +1403,13 @@ class TestResponsesEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/responses",
                     json={
@@ -1337,11 +1426,15 @@ class TestResponsesEndpoint:
             assert len(data["output"]) == 1
             assert data["output"][0]["type"] == "message"
             assert data["output"][0]["content"][0]["type"] == "output_text"
-            assert data["output"][0]["content"][0]["text"] == "Paris is the capital of France."
-
+            assert (
+                data["output"][0]["content"][0]["text"]
+                == "Paris is the capital of France."
+            )
 
     @pytest.mark.asyncio
-    async def test_previous_response_id_stores_compressed_transcript_directly(self, adapter):
+    async def test_previous_response_id_stores_compressed_transcript_directly(
+        self, adapter
+    ):
         """After compression, stored history is the compressed transcript, not prior + compressed."""
         prior_history = [
             {"role": "user", "content": "What is 1+1?"},
@@ -1365,7 +1458,9 @@ class TestResponsesEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {
                         "final_response": "3",
@@ -1395,7 +1490,6 @@ class TestResponsesEndpoint:
             )
         # Must contain the compressed transcript
         assert stored_history == compressed_history
-
 
     @pytest.mark.asyncio
     async def test_previous_response_id_outputs_only_current_turn_items(self, adapter):
@@ -1453,7 +1547,9 @@ class TestResponsesEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {
                         "final_response": "new",
@@ -1478,7 +1574,6 @@ class TestResponsesEndpoint:
         assert "call_old" not in output_json
         assert "old.txt" not in output_json
 
-
     @pytest.mark.asyncio
     async def test_invalid_previous_response_id_returns_404(self, adapter):
         app = _create_app(adapter)
@@ -1493,7 +1588,6 @@ class TestResponsesEndpoint:
             )
             assert resp.status == 404
 
-
     @pytest.mark.asyncio
     async def test_store_string_false_does_not_store(self, adapter):
         """Quoted false must preserve ephemeral store=false semantics."""
@@ -1501,7 +1595,9 @@ class TestResponsesEndpoint:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     mock_result,
                     {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
@@ -1527,8 +1623,13 @@ class TestResponsesEndpoint:
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
             # First request with instructions
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp1 = await cli.post(
                     "/v1/responses",
                     json={
@@ -1542,8 +1643,13 @@ class TestResponsesEndpoint:
             resp_id = data1["id"]
 
             # Second request without instructions
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp2 = await cli.post(
                     "/v1/responses",
                     json={
@@ -1557,13 +1663,14 @@ class TestResponsesEndpoint:
             call_kwargs = mock_run.call_args.kwargs
             assert call_kwargs["ephemeral_system_prompt"] == "Be a pirate"
 
-
     @pytest.mark.asyncio
     async def test_result_error_fallback_is_redacted(self, adapter):
         raw_secret = "sk-responses-leak-1234567890"
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {
                         "final_response": "",
@@ -1583,17 +1690,19 @@ class TestResponsesEndpoint:
             body = json.dumps(data)
             assert raw_secret not in body
             assert "OPENAI_API_KEY=" in body
-            assert data["output"][0]["content"][0]["text"] != f"provider auth failed OPENAI_API_KEY={raw_secret}"
+            assert (
+                data["output"][0]["content"][0]["text"]
+                != f"provider auth failed OPENAI_API_KEY={raw_secret}"
+            )
 
 
 class TestResponsesStreaming:
-
-
     @pytest.mark.asyncio
     async def test_stream_task_done_callback_enqueues_eos_for_responses(self, adapter):
         """Regression guard for #24451 on /v1/responses streaming path."""
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
+
             class _FakeTask:
                 def __init__(self):
                     self.callbacks = []
@@ -1619,8 +1728,13 @@ class TestResponsesStreaming:
                         )
                     ),
                 ),
-                patch("gateway.platforms.api_server.asyncio.ensure_future", side_effect=_fake_ensure_future),
-                patch.object(adapter, "_write_sse_responses", new_callable=AsyncMock) as mock_write_sse,
+                patch(
+                    "gateway.platforms.api_server.asyncio.ensure_future",
+                    side_effect=_fake_ensure_future,
+                ),
+                patch.object(
+                    adapter, "_write_sse_responses", new_callable=AsyncMock
+                ) as mock_write_sse,
             ):
                 mock_write_sse.return_value = web.Response(status=200, text="ok")
                 resp = await cli.post(
@@ -1634,7 +1748,6 @@ class TestResponsesStreaming:
             assert stream_q.empty()
             fake_task.callbacks[0](fake_task)
             assert stream_q.get_nowait() is None
-
 
     @pytest.mark.asyncio
     async def test_stream_cancelled_persists_incomplete_snapshot(self, adapter):
@@ -1678,7 +1791,9 @@ class TestResponsesStreaming:
         agent_task = asyncio.ensure_future(_agent_coro())
         response_id = f"resp_{uuid.uuid4().hex[:28]}"
 
-        with patch.object(api_mod.web, "StreamResponse", return_value=_FakeStreamResponse()):
+        with patch.object(
+            api_mod.web, "StreamResponse", return_value=_FakeStreamResponse()
+        ):
             with pytest.raises(asyncio.CancelledError):
                 await adapter._write_sse_responses(
                     request=fake_request,
@@ -1742,13 +1857,17 @@ class TestResponsesStreaming:
 
         async def _agent_coro():
             await asyncio.sleep(0.01)
-            return ({"final_response": "", "messages": [], "api_calls": 0},
-                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            return (
+                {"final_response": "", "messages": [], "api_calls": 0},
+                {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            )
 
         agent_task = asyncio.ensure_future(_agent_coro())
         response_id = f"resp_{uuid.uuid4().hex[:28]}"
 
-        with patch.object(api_mod.web, "StreamResponse", return_value=_DisconnectingStreamResponse()):
+        with patch.object(
+            api_mod.web, "StreamResponse", return_value=_DisconnectingStreamResponse()
+        ):
             await adapter._write_sse_responses(
                 request=fake_request,
                 response_id=response_id,
@@ -1796,7 +1915,6 @@ class TestConfigIntegration:
     def test_platform_enum_has_api_server(self):
         assert Platform.API_SERVER.value == "api_server"
 
-
     def test_env_override_cors_origins(self, monkeypatch):
         monkeypatch.setenv("API_SERVER_ENABLED", "true")
         monkeypatch.setenv("API_SERVER_KEY", "opensslrandhex32strongkey")
@@ -1805,6 +1923,7 @@ class TestConfigIntegration:
             "http://localhost:3000, http://127.0.0.1:3000",
         )
         from gateway.config import load_gateway_config
+
         config = load_gateway_config()
         assert config.platforms[Platform.API_SERVER].extra.get("cors_origins") == [
             "http://localhost:3000",
@@ -1832,8 +1951,13 @@ class TestMultipleSystemMessages:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/chat/completions",
                     json={
@@ -1869,7 +1993,6 @@ class TestSendMethod:
 
 
 class TestPlatformEventCallbackEndpoint:
-
     @pytest.mark.asyncio
     async def test_rejects_invalid_google_chat_auth(self, adapter):
         app = _create_app(adapter)
@@ -1906,8 +2029,13 @@ class TestGetResponse:
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
             # Create a response first
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+                )
                 resp = await cli.post(
                     "/v1/responses",
                     json={"model": "hermes-agent", "input": "Hi"},
@@ -1939,8 +2067,13 @@ class TestDeleteResponse:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/responses",
                     json={"model": "hermes-agent", "input": "Hi"},
@@ -2002,8 +2135,13 @@ class TestToolCallsInOutput:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/responses",
                     json={"model": "hermes-agent", "input": "What is 6*7?"},
@@ -2040,7 +2178,9 @@ class TestUsageCounting:
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (mock_result, usage)
                 resp = await cli.post(
                     "/v1/responses",
@@ -2060,10 +2200,10 @@ class TestUsageCounting:
 
 
 class TestTruncation:
-
-
     @pytest.mark.asyncio
-    async def test_truncation_auto_preserves_non_leading_compaction_summary(self, adapter):
+    async def test_truncation_auto_preserves_non_leading_compaction_summary(
+        self, adapter
+    ):
         """A summary sitting after a retained system head must survive too.
 
         The gateway /compress path can force a user-leading layout that
@@ -2079,19 +2219,26 @@ class TestTruncation:
             "_compressed_summary": True,
         }
         long_history = [system_head, summary] + [
-            {"role": "user", "content": f"msg {i}"}
-            for i in range(148)
+            {"role": "user", "content": f"msg {i}"} for i in range(148)
         ]
-        adapter._response_store.put("resp_summary_mid", {
-            "response": {"id": "resp_summary_mid", "object": "response"},
-            "conversation_history": long_history,
-            "instructions": None,
-        })
+        adapter._response_store.put(
+            "resp_summary_mid",
+            {
+                "response": {"id": "resp_summary_mid", "object": "response"},
+                "conversation_history": long_history,
+                "instructions": None,
+            },
+        )
 
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/responses",
                     json={
@@ -2121,7 +2268,6 @@ class TestChatCompletionsAgentIncomplete:
     finish_reason='length' (with the partial text), or 502 with an OpenAI
     error envelope (no usable text). Issue #22496."""
 
-
     @pytest.mark.asyncio
     async def test_hard_failure_redacts_secret_like_error_text(self, adapter):
         raw_secret = "sk-api-server-leak-1234567890"
@@ -2136,11 +2282,19 @@ class TestChatCompletionsAgentIncomplete:
         }
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/chat/completions",
-                    json={"model": "hermes-agent", "messages": [{"role": "user", "content": "hello"}]},
+                    json={
+                        "model": "hermes-agent",
+                        "messages": [{"role": "user", "content": "hello"}],
+                    },
                 )
 
             assert resp.status == 502
@@ -2161,11 +2315,9 @@ class TestCORS:
     def test_origin_allowed_for_non_browser_client(self, adapter):
         assert adapter._origin_allowed("") is True
 
-
     def test_origin_allowed_for_allowlist_match(self):
         adapter = _make_adapter(cors_origins=["http://localhost:3000"])
         assert adapter._origin_allowed("http://localhost:3000") is True
-
 
     @pytest.mark.asyncio
     async def test_browser_origin_rejected_by_default(self, adapter):
@@ -2175,7 +2327,6 @@ class TestCORS:
             resp = await cli.get("/health", headers={"Origin": "http://evil.example"})
             assert resp.status == 403
             assert resp.headers.get("Access-Control-Allow-Origin") is None
-
 
     @pytest.mark.asyncio
     async def test_cors_allows_idempotency_key_header(self):
@@ -2191,8 +2342,9 @@ class TestCORS:
                 },
             )
             assert resp.status == 200
-            assert "Idempotency-Key" in resp.headers.get("Access-Control-Allow-Headers", "")
-
+            assert "Idempotency-Key" in resp.headers.get(
+                "Access-Control-Allow-Headers", ""
+            )
 
     @pytest.mark.asyncio
     async def test_cors_options_preflight_allowed_for_configured_origin(self):
@@ -2209,8 +2361,13 @@ class TestCORS:
                 },
             )
             assert resp.status == 200
-            assert resp.headers.get("Access-Control-Allow-Origin") == "http://localhost:3000"
-            assert "Authorization" in resp.headers.get("Access-Control-Allow-Headers", "")
+            assert (
+                resp.headers.get("Access-Control-Allow-Origin")
+                == "http://localhost:3000"
+            )
+            assert "Authorization" in resp.headers.get(
+                "Access-Control-Allow-Headers", ""
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -2219,30 +2376,37 @@ class TestCORS:
 
 
 class TestConversationParameter:
-
-
     @pytest.mark.asyncio
     async def test_separate_conversations_are_isolated(self, adapter):
         """Different conversation names have independent histories."""
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {"final_response": "Response A", "messages": [], "api_calls": 1},
                     {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
                 )
                 # Conversation A
-                await cli.post("/v1/responses", json={"input": "conv-a msg", "conversation": "conv-a"})
+                await cli.post(
+                    "/v1/responses",
+                    json={"input": "conv-a msg", "conversation": "conv-a"},
+                )
                 # Conversation B
                 mock_run.return_value = (
                     {"final_response": "Response B", "messages": [], "api_calls": 1},
                     {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
                 )
-                await cli.post("/v1/responses", json={"input": "conv-b msg", "conversation": "conv-b"})
+                await cli.post(
+                    "/v1/responses",
+                    json={"input": "conv-b msg", "conversation": "conv-b"},
+                )
 
                 # They should have different response IDs in the mapping
-                assert adapter._response_store.get_conversation("conv-a") != adapter._response_store.get_conversation("conv-b")
-
+                assert adapter._response_store.get_conversation(
+                    "conv-a"
+                ) != adapter._response_store.get_conversation("conv-b")
 
     @pytest.mark.asyncio
     async def test_conversation_reuse_after_eviction_no_404(self, adapter):
@@ -2250,16 +2414,21 @@ class TestConversationParameter:
         adapter._response_store = ResponseStore(max_size=1)
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {"final_response": "First", "messages": [], "api_calls": 1},
                     {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
                 )
                 # Create conversation -> resp stored
-                resp1 = await cli.post("/v1/responses", json={
-                    "input": "hello",
-                    "conversation": "my-chat",
-                })
+                resp1 = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "input": "hello",
+                        "conversation": "my-chat",
+                    },
+                )
                 assert resp1.status == 200
 
                 # Evict by adding another response
@@ -2277,10 +2446,13 @@ class TestConversationParameter:
                     {"final_response": "Restarted", "messages": [], "api_calls": 1},
                     {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
                 )
-                resp3 = await cli.post("/v1/responses", json={
-                    "input": "hello again",
-                    "conversation": "my-chat",
-                })
+                resp3 = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "input": "hello again",
+                        "conversation": "my-chat",
+                    },
+                )
                 assert resp3.status == 200
 
 
@@ -2290,8 +2462,6 @@ class TestConversationParameter:
 
 
 class TestSessionIdHeader:
-
-
     @pytest.mark.asyncio
     async def test_traversal_session_id_header_rejected(self, auth_adapter):
         """Security (#5958): a path-traversal X-Hermes-Session-Id must be
@@ -2299,12 +2469,20 @@ class TestSessionIdHeader:
         (session snapshot / request dump) and escape the sessions dir."""
         app = _create_app(auth_adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(auth_adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                auth_adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 for bad in ("../../../../etc/pwned", "/abs/path", "..\\win"):
                     resp = await cli.post(
                         "/v1/chat/completions",
-                        headers={"X-Hermes-Session-Id": bad, "Authorization": "Bearer sk-secret"},
-                        json={"model": "hermes-agent", "messages": [{"role": "user", "content": "hi"}]},
+                        headers={
+                            "X-Hermes-Session-Id": bad,
+                            "Authorization": "Bearer sk-secret",
+                        },
+                        json={
+                            "model": "hermes-agent",
+                            "messages": [{"role": "user", "content": "hi"}],
+                        },
                     )
                     assert resp.status == 400, f"{bad!r} should be rejected"
                 # The agent is never invoked for a rejected ID.
@@ -2323,12 +2501,20 @@ class TestSessionIdHeader:
         auth_adapter._session_db = mock_db
         app = _create_app(auth_adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(auth_adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                auth_adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
 
                 resp = await cli.post(
                     "/v1/chat/completions",
-                    headers={"X-Hermes-Session-Id": "existing-session", "Authorization": "Bearer sk-secret"},
+                    headers={
+                        "X-Hermes-Session-Id": "existing-session",
+                        "Authorization": "Bearer sk-secret",
+                    },
                     # Request body has different history — should be ignored
                     json={
                         "model": "hermes-agent",
@@ -2360,7 +2546,6 @@ class TestSessionKeyHeader:
     gateway's session_key / session_id split.
     """
 
-
     @pytest.mark.asyncio
     async def test_session_key_threads_into_create_agent(self, auth_adapter):
         """End-to-end: verify AIAgent(gateway_session_key=...) receives the key via _create_agent."""
@@ -2369,7 +2554,10 @@ class TestSessionKeyHeader:
         def _fake_create_agent(**kwargs):
             captured_kwargs.update(kwargs)
             mock_agent = MagicMock()
-            mock_agent.run_conversation.return_value = {"final_response": "ok", "messages": []}
+            mock_agent.run_conversation.return_value = {
+                "final_response": "ok",
+                "messages": [],
+            }
             mock_agent.session_prompt_tokens = 0
             mock_agent.session_completion_tokens = 0
             mock_agent.session_total_tokens = 0
@@ -2377,18 +2565,26 @@ class TestSessionKeyHeader:
 
         app = _create_app(auth_adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(auth_adapter, "_create_agent", side_effect=_fake_create_agent):
+            with patch.object(
+                auth_adapter, "_create_agent", side_effect=_fake_create_agent
+            ):
                 resp = await cli.post(
                     "/v1/chat/completions",
                     headers={
                         "X-Hermes-Session-Key": "agent:main:webui:dm:user-7",
                         "Authorization": "Bearer sk-secret",
                     },
-                    json={"model": "hermes-agent", "messages": [{"role": "user", "content": "hi"}]},
+                    json={
+                        "model": "hermes-agent",
+                        "messages": [{"role": "user", "content": "hi"}],
+                    },
                 )
             assert resp.status == 200
             # _create_agent must be called with gateway_session_key threaded through
-            assert captured_kwargs.get("gateway_session_key") == "agent:main:webui:dm:user-7"
+            assert (
+                captured_kwargs.get("gateway_session_key")
+                == "agent:main:webui:dm:user-7"
+            )
 
     @pytest.mark.asyncio
     async def test_responses_endpoint_accepts_session_key(self, auth_adapter):
@@ -2396,8 +2592,13 @@ class TestSessionKeyHeader:
         mock_result = {"final_response": "ok", "messages": [], "api_calls": 1}
         app = _create_app(auth_adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(auth_adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+            with patch.object(
+                auth_adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                )
                 resp = await cli.post(
                     "/v1/responses",
                     headers={
@@ -2448,7 +2649,8 @@ def _patch_create_agent_runtime(monkeypatch, captured: dict, fake_agent_cls):
     monkeypatch.setattr("gateway.run._resolve_gateway_model", lambda: "global/model")
     monkeypatch.setattr("gateway.run._load_gateway_config", lambda: {})
     monkeypatch.setattr(
-        "gateway.run.GatewayRunner._load_reasoning_config", staticmethod(lambda model="": {})
+        "gateway.run.GatewayRunner._load_reasoning_config",
+        staticmethod(lambda model="": {}),
     )
     monkeypatch.setattr(
         "gateway.run.GatewayRunner._load_fallback_model", staticmethod(lambda: None)
@@ -2459,10 +2661,11 @@ def _patch_create_agent_runtime(monkeypatch, captured: dict, fake_agent_cls):
 
 class TestModelRoutesParsing:
     def test_valid_routes_are_parsed(self):
-        routes = {"minimax-m2": {"model": "minimax/minimax-m1", "provider": "openrouter"}}
+        routes = {
+            "minimax-m2": {"model": "minimax/minimax-m1", "provider": "openrouter"}
+        }
         adapter = _make_routing_adapter(routes)
         assert adapter._model_routes == routes
-
 
     def test_route_without_model_is_dropped(self):
         adapter = _make_routing_adapter({"bad": {"provider": "openrouter"}})
@@ -2470,7 +2673,6 @@ class TestModelRoutesParsing:
 
 
 class TestModelRoutesModelsEndpoint:
-
     @pytest.mark.asyncio
     async def test_models_endpoint_route_alias_fields_and_no_secrets(self):
         routes = {"my-alias": {"model": "openai/gpt-5", "api_key": "sk-route-secret"}}
@@ -2489,28 +2691,35 @@ class TestModelRoutesModelsEndpoint:
 class TestModelRoutesHandlers:
     @pytest.mark.asyncio
     async def test_chat_completions_passes_route_to_run_agent(self):
-        routes = {"minimax-m2": {"model": "minimax/minimax-m1", "provider": "openrouter"}}
+        routes = {
+            "minimax-m2": {"model": "minimax/minimax-m1", "provider": "openrouter"}
+        }
         adapter = _make_routing_adapter(routes)
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {"final_response": "hi", "messages": [], "api_calls": 1},
                     {"input_tokens": 5, "output_tokens": 5, "total_tokens": 10},
                 )
-                resp = await cli.post("/v1/chat/completions", json={
-                    "model": "minimax-m2",
-                    "messages": [{"role": "user", "content": "hello"}],
-                })
+                resp = await cli.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": "minimax-m2",
+                        "messages": [{"role": "user", "content": "hello"}],
+                    },
+                )
                 assert resp.status == 200
                 kwargs = mock_run.call_args.kwargs
                 assert kwargs.get("route") == {
-                    "model": "minimax/minimax-m1", "provider": "openrouter",
+                    "model": "minimax/minimax-m1",
+                    "provider": "openrouter",
                 }
 
 
 class TestModelRoutesAgentCreation:
-
     def test_route_provider_resolves_provider_credentials(self, monkeypatch):
         captured = {}
 
@@ -2528,9 +2737,9 @@ class TestModelRoutesAgentCreation:
                 "api_mode": "chat_completions",
             },
         )
-        adapter = _make_routing_adapter(
-            {"alias": {"model": "other/model", "provider": "otherprov"}}
-        )
+        adapter = _make_routing_adapter({
+            "alias": {"model": "other/model", "provider": "otherprov"}
+        })
         monkeypatch.setattr(adapter, "_ensure_session_db", lambda: None)
         monkeypatch.setattr(adapter, "_session_model_override_for", lambda *_: None)
 
@@ -2539,7 +2748,6 @@ class TestModelRoutesAgentCreation:
         assert captured["model"] == "other/model"
         assert captured["provider"] == "otherprov"
         assert captured["api_key"] == "sk-otherprov"
-
 
     def test_session_model_override_beats_route(self, monkeypatch):
         """A user-issued /model on the session must win over static route config."""
@@ -2550,7 +2758,9 @@ class TestModelRoutesAgentCreation:
                 captured.update(kwargs)
 
         _patch_create_agent_runtime(monkeypatch, captured, FakeAgent)
-        adapter = _make_routing_adapter({"alias": {"model": "route/model", "api_key": "sk-route"}})
+        adapter = _make_routing_adapter({
+            "alias": {"model": "route/model", "api_key": "sk-route"}
+        })
         monkeypatch.setattr(adapter, "_ensure_session_db", lambda: None)
         monkeypatch.setattr(
             adapter,
@@ -2608,6 +2818,7 @@ class TestSessionDbOffEventLoop:
 # ---------------------------------------------------------------------------
 # _api_key_passes_startup_guard — fail-closed on an unverifiable key
 # ---------------------------------------------------------------------------
+
 
 class TestApiKeyStartupGuardFailsClosed:
     """The guard is the only thing between a guessable key and an endpoint the
@@ -2712,13 +2923,11 @@ class TestDirectModelRequestsGate:
         )
         assert "requested_model" not in overrides
 
-
     def test_adapter_flag_opt_in(self):
         adapter = APIServerAdapter(
             PlatformConfig(enabled=True, extra={"direct_model_requests": True})
         )
         assert adapter._direct_model_requests is True
-
 
     @pytest.mark.asyncio
     async def test_chat_completions_bare_model_honored_when_enabled(self):
@@ -2727,7 +2936,9 @@ class TestDirectModelRequestsGate:
         )
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
-            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+            with patch.object(
+                adapter, "_run_agent", new_callable=AsyncMock
+            ) as mock_run:
                 mock_run.return_value = (
                     {"final_response": "ok", "messages": [], "api_calls": 1},
                     {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
@@ -2755,9 +2966,7 @@ class TestRouteWithoutModelKeepsDefault:
                 captured.update(kwargs)
 
         _patch_create_agent_runtime(monkeypatch, captured, FakeAgent)
-        adapter = _make_routing_adapter(
-            {"alias": {"model": "", "api_key": "sk-route"}}
-        )
+        adapter = _make_routing_adapter({"alias": {"model": "", "api_key": "sk-route"}})
         # _parse_model_routes drops routes without model; simulate a
         # credentials-only route surviving via direct dict (defensive path).
         adapter._model_routes = {"alias": {"api_key": "sk-route"}}
@@ -2781,7 +2990,9 @@ class TestRouteWithoutModelKeepsDefault:
 
 
 class TestCreateAgentModelRecovery:
-    def test_create_agent_defaults_to_provider_catalog_model_when_empty(self, monkeypatch):
+    def test_create_agent_defaults_to_provider_catalog_model_when_empty(
+        self, monkeypatch
+    ):
         """api_server.py had no equivalent of run.py's provider-catalog
         default when model resolves empty but a provider did resolve (e.g.
         `hermes auth add openai-codex` without `hermes model`) —
@@ -2795,8 +3006,11 @@ class TestCreateAgentModelRecovery:
         _patch_create_agent_runtime(monkeypatch, captured, FakeAgent)
         monkeypatch.setattr(
             "gateway.run._resolve_runtime_agent_kwargs",
-            lambda: {"provider": "openai-codex", "base_url": "https://example.test/v1",
-                     "api_mode": "codex_responses"},
+            lambda: {
+                "provider": "openai-codex",
+                "base_url": "https://example.test/v1",
+                "api_mode": "codex_responses",
+            },
         )
         monkeypatch.setattr("gateway.run._resolve_gateway_model", lambda: "")
         monkeypatch.setattr(
@@ -2831,8 +3045,12 @@ class TestCreateAgentModelRecovery:
 
         # Turn 1: model resolves fine — populates the last-known-good cache
         # (keyed on gateway_session_key).
-        monkeypatch.setattr("gateway.run._resolve_gateway_model", lambda: "minimax/minimax-m3")
-        adapter._create_agent(session_id="api-session", gateway_session_key="stable-chan-1")
+        monkeypatch.setattr(
+            "gateway.run._resolve_gateway_model", lambda: "minimax/minimax-m3"
+        )
+        adapter._create_agent(
+            session_id="api-session", gateway_session_key="stable-chan-1"
+        )
         assert captured[0]["model"] == "minimax/minimax-m3"
         assert adapter._last_resolved_model["stable-chan-1"] == "minimax/minimax-m3"
 
@@ -2843,7 +3061,7 @@ class TestCreateAgentModelRecovery:
             "gateway.run._resolve_runtime_agent_kwargs",
             lambda: {"provider": None, "base_url": None, "api_mode": None},
         )
-        adapter._create_agent(session_id="another-session", gateway_session_key="stable-chan-1")
+        adapter._create_agent(
+            session_id="another-session", gateway_session_key="stable-chan-1"
+        )
         assert captured[1]["model"] == "minimax/minimax-m3"
-
-
