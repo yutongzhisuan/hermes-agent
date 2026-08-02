@@ -7,6 +7,8 @@ import io
 import os
 import sys
 import threading
+
+from hermes_constants import get_hermes_home
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -203,9 +205,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
         from agent.secret_sources.registry import apply_all
 
         local_env = {
-            name: value
-            for name, value in os.environ.items()
-            if _is_global_env(name)
+            name: value for name, value in os.environ.items() if _is_global_env(name)
         }
         local_env.update(load_env_file(home / ".env"))
         # Mirror load_hermes_dotenv()'s .op.env bootstrap: the 1Password
@@ -332,7 +332,7 @@ def _sanitize_loaded_credentials() -> None:
             "  This usually means the key was copy-pasted from a PDF, "
             "rich-text editor, or web page that substituted lookalike\n"
             "  Unicode glyphs for ASCII letters. If authentication fails "
-            "(e.g. \"API key not valid\"), re-copy the key from the\n"
+            '(e.g. "API key not valid"), re-copy the key from the\n'
             "  provider's dashboard and run `hermes setup` (or edit the "
             ".env file in a plain-text editor).",
             file=sys.stderr,
@@ -440,6 +440,7 @@ def _sanitize_env_file_if_needed(path: Path) -> None:
         sanitized = _sanitize_env_lines(stripped)
         if sanitized != original or force_utf8_rewrite:
             import tempfile
+
             fd, tmp = tempfile.mkstemp(
                 dir=str(path.parent), suffix=".tmp", prefix=".env_"
             )

@@ -709,6 +709,7 @@ try:
     # _read_logging_config and any later raw reads in this process, collapsing
     # 3-4 config.yaml parses per invocation into one.
     from hermes_cli.config import read_raw_config as _read_raw_early
+    from hermes_constants import get_hermes_home
 
     _cfg_path = get_hermes_home() / "config.yaml"
     if _cfg_path.exists():
