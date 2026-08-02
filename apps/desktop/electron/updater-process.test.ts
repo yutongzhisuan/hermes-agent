@@ -139,7 +139,7 @@ test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', (
 })
 
 test('resolveStagedUpdaterBinary returns null off Windows even when hermes-setup is staged (#74836)', () => {
-  const home = '/Users/hermes/.hermes'
+  const home = '/Users/hermes/.xhermes'
   let probes = 0
 
   const resolved = resolveStagedUpdaterBinary(home, {

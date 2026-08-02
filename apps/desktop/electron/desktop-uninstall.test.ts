@@ -104,7 +104,7 @@ test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
 test('resolveRemovableAppPath finds the unpacked dir on Linux', () => {
   assert.equal(resolveRemovableAppPath('/opt/hermes/linux-unpacked/hermes', 'linux', {}), '/opt/hermes/linux-unpacked')
   // A system-package install (/usr/bin) → null, left to apt/dnf.
-  assert.equal(resolveRemovableAppPath('/usr/bin/hermes', 'linux', {}), null)
+  assert.equal(resolveRemovableAppPath('/usr/bin/xhermes', 'linux', {}), null)
 })
 
 test('resolveRemovableAppPath returns null for an empty exe path', () => {
@@ -126,12 +126,12 @@ test('shouldRemoveAppBundle requires packaged AND a resolved path', () => {
 test('buildPosixCleanupScript waits for the PID, runs the uninstall module, removes bundle', () => {
   const script = buildPosixCleanupScript({
     desktopPid: 4321,
-    pythonExe: '/home/x/.hermes/hermes-agent/venv/bin/python',
+    pythonExe: '/home/x/.xhermes/xhermes-agent/venv/bin/python',
     pythonPath: null,
-    agentRoot: '/home/x/.hermes/hermes-agent',
+    agentRoot: '/home/x/.xhermes/hermes-agent',
     uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'gui'],
     appPath: '/opt/hermes/linux-unpacked',
-    hermesHome: '/home/x/.hermes'
+    hermesHome: '/home/x/.xhermes'
   })
 
   assert.match(script, /^#!\/bin\/bash/)
@@ -148,11 +148,11 @@ test('buildPosixCleanupScript exports PYTHONPATH when pythonPath is set (lite/fu
   const script = buildPosixCleanupScript({
     desktopPid: 1,
     pythonExe: '/usr/bin/python3',
-    pythonPath: '/home/x/.hermes/hermes-agent',
-    agentRoot: '/home/x/.hermes/hermes-agent',
+    pythonPath: '/home/x/.xhermes/hermes-agent',
+    agentRoot: '/home/x/.xhermes/hermes-agent',
     uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'full'],
     appPath: null,
-    hermesHome: '/home/x/.hermes'
+    hermesHome: '/home/x/.xhermes'
   })
 
   // System python + source on PYTHONPATH so import hermes_cli works while the

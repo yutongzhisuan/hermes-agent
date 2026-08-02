@@ -1,9 +1,9 @@
 // Backend subcommand routing for the desktop-managed Hermes process.
 //
-// The desktop app launches its own headless backend via `hermes serve` — it
+// The desktop app launches its own headless backend via `xhermes serve` — it
 // must NEVER depend on or launch the browser `dashboard`. But `serve` is a
 // newer subcommand: a runtime that predates it (an older managed install the
-// app hasn't updated yet, or an older `hermes` resolved from PATH) only knows
+// app hasn't updated yet, or an older `xhermes` resolved from PATH) only knows
 // `dashboard --no-open`. To avoid bricking those users mid-upgrade we detect
 // whether the resolved runtime understands `serve` and, only when it does not,
 // fall back to the legacy `dashboard --no-open` invocation. Both produce the

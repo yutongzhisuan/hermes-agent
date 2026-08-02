@@ -1,6 +1,6 @@
 {
-  "name": "hermes",
-  "productName": "Hermes",
+  "name": "xhermes",
+  "productName": "xHermes",
   "private": true,
   "version": "0.17.0",
   "description": "Native desktop shell for Hermes Agent.",
@@ -162,18 +162,18 @@
   },
   "build": {
     "electronVersion": "40.10.2",
-    "appId": "com.nousresearch.hermes",
-    "productName": "Hermes",
-    "executableName": "Hermes",
+    "appId": "com.xhermes.app",
+    "productName": "xHermes",
+    "executableName": "xHermes",
     "protocols": [
       {
-        "name": "Hermes Protocol",
+        "name": "xHermes Protocol",
         "schemes": [
           "hermes"
         ]
       }
     ],
-    "artifactName": "Hermes-${version}-${os}-${arch}.${ext}",
+    "artifactName": "xHermes-${version}-${os}-${arch}.${ext}",
     "icon": "assets/icon",
     "directories": {
       "output": "release"
@@ -209,9 +209,9 @@
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.inherit.plist",
       "extendInfo": {
-        "CFBundleDisplayName": "Hermes",
-        "CFBundleExecutable": "Hermes",
-        "CFBundleName": "Hermes",
+        "CFBundleDisplayName": "xHermes",
+        "CFBundleExecutable": "xHermes",
+        "CFBundleName": "xHermes",
         "NSAudioCaptureUsageDescription": "Hermes uses audio capture for voice conversations.",
         "NSCameraUsageDescription": "Hermes uses the camera when a plugin or feature you enable requests it.",
         "NSMicrophoneUsageDescription": "Hermes uses the microphone for voice input and voice conversations."
@@ -246,7 +246,7 @@
       ]
     },
     "win": {
-      "legalTrademarks": "Hermes",
+      "legalTrademarks": "xHermes",
       "target": [
         "nsis",
         "msi"
@@ -267,8 +267,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "Hermes",
-      "uninstallDisplayName": "Hermes",
+      "shortcutName": "xHermes",
+      "uninstallDisplayName": "xHermes",
       "warningsAsErrors": false
     }
   }
