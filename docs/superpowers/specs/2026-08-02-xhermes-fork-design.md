@@ -187,17 +187,26 @@ hermes_exe = shutil.which("xhermes") or "xhermes"   # 原 "hermes"
 
 ### 3.5 Phase 3 补充：默认端口错开（新发现）
 
-多个服务有默认端口，同时跑会抢端口：
+**端口全集**（`_PORT_BINDING_PLATFORM_PORTS` 定义于 `web_server.py:2787-2797`，各平台 adapter 的 `DEFAULT_PORT`）：
 
-| 服务 | 原默认端口 | xhermes 改为 | 位置 |
+| 监听方 | 原默认端口 | xhermes 改为 | 位置 |
 |---|---|---|---|
 | `serve` / `dashboard` | 9119 | **9219** | `web_server.py:17061`、`main.py:7264` |
-| api_server 平台 | 8642 | **8742** | `web_server.py:2789` |
+| api_server 平台 | 8642 | **8742** | `web_server.py:2789`、`api_server.py:126` |
 | webhook 平台 | 8644 | **8744** | `web_server.py:2788` |
 | wecom_callback | 8645 | **8745** | `web_server.py:2792` |
 | msgraph_webhook / line | 8646 | **8746** | `web_server.py:2790,2796` |
+| feishu webhook | 8765 | **8865** | `web_server.py:2791` |
+| bluebubbles | 8645 | **8745** | `web_server.py:2793` |
+| sms | 8080 | **8180** | `web_server.py:2794` |
+| whatsapp_cloud | 8090 | **8190** | `web_server.py:2795` |
 
-**注**：桌面端 spawn 时用 `--port 0`（OS 分配），不受影响；此改动针对 CLI 手动启动默认值。
+**冲突判定**：
+- ✅ **桌面端 spawn 无冲突** — `backend-command.ts:21` 用 `--port 0`（OS 自动分配），不固定端口
+- ✅ **Telegram/Discord/飞书(WS 模式) 无冲突** — 这些是**出站长连接**（轮询/WebSocket），不监听本地端口
+- ⚠️ **CLI 手动启动 + webhook 类平台会抢端口** — 只有同时启用相同平台时才冲突
+
+**注意**：xhermes 有独立 `config.yaml`，用户配置不同端口即天然隔离；改默认值是为了"开箱不冲突"。
 
 ### 3.6 Phase 4：安装脚本 / systemd / Docker / 桌面端
 
@@ -208,7 +217,9 @@ hermes_exe = shutil.which("xhermes") or "xhermes"   # 原 "hermes"
 | `scripts/run_tests.sh:54` | `~/.hermes/hermes-agent/venv` → `~/.xhermes/xhermes/venv` |
 | `docker-compose.yml:37,71` + `docker-compose.windows.yml:18,31` | 卷挂载 `~/.hermes` → `~/.xhermes` |
 | `apps/desktop/electron/backend-command.ts:18` | 前导命令 → `xhermes serve` |
-| `apps/desktop/electron/main.ts` | bootstrap marker、`hermes serve` 引用 |
+| `apps/desktop/electron/main.ts:565,576` | **`ACTIVE_HERMES_ROOT` 硬编码 `path.join(home, '.hermes')` → `~/.xhermes`**（2 行） |
+| `apps/desktop/electron/main.ts:604` | bootstrap marker → 随 ACTIVE_HERMES_ROOT 自动隔离（`.xhermes-bootstrap-complete`） |
+| `apps/desktop/electron/main.ts` | `hermes serve` 引用 |
 | `apps/desktop/electron/remote-lifecycle.test.ts:118` | 测试路径 `hermes-agent/venv/bin/hermes` |
 
 ### 3.7 Phase 5：前端包名与品牌
@@ -238,6 +249,17 @@ hermes_exe = shutil.which("xhermes") or "xhermes"   # 原 "hermes"
 | `HERMES_HOME` env 兼容层 | ✅ 子进程传 `HERMES_HOME`，fallback 读到自身 home |
 | 内部模块名（373 处 import） | ✅ 零改动，merge 上游干净 |
 | `toolsets.py` 的 `hermes-telegram` 等工具集 key | ✅ 配置隔离在各自 config.yaml，不冲突 |
+
+### 4.1 四维度审计判定（监听端口 / 日志路径 / 环境变量 / 桌面端）
+
+| 维度 | 是否冲突 | 措施 |
+|---|---|---|
+| 监听端口 | ⚠️ 部分冲突 | 默认端口错开（见 3.5 完整表）；桌面端 `--port 0` 无冲突；出站连接平台无冲突 |
+| 日志路径 | ✅ 无冲突 | `hermes_logging.py:304` `log_dir = home / "logs"` → 家目录隔离，零改动 |
+| 环境变量 | ✅ 基本无冲突 | 进程级 environ 天然隔离；`XHERMES_HOME` 优先兼容层防用户全局导出污染（见 3.2b） |
+| 桌面端 | ⚠️ 1 处遗漏已补 | `main.ts:565,576` 硬编码 `~/.hermes` → 已在 3.6 补上 |
+
+日志文件（`agent.log`/`errors.log`/`gateway.log`/`gui.log`）为通用名但全在各自 `{home}/logs/` 下，含 Windows `concurrent-log-handler` 跨进程锁，均随家目录隔离。
 
 ---
 
