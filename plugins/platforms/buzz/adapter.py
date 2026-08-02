@@ -1,5 +1,5 @@
 """
-Buzz Platform Adapter for Hermes Agent.
+Buzz Platform Adapter for xHermes Agent.
 
 A plugin-based gateway adapter that connects to a Buzz community relay
 (Block's open-source human+agent collaboration platform, built on the

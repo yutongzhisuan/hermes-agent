@@ -1069,7 +1069,7 @@ def _download_url_with_cap(url: str, max_bytes: int) -> tuple[bytes, Optional[st
         with httpx.stream(
             "GET",
             current_url,
-            headers={"User-Agent": "hermes-kanban/attach"},
+            headers={"User-Agent": "xhermes-kanban/attach"},
             timeout=30,
             follow_redirects=False,
         ) as resp:

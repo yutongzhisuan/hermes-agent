@@ -68,13 +68,13 @@ except ImportError:  # pragma: no cover - plugin loaded outside package context
 logger = logging.getLogger(__name__)
 
 # User-Agent prefix for outbound Slack API calls so platform partners can
-# identify HermesAgent traffic — matching other Hermes outbound surfaces
-# that already set ``HermesAgent/<version>`` for platform-partner attribution.
+# identify xHermesAgent traffic — matching other Hermes outbound surfaces
+# that already set ``xHermesAgent/<version>`` for platform-partner attribution.
 try:
     from hermes_cli import __version__ as _HERMES_VERSION
 except Exception:
     _HERMES_VERSION = "unknown"
-_HERMES_SLACK_USER_AGENT_PREFIX = f"HermesAgent/{_HERMES_VERSION}"
+_HERMES_SLACK_USER_AGENT_PREFIX = f"xHermesAgent/{_HERMES_VERSION}"
 
 _SLACK_ERROR_BODY_LIMIT_BYTES = 8 * 1024
 
@@ -8868,7 +8868,7 @@ def interactive_setup() -> None:
             import json as _json
 
             manifest = _build_full_manifest(
-                bot_name="Hermes",
+                bot_name="xHermes",
                 bot_description="Your Hermes agent on Slack",
             )
             target = Path(get_hermes_home()) / "slack-manifest.json"

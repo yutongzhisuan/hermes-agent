@@ -101,7 +101,7 @@ def hermes_xai_default_headers() -> Dict[str, str]:
     """Default headers for OpenAI-SDK and raw HTTP clients talking to xAI.
 
     Replaces the OpenAI Python SDK's identifying ``User-Agent: OpenAI/Python …``
-    so chat/completions and Responses traffic is attributed as Hermes Agent,
+    so chat/completions and Responses traffic is attributed as xHermes Agent,
     matching the direct HTTP integrations (search, TTS, STT, image, video).
     """
     return {"User-Agent": hermes_xai_user_agent()}

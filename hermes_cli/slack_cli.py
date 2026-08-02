@@ -169,7 +169,7 @@ def slack_manifest_command(args) -> int:
     Flags (all parsed in ``hermes_cli/main.py``):
       --write [PATH]  Write to file instead of stdout (default path:
                       ``$HERMES_HOME/slack-manifest.json``)
-      --name NAME     Override the bot display name (default: "Hermes")
+      --name NAME     Override the bot display name (default: "xHermes")
       --description DESC  Override the bot description
       --long-description TEXT  Override the long app description (175-4,000 characters)
       --long-description-file PATH  Read the long app description from a UTF-8 file
@@ -183,7 +183,7 @@ def slack_manifest_command(args) -> int:
                       app_home_opened + message.im) instead of the legacy
                       Assistant messaging experience.
     """
-    name = getattr(args, "name", None) or "Hermes"
+    name = getattr(args, "name", None) or "xHermes"
     description = getattr(args, "description", None) or "Your Hermes agent on Slack"
     long_description = getattr(args, "long_description", None)
     long_description_file = getattr(args, "long_description_file", None)
