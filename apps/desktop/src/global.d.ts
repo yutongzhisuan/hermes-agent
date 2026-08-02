@@ -1,4 +1,4 @@
-import type { GatewayWsUrlResult } from '@hermes/shared'
+import type { GatewayWsUrlResult } from '@xhermes/shared'
 
 import type { WakeIndicatorState } from './lib/wake-indicator'
 import type {

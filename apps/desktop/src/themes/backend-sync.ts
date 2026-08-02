@@ -16,7 +16,7 @@
  * authoring/activating a skin from a prompt, or `/skin` elsewhere) repaints.
  */
 
-import type { HermesSkin } from '@hermes/shared/skin'
+import type { HermesSkin } from '@xhermes/shared/skin'
 import { atom } from 'nanostores'
 
 import { BUILTIN_THEMES } from './presets'

@@ -25,7 +25,7 @@
  * (new optional fields, new helpers) don't require a major bump.
  *
  * OPEN QUESTIONS for productionising this spike (do not block the auth fix):
- *   - Ship as a published ``@hermes/dashboard-plugin-sdk`` types package, or
+ *   - Ship as a published ``@xhermes/dashboard-plugin-sdk`` types package, or
  *     keep in-repo and copy into external plugin repos?
  *   - Should the host assert at runtime that a plugin's declared
  *     ``manifest.sdk_version`` is compatible before executing it?

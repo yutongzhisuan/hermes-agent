@@ -1,4 +1,4 @@
-import type { SkinBranding, SkinColors } from '@hermes/shared/skin'
+import type { SkinBranding, SkinColors } from '@xhermes/shared/skin'
 
 import { desaturate, grayOf, liftForContrast, mix, parseColor, relativeLuminance, toHex } from './lib/color.js'
 
@@ -149,8 +149,8 @@ function circularDistance(a: number, b: number): number {
   return Math.min(distance, 1 - distance)
 }
 
-// Mirrors @hermes/ink's colorize.ts. Keep local: app code compiles from
-// ui-tui/src, while @hermes/ink is bundled separately from packages/.
+// Mirrors @xhermes/ink's colorize.ts. Keep local: app code compiles from
+// ui-tui/src, while @xhermes/ink is bundled separately from packages/.
 function richEightBitColorNumber(red: number, green: number, blue: number): number {
   const [, saturation, lightness] = rgbToHsl(red, green, blue)
 

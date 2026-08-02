@@ -15,7 +15,7 @@
  * still picks `.dark` from the real background luminance.
  */
 
-import type { HermesSkin, SkinColors } from '@hermes/shared/skin'
+import type { HermesSkin, SkinColors } from '@xhermes/shared/skin'
 
 import { ensureContrast, luminance, mix, normalizeHex, readableOn } from './color'
 import type { DesktopTheme, DesktopThemeColors } from './types'

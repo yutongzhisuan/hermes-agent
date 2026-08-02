@@ -22,7 +22,7 @@ import {
   ModelMenuCloseContext,
   type ModelMenuController,
   reasoningEffortLabel
-} from '@hermes/plugin-sdk'
+} from '@xhermes/plugin-sdk'
 import { useState } from 'react'
 
 import { useKanban } from './ui'

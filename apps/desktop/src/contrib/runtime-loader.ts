@@ -3,7 +3,7 @@
  * build time. The pipeline every non-bundled plugin takes:
  *
  *   source (plain ESM js) -> [integrity check] -> bare-specifier rewrite
- *   (`@hermes/plugin-sdk` / `react*` -> live shim blobs, see sdk/runtime.ts)
+ *   (`@xhermes/plugin-sdk` / `react*` -> live shim blobs, see sdk/runtime.ts)
  *   -> blob `import()` -> validate default HermesPlugin -> register(ctx)
  *
  * Loading the same plugin id again disposes the previous registrations first
@@ -50,7 +50,7 @@ const loaded = new Map<string, (() => void)[]>()
 // literal or comment (e.g. `notify('react')`) is never touched.
 const importSpecifierRe = () => /(from\s*|import\s*\(\s*|import\s+)(['"])([^'"]+)\2/g
 
-/** Rewrite ONLY mapped import specifiers (@hermes/plugin-sdk, react*) to their
+/** Rewrite ONLY mapped import specifiers (@xhermes/plugin-sdk, react*) to their
  *  live shim blob URLs — never occurrences inside strings/comments. */
 function rewriteSpecifiers(source: string): string {
   const map = sdkImportMap()
@@ -116,7 +116,7 @@ export async function loadRuntimePlugin(
     if (unsupported.length > 0) {
       throw new Error(
         `unsupported import${unsupported.length > 1 ? 's' : ''}: ${unsupported.join(', ')} — ` +
-          `runtime plugins may only import @hermes/plugin-sdk and react`
+          `runtime plugins may only import @xhermes/plugin-sdk and react`
       )
     }
 

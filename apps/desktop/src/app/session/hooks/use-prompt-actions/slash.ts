@@ -1,4 +1,4 @@
-import { skillInvocationText } from '@hermes/shared'
+import { skillInvocationText } from '@xhermes/shared'
 import { type MutableRefObject, useCallback, useRef } from 'react'
 
 import { getProfiles } from '@/hermes'

@@ -1,5 +1,5 @@
-import type { InputEvent, Key } from '@hermes/ink'
-import * as Ink from '@hermes/ink'
+import type { InputEvent, Key } from '@xhermes/ink'
+import * as Ink from '@xhermes/ink'
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 
 import { setInputSelection } from '../app/inputSelectionStore.js'
@@ -355,7 +355,7 @@ export function killToLineEnd(value: string, cursor: number): { value: string; c
  * boundary rather than delete a single word.
  *
  * Only the *super* bit qualifies. It is tempting to reuse `isActionMod`,
- * but that accepts `key.meta` on macOS — and hermes-ink reports Option as
+ * but that accepts `key.meta` on macOS — and xhermes-ink reports Option as
  * `meta`, so Option+Backspace (delete-word, the macOS standard) would be
  * swallowed. On Linux/Windows `isActionMod` is `key.ctrl`, and
  * Ctrl+Backspace is delete-word there too. `super` is set only by kitty

@@ -1,5 +1,5 @@
-import type { BillingBlock } from '@hermes/shared'
-import type { HermesSkin } from '@hermes/shared/skin'
+import type { BillingBlock } from '@xhermes/shared'
+import type { HermesSkin } from '@xhermes/shared/skin'
 import type { QueryClient } from '@tanstack/react-query'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 

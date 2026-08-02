@@ -9,7 +9,7 @@
  * desktop's selection never flips the server-wide current-board pointer.
  */
 
-import { atom, type PluginRestOptions, type PluginStorage, queryClient } from '@hermes/plugin-sdk'
+import { atom, type PluginRestOptions, type PluginStorage, queryClient } from '@xhermes/plugin-sdk'
 
 import type {
   BoardMeta,

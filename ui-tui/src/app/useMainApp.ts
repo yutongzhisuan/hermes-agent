@@ -7,7 +7,7 @@ import {
   useSelection,
   useStdout,
   useTerminalTitle
-} from '@hermes/ink'
+} from '@xhermes/ink'
 import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
