@@ -5,7 +5,7 @@
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   iex (irm https://github.com/yutongzhisuan/xhermes-agent/raw/main/install.ps1)
+#   iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.ps1)
 #
 # Or download and run with options:
 #   .\install.ps1 -NoVenv -SkipSetup
