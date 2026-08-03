@@ -5,7 +5,8 @@
 #
 # Mirrors the verified manual process (see docs/packaging/macos.md):
 #   bundled CPython + core deps in site-packages/ + lean source tree, wrapped
-#   by a pkg with a postinstall that creates /usr/local/bin/xhermes.
+#   by a user-level pkg (payload under ~/.xhermes/xhermes-agent, launcher
+#   linked from ~/.local/bin/xhermes — no system-volume writes, no sudo).
 #
 # Usage:
 #   scripts/build_macos_pkg.sh [--python-version 3.11] [--out-dir ./dist]
@@ -74,8 +75,11 @@ echo "    bundled python: $UV_PY_DIR"
 
 # ---- fresh staging ---------------------------------------------------------
 rm -rf "$STAGE_DIR"
-mkdir -p "$STAGE_DIR/usr/local/lib/xhermes-agent"
-STAGE_ROOT="$STAGE_DIR/usr/local/lib/xhermes-agent"
+mkdir -p "$STAGE_DIR"
+# Payload root mirrors the USER-LEVEL install layout: everything lands under
+# ~/.xhermes/xhermes-agent/ via `installer -pkg ... -target CurrentUserHomeDirectory`
+# (no system-volume writes, no sudo, no Gatekeeper system-volume rejection).
+STAGE_ROOT="$STAGE_DIR"
 
 # 1. self-contained CPython (relocatable, no symlinks to uv cache)
 echo "==> copying CPython $PYTHON_VERSION"
@@ -88,7 +92,7 @@ cp -R "$UV_PY_DIR" "$STAGE_ROOT/python"
 #    used in pyproject.toml: ==/!= on sys_platform & platform_machine,
 #    combined with and/or and parentheses.
 echo "==> extracting core dependencies"
-REQ_FILE="$STAGE_DIR/req.txt"
+REQ_FILE="$OUT_DIR/req.txt"
 python3 - "$REQ_FILE" <<'PYEOF'
 import re, sys
 
@@ -142,14 +146,14 @@ uv pip install --target "$STAGE_ROOT/site-packages" -r "$REQ_FILE"
 
 # 3a. rewrite console-script shebangs: uv pip install writes the build
 # machine's interpreter path (project .venv) into site-packages/bin/*,
-# which does not exist on the target machine. Normalize to the payload's
-# final installed interpreter path (same one the xhermes launcher uses).
-PAYLOAD_PY="/usr/local/lib/xhermes-agent/python/bin/python${PYTHON_VERSION}"
-echo "==> normalizing console-script shebangs -> $PAYLOAD_PY"
+# which does not exist on the target machine. The final install path is
+# home-relative (~/.xhermes/xhermes-agent), unknown at build time, so
+# postinstall rewrites them; here we only strip the build-machine path.
+echo "==> normalizing console-script shebangs (build-time pass)"
 for f in "$STAGE_ROOT/site-packages/bin/"*; do
     [ -f "$f" ] || continue
     if head -1 "$f" | grep -q '^#!.*python'; then
-        sed -i '' "1s|^#!.*python[0-9.]*|#!$PAYLOAD_PY|" "$f"
+        sed -i '' '1s|^#!.*|#!/usr/bin/env python3|' "$f"
     fi
 done
 
@@ -178,38 +182,73 @@ rm -rf "$STAGE_ROOT/xhermes-agent/contributors"
 echo "==> cleaning xattrs"
 xattr -cr "$STAGE_DIR" 2>/dev/null || true
 
-# 7. postinstall: launcher at /usr/local/bin/xhermes
-echo "==> writing postinstall"
-mkdir -p "$STAGE_DIR/scripts"
-cat > "$STAGE_DIR/scripts/postinstall" <<POSTINSTALL
+# 7. launcher payload + postinstall.
+# The launcher self-locates (resolves its own symlink) so it works wherever
+# the payload lands: $HOME/.xhermes/xhermes-agent/bin/xhermes, linked from
+# $HOME/.local/bin/xhermes by postinstall.
+echo "==> writing launcher + postinstall"
+mkdir -p "$STAGE_ROOT/bin" "$OUT_DIR/pkg-scripts"
+cat > "$STAGE_ROOT/bin/xhermes" <<'LAUNCHER_EOF'
 #!/bin/sh
-BASE=/usr/local/lib/xhermes-agent
-LAUNCHER="\$BASE/bin/xhermes"
-mkdir -p "\$BASE/bin" /usr/local/bin
-cat > "\$LAUNCHER" <<'LAUNCHER_EOF'
-#!/bin/sh
-BASE=/usr/local/lib/xhermes-agent
-export PYTHONPATH="\$BASE/site-packages:\$BASE/xhermes-agent"
-exec "\$BASE/python/bin/python$PYTHON_VERSION" -m hermes_cli.main "\$@"
+# Resolve this script's real path through symlinks.
+PRG="$0"
+while [ -h "$PRG" ]; do
+    lsline=$(ls -ld "$PRG")
+    link=$(expr "$lsline" : '.*-> \(.*\)$')
+    case "$link" in
+        /*) PRG="$link" ;;
+        *) PRG="$(dirname "$PRG")/$link" ;;
+    esac
+done
+BASE="$(cd "$(dirname "$PRG")/.." && pwd)"
+export PYTHONPATH="$BASE/site-packages:$BASE/xhermes-agent"
+exec "$BASE/python/bin/python$PYTHON_VERSION" -m hermes_cli.main "$@"
 LAUNCHER_EOF
-chmod 755 "\$LAUNCHER"
-ln -sf "\$LAUNCHER" /usr/local/bin/xhermes
+chmod 755 "$STAGE_ROOT/bin/xhermes"
+
+cat > "$OUT_DIR/pkg-scripts/postinstall" <<POSTINSTALL
+#!/bin/sh
+# Resolve the installing user's home. Under `installer -target
+# CurrentUserHomeDirectory` postinstall runs as the invoking user; under the
+# GUI (root) fall back to the console user.
+HOME_DIR="\$HOME"
+if [ "\$(id -u)" = "0" ] && [ -z "\$HOME_DIR" ] || [ "\$HOME_DIR" = "/var/root" ]; then
+    CONSOLE_USER="\$(stat -f%Su /dev/console 2>/dev/null)"
+    if [ -n "\$CONSOLE_USER" ]; then
+        HOME_DIR="\$(dscl . -read "/Users/\$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print \$2}')"
+    fi
+fi
+[ -n "\$HOME_DIR" ] || HOME_DIR="\$HOME"
+BASE="\$HOME_DIR/.xhermes/xhermes-agent"
+
+# point console-script shebangs at the real interpreter path (home is
+# unknown at build time)
+PY="\$BASE/python/bin/python$PYTHON_VERSION"
+for f in "\$BASE/site-packages/bin/"*; do
+    [ -f "\$f" ] || continue
+    sed -i '' "1s|^#!.*|#!\$PY|" "\$f"
+done
+
+mkdir -p "\$HOME_DIR/.local/bin"
+ln -sf "\$BASE/bin/xhermes" "\$HOME_DIR/.local/bin/xhermes"
 exit 0
 POSTINSTALL
-chmod 755 "$STAGE_DIR/scripts/postinstall"
+chmod 755 "$OUT_DIR/pkg-scripts/postinstall"
 
-# 8. pkgbuild (COPYFILE_DISABLE blocks AppleDouble metadata in the BOM)
+# 8. pkgbuild — relative install-location keeps the payload under
+#    $HOME/.xhermes/xhermes-agent when installed with
+#    `installer -pkg ... -target CurrentUserHomeDirectory` (no system volume)
 echo "==> building pkg"
 mkdir -p "$OUT_DIR"
 COPYFILE_DISABLE=1 pkgbuild \
     --root "$STAGE_DIR" \
     --identifier "$IDENTIFIER" \
     --version "$VERSION" \
-    --scripts "$STAGE_DIR/scripts" \
-    --install-location / \
+    --scripts "$OUT_DIR/pkg-scripts" \
+    --install-location ".xhermes/xhermes-agent" \
     "$PKG_PATH"
 
 echo ""
 echo "==> done: $PKG_PATH"
 echo "    staging (debug): $STAGE_DIR"
-echo "    install with: sudo installer -pkg $PKG_PATH -target /"
+echo "    install with: installer -pkg $PKG_PATH -target CurrentUserHomeDirectory"
