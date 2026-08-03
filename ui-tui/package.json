@@ -7,7 +7,7 @@
     "dev": "npm run build:ink && tsx --watch src/entry.tsx",
     "start": "tsx src/entry.tsx",
     "build": "node scripts/build.mjs",
-    "build:ink": "npm run build --prefix packages/xhermes-ink",
+    "build:ink": "npm run build --prefix packages/hermes-ink",
     "visual": "node scripts/visual/run.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src/ packages/",
@@ -19,7 +19,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@xhermes/ink": "file:./packages/xhermes-ink",
+    "@xhermes/ink": "file:./packages/hermes-ink",
     "@xhermes/shared": "file:../apps/shared",
     "@nanostores/react": "1.1.0",
     "ink-text-input": "6.0.0",
