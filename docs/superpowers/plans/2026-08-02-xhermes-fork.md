@@ -16,7 +16,7 @@
 
 > 本计划假设已在独立目录（非 hermes-agent 原目录）完成 fork：
 > ```bash
-> git clone git@github.com:<you>/xhermes-agent.git
+> git clone git@github.com:<you>/hermes-agent.git
 > cd xhermes-agent
 > git remote add upstream https://github.com/NousResearch/hermes-agent.git
 > ```
@@ -632,7 +632,7 @@ git commit -m "feat(xhermes): brand defaults and user-agent to xHermes"
 `hermes_cli/update_cmd.py`：
 
 ```python
-OFFICIAL_REPO_URL = "https://github.com/<you>/xhermes-agent.git"   # 原 NousResearch/hermes-agent
+OFFICIAL_REPO_URL = "https://github.com/<you>/hermes-agent.git"   # 原 NousResearch/hermes-agent
 ```
 
 若存在 fork 检测逻辑（判断当前仓库是否官方），同步改为判断是否为你的 fork。

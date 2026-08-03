@@ -18,7 +18,7 @@ xHermes Agent 的官方分发方式有四种，`pkg` 是其中针对 macOS 原�
 | `scripts/install.sh` | Linux / macOS / Termux | 是（git clone + uv sync） | 安装时 | `$HERMES_HOME/xhermes-agent` | 官方主路径 |
 | Docker 镜像 | Linux | 是 | 否 | 容器内 | 官方 |
 | Nix（uv2nix） | Linux / macOS | 构建时 | 否 | Nix store | 官方 |
-| **macOS pkg（本文）** | **macOS arm64** | **构建时** | **构建时** | `/usr/local/lib/xhermes-agent` | **已验证** |
+| **macOS pkg（本文）** | **macOS arm64** | **构建时** | **构建时** | `~/.xhermes/xhermes-agent` | **已验证** |
 
 ### 为什么不能打 wheel / sdist
 
@@ -53,22 +53,34 @@ xHermes Agent 的官方分发方式有四种，`pkg` 是其中针对 macOS 原�
 构建产物是标准 macOS 安装包，payload 布局如下：
 
 ```
-/usr/local/lib/xhermes-agent/
+~/.xhermes/xhermes-agent/
 ├── python/                 # 自包含 CPython 3.11（uv 托管版整体拷贝，可迁移）
 ├── site-packages/          # 28 个核心依赖（openai/httpx/pydantic 等）
-└── xhermes-agent/          # 精简源码树（72MB，含 skills/locales/web_dist）
-/usr/local/bin/xhermes      # postinstall 创建的 launcher（符号链接）
+├── xhermes-agent/          # 精简源码树（72MB，含 skills/locales/web_dist）
+└── bin/xhermes             # launcher 脚本（自定位，符号链接可跟随）
+~/.local/bin/xhermes        # 符号链接 → bin/xhermes（postinstall 创建）
 ```
 
 `python/` 是**关键**：uv 托管的 CPython 是真实 Mach-O 二进制（非软链），
 拷贝到任意路径都能运行，因此 pkg 完全自包含——目标机不需要 uv、Homebrew
 或网络。
 
-`xhermes` launcher 内容：
+`xhermes` launcher 内容（自定位：解析自身符号链接找到安装根，
+不依赖固定路径，任何用户可跑）：
 
 ```sh
 #!/bin/sh
-BASE=/usr/local/lib/xhermes-agent
+# Resolve this script's real path through symlinks.
+PRG="$0"
+while [ -h "$PRG" ]; do
+    lsline=$(ls -ld "$PRG")
+    link=$(expr "$lsline" : '.*-> \(.*\)$')
+    case "$link" in
+        /*) PRG="$link" ;;
+        *) PRG="$(dirname "$PRG")/$link" ;;
+    esac
+done
+BASE="$(cd "$(dirname "$PRG")/.." && pwd)"
 export PYTHONPATH="$BASE/site-packages:$BASE/xhermes-agent"
 exec "$BASE/python/bin/python3.11" -m hermes_cli.main "$@"
 ```
@@ -90,28 +102,31 @@ pkg 安装只写两个位置（总计 ~253MB，约 1.05 万个文件）：
 
 | 位置 | 大小 | 内容 |
 |---|---|---|
-| `/usr/local/lib/xhermes-agent/xhermes-agent/` | 72MB | 精简源码树：全部 Python 包（`hermes_cli/`、`agent/`、`tools/`、`gateway/`、`cron/`、`plugins/`、`tui_gateway/`）+ 运行时资产（`skills/` 8MB、`optional-skills/` 7.8MB、`locales/`、`hermes_cli/web_dist/` 3.1MB、`scripts/lib/node-bootstrap.sh`）+ 配置（`pyproject.toml` 等） |
-| `/usr/local/lib/xhermes-agent/site-packages/` | 116MB | 28 个核心依赖及传递依赖（openai、httpx、pydantic、rich、prompt_toolkit、cryptography、fastapi、uvicorn、Pillow、ptyprocess、nemo-relay、psutil、websockets 等） |
-| `/usr/local/lib/xhermes-agent/python/` | 65MB | 自包含 CPython 3.11.15（bin/include/lib/share），含 pip + ensurepip |
-| `/usr/local/lib/xhermes-agent/bin/xhermes` | — | launcher 脚本（postinstall 生成） |
-| `/usr/local/bin/xhermes` | — | 指向上面 launcher 的符号链接（postinstall 创建） |
+| `~/.xhermes/xhermes-agent/xhermes-agent/` | 72MB | 精简源码树：全部 Python 包（`hermes_cli/`、`agent/`、`tools/`、`gateway/`、`cron/`、`plugins/`、`tui_gateway/`）+ 运行时资产（`skills/` 8MB、`optional-skills/` 7.8MB、`locales/`、`hermes_cli/web_dist/` 3.1MB、`scripts/lib/node-bootstrap.sh`）+ 配置（`pyproject.toml` 等） |
+| `~/.xhermes/xhermes-agent/site-packages/` | 116MB | 28 个核心依赖及传递依赖（openai、httpx、pydantic、rich、prompt_toolkit、cryptography、fastapi、uvicorn、Pillow、ptyprocess、nemo-relay、psutil、websockets 等） |
+| `~/.xhermes/xhermes-agent/python/` | 65MB | 自包含 CPython 3.11.15（bin/include/lib/share），含 pip + ensurepip |
+| `~/.xhermes/xhermes-agent/bin/xhermes` | — | launcher 脚本（自定位，payload 内） |
+| `~/.local/bin/xhermes` | — | 指向上面 launcher 的符号链接（postinstall 创建） |
 
 **不安装到的地方（设计约束）：**
 
-- 不碰 `~/.xhermes/` —— 用户数据（config.yaml、.env、state.db、会话、
-  skills、日志）由运行时首次启动时在用户目录创建，与 install.sh 布局一致
-- 不碰 Homebrew 的 `/opt/homebrew`，不写 `~/.local/bin`
+- 不写系统卷（`/usr/local` 等）—— 未签名 pkg 装系统卷会被 macOS 15+
+  的 Installer 拦截（「incompatible with this version of macOS」）；用户
+  目录安装彻底绕过
+- 不碰 Homebrew 的 `/opt/homebrew`
 - 不改系统级配置（无 launchd、无 /etc、无环境变量写入）
+- 用户数据（config.yaml、.env、state.db、会话、skills、日志）由运行时
+  首次启动时在 `~/.xhermes/` 创建，与 install.sh 布局一致
 
-**卸载 = 删两行：**
+**卸载 = 删两行（无需 sudo）：**
 
 ```bash
-sudo rm -f /usr/local/bin/xhermes
-sudo rm -rf /usr/local/lib/xhermes-agent
+rm -f ~/.local/bin/xhermes
+rm -rf ~/.xhermes/xhermes-agent
 ```
 
-> 注：`pkg` 构建时的临时文件（req.txt、scripts/、pkg-stage/）只存在于
-> 构建机，不进 pkg；安装器本体（`*.pkg`）装完可删。
+> 注：`pkg` 构建时的临时文件（req.txt、pkg-scripts/、pkg-stage/）只存在
+> 于构建机，不进 pkg；安装器本体（`*.pkg`）装完可删。
 
 ### 3.3 手工步骤（脚本的等价说明）
 
@@ -135,9 +150,15 @@ sudo rm -rf /usr/local/lib/xhermes-agent
    Go 构建产物（`extend/task_relay/hub/go` 等）
 6. **清理扩展属性**：`xattr -cr`（防御性；`com.apple.provenance` 由系统
    维护清不掉，但不影响产物）
-7. **写 postinstall**：生成 launcher 并创建 `/usr/local/bin/xhermes` 符号链接
-8. **pkgbuild**：`COPYFILE_DISABLE=1 pkgbuild --root <stage> --identifier
-   com.xhermes.cli --install-location /`
+7. **写 launcher + postinstall**：launcher 自定位（解析自身符号链接找到
+   安装根，不依赖固定路径）；postinstall 创建 `~/.local/bin/xhermes`
+   符号链接并把 console-script shebang 重写为真实安装路径
+8. **component pkg**：`COPYFILE_DISABLE=1 pkgbuild --root <stage>
+   --identifier com.xhermes.cli --install-location .xhermes/xhermes-agent`
+9. **distribution pkg**：`productbuild --distribution` 包一层
+   `<domains enable_currentUserHome="true" enable_localSystem="false"/>`
+   —— macOS 官方的用户级安装形态，GUI 双击和命令行都接受，
+   不再触发系统卷拦截
 
 ### 3.4 关于 AppleDouble（BOM 里的 `._*` 条目）
 
@@ -156,9 +177,19 @@ sudo rm -rf /usr/local/lib/xhermes-agent
 
 ### 4.1 安装
 
+pkg 是**用户级 distribution**（`enable_currentUserHome`），两种方式任选，
+均无需 sudo、不写系统卷：
+
 ```bash
-sudo installer -pkg dist/xHermes-CLI-0.19.1-arm64.pkg -target /
+# 方式一：双击 pkg（GUI Installer，提示「仅当前用户安装」）
+# 方式二：命令行
+installer -pkg dist/xHermes-CLI-0.19.1-arm64.pkg -target CurrentUserHomeDirectory
 ```
+
+> 为什么不能装系统卷：macOS 15+ 的 GUI Installer 会拦截未签名 pkg 往
+> 系统卷（`/`）安装任何内容（报「trying to install content to the system
+> volume」）。distribution 的 `enable_localSystem="false"` 显式声明只装
+> 当前用户 home，绕开该检查。
 
 ### 4.2 验证清单
 
@@ -171,18 +202,18 @@ xhermes --help               # 命令帮助
 ### 4.3 卸载
 
 ```bash
-sudo rm -f /usr/local/bin/xhermes
-sudo rm -rf /usr/local/lib/xhermes-agent
+rm -f ~/.local/bin/xhermes
+rm -rf ~/.xhermes/xhermes-agent
 ```
 
-用户数据（`~/.xhermes/`）不受影响，可保留。
+用户数据（`~/.xhermes/` 下的 config/sessions/skills/logs）不受影响，可保留。
 
 ---
 
 ## 5. 签名与公证
 
-> 现状：当前 pkg **未签名**。本机安装（`sudo installer`）不受影响；
-> 分发给他人时 Gatekeeper 会拦截「未验证的开发者」提示。
+> 现状：当前 pkg **未签名**。用户级安装（本机、单用户）不受影响；
+> 分发给他人时 Gatekeeper 仍会拦截「未验证的开发者」提示，需签名+公证。
 
 ### 5.1 证书要求
 
@@ -283,12 +314,14 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
 - 仅 arm64
 - 可选依赖（anthropic / telegram 等 extras）走运行时 lazy install
   （`tools/lazy_deps.py` 的 uv→pip→ensurepip 阶梯），不预装
-- **非 root 用户的 lazy install 会失败**：`/usr/local/lib/xhermes-agent`
-  归 root 所有，普通用户触发可选依赖安装时 `pip install` 写
-  site-packages 会 PermissionError（与 install.sh 的用户级布局不同）
-- **真实 sudo 安装尚未端到端验证**：stage 运行、payload 展开、postinstall
-  生成均已验证，但 `sudo installer` 的完整安装路径（postinstall 实际执行、
-  `/usr/local/bin/xhermes` 符号链接创建）尚未在本机跑通
+- **lazy install 需写权限**：可选依赖装进 `~/.xhermes/xhermes-agent/
+  site-packages/`，该目录归安装用户所有（用户级 pkg），单用户场景可写；
+  多用户共享同一 home 时第二个用户会 PermissionError（与 install.sh 的
+  用户级布局相同）
+- **真实安装尚未端到端验证**：stage 运行、payload 展开、launcher 自定位、
+  postinstall 逻辑均已验证（含符号链接模拟运行），但 `installer -pkg`
+  的完整安装路径（postinstall 实际执行、`~/.local/bin/xhermes` 符号链接
+  创建）尚未在本机跑通
 - 升级需重装（无自更新机制；`hermes update` 面向 install.sh 布局）
 
 **已验证并修复的构建事故（2026-08-03）：**
@@ -302,6 +335,14 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
   传其他版本时会调用不存在的解释器。已改为变量注入
 - **`uv python find` 引号 bug**：`"uv python find"` 被当作单一命令名，
   静默失败。已修复
+- **console-script shebang 指向构建机**：`uv pip install` 把项目 `.venv`
+  的绝对路径写进 `site-packages/bin/*`（15 个脚本），目标机运行即
+  `bad interpreter`。已改为构建时归一化 + postinstall 按真实安装路径
+  重写
+- **system-volume 拦截**：普通 component pkg（即使 install-location 是
+  相对路径）在 macOS 15+ GUI 下报「trying to install content to the
+  system volume」。已改为 distribution pkg（`enable_currentUserHome`
+  + `enable_localSystem="false"`），用户级安装，GUI 和命令行都接受
 
 **后续路线：**
 
@@ -317,10 +358,11 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
 以下为构建脚本产出物的实际验证结果：
 
 ```
-xHermes-CLI-0.19.1-arm64.pkg    75MB（修复 venv 污染 + 依赖缺失后）
+xHermes-CLI-0.19.1-arm64.pkg    75MB（distribution，用户级）
 BOM 实体 Payload               15388+ 个文件，0 个 ._* 文件
 核心依赖                       28 个（含 ptyprocess、nemo-relay）
 payload 大小                   172MB（源码 72M + python 63M + deps 41M）
+distribution domains           enable_currentUserHome=true, enable_localSystem=false
 
 xhermes --version 输出:
   xHermes Agent v0.19.1 (2026.7.30)
@@ -332,4 +374,8 @@ xhermes --version 输出:
   openai     → payload/site-packages/openai       ✓
   ptyprocess / nemo_relay 导入                     ✓
   ensurepip / pip 26.0.1 在位                     ✓（lazy install pip 分支可用）
+
+launcher 自定位（模拟安装 + 符号链接调用）:
+  ~/.local/bin/xhermes → ~/.xhermes/xhermes-agent/bin/xhermes   ✓
+  xhermes --version / --help 从链接运行                        ✓
 ```
