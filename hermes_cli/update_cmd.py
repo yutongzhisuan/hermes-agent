@@ -1397,13 +1397,13 @@ def _discard_stashed_changes(
     return True
 
 OFFICIAL_REPO_URLS = {
-    "https://github.com/yutongzhisuan/xhermes-agent.git",
-    "git@github.com:yutongzhisuan/xhermes-agent.git",
+    "https://github.com/yutongzhisuan/hermes-agent.git",
+    "git@github.com:yutongzhisuan/hermes-agent.git",
     "https://github.com/yutongzhisuan/xhermes-agent",
     "git@github.com:yutongzhisuan/xhermes-agent",
 }
 
-OFFICIAL_REPO_URL = "https://github.com/yutongzhisuan/xhermes-agent.git"
+OFFICIAL_REPO_URL = "https://github.com/yutongzhisuan/hermes-agent.git"
 
 SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
@@ -1543,7 +1543,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
             print("→ Adding upstream remote...")
             if _add_upstream_remote(git_cmd, cwd):
                 print(
-                    "  ✓ Added upstream: https://github.com/yutongzhisuan/xhermes-agent.git"
+                    "  ✓ Added upstream: https://github.com/yutongzhisuan/hermes-agent.git"
                 )
                 has_upstream = True
             else:
@@ -1551,7 +1551,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
                 return
         else:
             print(
-                "  Skipped. Run 'git remote add upstream https://github.com/yutongzhisuan/xhermes-agent.git' to add later."
+                "  Skipped. Run 'git remote add upstream https://github.com/yutongzhisuan/hermes-agent.git' to add later."
             )
             _mark_skip_upstream_prompt()
             return
