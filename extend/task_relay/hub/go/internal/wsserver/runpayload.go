@@ -3,8 +3,8 @@ package wsserver
 import (
 	"context"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/runpayload"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/runpayload"
 )
 
 // BuildRunPayload constructs the task.run envelope for worker delivery.

@@ -1,13 +1,13 @@
-"""Tests for hermes_cli.agent_import — ``hermes import-agent``.
+"""Tests for hermes_cli.agent_import — ``xhermes import-agent``.
 
 Covers: source detection, Claude Code and Codex parsing, mapping into the
-real Hermes stores (memories/MEMORY.md, config.yaml command_allowlist /
+real XHermes stores (memories/MEMORY.md, config.yaml command_allowlist /
 approvals.deny / mcp_servers, skills/), dry-run write-nothing guarantees,
 malformed-input skip reports, and the never-import-secrets rule.
 
 Uses the profile_env fixture pattern from tests/hermes_cli/test_profiles.py:
 Path.home() and HERMES_HOME are redirected to tmp_path so nothing touches
-the real ~/.hermes.
+the real ~/.xhermes.
 """
 
 import json
@@ -34,9 +34,9 @@ from hermes_cli.agent_import import (
 
 @pytest.fixture()
 def profile_env(tmp_path, monkeypatch):
-    """Isolated environment: Path.home() -> tmp_path, HERMES_HOME -> tmp/.hermes."""
+    """Isolated environment: Path.home() -> tmp_path, HERMES_HOME -> tmp/.xhermes."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    default_home = tmp_path / ".hermes"
+    default_home = tmp_path / ".xhermes"
     default_home.mkdir(exist_ok=True)
     monkeypatch.setenv("HERMES_HOME", str(default_home))
     return tmp_path
@@ -44,7 +44,7 @@ def profile_env(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def hermes_home(profile_env):
-    return profile_env / ".hermes"
+    return profile_env / ".xhermes"
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +469,7 @@ class TestExistingMemoryStorePreserved:
 # ---------------------------------------------------------------------------
 
 EXISTING_CONFIG = """\
-model: hermes-4-405b
+model: xhermes-4-405b
 api_key_env: OPENROUTER_API_KEY
 command_allowlist:
   - ls *
@@ -488,7 +488,7 @@ telegram:
 """
 
 MALFORMED_CONFIG = """\
-model: hermes-4-405b
+model: xhermes-4-405b
 command_allowlist:
   - ls *
    - cat *
@@ -541,7 +541,7 @@ class TestExistingConfigPreserved:
             assert str(config_path) in reason
             assert "not valid YAML" in reason
             # Points the user at a way out.
-            assert "hermes config edit" in reason
+            assert "xhermes config edit" in reason
 
     def test_unreadable_config_is_left_byte_identical(
             self, claude_tree, hermes_home, config_path):
@@ -602,7 +602,7 @@ class TestExistingConfigPreserved:
 
         merged = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         # Untouched sections survive verbatim.
-        assert merged["model"] == "hermes-4-405b"
+        assert merged["model"] == "xhermes-4-405b"
         assert merged["api_key_env"] == "OPENROUTER_API_KEY"
         assert merged["telegram"] == {"enabled": True, "chat_id": 12345}
         # Merged-into sections keep their existing members ...

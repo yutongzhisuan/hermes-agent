@@ -1,6 +1,6 @@
 """SQLite WAL-reset vulnerability gate (issue #69784).
 
-Hermes must not *enable* multi-process WAL on SQLite builds that still contain
+XHermes must not *enable* multi-process WAL on SQLite builds that still contain
 the upstream WAL-reset corruption bug:
 https://sqlite.org/wal.html#walresetbug
 
@@ -122,7 +122,7 @@ def test_doctor_warns_without_adding_issues(monkeypatch, tmp_path, capsys):
     """Vulnerable SQLite is warn-only in doctor — not a blocking issues[] entry."""
     from hermes_cli.doctor import run_doctor
 
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr("hermes_constants.get_hermes_home", lambda: home)
@@ -142,6 +142,6 @@ def test_doctor_warns_without_adding_issues(monkeypatch, tmp_path, capsys):
     assert "SQLite" in out
     assert "3.50.4" in out
     assert "WAL-reset" in out
-    assert "hermes update" in out
+    assert "xhermes update" in out
     # No longer appended to the blocking issues summary.
     assert "Linked SQLite is vulnerable" not in out

@@ -1,10 +1,10 @@
 """Tests for the setup wizard's returning-user behavior.
 
 On an existing install:
-- Bare `hermes setup` drops straight into the full reconfigure wizard
+- Bare `xhermes setup` drops straight into the full reconfigure wizard
   (every prompt shows the current value as its default).
-- `hermes setup --quick` runs the narrower "fill in missing items" flow.
-- `hermes setup --reconfigure` is a backwards-compat alias for the
+- `xhermes setup --quick` runs the narrower "fill in missing items" flow.
+- `xhermes setup --reconfigure` is a backwards-compat alias for the
   bare-setup default.
 
 On a fresh install, all three are no-ops — fall through to first-time setup.
@@ -30,7 +30,7 @@ def _make_setup_args(**overrides):
 @pytest.fixture
 def existing_install(tmp_path, monkeypatch):
     """Simulate a returning user with an existing configured install."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     monkeypatch.setenv("HERMES_HOME", str(home))
@@ -40,7 +40,7 @@ def existing_install(tmp_path, monkeypatch):
 @pytest.fixture
 def fresh_install(tmp_path, monkeypatch):
     """Simulate a first-time user with no existing configuration."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     monkeypatch.setenv("HERMES_HOME", str(home))
@@ -98,7 +98,7 @@ def _enter_fresh_install_patches(stack, **extra):
 
 
 class TestExistingInstallDefault:
-    """Bare `hermes setup` on an existing install = full reconfigure wizard."""
+    """Bare `xhermes setup` on an existing install = full reconfigure wizard."""
 
     def test_bare_setup_runs_full_reconfigure_without_menu(self, existing_install):
         """No menu, no prompt_choice — just run every section in sequence."""
@@ -191,7 +191,7 @@ class TestArgparse:
             "hermes_cli.setup.run_setup_wizard",
             lambda args: captured.setdefault("args", args),
         )
-        monkeypatch.setattr(sys, "argv", ["hermes", "setup", "--reconfigure"])
+        monkeypatch.setattr(sys, "argv", ["xhermes", "setup", "--reconfigure"])
         try:
             main()
         except SystemExit:

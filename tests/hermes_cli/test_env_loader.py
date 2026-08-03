@@ -44,7 +44,7 @@ def test_utf16_le_bom_preserves_non_ascii_values(tmp_path, monkeypatch):
     Uses non-credential var names so _sanitize_loaded_credentials does not
     strip non-ASCII from values (that path only targets *_KEY/*_TOKEN/etc.).
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     env_file = home / ".env"
     content = "GREETING=café\nCJK_LABEL=日本語\n"
@@ -125,7 +125,7 @@ def test_utf32_warning_fires_once_per_path(tmp_path, caplog, monkeypatch):
 
 def test_plain_utf8_env_regression(tmp_path, monkeypatch):
     """Plain UTF-8 .env must keep loading after the UTF-16 sanitize changes."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     env_file = home / ".env"
     before = b"OPENAI_API_KEY=sk-plain\nSECOND_KEY=ok\n"
@@ -153,7 +153,7 @@ def test_cp1252_env_regression_does_not_crash(tmp_path, monkeypatch):
     errors=replace on values (original already replace-decoded equals
     sanitized), so _load_dotenv_with_fallback's latin-1 path recovers café.
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     env_file = home / ".env"
     before = b"ASCII_KEY=ok\nLATIN1_VALUE=caf\xe9\n"
@@ -177,14 +177,14 @@ def test_cp1252_env_regression_does_not_crash(tmp_path, monkeypatch):
 
 
 def test_known_keys_absent_from_user_env_are_cleared(tmp_path, monkeypatch):
-    """Known Hermes keys inherited from parent process are removed when absent
+    """Known XHermes keys inherited from parent process are removed when absent
     from the profile's .env.
 
     This is the startup equivalent of ``reload_env()``'s known-key cleanup and
     fixes the isolation gap where one profile's ACP/provider settings silently
     leak into another profile's runtime via ``os.environ`` inheritance.
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     (home / ".env").write_text(
         "OPENAI_BASE_URL=https://profile.example/v1\n", encoding="utf-8"
@@ -216,7 +216,7 @@ def test_empty_assignment_in_user_env_is_preserved(tmp_path, monkeypatch):
     ``authenticate`` (the key exists, its value is just empty).  This is the
     documented workaround for the leak and must still work after the cleanup.
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     (home / ".env").write_text("HERMES_ACP_AUTH_METHOD=\n", encoding="utf-8")
 
@@ -237,7 +237,7 @@ def test_no_user_env_does_not_clear_anything(tmp_path, monkeypatch):
     wipe inherited known keys — the bare-profile case follows #66930 / #67027
     semantics and the user's shell environment should not be mutilated.
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     # No .env in home — bare profile
 
@@ -251,10 +251,10 @@ def test_no_user_env_does_not_clear_anything(tmp_path, monkeypatch):
 
 
 def test_known_key_explicitly_set_in_user_env_is_kept(tmp_path, monkeypatch):
-    """A known Hermes key that IS explicitly set in the profile .env survives
+    """A known XHermes key that IS explicitly set in the profile .env survives
     the cleanup (overrides the inherited value).
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     (home / ".env").write_text(
         "HERMES_ACP_AUTH_METHOD=claude_code_cli\n", encoding="utf-8"
@@ -268,12 +268,12 @@ def test_known_key_explicitly_set_in_user_env_is_kept(tmp_path, monkeypatch):
 
 
 def test_export_prefixed_known_key_in_user_env_is_kept(tmp_path, monkeypatch):
-    """A known Hermes key defined with the bash-compatible ``export KEY=value``
+    """A known XHermes key defined with the bash-compatible ``export KEY=value``
     form in the profile .env must be recognized as defined and survive the
     cleanup - mirrors the ``export `` stripping in config.py's load_env()
     (#6659).
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     (home / ".env").write_text(
         "export HERMES_ACP_AUTH_METHOD=claude_code_cli\n", encoding="utf-8"
@@ -294,7 +294,7 @@ def test_shell_exported_credentials_survive_cleanup(tmp_path, monkeypatch):
     shell export from parent-process leakage, so credential isolation is
     owned by read-time secret scoping instead.
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     (home / ".env").write_text("SOME_OTHER_KEY=x\n", encoding="utf-8")
 
@@ -339,7 +339,7 @@ def test_cleanup_scope_is_the_profile_managed_set():
 
 
 def _seed_terminal_home(tmp_path, monkeypatch, *, config_yaml=None, env_text=None):
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     if config_yaml is not None:
         (home / "config.yaml").write_text(config_yaml, encoding="utf-8")
@@ -353,7 +353,7 @@ def _seed_terminal_home(tmp_path, monkeypatch, *, config_yaml=None, env_text=Non
 
 
 def test_config_yaml_terminal_backend_overrides_stale_env(tmp_path, monkeypatch):
-    """Regression for #29186: a leftover TERMINAL_ENV=docker in ~/.hermes/.env
+    """Regression for #29186: a leftover TERMINAL_ENV=docker in ~/.xhermes/.env
     must not silently override the user's choice in config.yaml. config.yaml
     is the documented source of truth, so its value must win after load."""
     home = _seed_terminal_home(

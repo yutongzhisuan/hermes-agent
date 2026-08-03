@@ -214,10 +214,10 @@ class TestAudit:
 class TestAgentCardV1:
     def test_card_shape(self):
         card = protocol.build_agent_card(
-            name="hermes-test", url="http://localhost:9900/",
+            name="xhermes-test", url="http://localhost:9900/",
             description="test", skills=[], streaming=False, auth_required=False,
         )
-        assert card["name"] == "hermes-test"
+        assert card["name"] == "xhermes-test"
         # v1.0: no top-level protocolVersion / preferredTransport —
         # consolidated into supportedInterfaces[].
         assert "protocolVersion" not in card
@@ -1585,8 +1585,8 @@ class TestV1SpecRegressionFixes:
         fakebin = tmp_path / "bin"
         fakebin.mkdir()
         calls = tmp_path / "calls.jsonl"
-        hermes = fakebin / "hermes"
-        hermes.write_text("""#!/usr/bin/env python3
+        xhermes = fakebin / "xhermes"
+        xhermes.write_text("""#!/usr/bin/env python3
 import json, os, sqlite3, sys, time
 calls = os.environ['FAKE_HERMES_CALLS']
 with open(calls, 'a') as f:
@@ -1598,7 +1598,7 @@ if '--resume' not in sys.argv:
     con.commit()
 print('fake reply')
 """)
-        hermes.chmod(0o755)
+        xhermes.chmod(0o755)
         monkeypatch.setenv("PATH", str(fakebin) + os.pathsep + os.environ.get("PATH", ""))
         monkeypatch.setenv("FAKE_HERMES_CALLS", str(calls))
         monkeypatch.setattr("plugins.platforms.a2a.adapter._profile_home", lambda profile: str(profile_home))

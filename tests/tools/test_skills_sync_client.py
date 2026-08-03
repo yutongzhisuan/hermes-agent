@@ -456,7 +456,7 @@ class TestMergeDecision:
 def synced_env(tmp_path, monkeypatch):
     """A HERMES_HOME with two opted-in skills + a token-carrying identity."""
     import hermes_constants
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     skills = home / "skills"
     skills.mkdir(parents=True)
     monkeypatch.setattr(hermes_constants, "get_hermes_home", lambda: home)
@@ -717,7 +717,7 @@ class TestSyncManifest:
 
 
 # ---------------------------------------------------------------------------
-# Env-var configuration (Hermes Cloud "on by default" via environment)
+# Env-var configuration (XHermes Cloud "on by default" via environment)
 # ---------------------------------------------------------------------------
 
 class TestEnvConfig:
@@ -835,14 +835,14 @@ class TestDeviceName:
         assert ssc.stable_device_id() == "Explicit Name"
 
     def test_env_seeds_first_use(self, tmp_path, monkeypatch):
-        # Hermes Cloud path: HERMES_SYNC_DEVICE_NAME seeds the first-use label.
+        # XHermes Cloud path: HERMES_SYNC_DEVICE_NAME seeds the first-use label.
         monkeypatch.setattr(ssc, "_skills_dir", lambda: tmp_path)
-        monkeypatch.setenv("HERMES_SYNC_DEVICE_NAME", "hermes-cloud-ben-1")
-        assert ssc.stable_device_id() == "hermes-cloud-ben-1"
+        monkeypatch.setenv("HERMES_SYNC_DEVICE_NAME", "xhermes-cloud-ben-1")
+        assert ssc.stable_device_id() == "xhermes-cloud-ben-1"
         # persisted so it stays stable even if the env later changes
-        assert (tmp_path / ".sync_device_id").read_text() == "hermes-cloud-ben-1"
+        assert (tmp_path / ".sync_device_id").read_text() == "xhermes-cloud-ben-1"
         monkeypatch.setenv("HERMES_SYNC_DEVICE_NAME", "changed")
-        assert ssc.stable_device_id() == "hermes-cloud-ben-1"
+        assert ssc.stable_device_id() == "xhermes-cloud-ben-1"
 
     def test_set_device_name_overwrites(self, tmp_path, monkeypatch):
         monkeypatch.setattr(ssc, "_skills_dir", lambda: tmp_path)

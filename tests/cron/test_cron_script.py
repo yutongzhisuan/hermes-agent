@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 @pytest.fixture
 def cron_env(tmp_path, monkeypatch):
     """Isolated cron environment with temp HERMES_HOME."""
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "cron").mkdir()
     (hermes_home / "cron" / "output").mkdir()
@@ -106,7 +106,7 @@ class TestRunJobScript:
 
 
     def test_script_subprocess_env_sanitized(self, cron_env, monkeypatch):
-        """Cron scripts must not inherit Hermes provider env (SECURITY.md §2.3)."""
+        """Cron scripts must not inherit XHermes provider env (SECURITY.md §2.3)."""
         from tools.environments.local import _HERMES_PROVIDER_ENV_BLOCKLIST
         from cron.scheduler import _run_job_script
 
@@ -290,7 +290,7 @@ class TestScriptPathContainment:
     """
 
     def test_absolute_path_outside_scripts_dir_blocked(self, cron_env):
-        """Absolute paths outside ~/.hermes/scripts/ must be rejected."""
+        """Absolute paths outside ~/.xhermes/scripts/ must be rejected."""
         from cron.scheduler import _run_job_script
 
         # Create a script outside the scripts dir

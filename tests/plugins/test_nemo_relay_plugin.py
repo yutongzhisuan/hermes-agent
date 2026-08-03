@@ -300,7 +300,7 @@ def test_shared_metrics_and_rich_plugin_share_one_core_session(
     from agent import relay_llm
 
     fake = _FakeNemoRelay()
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "xhermes-home"
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     monkeypatch.setenv("HERMES_NEMO_RELAY_ATIF_ENABLED", "1")
     monkeypatch.setenv(
@@ -375,7 +375,7 @@ def test_shared_metrics_and_rich_plugin_share_one_core_session(
         index
         for index, item in enumerate(fake.events)
         if item[0] == "subscribers.register"
-        and item[1].startswith("hermes.nemo_relay.shared_metrics.")
+        and item[1].startswith("xhermes.nemo_relay.shared_metrics.")
     )
     register_atif = next(
         index for index, item in enumerate(fake.events) if item[0] == "atif.register"
@@ -392,9 +392,9 @@ def test_shared_metrics_and_rich_plugin_share_one_core_session(
     )
     assert len(packages) == 1
     package = json.loads(packages[0].read_text(encoding="utf-8"))
-    assert package["metrics"][0]["name"] == "hermes.model_call.count"
+    assert package["metrics"][0]["name"] == "xhermes.model_call.count"
     assert package["metrics"][0]["value"] == 1
-    assert (tmp_path / "atif" / "hermes-atif-s1.json").exists()
+    assert (tmp_path / "atif" / "xhermes-atif-s1.json").exists()
 
 
 def test_real_binding_shares_plugin_configuration_across_two_profiles(

@@ -245,7 +245,7 @@ COPYFILE_DISABLE=1 pkgbuild --root <stage> \
 ```bash
 # 方式一：keychain-profile（推荐，凭证存钥匙串）
 xcrun notarytool submit dist/xHermes-CLI-0.19.1-arm64.pkg \
-    --keychain-profile hermes-notary --wait
+    --keychain-profile xhermes-notary --wait
 
 # 方式二：API key（与桌面端 notarize.mjs 同款凭证）
 xcrun notarytool submit dist/xHermes-CLI-0.19.1-arm64.pkg \
@@ -318,7 +318,7 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
   site-packages/`，该目录归安装用户所有（用户级 pkg），单用户场景可写；
   多用户共享同一 home 时第二个用户会 PermissionError（与 install.sh 的
   用户级布局相同）
-- 升级需重装（无自更新机制；`hermes update` 面向 install.sh 布局）
+- 升级需重装（无自更新机制；`xhermes update` 面向 install.sh 布局）
 
 **已验证并修复的构建事故（2026-08-03）：**
 

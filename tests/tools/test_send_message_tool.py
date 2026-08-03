@@ -278,7 +278,7 @@ class TestSendMessageTool:
 
     def test_ntfy_topic_target_bypasses_channel_directory(self):
         ntfy_platform = Platform("ntfy")
-        ntfy_cfg = SimpleNamespace(enabled=True, token=None, extra={"topic": "hermes-in"})
+        ntfy_cfg = SimpleNamespace(enabled=True, token=None, extra={"topic": "xhermes-in"})
         config = SimpleNamespace(
             platforms={ntfy_platform: ntfy_cfg},
             get_home_channel=lambda _platform: None,
@@ -697,7 +697,7 @@ class TestSendToPlatformWhatsapp:
                     Platform.WHATSAPP,
                     SimpleNamespace(enabled=True, token=None, extra={"bridge_port": 3000}),
                     chat_id,
-                    "hello from hermes",
+                    "hello from xhermes",
                 )
             )
         finally:
@@ -708,7 +708,7 @@ class TestSendToPlatformWhatsapp:
         async_mock.assert_awaited_once()
         _call = async_mock.await_args
         assert _call.args[1] == chat_id
-        assert _call.args[2] == "hello from hermes"
+        assert _call.args[2] == "hello from xhermes"
 
 
 class TestSendTelegramHtmlDetection:
@@ -873,7 +873,7 @@ class TestParseTargetRef:
              "!HLOQwxYGgFPMPJUSNR:matrix.org", "$thread123:matrix.org"),
             ("matrix", "!HLOQwxYGgFPMPJUSNR:matrix.org",
              "!HLOQwxYGgFPMPJUSNR:matrix.org", None),
-            ("matrix", "@hermes:matrix.org", "@hermes:matrix.org", None),
+            ("matrix", "@xhermes:matrix.org", "@xhermes:matrix.org", None),
             # Phone platforms: E.164 keeps its '+' for signal-cli; groups and
             # bare digits also resolve.
             ("signal", "+41791234567", "+41791234567", None),
@@ -1625,8 +1625,8 @@ class _FakePlatform:
 class TestSendViaAdapterStandaloneFallback:
     """Coverage for the out-of-process plugin-platform send path.
 
-    When the gateway runner is not in this process (e.g. ``hermes cron``
-    runs separately from ``hermes gateway``), ``_send_via_adapter`` should
+    When the gateway runner is not in this process (e.g. ``xhermes cron``
+    runs separately from ``xhermes gateway``), ``_send_via_adapter`` should
     fall through to the plugin's ``standalone_sender_fn`` registered on
     its ``PlatformEntry``.  Without the hook, the existing error string
     is returned (with a more helpful tail).

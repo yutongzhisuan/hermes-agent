@@ -38,7 +38,7 @@ def test_resolve_stdio_command_falls_back_to_usr_local_bin():
     or ``~/.local/bin``, the resolver should still locate it at ``/usr/local/bin/npx``.
 
     This is the canonical install location for Node on Linux from-source builds,
-    the upstream ``node:bookworm-slim`` image (which the Hermes Docker image
+    the upstream ``node:bookworm-slim`` image (which the XHermes Docker image
     copies ``node + npm + corepack`` from since #4977), and macOS Homebrew on
     Intel. Without this candidate, MCP servers run with an ``env.PATH`` that
     omits ``/usr/local/bin`` (common when users hand-author PATH for sandboxing)

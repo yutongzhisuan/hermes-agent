@@ -138,7 +138,7 @@ async def list_skills_hub_sources(profile: Optional[str] = None):
                     entry["rate_limited"] = bool(getattr(src, "is_rate_limited", False))
                 except Exception:
                     entry["rate_limited"] = False
-            if sid == "hermes-index":
+            if sid == "xhermes-index":
                 try:
                     index_available = bool(getattr(src, "is_available", False))
                 except Exception:

@@ -6,7 +6,7 @@ capture at call time) or streaming (captured after the fact from the caller's
 resolved assistant text). Before the streamed-capture fix, a streamed
 aggregator left ``output: null`` in the trace and only pointed at state.db,
 so an offline audit of a benchmark run (which drives the streaming display
-path via ``hermes chat --query``) couldn't see what the aggregator actually
+path via ``xhermes chat --query``) couldn't see what the aggregator actually
 produced without joining to the session DB by hand.
 
 These exercise the real ``consume_and_save_trace`` → ``save_moa_turn`` path
@@ -24,7 +24,7 @@ from agent.moa_loop import MoAChatCompletions
 
 def _enable_traces(tmp_path, monkeypatch):
     """Point HERMES_HOME at a temp dir and turn moa.save_traces on."""
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 

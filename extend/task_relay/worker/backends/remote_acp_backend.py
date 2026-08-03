@@ -1,4 +1,4 @@
-"""Remote ACP backend via JSON-RPC to a co-located Hermes ACP process."""
+"""Remote ACP backend via JSON-RPC to a co-located XHermes ACP process."""
 
 from __future__ import annotations
 

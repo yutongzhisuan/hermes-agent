@@ -1,4 +1,4 @@
-"""Tests for the Command Installation check in hermes doctor."""
+"""Tests for the Command Installation check in xhermes doctor."""
 
 import sys
 import types
@@ -12,7 +12,7 @@ import hermes_cli.doctor as doctor_mod
 
 def _setup_doctor_env(monkeypatch, tmp_path, venv_name="venv"):
     """Create a minimal HERMES_HOME + PROJECT_ROOT for doctor tests."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir(parents=True, exist_ok=True)
     (home / "config.yaml").write_text("memory: {}\n", encoding="utf-8")
 
@@ -22,7 +22,7 @@ def _setup_doctor_env(monkeypatch, tmp_path, venv_name="venv"):
     # Create a fake venv entry point
     venv_bin_dir = project / venv_name / "bin"
     venv_bin_dir.mkdir(parents=True, exist_ok=True)
-    hermes_bin = venv_bin_dir / "hermes"
+    hermes_bin = venv_bin_dir / "xhermes"
     hermes_bin.write_text("#!/usr/bin/env python\n# entry point\n")
     hermes_bin.chmod(0o755)
 
@@ -80,7 +80,7 @@ class TestDoctorCommandInstallation:
         # Create a symlink pointing to wrong target
         cmd_link_dir = tmp_path / ".local" / "bin"
         cmd_link_dir.mkdir(parents=True)
-        cmd_link = cmd_link_dir / "hermes"
+        cmd_link = cmd_link_dir / "xhermes"
         wrong_target = tmp_path / "wrong_hermes"
         wrong_target.write_text("#!/usr/bin/env python\n")
         cmd_link.symlink_to(wrong_target)
@@ -96,7 +96,7 @@ class TestDoctorCommandInstallation:
 
     @pytest.mark.skipif(sys.platform == "win32", reason="Symlink check is Unix-only")
     def test_missing_venv_entry_point_shows_warn(self, monkeypatch, tmp_path):
-        home = tmp_path / ".hermes"
+        home = tmp_path / ".xhermes"
         home.mkdir(parents=True, exist_ok=True)
         (home / "config.yaml").write_text("memory: {}\n", encoding="utf-8")
 

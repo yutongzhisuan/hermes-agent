@@ -117,7 +117,7 @@ class TestShutdownTranscriptSurvivesResumeE2E:
         in-flight turn is readable back through SessionStore.load_transcript —
         the exact path the resume logic reads on the next message."""
         # Isolated state.db.
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
 
         from hermes_state import SessionDB
         from run_agent import AIAgent

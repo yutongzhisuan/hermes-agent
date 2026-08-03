@@ -60,7 +60,7 @@ class TestNonInteractiveSetup:
         assert "Configuration reset to defaults." in out
 
     def test_chat_first_run_headless_skips_setup_prompt(self, capsys):
-        """Bare `hermes` should not prompt for input when no provider exists and stdin is headless."""
+        """Bare `xhermes` should not prompt for input when no provider exists and stdin is headless."""
         from hermes_cli.main import cmd_chat
 
         args = _make_chat_args()
@@ -78,5 +78,5 @@ class TestNonInteractiveSetup:
         assert exc.value.code == 1
         mock_setup.assert_not_called()
         out = capsys.readouterr().out
-        assert "hermes config set model.provider custom" in out
+        assert "xhermes config set model.provider custom" in out
 

@@ -441,7 +441,7 @@ class TestBuildContextFilesPrompt:
         with patch("pathlib.Path.home", return_value=fake_home):
             result = build_context_files_prompt(cwd=str(tmp_path))
         assert "Project Context" in result
-        assert "Hermes Agent" in result
+        assert "XHermes Agent" in result
 
     def test_loads_agents_md(self, tmp_path):
         (tmp_path / "AGENTS.md").write_text("Use Ruff for linting.")
@@ -479,7 +479,7 @@ class TestBuildContextFilesPrompt:
 
 
 
-    # --- .hermes.md / HERMES.md discovery ---
+    # --- .xhermes.md / HERMES.md discovery ---
 
 
 
@@ -519,23 +519,23 @@ class TestBuildContextFilesPrompt:
 
 
 # =========================================================================
-# .hermes.md helper functions
+# .xhermes.md helper functions
 # =========================================================================
 
 
 class TestFindHermesMd:
     def test_finds_in_cwd(self, tmp_path):
-        (tmp_path / ".hermes.md").write_text("rules")
-        assert _find_hermes_md(tmp_path) == tmp_path / ".hermes.md"
+        (tmp_path / ".xhermes.md").write_text("rules")
+        assert _find_hermes_md(tmp_path) == tmp_path / ".xhermes.md"
 
 
 
     def test_walks_to_git_root(self, tmp_path):
         (tmp_path / ".git").mkdir()
-        (tmp_path / ".hermes.md").write_text("root rules")
+        (tmp_path / ".xhermes.md").write_text("root rules")
         sub = tmp_path / "a" / "b"
         sub.mkdir(parents=True)
-        assert _find_hermes_md(sub) == tmp_path / ".hermes.md"
+        assert _find_hermes_md(sub) == tmp_path / ".xhermes.md"
 
 
 
@@ -543,14 +543,14 @@ class TestFindHermesMd:
         """Outside a git repo, only cwd is checked — parents are NOT walked.
 
         Walking parents with no git root to stop the loop would climb all
-        the way to / and pick up a .hermes.md planted in /tmp, /home, or /
+        the way to / and pick up a .xhermes.md planted in /tmp, /home, or /
         on a shared system — a cross-user prompt-injection vector.
         """
         from unittest.mock import patch
 
         parent = tmp_path / "parent"
         parent.mkdir()
-        (parent / ".hermes.md").write_text("planted by another user")
+        (parent / ".xhermes.md").write_text("planted by another user")
         cwd = parent / "work"
         cwd.mkdir()
         # No git root anywhere up the tree.
@@ -834,7 +834,7 @@ class TestBuildSkillsSystemPromptConditional:
         skill_dir = tmp_path / "skills" / "iot" / "openhue"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            "---\nname: openhue\ndescription: Hue lights\nmetadata:\n  hermes:\n    requires_toolsets: [terminal]\n---\n"
+            "---\nname: openhue\ndescription: Hue lights\nmetadata:\n  xhermes:\n    requires_toolsets: [terminal]\n---\n"
         )
         result = build_skills_system_prompt(
             available_tools=set(),
@@ -850,7 +850,7 @@ class TestBuildSkillsSystemPromptConditional:
         skill_dir = tmp_path / "skills" / "search" / "duckduckgo"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
-            "---\nname: duckduckgo\ndescription: Free web search\nmetadata:\n  hermes:\n    fallback_for_toolsets: [web]\n---\n"
+            "---\nname: duckduckgo\ndescription: Free web search\nmetadata:\n  xhermes:\n    fallback_for_toolsets: [web]\n---\n"
         )
         result = build_skills_system_prompt()
         assert "duckduckgo" in result

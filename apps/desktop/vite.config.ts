@@ -47,7 +47,7 @@ const emojibaseDir =
 const EMOJIBASE_PATH = /^[a-z-]+\/(data|messages|shortcodes\/emojibase)\.json$/
 
 const emojibaseAssets = () => ({
-  name: 'hermes:emojibase-assets',
+  name: 'xhermes:emojibase-assets',
   configureServer(server: {
     middlewares: { use: (route: string, handler: (req: any, res: any, next: () => void) => void) => void }
   }) {
@@ -83,7 +83,7 @@ export default defineConfig(({ command }) => ({
     // without this, Vite's `postcss-load-config` walks UP the filesystem
     // looking for a stray `postcss.config.*` / `tailwind.config.*`. The desktop
     // build runs from inside the user's home tree (e.g.
-    // `C:\Users\<name>\AppData\Local\hermes\hermes-agent\apps\desktop`), so an
+    // `C:\Users\<name>\AppData\Local\xhermes\xhermes-agent\apps\desktop`), so an
     // unrelated Tailwind v3 config higher up the tree gets picked up and
     // reprocesses our v4 stylesheet, failing the build with
     // "`@layer base` is used but no matching `@tailwind base` directive is

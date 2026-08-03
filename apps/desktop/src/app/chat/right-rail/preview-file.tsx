@@ -223,7 +223,7 @@ async function readTextPreview(filePath: string) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    if (!message.includes("No handler registered for 'hermes:readFileText'")) {
+    if (!message.includes("No handler registered for 'xhermes:readFileText'")) {
       throw error
     }
   }

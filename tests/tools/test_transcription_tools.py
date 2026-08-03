@@ -208,7 +208,7 @@ class TestTranscribeGroq:
 
 class TestTranscribeLocalCommand:
     def test_command_provider_uses_sanitized_child_env(self, monkeypatch):
-        """Salvage of #56332: command STT must not inherit Hermes secrets."""
+        """Salvage of #56332: command STT must not inherit XHermes secrets."""
         monkeypatch.setenv("AUXILIARY_VISION_API_KEY", "sk-vision")
         monkeypatch.setenv("GATEWAY_RELAY_SECRET", "relay-secret")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
@@ -663,7 +663,7 @@ class TestTranscribeAudioMistralDispatch:
 def mock_xai_http_module():
     """Inject a fake tools.xai_http module for testing."""
     fake_module = MagicMock()
-    fake_module.hermes_xai_user_agent = MagicMock(return_value="hermes-xai/test")
+    fake_module.hermes_xai_user_agent = MagicMock(return_value="xhermes-xai/test")
     with patch.dict("sys.modules", {"tools.xai_http": fake_module}):
         yield fake_module
 

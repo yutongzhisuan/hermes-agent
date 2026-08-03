@@ -1,4 +1,4 @@
-"""Tests for the hermes-tools-as-MCP server module surface.
+"""Tests for the xhermes-tools-as-MCP server module surface.
 
 We don't run a live MCP session in unit tests — that requires the codex
 subprocess + client + an event loop. These tests pin the static

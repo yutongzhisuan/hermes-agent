@@ -3,7 +3,7 @@ package batchpolicy_test
 import (
 	"testing"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/batchpolicy"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/batchpolicy"
 )
 
 func TestCompletionThresholdAny(t *testing.T) {

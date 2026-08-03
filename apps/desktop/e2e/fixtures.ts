@@ -1,11 +1,11 @@
 /**
- * Shared E2E fixtures for the Hermes desktop Playwright suite.
+ * Shared E2E fixtures for the XHermes desktop Playwright suite.
  *
  * Two fixture modes:
  *
  *  1. `mockBackend` — starts a mock inference server, writes a config.yaml
  *     that points at it, and launches the desktop app so the full chain
- *     (electron → hermes serve → provider → inference → renderer) is
+ *     (electron → xhermes serve → provider → inference → renderer) is
  *     exercised with a real backend but a fake LLM.
  *
  *  2. `noProvider` — launches the app with an empty config (no provider
@@ -14,7 +14,7 @@
  *
  * Both modes launch the *dev* Electron app (`electron .` against the built
  * `dist/`), not the packaged binary. This avoids the multi-minute
- * `electron-builder --dir` step and matches `hermes desktop --source`. The
+ * `electron-builder --dir` step and matches `xhermes desktop --source`. The
  * packaged-binary path is already covered by `launch.spec.ts`.
  *
  * Prerequisite: `npm run build` must have been run so that `dist/` exists.
@@ -98,8 +98,8 @@ export interface Sandbox {
 }
 
 export function createSandbox(prefix: string): Sandbox {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), `hermes-e2e-${prefix}-${Math.random()}`))
-  const hermesHome = path.join(root, 'hermes-home')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `xhermes-e2e-${prefix}-${Math.random()}`))
+  const hermesHome = path.join(root, 'xhermes-home')
   const userDataDir = path.join(root, 'electron-user-data')
 
   fs.mkdirSync(hermesHome, { recursive: true })
@@ -212,9 +212,9 @@ function writeEmptyConfig(hermesHome: string): void {
  * Build the environment for the Electron app process.
  *
  * Key env vars:
- *  - HERMES_HOME → sandbox hermes-home (isolated config/sessions)
+ *  - HERMES_HOME → sandbox xhermes-home (isolated config/sessions)
  *  - HERMES_DESKTOP_USER_DATA_DIR → sandbox electron-user-data
- *  - HERMES_DESKTOP_IGNORE_EXISTING=1 → don't pick up `hermes` from PATH
+ *  - HERMES_DESKTOP_IGNORE_EXISTING=1 → don't pick up `xhermes` from PATH
  *    (we want the dev checkout at REPO_ROOT)
  *  - HERMES_DESKTOP_HERMES_ROOT → REPO_ROOT (dev checkout resolution)
  *  - HERMES_DESKTOP_APP_NAME → unique-ish per test (avoids single-instance lock)
@@ -459,7 +459,7 @@ export interface DeadBackendOptions {
 
 /**
  * Launch the app with a provider pointing at a dead endpoint (port 1, which
- * nothing listens on). By default the backend still boots (`hermes serve`
+ * nothing listens on). By default the backend still boots (`xhermes serve`
  * starts fine — the dead endpoint only matters at chat time). Pass
  * `{ fakeError: true }` to inject a fake boot failure, triggering the
  * BootFailureOverlay.
@@ -487,7 +487,7 @@ providers:
   )
   writeEnvFile(sandbox.hermesHome)
 
-  const env = buildAppEnv(sandbox, options.fakeError ? { HERMES_DESKTOP_BOOT_FAKE_ERROR: 'Failed to connect to Hermes backend: connection refused' } : {})
+  const env = buildAppEnv(sandbox, options.fakeError ? { HERMES_DESKTOP_BOOT_FAKE_ERROR: 'Failed to connect to XHermes backend: connection refused' } : {})
   const { app, page } = await launchDesktop(env)
 
   return {
@@ -509,16 +509,16 @@ providers:
  */
 function resolvePackagedBinaryPath(): string {
   if (process.platform === 'win32') {
-    return path.join(RELEASE_ROOT, 'win-unpacked', 'Hermes.exe')
+    return path.join(RELEASE_ROOT, 'win-unpacked', 'XHermes.exe')
   }
 
   if (process.platform === 'darwin') {
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
 
-    return path.join(RELEASE_ROOT, `mac-${arch}`, 'Hermes.app', 'Contents', 'MacOS', 'Hermes')
+    return path.join(RELEASE_ROOT, `mac-${arch}`, 'XHermes.app', 'Contents', 'MacOS', 'XHermes')
   }
 
-  return path.join(RELEASE_ROOT, 'linux-unpacked', 'hermes')
+  return path.join(RELEASE_ROOT, 'linux-unpacked', 'xhermes')
 }
 
 export const PACKAGED_BINARY_PATH = resolvePackagedBinaryPath()
@@ -537,7 +537,7 @@ export interface PackagedAppFixture {
 /**
  * Launch the *packaged* Electron binary (from `npm run pack` →
  * `electron-builder --dir`) with `BOOT_FAKE=1` so it simulates boot
- * progress without spawning a real Hermes backend.
+ * progress without spawning a real XHermes backend.
  *
  * Uses the same sandbox isolation (credential stripping, isolated
  * HERMES_HOME + userData, unique app name) as the dev-mode fixtures.
@@ -561,7 +561,7 @@ export async function setupPackagedApp(): Promise<PackagedAppFixture> {
     HERMES_DESKTOP_BOOT_FAKE_STEP_MS: '120',
   })
 
-  // Clear dev-server + hermes-root overrides — the packaged binary
+  // Clear dev-server + xhermes-root overrides — the packaged binary
   // should use its own bundled renderer, not the dev checkout.
   delete (env as Record<string, string | undefined>).HERMES_DESKTOP_DEV_SERVER
   delete (env as Record<string, string | undefined>).HERMES_DESKTOP_HERMES

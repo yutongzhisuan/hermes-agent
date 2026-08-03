@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type * as HermesModule from '@/hermes'
-import { getSession } from '@/hermes'
+import type * as HermesModule from '@/xhermes'
+import { getSession } from '@/xhermes'
 import { $activeGatewayProfile, $profiles } from '@/store/profile'
 import { $sessions } from '@/store/session'
-import type { SessionInfo } from '@/types/hermes'
+import type { SessionInfo } from '@/types/xhermes'
 
 import { resolveSessionProfile, resolveStoredSession } from './utils'
 
-vi.mock('@/hermes', async importActual => ({
+vi.mock('@/xhermes', async importActual => ({
   ...(await importActual<typeof HermesModule>()),
   getSession: vi.fn()
 }))

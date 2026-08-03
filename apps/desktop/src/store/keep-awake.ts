@@ -13,7 +13,7 @@ import { atom } from 'nanostores'
 
 import { persistBoolean, storedBoolean } from '@/lib/storage'
 
-const KEY = 'hermes.desktop.keepAwake.v1'
+const KEY = 'xhermes.desktop.keepAwake.v1'
 
 export const $keepAwake = atom<boolean>(typeof window === 'undefined' ? false : storedBoolean(KEY, false))
 

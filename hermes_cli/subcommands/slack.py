@@ -1,4 +1,4 @@
-"""``hermes slack`` subcommand parser.
+"""``xhermes slack`` subcommand parser.
 
 Extracted verbatim from ``hermes_cli/main.py:main()`` (god-file Phase 2).
 Handler injected to avoid importing ``main``.
@@ -17,7 +17,7 @@ def build_slack_parser(subparsers, *, cmd_slack: Callable) -> None:
     slack_parser = subparsers.add_parser(
         "slack",
         help="Slack integration helpers (manifest generation, etc.)",
-        description="Slack integration helpers for Hermes.",
+        description="Slack integration helpers for XHermes.",
     )
     slack_sub = slack_parser.add_subparsers(dest="slack_command")
     slack_manifest = slack_sub.add_parser(

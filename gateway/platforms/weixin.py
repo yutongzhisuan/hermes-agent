@@ -1170,7 +1170,7 @@ async def qr_login(
 
 
 class WeixinAdapter(BasePlatformAdapter):
-    """Native Hermes adapter for Weixin personal accounts."""
+    """Native XHermes adapter for Weixin personal accounts."""
 
     supports_code_blocks = True  # Weixin renders fenced code blocks
     splits_long_messages = True  # send() chunks via _split_text()
@@ -1335,9 +1335,9 @@ class WeixinAdapter(BasePlatformAdapter):
                 "[%s] WEIXIN_GROUP_POLICY=%s is set, but QR-login connects an iLink bot "
                 "identity (e.g. ...@im.bot) which typically cannot be invited into ordinary "
                 "WeChat groups. iLink usually does not deliver ordinary-group events for "
-                "these accounts, so group messages may never reach Hermes regardless of this "
+                "these accounts, so group messages may never reach XHermes regardless of this "
                 "policy. If group delivery doesn't work, the limitation is on the iLink side, "
-                "not in Hermes.",
+                "not in XHermes.",
                 self.name,
                 self._group_policy,
             )
@@ -1928,7 +1928,7 @@ class WeixinAdapter(BasePlatformAdapter):
             # Deliver text content.
             chunks = [c for c in self._split_text(self.format_message(final_content)) if c and c.strip()]
             for idx, chunk in enumerate(chunks):
-                client_id = f"hermes-weixin-{uuid.uuid4().hex}"
+                client_id = f"xhermes-weixin-{uuid.uuid4().hex}"
                 await self._send_text_chunk(
                     chat_id=chat_id,
                     chunk=chunk,
@@ -2207,7 +2207,7 @@ class WeixinAdapter(BasePlatformAdapter):
 
         last_message_id = None
         if caption:
-            last_message_id = f"hermes-weixin-{uuid.uuid4().hex}"
+            last_message_id = f"xhermes-weixin-{uuid.uuid4().hex}"
             await _send_message(
                 self._send_session,
                 base_url=self._base_url,
@@ -2218,7 +2218,7 @@ class WeixinAdapter(BasePlatformAdapter):
                 client_id=last_message_id,
             )
 
-        last_message_id = f"hermes-weixin-{uuid.uuid4().hex}"
+        last_message_id = f"xhermes-weixin-{uuid.uuid4().hex}"
         await _api_post(
             self._send_session,
             base_url=self._base_url,

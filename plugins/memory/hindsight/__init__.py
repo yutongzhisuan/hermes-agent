@@ -11,7 +11,7 @@ Original PR #1811 by benfrank241, adapted to MemoryProvider ABC.
 
 Config via environment variables:
   HINDSIGHT_API_KEY                — API key for Hindsight Cloud
-  HINDSIGHT_BANK_ID                — memory bank identifier (default: hermes)
+  HINDSIGHT_BANK_ID                — memory bank identifier (default: xhermes)
   HINDSIGHT_BUDGET                 — recall budget: low/mid/high (default: mid)
   HINDSIGHT_API_URL                — API endpoint
   HINDSIGHT_MODE                   — cloud or local (default: cloud)
@@ -132,14 +132,14 @@ def _check_local_runtime() -> tuple[bool, str | None]:
 
     On older CPUs, importing the local Hindsight stack can raise a runtime
     error from NumPy before the daemon starts. Treat that as "unavailable"
-    so Hermes can degrade gracefully instead of repeatedly trying to start
+    so XHermes can degrade gracefully instead of repeatedly trying to start
     a broken local memory backend.
 
     The embedded daemon computes embeddings via ``sentence_transformers``
     (transformers + huggingface-hub). Importing ``hindsight`` /
     ``hindsight_embed`` alone succeeds even when that stack is broken, so
     without importing it here the probe would falsely report the backend
-    healthy and ``hermes memory status`` would stay green while the daemon
+    healthy and ``xhermes memory status`` would stay green while the daemon
     aborts at startup on every retain/recall. Import it too so the probe (and
     status) reports the real ImportError.
     """
@@ -416,8 +416,8 @@ def _load_config() -> dict:
             "HINDSIGHT_RETAIN_ASSISTANT_PREFIX", "Assistant"
         ),
         "banks": {
-            "hermes": {
-                "bankId": os.environ.get("HINDSIGHT_BANK_ID", "hermes"),
+            "xhermes": {
+                "bankId": os.environ.get("HINDSIGHT_BANK_ID", "xhermes"),
                 "budget": os.environ.get("HINDSIGHT_BUDGET", "mid"),
                 "enabled": True,
             }
@@ -523,9 +523,9 @@ def _utc_timestamp() -> str:
 
 
 def _embedded_profile_name(config: dict[str, Any]) -> str:
-    """Return the Hindsight embedded profile name for this Hermes config."""
-    profile = config.get("profile", "hermes")
-    return str(profile or "hermes")
+    """Return the Hindsight embedded profile name for this XHermes config."""
+    profile = config.get("profile", "xhermes")
+    return str(profile or "xhermes")
 
 
 def _load_simple_env(path) -> dict[str, str]:
@@ -534,7 +534,7 @@ def _load_simple_env(path) -> dict[str, str]:
         return {}
 
     values: dict[str, str] = {}
-    # utf-8-sig, not plain utf-8: this is also used on the Hermes .env during
+    # utf-8-sig, not plain utf-8: this is also used on the XHermes .env during
     # post_setup, and a Notepad BOM would otherwise stick to the first key.
     for line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         if not line or line.startswith("#") or "=" not in line:
@@ -687,14 +687,14 @@ def _resolve_bank_id_template(template: str, fallback: str, **placeholders: str)
     """Resolve a bank_id template string with the given placeholders.
 
     Supported placeholders (each is sanitized before substitution):
-      {profile}   — active Hermes profile name (from agent_identity)
-      {workspace} — Hermes workspace name (from agent_workspace)
+      {profile}   — active XHermes profile name (from agent_identity)
+      {workspace} — XHermes workspace name (from agent_workspace)
       {platform}  — "cli", "telegram", "discord", etc.
       {user}      — platform user id (gateway sessions)
       {session}   — current session id
 
     Missing/empty placeholders are rendered as the empty string and then
-    collapsed — e.g. ``hermes-{user}`` with no user becomes ``hermes``.
+    collapsed — e.g. ``xhermes-{user}`` with no user becomes ``xhermes``.
 
     If the template is empty, resolution falls back to *fallback*.
     Returns the sanitized bank id.
@@ -743,7 +743,7 @@ class HindsightMemoryProvider(MemoryProvider):
         self._config = None
         self._api_key = None
         self._api_url = _DEFAULT_API_URL
-        self._bank_id = "hermes"
+        self._bank_id = "xhermes"
         self._budget = "mid"
         self._mode = "cloud"
         self._llm_base_url = ""
@@ -981,7 +981,7 @@ class HindsightMemoryProvider(MemoryProvider):
 
         print("\n  Checking dependencies...")
         # Environment-aware install: sealed hosted venvs redirect to the durable
-        # data-volume target instead of writing to /opt/hermes (NS-605).
+        # data-volume target instead of writing to /opt/xhermes (NS-605).
         from tools.lazy_deps import install_specs
 
         outcome = install_specs(deps_to_install, timeout=120)
@@ -1078,7 +1078,7 @@ class HindsightMemoryProvider(MemoryProvider):
                 env_writes["HINDSIGHT_LLM_API_KEY"] = existing_llm_key
 
         # Step 4: Save everything
-        provider_config.setdefault("bank_id", "hermes")
+        provider_config.setdefault("bank_id", "xhermes")
         provider_config.setdefault("recall_budget", "mid")
         # Read existing timeout from config if present, otherwise use default.
         # Preserve explicit 0 values instead of treating them as blank.
@@ -1243,11 +1243,11 @@ class HindsightMemoryProvider(MemoryProvider):
             {
                 "key": "bank_id",
                 "description": "Memory bank name (static fallback when bank_id_template is unset)",
-                "default": "hermes",
+                "default": "xhermes",
             },
             {
                 "key": "bank_id_template",
-                "description": "Optional template to derive bank_id dynamically. Placeholders: {profile}, {workspace}, {platform}, {user}, {session}. Example: hermes-{profile}",
+                "description": "Optional template to derive bank_id dynamically. Placeholders: {profile}, {workspace}, {platform}, {user}, {session}. Example: xhermes-{profile}",
                 "default": "",
             },
             {
@@ -1411,11 +1411,11 @@ class HindsightMemoryProvider(MemoryProvider):
                     llm_provider = "openai"
                 logger.debug(
                     "Creating HindsightEmbedded client (profile=%s, provider=%s)",
-                    self._config.get("profile", "hermes"),
+                    self._config.get("profile", "xhermes"),
                     llm_provider,
                 )
                 kwargs = dict(
-                    profile=self._config.get("profile", "hermes"),
+                    profile=self._config.get("profile", "xhermes"),
                     llm_provider=llm_provider,
                     llm_api_key=self._config.get("llmApiKey")
                     or self._config.get("llm_api_key")
@@ -1784,7 +1784,7 @@ class HindsightMemoryProvider(MemoryProvider):
                     _MIN_CLIENT_VERSION,
                 )
                 # Environment-aware install: sealed hosted venvs redirect to the
-                # durable data-volume target instead of /opt/hermes (NS-605).
+                # durable data-volume target instead of /opt/xhermes (NS-605).
                 from tools.lazy_deps import install_specs
 
                 outcome = install_specs(
@@ -1866,8 +1866,8 @@ class HindsightMemoryProvider(MemoryProvider):
         )
         self._llm_base_url = self._config.get("llm_base_url", "")
 
-        banks = cfg_get(self._config, "banks", "hermes", default={})
-        static_bank_id = self._config.get("bank_id") or banks.get("bankId", "hermes")
+        banks = cfg_get(self._config, "banks", "xhermes", default={})
+        static_bank_id = self._config.get("bank_id") or banks.get("bankId", "xhermes")
         self._bank_id_template = self._config.get("bank_id_template", "") or ""
         self._bank_id = _resolve_bank_id_template(
             self._bank_id_template,
@@ -2024,13 +2024,13 @@ class HindsightMemoryProvider(MemoryProvider):
                 msg = (
                     "Hindsight local_embedded mode cannot run as root "
                     "(PostgreSQL initdb refuses root). Skipping the embedded "
-                    "memory daemon. Run Hermes as a non-root user, or switch "
-                    "to cloud / local_external mode via 'hermes memory setup'."
+                    "memory daemon. Run XHermes as a non-root user, or switch "
+                    "to cloud / local_external mode via 'xhermes memory setup'."
                 )
                 logger.warning(msg)
                 # Surface to the terminal too — a daemon that never starts
                 # would otherwise fail silently and the user would only see
-                # Hermes get sluggish. (issue #13125)
+                # XHermes get sluggish. (issue #13125)
                 try:
                     print(f"  ⚠ {msg}", file=sys.stderr, flush=True)
                 except Exception:
@@ -2056,7 +2056,7 @@ class HindsightMemoryProvider(MemoryProvider):
                     )
 
                     client = self._get_client()
-                    profile = self._config.get("profile", "hermes")
+                    profile = self._config.get("profile", "xhermes")
 
                     # Update the profile .env to match our current config so
                     # the daemon always starts with the right settings.
@@ -2517,7 +2517,7 @@ class HindsightMemoryProvider(MemoryProvider):
         Without this hook, initialize()-cached state (``_session_id``,
         ``_document_id``, ``_session_turns``, ``_turn_counter``) would keep
         pointing at the previous session and writes would land in the wrong
-        document. See hermes-agent#6672.
+        document. See xhermes-agent#6672.
 
         Always update ``_session_id`` so metadata and tags on subsequent
         retains reflect the active session. Always mint a fresh
@@ -2669,7 +2669,7 @@ class HindsightMemoryProvider(MemoryProvider):
             try:
                 if self._mode == "local_embedded":
                     # HindsightEmbedded.close() delegates to its sync client.close().
-                    # When Hermes created/used that client on the shared async loop,
+                    # When XHermes created/used that client on the shared async loop,
                     # closing it from this thread can raise "attached to a different
                     # loop" before aiohttp releases the session. Close the embedded
                     # inner async client on the shared loop first, then let the

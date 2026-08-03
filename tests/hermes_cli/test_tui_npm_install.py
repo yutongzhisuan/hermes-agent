@@ -15,7 +15,7 @@ def main_mod():
 
 
 def _touch_ink(root: Path) -> None:
-    ink = root / "node_modules" / "@hermes" / "ink" / "package.json"
+    ink = root / "node_modules" / "@xhermes" / "ink" / "package.json"
     ink.parent.mkdir(parents=True, exist_ok=True)
     ink.write_text("{}")
 
@@ -124,7 +124,7 @@ def test_no_stray_lockfiles_in_workspace_subdirs(main_mod) -> None:
         root / "apps" / "desktop",
         root / "apps" / "shared",
     ]
-    # Also sweep ui-tui/packages/* (hermes-ink etc.)
+    # Also sweep ui-tui/packages/* (xhermes-ink etc.)
     tui_pkgs = root / "ui-tui" / "packages"
     if tui_pkgs.is_dir():
         subdirs.extend(d for d in tui_pkgs.iterdir() if d.is_dir())

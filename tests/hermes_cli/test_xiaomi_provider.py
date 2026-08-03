@@ -100,7 +100,7 @@ class TestXiaomiCredentials:
         from hermes_cli import config as config_module
         from hermes_cli import env_loader
 
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         home.mkdir()
         (home / ".env").write_text("", encoding="utf-8")
         monkeypatch.setattr(config_module, "get_env_path", lambda: home / ".env")
@@ -298,7 +298,7 @@ class TestXiaomiProvidersModule:
 
 
 class TestXiaomiDoctor:
-    """Verify hermes doctor recognizes Xiaomi env vars."""
+    """Verify xhermes doctor recognizes Xiaomi env vars."""
 
     def test_provider_env_hints(self):
         from hermes_cli.doctor import _PROVIDER_ENV_HINTS

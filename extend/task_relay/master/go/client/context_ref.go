@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 )
 
 // ContextRef mirrors the Task Relay ContextRef message for signing helpers.

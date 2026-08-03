@@ -109,7 +109,7 @@ class TestScopedLockTakeoverReapsChildren:
         target_home.mkdir(parents=True, exist_ok=True)
         record = {
             "pid": pid,
-            "kind": "hermes-gateway",
+            "kind": "xhermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "start_time": start_time,
             "hermes_home": str(target_home),

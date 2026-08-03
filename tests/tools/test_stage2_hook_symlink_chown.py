@@ -55,14 +55,14 @@ def test_chown_helper_repairs_real_directories(stage2_text: str, tmp_path: Path)
 
     assert proc.returncode == 0, proc.stderr
     assert log_path.read_text().splitlines() == [
-        f"-R hermes:hermes {target}",
+        f"-R xhermes:xhermes {target}",
     ]
 
 
 def test_chown_helper_refuses_symlinked_directories(stage2_text: str, tmp_path: Path) -> None:
     real_home = tmp_path / "real-home"
     real_home.mkdir()
-    symlinked_home = tmp_path / "hermes-home"
+    symlinked_home = tmp_path / "xhermes-home"
     try:
         symlinked_home.symlink_to(real_home, target_is_directory=True)
     except (NotImplementedError, OSError):
@@ -105,9 +105,9 @@ def test_stage2_uses_symlink_safe_helper_for_hermes_home_trees(stage2_text: str)
     assert 'chown_hermes_tree "$HERMES_HOME/$sub"' in stage2_text
     assert 'chown_hermes_tree "$HERMES_HOME/profiles"' in stage2_text
     assert 'chown_hermes_tree "$HERMES_HOME/cron"' in stage2_text
-    assert 'chown -R hermes:hermes "$HERMES_HOME/$sub"' not in stage2_text
-    assert 'chown -R hermes:hermes "$HERMES_HOME/profiles"' not in stage2_text
-    assert 'chown -R hermes:hermes "$HERMES_HOME/cron"' not in stage2_text
+    assert 'chown -R xhermes:xhermes "$HERMES_HOME/$sub"' not in stage2_text
+    assert 'chown -R xhermes:xhermes "$HERMES_HOME/profiles"' not in stage2_text
+    assert 'chown -R xhermes:xhermes "$HERMES_HOME/cron"' not in stage2_text
 
 
 def test_stage2_skips_top_level_chown_for_symlinked_hermes_home(

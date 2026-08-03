@@ -162,7 +162,7 @@ def adapter(tmp_path):
 
     Redirects the persistent thread-count store to a tmp file so tests
     don't pollute (or read state from) the developer's real
-    ~/.hermes/google_chat_thread_counts.json.
+    ~/.xhermes/google_chat_thread_counts.json.
     """
     from plugins.platforms.google_chat.adapter import _ThreadCountStore
     a = GoogleChatAdapter(_base_config())
@@ -174,7 +174,7 @@ def adapter(tmp_path):
     a._subscription_path = "projects/test-project/subscriptions/test-sub"
     a._new_authed_http = MagicMock(return_value=MagicMock())
     a.handle_message = AsyncMock()
-    # Replace the production store (which would write to ~/.hermes/...)
+    # Replace the production store (which would write to ~/.xhermes/...)
     # with a tmp-path one so tests can roundtrip without side effects.
     a._thread_count_store = _ThreadCountStore(
         tmp_path / "google_chat_thread_counts.json"
@@ -558,7 +558,7 @@ class TestExtractMessagePayload:
         """Format 3: flat fields from a custom Cloud Run relay.
 
         Some self-hosted setups put a relay in front of Pub/Sub to keep
-        GCP credentials off the Hermes host. The relay flattens Chat
+        GCP credentials off the XHermes host. The relay flattens Chat
         events into top-level ``sender_email`` / ``text`` / ``space_name``
         / etc. The helper synthesizes a Chat-API-shaped ``message`` dict
         so downstream code (``_dispatch_message`` →
@@ -786,7 +786,7 @@ class TestTypingLifecycle:
         first call slow, the second arriving before the first stores
         its msg_id), only ONE create should hit the API. Without this
         guard the second call would create a duplicate card → orphan
-        'Hermes is thinking…' stuck in chat. Race fix via
+        'XHermes is thinking…' stuck in chat. Race fix via
         _typing_card_inflight Event.
         """
         call_count = 0
@@ -866,7 +866,7 @@ class TestTypingLifecycle:
         already populated the slot (race), the orphan id is tracked in
         _orphan_typing_messages. on_processing_complete must patch each
         orphan to a benign marker so users don't see stuck
-        'Hermes is thinking…' messages."""
+        'XHermes is thinking…' messages."""
         from plugins.platforms.google_chat.adapter import _TYPING_CONSUMED_SENTINEL
         adapter._orphan_typing_messages["spaces/S"] = [
             "spaces/S/messages/ORPHAN1",
@@ -1471,7 +1471,7 @@ class TestGoogleChatInteractiveSetup:
         answers = {
             "GCP project ID (e.g. my-project)": "demo-project",
             "Pub/Sub subscription (projects/<proj>/subscriptions/<sub>)": (
-                "projects/demo-project/subscriptions/hermes-chat"
+                "projects/demo-project/subscriptions/xhermes-chat"
             ),
             "Path to Service Account JSON (or inline JSON)": "/tmp/sa.json",
             "Allowed user emails (comma-separated)": "alice@example.com, bob@example.com",
@@ -1510,7 +1510,7 @@ class TestGoogleChatInteractiveSetup:
         assert saved["GOOGLE_CHAT_PROJECT_ID"] == "demo-project"
         assert (
             saved["GOOGLE_CHAT_SUBSCRIPTION_NAME"]
-            == "projects/demo-project/subscriptions/hermes-chat"
+            == "projects/demo-project/subscriptions/xhermes-chat"
         )
         assert saved["GOOGLE_CHAT_SERVICE_ACCOUNT_JSON"] == "/tmp/sa.json"
         assert saved["GOOGLE_CHAT_ALLOWED_USERS"] == "alice@example.com,bob@example.com"

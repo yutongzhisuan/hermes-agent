@@ -13,7 +13,7 @@ Design goals:
 - **Loud when it matters, silent otherwise.** If no compromised package is
   installed, the user sees nothing.
 - **Acknowledgeable.** Once the user has read and acted on an advisory they
-  can dismiss it via ``hermes doctor --ack <id>``; the ack is persisted to
+  can dismiss it via ``xhermes doctor --ack <id>``; the ack is persisted to
   ``config.security.acked_advisories`` and survives restart.
 - **Extensible.** Adding a new advisory is one entry in ``ADVISORIES``;
   adding a new compromised version is a one-line edit. No code changes
@@ -21,14 +21,14 @@ Design goals:
 
 The check is invoked from three places:
 
-1. ``hermes doctor`` (and ``hermes doctor --ack <id>``)
+1. ``xhermes doctor`` (and ``xhermes doctor --ack <id>``)
 2. CLI startup banner (one short line, then full guidance via
-   ``hermes doctor``)
+   ``xhermes doctor``)
 3. Gateway startup (logged to gateway.log; first interactive message gets
    a one-line operator banner)
 
 This module is intentionally dependency-free beyond the stdlib so it can
-run in environments where the rest of Hermes failed to import.
+run in environments where the rest of XHermes failed to import.
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ ADVISORIES: tuple[Advisory, ...] = (
             "environment variables and credential files (~/.npmrc, ~/.pypirc, "
             "~/.aws/credentials, GitHub PATs, cloud SDK tokens) and exfils "
             "them to a hardcoded webhook. If you ran any Python process that "
-            "imported mistralai 2.4.6 — including hermes when configured "
+            "imported mistralai 2.4.6 — including xhermes when configured "
             "with provider=mistral for TTS or STT — assume those credentials "
             "are exposed. PyPI has since removed 2.4.6 and the project ships "
             "clean releases again (2.4.7, 2.4.8); this advisory only fires if "
@@ -114,13 +114,13 @@ ADVISORIES: tuple[Advisory, ...] = (
         ),
         remediation=(
             "Run: pip uninstall -y mistralai  (or: uv pip uninstall mistralai)",
-            "Rotate API keys in ~/.hermes/.env (OpenRouter, Anthropic, OpenAI, "
+            "Rotate API keys in ~/.xhermes/.env (OpenRouter, Anthropic, OpenAI, "
             "Nous, GitHub, AWS, Google, Mistral, etc.).",
             "Audit ~/.npmrc, ~/.pypirc, ~/.aws/credentials, ~/.config/gh/hosts.yml, "
             "and any other credential files for tokens that may have been read.",
             "Check GitHub for unexpected new SSH keys, deploy keys, or webhook "
             "additions on repos you have admin on.",
-            "After cleanup: hermes doctor --ack shai-hulud-2026-05  to dismiss "
+            "After cleanup: xhermes doctor --ack shai-hulud-2026-05  to dismiss "
             "this warning.",
         ),
         published="2026-05-12",
@@ -151,7 +151,7 @@ def _installed_version(pkg_name: str) -> Optional[str]:
     """
     try:
         from importlib.metadata import PackageNotFoundError, version
-    except ImportError:  # py<3.8 — Hermes requires 3.10+ but defensive.
+    except ImportError:  # py<3.8 — XHermes requires 3.10+ but defensive.
         return None
     try:
         return version(pkg_name)
@@ -281,7 +281,7 @@ def short_banner_lines(hits: list[AdvisoryHit]) -> list[str]:
     lines = [
         f"SECURITY ADVISORY [{primary.advisory.id}]: {primary.advisory.title}",
         f"  Detected: {primary.package}=={primary.installed_version}",
-        "  Run 'hermes doctor' for remediation steps.",
+        "  Run 'xhermes doctor' for remediation steps.",
     ]
     if len(hits) > 1:
         lines.insert(1, f"  ({len(hits) - 1} additional advisor"
@@ -312,7 +312,7 @@ def full_remediation_text(hit: AdvisoryHit) -> list[str]:
 #
 # We do NOT want to hammer the user with the banner on every command. Once
 # they've seen it inside a 24h window we cache that fact in
-# ``~/.hermes/cache/advisory_banner_seen`` (a single line per advisory ID:
+# ``~/.xhermes/cache/advisory_banner_seen`` (a single line per advisory ID:
 # ``<id> <iso8601_timestamp>``).
 #
 # Acked advisories never re-banner. Cached-but-not-acked advisories
@@ -404,7 +404,7 @@ def hits_due_for_banner(
 
 
 def render_doctor_section(hits: list[AdvisoryHit]) -> tuple[bool, list[str]]:
-    """Render the security-advisory section for ``hermes doctor``.
+    """Render the security-advisory section for ``xhermes doctor``.
 
     Returns ``(has_problems, lines)``. Caller is responsible for printing
     with whatever color scheme it uses.
@@ -450,4 +450,4 @@ def gateway_log_message(hits: list[AdvisoryHit]) -> Optional[str]:
                 f"See {h.advisory.url}")
     return (f"{len(fresh)} security advisories active "
             f"(IDs: {', '.join(h.advisory.id for h in fresh)}). "
-            f"Run `hermes doctor` on the gateway host for details.")
+            f"Run `xhermes doctor` on the gateway host for details.")

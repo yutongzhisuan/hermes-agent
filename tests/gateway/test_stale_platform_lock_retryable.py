@@ -82,8 +82,8 @@ def test_explicit_replace_takeover_reacquires_lock_once(adapter):
     """Initial explicit --replace may hand off and re-acquire once (#65176)."""
     existing = {
         "pid": 4242,
-        "kind": "hermes-gateway",
-        "argv": ["hermes", "gateway", "run"],
+        "kind": "xhermes-gateway",
+        "argv": ["xhermes", "gateway", "run"],
         "start_time": 123,
     }
     acquire = MagicMock(side_effect=[(False, existing), (True, None)])

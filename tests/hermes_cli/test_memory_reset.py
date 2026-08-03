@@ -1,4 +1,4 @@
-"""Tests for the `hermes memory reset` CLI command.
+"""Tests for the `xhermes memory reset` CLI command.
 
 Covers:
 - Reset both stores (MEMORY.md + USER.md)
@@ -14,14 +14,14 @@ import pytest
 @pytest.fixture
 def memory_env(tmp_path, monkeypatch):
     """Set up a fake HERMES_HOME with memory files."""
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     memories = hermes_home / "memories"
     memories.mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
     # Create sample memory files
     (memories / "MEMORY.md").write_text(
-        "§\nHermes repo is at ~/.hermes/hermes-agent\n§\nUser prefers dark themes",
+        "§\nHermes repo is at ~/.xhermes/xhermes-agent\n§\nUser prefers dark themes",
         encoding="utf-8",
     )
     (memories / "USER.md").write_text(
@@ -34,7 +34,7 @@ def memory_env(tmp_path, monkeypatch):
 def _run_memory_reset(target="all", yes=False, monkeypatch=None, confirm_input="no"):
     """Invoke the memory reset logic from cmd_memory in main.py.
 
-    Simulates what happens when `hermes memory reset` is run.
+    Simulates what happens when `xhermes memory reset` is run.
     """
     from hermes_constants import get_hermes_home
 
@@ -60,7 +60,7 @@ def _run_memory_reset(target="all", yes=False, monkeypatch=None, confirm_input="
 
 
 class TestMemoryReset:
-    """Tests for `hermes memory reset` subcommand."""
+    """Tests for `xhermes memory reset` subcommand."""
 
     def test_reset_all_with_yes_flag(self, memory_env):
         """--yes flag should skip confirmation and delete both files."""
@@ -76,7 +76,7 @@ class TestMemoryReset:
 
     def test_reset_no_files_exist(self, tmp_path, monkeypatch):
         """Should return 'nothing' when no memory files exist."""
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         (hermes_home / "memories").mkdir(parents=True)
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 

@@ -1,11 +1,11 @@
 # Contributor Quick Reference
 
-For occasional contributors and PR authors. Full developer docs: https://hermes-agent.nousresearch.com/docs/developer-guide/
+For occasional contributors and PR authors. Full developer docs: https://xhermes-agent.nousresearch.com/docs/developer-guide/
 
 ### Project Layout
 
 ```
-hermes-agent/
+xhermes-agent/
 ├── run_agent.py          # AIAgent — core conversation loop
 ├── model_tools.py        # Tool discovery and dispatch
 ├── toolsets.py           # Toolset definitions
@@ -25,7 +25,7 @@ hermes-agent/
 └── website/              # Docusaurus docs site
 ```
 
-Config: `~/.hermes/config.yaml` (settings), `~/.hermes/.env` (API keys) — both under `$HERMES_HOME` when it is set.
+Config: `~/.xhermes/config.yaml` (settings), `~/.xhermes/.env` (API keys) — both under `$HERMES_HOME` when it is set.
 
 ### Adding a Tool
 
@@ -59,8 +59,8 @@ registry.register(
 `_HERMES_CORE_TOOLS` (every platform) or to a specific toolset.
 
 All handlers must return JSON strings. Use `get_hermes_home()` for paths,
-never hardcode `~/.hermes`. For custom/local-only tools, write a plugin in
-`~/.hermes/plugins/` instead of editing core — see the developer docs.
+never hardcode `~/.xhermes`. For custom/local-only tools, write a plugin in
+`~/.xhermes/plugins/` instead of editing core — see the developer docs.
 
 ### Adding a Slash Command
 
@@ -95,7 +95,7 @@ scripts/run_tests.sh tests/tools/test_x.py    # one file
 scripts/run_tests.sh -v --tb=long             # pass-through pytest flags
 ```
 
-- Tests auto-redirect `HERMES_HOME` to temp dirs — never touch real `~/.hermes/`.
+- Tests auto-redirect `HERMES_HOME` to temp dirs — never touch real `~/.xhermes/`.
 - The script probes `.venv`, then `venv`, then the shared worktree venv.
 - **Windows:** the wrapper is POSIX-only; see `references/windows-quirks.md`
   for the direct-pytest workaround.

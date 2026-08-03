@@ -523,7 +523,7 @@ def test_bot_self_messages_are_ignored_in_dm_and_group():
 
 
 def test_config_bridges_telegram_group_settings(monkeypatch, tmp_path):
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         "telegram:\n"
@@ -569,7 +569,7 @@ def test_config_bridges_telegram_group_settings(monkeypatch, tmp_path):
     # bridge. We deliberately do NOT assert on os.environ here: a third-party
     # import (microsoft_teams/apps/app.py) runs load_dotenv(find_dotenv(usecwd=True))
     # at import time, which walks up from cwd and can repopulate TELEGRAM_* vars
-    # from a developer's real ~/.hermes/.env, defeating the env-over-YAML bridge
+    # from a developer's real ~/.xhermes/.env, defeating the env-over-YAML bridge
     # for any key present there. The PlatformConfig.extra values below are parsed
     # straight from the test's config.yaml and are immune to that ambient leak.
     assert config is not None
@@ -593,7 +593,7 @@ def test_top_level_require_mention_bridges_to_telegram(monkeypatch, tmp_path):
     """require_mention at the config.yaml top level (alongside group_sessions_per_user)
     must behave identically to telegram.require_mention: true (#3979).
     """
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     # Intentionally no "telegram:" section — keys are at the top level.
     (hermes_home / "config.yaml").write_text(

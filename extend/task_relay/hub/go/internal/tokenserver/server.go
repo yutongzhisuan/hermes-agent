@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
 )
 
 const tokenPath = "/v1/worker/token"

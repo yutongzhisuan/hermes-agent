@@ -246,7 +246,7 @@ def _cached_redirect_port(storage: "HermesTokenStorage | None") -> int | None:
     """Return the loopback callback port from cached client registration.
 
     OAuth providers bind a dynamically-registered ``client_id`` to the exact
-    redirect URI that was registered with it. If Hermes restarts and chooses a
+    redirect URI that was registered with it. If XHermes restarts and chooses a
     new random callback port while reusing the stored ``client_id``, providers
     such as Summ reject the authorization request with ``redirect_uri does not
     match any registered URIs``. Reusing the cached redirect port keeps the
@@ -311,13 +311,13 @@ def _raise_if_non_interactive(lead: str) -> None:
     """Raise ``OAuthNonInteractiveError`` unless an interactive session exists.
 
     ``lead`` is the boundary-specific first sentence; this helper appends the
-    shared, actionable ``hermes mcp login`` next-step so the guidance wording
+    shared, actionable ``xhermes mcp login`` next-step so the guidance wording
     lives in one place across every non-interactive OAuth boundary (#57836).
     """
     if not _is_interactive():
         raise OAuthNonInteractiveError(
             f"{lead} "
-            "Run `hermes mcp login <server>` interactively to (re)authorize, "
+            "Run `xhermes mcp login <server>` interactively to (re)authorize, "
             "then restart or reload the gateway."
         )
 
@@ -457,7 +457,7 @@ class HermesTokenStorage:
             return None
         if OAuthToken is None and not _ensure_sdk_loaded():
             return None
-        # Hermes records an absolute wall-clock ``expires_at`` alongside the
+        # XHermes records an absolute wall-clock ``expires_at`` alongside the
         # SDK's serialized token (see ``set_tokens``). On read we rewrite
         # ``expires_in`` to the remaining seconds so the SDK's downstream
         # ``update_token_expiry`` computes the correct absolute time and
@@ -673,7 +673,7 @@ def _make_callback_handler() -> tuple[type, dict]:
 
             body = (
                 "<html><body><h2>Authorization Successful</h2>"
-                "<p>You can close this tab and return to Hermes.</p></body></html>"
+                "<p>You can close this tab and return to XHermes.</p></body></html>"
             ) if code else (
                 "<html><body><h2>Authorization Failed</h2>"
                 f"<p>Error: {error or 'unknown'}</p></body></html>"
@@ -772,7 +772,7 @@ def _make_redirect_handler(port: int, redirect_uri: str | None = None):
                 f"         ssh -N -L {port}:127.0.0.1:{port} <user>@<this-host>\n"
                 f"       then open the URL above and let it redirect normally.\n"
                 f"\n"
-                f"  See: https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh\n",
+                f"  See: https://xhermes-agent.nousresearch.com/docs/guides/oauth-over-ssh\n",
                 file=sys.stderr,
             )
 
@@ -978,7 +978,7 @@ def _paste_callback_reader(result: dict) -> None:
             return
         result["error"] = _USER_SKIPPED_SENTINEL
         print(
-            "  OAuth skipped. Run `hermes mcp login <server>` later to "
+            "  OAuth skipped. Run `xhermes mcp login <server>` later to "
             "authenticate, or set ``enabled: false`` on that server in "
             "config.yaml to disable persistently.",
             file=sys.stderr,
@@ -1264,9 +1264,9 @@ def humanize_oauth_registration_error(
     Returns a humanized message when the error is a registration 403/Forbidden,
     else ``None`` so the caller keeps the original exception text.
 
-    Figma's remote MCP gates DCR on exact ``client_name``. Hermes auto-sets
+    Figma's remote MCP gates DCR on exact ``client_name``. XHermes auto-sets
     ``Claude Code`` (known-good); this message fires when the user overrode
-    that with something Figma still rejects, or an older Hermes is running.
+    that with something Figma still rejects, or an older XHermes is running.
     """
     msg = str(exc)
     lowered = msg.lower()
@@ -1287,11 +1287,11 @@ def humanize_oauth_registration_error(
         return (
             f"'{server_name}' is Figma's remote MCP — DCR is allowlisted by "
             f"exact client_name (\"{_FIGMA_DCR_CLIENT_NAME}\" and \"Codex\" "
-            "work; most other names 403). Hermes defaults to "
+            "work; most other names 403). XHermes defaults to "
             f"client_name: {_FIGMA_DCR_CLIENT_NAME!r} automatically. If you "
             "set oauth.client_name yourself, change it to one of those, or "
             "clear it and re-run:\n"
-            f"  hermes mcp login {server_name}"
+            f"  xhermes mcp login {server_name}"
         )
 
     return (
@@ -1344,7 +1344,7 @@ def build_oauth_auth(
             "MCP OAuth for "
             f"'{server_name}': non-interactive environment and no cached tokens "
             "found. The OAuth flow requires browser authorization. Run "
-            f"`hermes mcp login {server_name}` interactively first to complete "
+            f"`xhermes mcp login {server_name}` interactively first to complete "
             "initial authorization, then cached tokens will be reused."
         )
 

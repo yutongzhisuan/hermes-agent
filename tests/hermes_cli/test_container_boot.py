@@ -31,7 +31,7 @@ def _hermetic_container_argv(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ``_read_container_argv()`` walks the entire ``/proc`` table looking for
     a process whose argv contains ``main-wrapper.sh`` (the s6-overlay v3
-    fallback). On a host that is *also* running hermes containers, those
+    fallback). On a host that is *also* running xhermes containers, those
     containers' ``main-wrapper.sh`` processes are visible in the host's
     ``/proc`` (shared PID view), so the scan would pick up a foreign
     ``gateway run`` argv and make ``_maybe_migrate_legacy_gateway_run_state``
@@ -62,7 +62,7 @@ def _make_profile(
     p.mkdir(parents=True)
     if config:
         # SOUL.md is what the reconciler keys on — it's always seeded by
-        # `hermes profile create`. See container_boot._render_run_script.
+        # `xhermes profile create`. See container_boot._render_run_script.
         (p / "SOUL.md").write_text("# fake profile\n")
     if state is not None or desired_state is not None:
         payload: dict[str, object] = {"timestamp": 1234567890}
@@ -267,7 +267,7 @@ def test_main_skips_reconcile_in_dashboard_container_s6v3(
             "-e",
             "/run/s6/basedir/scripts/rc.init",
             "top",
-            "/opt/hermes/docker/main-wrapper.sh",
+            "/opt/xhermes/docker/main-wrapper.sh",
             "dashboard",
             "--host",
             "0.0.0.0",

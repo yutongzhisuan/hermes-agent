@@ -156,7 +156,7 @@ def test_dm_policy_disabled_still_allows_groups():
 # --- Config bridging tests ---
 
 def test_config_bridges_whatsapp_dm_and_group_policy(monkeypatch, tmp_path):
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         "whatsapp:\n"

@@ -31,7 +31,7 @@ UA = "python-httpx/0.27"  # CF blocks default urllib UA on many providers
 
 
 def _hermes_home():
-    # Prefer Hermes' own resolver (profile-safe); fall back to env then ~/.hermes.
+    # Prefer XHermes' own resolver (profile-safe); fall back to env then ~/.xhermes.
     try:
         from hermes_constants import get_hermes_home
         return str(get_hermes_home())
@@ -70,7 +70,7 @@ def _mcp_initialize(mcp_url, access_token):
         data={
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {"protocolVersion": "2025-06-18", "capabilities": {},
-                       "clientInfo": {"name": "hermes-diag", "version": "1.0"}},
+                       "clientInfo": {"name": "xhermes-diag", "version": "1.0"}},
         },
         headers={
             "Authorization": "Bearer " + access_token,

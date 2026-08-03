@@ -1,4 +1,4 @@
-module github.com/infa/hermes-agent/extend/task_relay/hub/go
+module github.com/infa/xhermes-agent/extend/task_relay/hub/go
 
 go 1.25.0
 
@@ -6,8 +6,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/infa/hermes-agent/extend/task_relay/gen/go v0.0.0
-	github.com/infa/hermes-agent/extend/task_relay/master/go v0.0.0
+	github.com/infa/xhermes-agent/extend/task_relay/gen/go v0.0.0
+	github.com/infa/xhermes-agent/extend/task_relay/master/go v0.0.0
 	github.com/jackc/pgx/v5 v5.7.4
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
@@ -56,6 +56,6 @@ require (
 )
 
 replace (
-	github.com/infa/hermes-agent/extend/task_relay/gen/go => ../../gen/go
-	github.com/infa/hermes-agent/extend/task_relay/master/go => ../../master/go
+	github.com/infa/xhermes-agent/extend/task_relay/gen/go => ../../gen/go
+	github.com/infa/xhermes-agent/extend/task_relay/master/go => ../../master/go
 )

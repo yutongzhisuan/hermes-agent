@@ -289,7 +289,7 @@ class TestApiKeyHintRealPool:
     def _seed_pool(self, tmp_path, monkeypatch):
         import json
 
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir(parents=True, exist_ok=True)
         (hermes_home / "auth.json").write_text(
             json.dumps(
@@ -370,8 +370,8 @@ class TestFailureAttribution:
     """
 
     def _make_pool(self, tmp_path, monkeypatch, entries):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-        hermes_home = tmp_path / "hermes"
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "xhermes"))
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir(parents=True, exist_ok=True)
         (hermes_home / "auth.json").write_text(
             json.dumps({"version": 1, "credential_pool": {"anthropic": entries}})

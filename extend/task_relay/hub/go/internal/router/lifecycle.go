@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/audit"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/contextcrypto"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/audit"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextcrypto"
 )
 
 // DispatchTask creates a pending task or returns the existing row (idempotent).

@@ -2,7 +2,7 @@
 
 Complements ``tests/tools/test_windows_compat.py`` (which does source-level
 pattern linting) with cross-platform-mocked tests that exercise the actual
-code paths Hermes takes on native Windows.
+code paths XHermes takes on native Windows.
 
 Runs on Linux CI — every test mocks ``sys.platform``, ``subprocess.run``,
 and ``os.kill`` as needed to simulate Windows behavior without requiring a
@@ -447,8 +447,8 @@ class TestSubprocessCompatHelpers:
     def test_windows_detach_flags_includes_breakaway_from_job(self, monkeypatch):
         """CREATE_BREAKAWAY_FROM_JOB is load-bearing for the GUI-driven update path.
 
-        Without it, the gateway-respawn watcher spawned by ``hermes update``
-        (which runs under hermes-setup.exe, itself a grandchild of the
+        Without it, the gateway-respawn watcher spawned by ``xhermes update``
+        (which runs under xhermes-setup.exe, itself a grandchild of the
         Electron Desktop app) gets reaped when Electron exits and its
         Win32 job object is torn down by the OS.  Result: gateway dies
         during update and never comes back.
@@ -964,9 +964,9 @@ class TestWindowlessGatewayRestartSpec:
         # consults sysconfig and raises ModuleNotFoundError under the win32
         # platform patch on a Linux host.
         with mock.patch.object(gw.sys, "platform", "win32"), mock.patch.object(
-            gw, "_stable_gateway_working_dir", return_value="C:/hermes"
+            gw, "_stable_gateway_working_dir", return_value="C:/xhermes"
         ), mock.patch(
-            "hermes_cli.config.get_hermes_home", return_value="C:/hermes"
+            "hermes_cli.config.get_hermes_home", return_value="C:/xhermes"
         ):
             new_argv, cwd, env = gw.windowless_gateway_restart_spec(list(argv))
 
@@ -975,7 +975,7 @@ class TestWindowlessGatewayRestartSpec:
         assert new_argv[0] == "C:/venv/Scripts/python.exe"
         # Everything after the interpreter is byte-for-byte preserved.
         assert new_argv[1:] == argv[1:]
-        assert cwd == "C:/hermes"
+        assert cwd == "C:/xhermes"
         assert env["VIRTUAL_ENV"] == str(Path("C:/venv"))
         assert "PYTHONPATH" in env
 
@@ -1027,7 +1027,7 @@ class TestGatewayRunRestartWatcherOuterPopenFallback:
         )
 
         monkeypatch.setattr(gr.sys, "platform", "win32")
-        monkeypatch.setattr(gr, "_resolve_hermes_bin", lambda: ["hermes"])
+        monkeypatch.setattr(gr, "_resolve_hermes_bin", lambda: ["xhermes"])
 
         calls = []
 
@@ -1088,7 +1088,7 @@ class TestGatewayRunRestartWatcherOuterPopenFallback:
         import gateway.run as gr
 
         monkeypatch.setattr(gr.sys, "platform", "win32")
-        monkeypatch.setattr(gr, "_resolve_hermes_bin", lambda: ["hermes"])
+        monkeypatch.setattr(gr, "_resolve_hermes_bin", lambda: ["xhermes"])
 
         calls = []
         monkeypatch.setattr(
@@ -1109,7 +1109,7 @@ class TestGatewayRunRestartWatcherOuterPopenFallback:
         import gateway.run as gr
 
         monkeypatch.setattr(gr.sys, "platform", "win32")
-        monkeypatch.setattr(gr, "_resolve_hermes_bin", lambda: ["hermes"])
+        monkeypatch.setattr(gr, "_resolve_hermes_bin", lambda: ["xhermes"])
 
         calls = []
 

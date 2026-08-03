@@ -12,8 +12,8 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/agent"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/agent"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 func TestRelayToolsDispatchWatchJoin(t *testing.T) {

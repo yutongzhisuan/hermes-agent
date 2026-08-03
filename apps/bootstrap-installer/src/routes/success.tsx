@@ -11,7 +11,7 @@ import { launchHermesDesktop } from '../store'
  * with a status line below.
  *
  * Launching the desktop can fail (e.g. Stage-Desktop was skipped and
- * Hermes.exe doesn't exist). We catch the Tauri error and surface it
+ * XHermes.exe doesn't exist). We catch the Tauri error and surface it
  * inline rather than silently doing nothing — the previous version
  * had `onClick={() => void launchHermesDesktop()}` which swallowed
  * the rejection and left the user staring at an unresponsive button.
@@ -35,7 +35,7 @@ export default function Success() {
   }
 
   return (
-    <div className="hermes-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
+    <div className="xhermes-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
       <div className="w-full max-w-2xl min-w-0 text-center">
         <p
           className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
@@ -48,14 +48,14 @@ export default function Success() {
           }
         >
           <span>
-            <span>Hermes is ready</span>
+            <span>XHermes is ready</span>
           </span>
-          <span aria-hidden="true">Hermes is ready</span>
+          <span aria-hidden="true">XHermes is ready</span>
         </p>
 
         <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
           You can launch from here, or any time from your terminal with{' '}
-          <code className="font-mono text-sm text-foreground/80">hermes desktop</code>.
+          <code className="font-mono text-sm text-foreground/80">xhermes desktop</code>.
         </p>
       </div>
 

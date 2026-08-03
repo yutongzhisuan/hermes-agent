@@ -75,7 +75,7 @@ function previewSelectionLabel(): string {
   return source.split(/[\\/]/).filter(Boolean).pop() || target?.label?.trim() || ''
 }
 
-const HERMES_PATHS_MIME = 'application/x-hermes-paths'
+const HERMES_PATHS_MIME = 'application/x-xhermes-paths'
 
 function readEscapeSequence(data: string, index: number) {
   if (data.charCodeAt(index) !== 0x1b || index + 1 >= data.length) {
@@ -530,7 +530,7 @@ export function useTerminalSession({
       // handler; without it xterm shows a raw confirm() and then a window.open
       // Electron denies.
       linkHandler: terminalLinkHandler,
-      // Full-screen TUIs (hermes --tui, vim) grab the mouse, so a plain drag
+      // Full-screen TUIs (xhermes --tui, vim) grab the mouse, so a plain drag
       // can't select — ⌥-drag (macOS) / Shift-drag (else) forces a native
       // selection over mouse-mode apps, which ⌘/Ctrl+L then sends to chat.
       macOptionClickForcesSelection: true,
@@ -909,7 +909,7 @@ export function useTerminalSession({
         term.loadAddon(webgl)
         webglRef.current = webgl
       } catch (err) {
-        console.warn('[hermes-terminal] WebGL unavailable; falling back to DOM', err)
+        console.warn('[xhermes-terminal] WebGL unavailable; falling back to DOM', err)
       }
 
       fitAndResize(initialActiveRef.current)

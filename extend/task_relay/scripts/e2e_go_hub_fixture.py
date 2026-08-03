@@ -88,7 +88,7 @@ async def main() -> None:
 
         ws_url = f"ws://127.0.0.1:{ws_port}"
         grpc_addr = f"127.0.0.1:{grpc_port}"
-        auth = Auth(secret=SECRET, issuer="hermes-relay-hub", audience="task-relay-hub")
+        auth = Auth(secret=SECRET, issuer="xhermes-relay-hub", audience="task-relay-hub")
         worker_jwt = auth.issue_worker_jwt(WORKER_ID, [], max_concurrent=1, ttl_s=3600)
         master_jwt = auth.issue_master_jwt("go-e2e-master", ttl_s=3600)
 

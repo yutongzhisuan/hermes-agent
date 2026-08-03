@@ -1,6 +1,6 @@
 /**
  * Flash-free theme boot — the TUI port of the desktop app's
- * `hermes-boot-background` / `hermes-boot-color-scheme` localStorage keys.
+ * `xhermes-boot-background` / `xhermes-boot-color-scheme` localStorage keys.
  *
  * Theme resolution is asynchronous by nature (gateway skin arrives after
  * connect; the OSC-11 background probe answers after the first frame; the
@@ -36,10 +36,10 @@ interface BootThemeFile {
 
 // Profile-aware: the Python launcher exports HERMES_HOME (set by
 // _apply_profile_override) before spawning the TUI. Falling back to
-// ~/.hermes matches get_hermes_home()'s default.
-const bootFilePath = () => join(process.env.HERMES_HOME ?? join(homedir(), '.hermes'), 'tui-theme-boot.json')
+// ~/.xhermes matches get_hermes_home()'s default.
+const bootFilePath = () => join(process.env.HERMES_HOME ?? join(homedir(), '.xhermes'), 'tui-theme-boot.json')
 
-// Never touch the user's real ~/.hermes from test runs (the TS suite has no
+// Never touch the user's real ~/.xhermes from test runs (the TS suite has no
 // HERMES_HOME isolation fixture).
 const isTestRun = () => !!process.env.VITEST || process.env.NODE_ENV === 'test'
 

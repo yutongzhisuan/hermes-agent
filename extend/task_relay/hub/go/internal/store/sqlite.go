@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	_ "modernc.org/sqlite"
 )
 

@@ -190,14 +190,14 @@ def _fake_popen_capture(captured):
 
 
 def test_run_prompt_preserves_real_home_when_profile_home_available(monkeypatch, tmp_path):
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     (hermes_home / "home").mkdir(parents=True)
     real_home = tmp_path / "real-home"
     real_home.mkdir()
 
     monkeypatch.setenv("HOME", str(real_home))
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-    # Hermeticity: an ambient HERMES_REAL_HOME (exported by Hermes' own
+    # Hermeticity: an ambient HERMES_REAL_HOME (exported by XHermes' own
     # terminal contract on dev boxes) outranks HOME in the candidate ladder,
     # and an ambient TERMINAL_HOME_MODE would change the policy under test.
     monkeypatch.delenv("HERMES_REAL_HOME", raising=False)

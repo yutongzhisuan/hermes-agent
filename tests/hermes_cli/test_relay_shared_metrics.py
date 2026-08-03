@@ -1,4 +1,4 @@
-"""Focused tests for the Hermes shared-metrics durable store."""
+"""Focused tests for the XHermes shared-metrics durable store."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ SCHEMA_PATH = (
     / "hermes_cli"
     / "observability"
     / "schemas"
-    / "hermes.shared_metrics.v1.schema.json"
+    / "xhermes.shared_metrics.v1.schema.json"
 )
 
 
@@ -114,11 +114,11 @@ def test_model_call_counter_survives_restart_and_exports_only_new_deltas(tmp_pat
     _schema_validator().validate(first_package)
     uuid.UUID(first_package["package_id"])
     uuid.UUID(first_package["install_id"])
-    assert first_package["schema_version"] == "hermes.shared_metrics.v1"
+    assert first_package["schema_version"] == "xhermes.shared_metrics.v1"
     assert first_package["resource"] == {"hermes_version": "test-version"}
     assert first_package["metrics"] == [
         {
-            "name": "hermes.model_call.count",
+            "name": "xhermes.model_call.count",
             "type": "counter",
             "dimensions": _dimensions(),
             "value": 2,
@@ -160,7 +160,7 @@ def test_due_export_runs_once_per_utc_day_and_catches_up_pending_deltas(
     assert len(list((tmp_path / "outbox").glob("*.json"))) == 1
     assert store.counter_snapshot()[0] == {
         "period_start": "2026-07-28",
-        "metric_name": "hermes.model_call.count",
+        "metric_name": "xhermes.model_call.count",
         "hermes_version": "test-version",
         "dimensions": _dimensions(),
         "value": 2,

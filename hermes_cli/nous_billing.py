@@ -15,7 +15,7 @@ Design rules:
   decide how to degrade. A raw network/HTTP error here surfaces as
   :class:`BillingError` (or a subclass) carrying the parsed server ``error`` code,
   HTTP status, ``portalUrl`` deep-link, and ``retry_after``.
-- **Auth** = the OAuth bearer JWT Hermes already holds for inference
+- **Auth** = the OAuth bearer JWT XHermes already holds for inference
   (``get_provider_auth_state("nous")["access_token"]``). No API-key auth on these.
 - **Portal base URL** resolves with the same precedence as the device-flow login
   (``auth.py``): ``HERMES_PORTAL_BASE_URL`` → ``NOUS_PORTAL_BASE_URL`` → the
@@ -231,7 +231,7 @@ def invalidate_cached_token() -> None:
 def _billing_not_logged_in(exc: Optional[BaseException] = None) -> "BillingAuthError":
     """Build the canonical 'not logged in' BillingAuthError (single source)."""
     err = BillingAuthError(
-        "Not logged into Nous Portal — run `hermes portal` to log in.",
+        "Not logged into Nous Portal — run `xhermes portal` to log in.",
         status=401,
         error="invalid_token",
     )

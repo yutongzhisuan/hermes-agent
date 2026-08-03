@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/eventbus"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/eventbus"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 hermes-agent v0.19.1 fork 为 xhermes-agent，实现与原有 hermes-agent 同机共存、互不干扰，并保留上游同步能力。
+**Goal:** 将 xhermes-agent v0.19.1 fork 为 xhermes-agent，实现与原有 xhermes-agent 同机共存、互不干扰，并保留上游同步能力。
 
 **Architecture:** 模型 A 最小隔离——保留内部 Python 模块名（`hermes_cli`、`agent`、`tools`、`gateway` 等），只改外部表面：发行名、命令名、家目录、环境变量解析层、进程/服务名、profile wrapper 目录、默认端口、安装脚本、桌面端、前端包名。同步采用可重放 rename overlay（`scripts/apply_xhermes_overlay.sh`）+ 单点常量优先。
 
@@ -14,14 +14,14 @@
 
 ## 前置：工作区与验证基线
 
-> 本计划假设已在独立目录（非 hermes-agent 原目录）完成 fork：
+> 本计划假设已在独立目录（非 xhermes-agent 原目录）完成 fork：
 > ```bash
-> git clone git@github.com:<you>/hermes-agent.git
+> git clone git@github.com:<you>/xhermes-agent.git
 > cd xhermes-agent
-> git remote add upstream https://github.com/NousResearch/hermes-agent.git
+> git remote add upstream https://github.com/NousResearch/xhermes-agent.git
 > ```
 
-所有任务的验证命令在 `~/.xhermes/xhermes-agent/venv` 独立 venv 中执行。**严禁**装进 hermes 的 venv。
+所有任务的验证命令在 `~/.xhermes/xhermes-agent/venv` 独立 venv 中执行。**严禁**装进 xhermes 的 venv。
 
 ---
 
@@ -102,8 +102,8 @@ def _get_platform_default_hermes_home() -> Path:
     if sys.platform == "win32":
         local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
         base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
-        return base / WIN_HOME_DIRNAME        # 原 "hermes"
-    return Path.home() / HOME_DIRNAME          # 原 ".hermes"
+        return base / WIN_HOME_DIRNAME        # 原 "xhermes"
+    return Path.home() / HOME_DIRNAME          # 原 ".xhermes"
 ```
 
 - [ ] **Step 2: 修改 `_hermes_home_from_env()` 加 XHERMES_HOME 优先**
@@ -141,7 +141,7 @@ def get_default_hermes_root() -> Path:
 def test_xhermes_home_precedence_over_legacy(monkeypatch, tmp_path):
     from hermes_constants import get_hermes_home, get_default_hermes_root
     monkeypatch.delenv("XHERMES_HOME", raising=False)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     # HERMES_HOME 泄漏时，get_hermes_home 应 fallback 到 native（~/.xhermes）
     assert get_hermes_home() == tmp_path / ".xhermes"
@@ -149,13 +149,13 @@ def test_xhermes_home_precedence_over_legacy(monkeypatch, tmp_path):
 def test_xhermes_home_explicit_wins(monkeypatch, tmp_path):
     from hermes_constants import get_hermes_home
     monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "custom"))
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
     assert get_hermes_home() == tmp_path / "custom"
 
 def test_default_root_never_points_at_legacy_home(monkeypatch, tmp_path):
     from hermes_constants import get_default_hermes_root
     monkeypatch.delenv("XHERMES_HOME", raising=False)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     assert get_default_hermes_root() == tmp_path / ".xhermes"
 ```
@@ -194,15 +194,15 @@ git commit -m "feat(xhermes): default home ~/.xhermes with XHERMES_HOME preceden
 
 ```toml
 [project]
-name = "xhermes-agent"              # 原 "hermes-agent"
+name = "xhermes-agent"              # 原 "xhermes-agent"
 
 [project.scripts]
-xhermes = "hermes_cli.main:main"        # 原 hermes = ...
-xhermes-agent = "run_agent:main"        # 原 hermes-agent = ...
-xhermes-acp = "acp_adapter.entry:main"  # 原 hermes-acp = ...
+xhermes = "hermes_cli.main:main"        # 原 xhermes = ...
+xhermes-agent = "run_agent:main"        # 原 xhermes-agent = ...
+xhermes-acp = "acp_adapter.entry:main"  # 原 xhermes-acp = ...
 ```
 
-自引用 extras（`termux`、`termux-all`、`all` 中的 `"hermes-agent[cron]"` 等）全部改为 `"xhermes-agent[cron]"` 等。
+自引用 extras（`termux`、`termux-all`、`all` 中的 `"xhermes-agent[cron]"` 等）全部改为 `"xhermes-agent[cron]"` 等。
 
 - [ ] **Step 2: 更新元数据测试**
 
@@ -226,7 +226,7 @@ git commit -m "feat(xhermes): rename dist and entry points to xhermes"
 
 ---
 
-## Task 4: 硬编码 `~/.hermes` fallback 替换（§3.2c，搜索驱动）
+## Task 4: 硬编码 `~/.xhermes` fallback 替换（§3.2c，搜索驱动）
 
 **Files:**
 - 多个（搜索清单驱动，不依赖固定行号）
@@ -236,7 +236,7 @@ git commit -m "feat(xhermes): rename dist and entry points to xhermes"
 - [ ] **Step 1: 全库检索生成归档清单**
 
 ```bash
-rg -n "Path\.home\(\)\s*/\s*[\"']\.hermes|[\"']\.hermes[\"']|~/\\.hermes|LOCALAPPDATA.*hermes" \
+rg -n "Path\.home\(\)\s*/\s*[\"']\.xhermes|[\"']\.xhermes[\"']|~/\\.xhermes|LOCALAPPDATA.*xhermes" \
   --glob '!docs/**' --glob '!**/*.md' > /tmp/xhermes-hardcoded.txt
 cat /tmp/xhermes-hardcoded.txt
 ```
@@ -247,12 +247,12 @@ cat /tmp/xhermes-hardcoded.txt
 
 | 类别 | 改法 |
 |---|---|
-| 可 import `hermes_constants` 的模块 | `Path.home() / ".hermes"` → `get_hermes_home()`；`os.environ.get("HERMES_HOME", Path.home()/".hermes")` → `os.environ.get("HERMES_HOME") or get_hermes_home()` |
-| CLI 早期初始化（`hermes_cli/main.py` 的 `_apply_profile_override` 前） | `Path.home() / ".hermes"` → `Path.home() / HOME_DIRNAME`（import 常量） |
-| Windows 路径 | `LOCALAPPDATA / "hermes"` → `WIN_HOME_DIRNAME` |
-| 沙箱/安全路径段 | `agent/file_safety.py` 中 `.hermes` 段 → `.xhermes` |
-| 项目插件目录 | `hermes_cli/plugins.py` 的 `./.hermes/plugins/` → `./.xhermes/plugins/` |
-| Node/JS bridge | `path.join(HOME, '.hermes', ...)` → `.xhermes` |
+| 可 import `hermes_constants` 的模块 | `Path.home() / ".xhermes"` → `get_hermes_home()`；`os.environ.get("HERMES_HOME", Path.home()/".xhermes")` → `os.environ.get("HERMES_HOME") or get_hermes_home()` |
+| CLI 早期初始化（`hermes_cli/main.py` 的 `_apply_profile_override` 前） | `Path.home() / ".xhermes"` → `Path.home() / HOME_DIRNAME`（import 常量） |
+| Windows 路径 | `LOCALAPPDATA / "xhermes"` → `WIN_HOME_DIRNAME` |
+| 沙箱/安全路径段 | `agent/file_safety.py` 中 `.xhermes` 段 → `.xhermes` |
+| 项目插件目录 | `hermes_cli/plugins.py` 的 `./.xhermes/plugins/` → `./.xhermes/plugins/` |
+| Node/JS bridge | `path.join(HOME, '.xhermes', ...)` → `.xhermes` |
 | 插件/optional-skills | 同模式 |
 
 **关键位置清单（实施起点）：**
@@ -275,7 +275,7 @@ Expected: `~/.xhermes`
 
 ```bash
 # 确认产品路径无残留（测试里历史字符串另议）
-rg -n "Path\.home\(\)\s*/\s*[\"']\.hermes" --glob '!tests/**' --glob '!docs/**'
+rg -n "Path\.home\(\)\s*/\s*[\"']\.xhermes" --glob '!tests/**' --glob '!docs/**'
 ```
 Expected: 无输出
 
@@ -290,7 +290,7 @@ Expected: PASS（或跳过，取决于依赖）
 
 ```bash
 git add -A
-git commit -m "feat(xhermes): replace hardcoded ~/.hermes with home constants"
+git commit -m "feat(xhermes): replace hardcoded ~/.xhermes with home constants"
 ```
 
 ---
@@ -305,7 +305,7 @@ git commit -m "feat(xhermes): replace hardcoded ~/.hermes with home constants"
 - [ ] **Step 1: `gateway/run.py` 的 `_resolve_hermes_bin()`**
 
 ```python
-hermes_bin = shutil.which("xhermes")      # 原 "hermes"
+hermes_bin = shutil.which("xhermes")      # 原 "xhermes"
 if hermes_bin:
     return [hermes_bin]
 # fallback -m hermes_cli.main 不变
@@ -313,29 +313,29 @@ if hermes_bin:
 
 - [ ] **Step 2: `hermes_cli/relaunch.py`**
 
-`shutil.which("hermes")` → `shutil.which("xhermes")`；exe 名 `hermes.exe` → `xhermes.exe`。
+`shutil.which("xhermes")` → `shutil.which("xhermes")`；exe 名 `xhermes.exe` → `xhermes.exe`。
 
 - [ ] **Step 3: `gateway/status.py`**
 
-- `_GATEWAY_KIND = "hermes-gateway"` → `SERVICE_BASE`（即 `"xhermes-gateway"`）
-- basename 元组（L407,414）：`"hermes"` → `"xhermes"`、`"hermes.exe"` → `"xhermes.exe"`、`"hermes-gateway"` → `"xhermes-gateway"`、`"hermes-gateway.exe"` → `"xhermes-gateway.exe"`
+- `_GATEWAY_KIND = "xhermes-gateway"` → `SERVICE_BASE`（即 `"xhermes-gateway"`）
+- basename 元组（L407,414）：`"xhermes"` → `"xhermes"`、`"xhermes.exe"` → `"xhermes.exe"`、`"xhermes-gateway"` → `"xhermes-gateway"`、`"xhermes-gateway.exe"` → `"xhermes-gateway.exe"`
 
 - [ ] **Step 4: `hermes_cli/gateway.py`**
 
-- `_SERVICE_BASE = "hermes-gateway"` → `SERVICE_BASE`（`get_service_name()` 中枢）
-- launchd label `ai.hermes.gateway` → `LAUNCHD_LABEL`（含 profile 后缀形态，`get_launchd_label()` L2488 与 L3648 两处）
-- tmux session 名 `hermes` → `xhermes`（L6498,6805,6858,6977,7332）
+- `_SERVICE_BASE = "xhermes-gateway"` → `SERVICE_BASE`（`get_service_name()` 中枢）
+- launchd label `ai.xhermes.gateway` → `LAUNCHD_LABEL`（含 profile 后缀形态，`get_launchd_label()` L2488 与 L3648 两处）
+- tmux session 名 `xhermes` → `xhermes`（L6498,6805,6858,6977,7332）
 - legacy unit 白名单 / planned-restart 同步改 `xhermes-*`
 
 - [ ] **Step 5: `hermes_cli/dashboard_procs.py`**
 
-`"hermes dashboard"` → `"xhermes dashboard"`、`"hermes serve"` → `"xhermes serve"`、`"hermes_cli.main dashboard"` 不变（模块名保留）；systemd `hermes-dashboard.service` / `hermes-serve.service` → `xhermes-*`。
+`"xhermes dashboard"` → `"xhermes dashboard"`、`"xhermes serve"` → `"xhermes serve"`、`"hermes_cli.main dashboard"` 不变（模块名保留）；systemd `xhermes-dashboard.service` / `xhermes-serve.service` → `xhermes-*`。
 
-- [ ] **Step 6: `ai.hermes.gateway` 额外 5 点**
+- [ ] **Step 6: `ai.xhermes.gateway` 额外 5 点**
 
 | 文件 | 改动 |
 |---|---|
-| `gateway/restart_loop_guard.py` L7 | launchctl 命令 `ai.hermes.gateway` → `ai.xhermes.gateway` |
+| `gateway/restart_loop_guard.py` L7 | launchctl 命令 `ai.xhermes.gateway` → `ai.xhermes.gateway` |
 | `gateway/run.py` L10213 | 运行时 launchctl 逻辑同上 |
 | `tools/approval.py` L760 | service label 比对串同上（漏改会导致审批检测失配） |
 | `hermes_cli/config_defaults.py` L2460 | 配置默认值中的 launchctl 防护说明 |
@@ -347,20 +347,20 @@ launchd / systemctl 防护串中的 label/unit 改 `xhermes-*`。
 
 - [ ] **Step 8: `plugins/kanban/systemd/*.service`**
 
-文件名 `hermes-kanban-dispatcher.service` → `xhermes-kanban-dispatcher.service`；内容 `ExecStart=/usr/bin/env hermes kanban daemon` → `xhermes kanban daemon`。
+文件名 `xhermes-kanban-dispatcher.service` → `xhermes-kanban-dispatcher.service`；内容 `ExecStart=/usr/bin/env xhermes kanban daemon` → `xhermes kanban daemon`。
 
 - [ ] **Step 9: 用户提示串**
 
-`"hermes gateway restart"` / `"hermes gateway run"` 等用户提示（gateway.py、service_manager.py、gateway_windows.py、setup.py、tips.py，~12 处）→ `xhermes`。
+`"xhermes gateway restart"` / `"xhermes gateway run"` 等用户提示（gateway.py、service_manager.py、gateway_windows.py、setup.py、tips.py，~12 处）→ `xhermes`。
 
-- [ ] **Step 10: `scripts/hermes-gateway`（独立服务脚本）**
+- [ ] **Step 10: `scripts/xhermes-gateway`（独立服务脚本）**
 
-`SERVICE_NAME="hermes-gateway"` → `"xhermes-gateway"`；plist 路径与 `launchctl ... ai.hermes.gateway` 命令 → `ai.xhermes.gateway`；venv 路径 → `~/.xhermes/xhermes-agent/venv`。或标记 fork 不发行。
+`SERVICE_NAME="xhermes-gateway"` → `"xhermes-gateway"`；plist 路径与 `launchctl ... ai.xhermes.gateway` 命令 → `ai.xhermes.gateway`；venv 路径 → `~/.xhermes/xhermes-agent/venv`。或标记 fork 不发行。
 
 - [ ] **Step 11: 验证残留扫描**
 
 ```bash
-rg -n 'shutil\.which\("hermes"\)|_SERVICE_BASE = "hermes|SERVICE_NAME = "hermes|ai\.hermes\.|hermes-dashboard\.service|hermes-serve\.service' --glob '!tests/**'
+rg -n 'shutil\.which\("xhermes"\)|_SERVICE_BASE = "xhermes|SERVICE_NAME = "xhermes|ai\.xhermes\.|xhermes-dashboard\.service|xhermes-serve\.service' --glob '!tests/**'
 ```
 Expected: 无输出
 
@@ -390,7 +390,7 @@ def _get_wrapper_dir() -> Path:
 `profiles.py` L461（Windows）与 L469-470（POSIX）：
 
 ```python
-hermes_exe = shutil.which("xhermes") or "xhermes"    # 原 "hermes"
+hermes_exe = shutil.which("xhermes") or "xhermes"    # 原 "xhermes"
 ```
 
 - [ ] **Step 3: 验证**
@@ -464,7 +464,7 @@ Expected: 无输出（产品路径）
 
 ```bash
 git add -A
-git commit -m "feat(xhermes): offset default listening ports from hermes"
+git commit -m "feat(xhermes): offset default listening ports from xhermes"
 ```
 
 ---
@@ -477,9 +477,9 @@ git commit -m "feat(xhermes): offset default listening ports from hermes"
 - [ ] **Step 1: `scripts/install.sh`**
 
 - `HERMES_HOME` 默认 → `~/.xhermes`（`HOME_DIRNAME`）
-- `INSTALL_DIR=$HERMES_HOME/xhermes-agent`（原 `$HERMES_HOME/hermes-agent`）
+- `INSTALL_DIR=$HERMES_HOME/xhermes-agent`（原 `$HERMES_HOME/xhermes-agent`）
 - 命令链接 → `xhermes`
-- bootstrap marker `.hermes-bootstrap-complete` → `.xhermes-bootstrap-complete`
+- bootstrap marker `.xhermes-bootstrap-complete` → `.xhermes-bootstrap-complete`
 - `REPO_URL` → 你的 fork
 
 - [ ] **Step 2: `install.ps1`**
@@ -488,17 +488,17 @@ git commit -m "feat(xhermes): offset default listening ports from hermes"
 
 - [ ] **Step 3: `scripts/run_tests.sh`**
 
-共享 venv 探针 `~/.hermes/hermes-agent/venv` → `~/.xhermes/xhermes-agent/venv`。
+共享 venv 探针 `~/.xhermes/xhermes-agent/venv` → `~/.xhermes/xhermes-agent/venv`。
 
 - [ ] **Step 4: `docker-compose*.yml`**
 
-卷 `~/.hermes` → `~/.xhermes`；镜像/容器名避开 `hermes-*`；端口映射 9219 等。
+卷 `~/.xhermes` → `~/.xhermes`；镜像/容器名避开 `xhermes-*`；端口映射 9219 等。
 
 - [ ] **Step 5: 验证**
 
 ```bash
 bash -n scripts/install.sh && bash -n install.ps1 2>/dev/null; echo "syntax ok"
-rg -n "~/\\.hermes|hermes-agent/venv" scripts/install.sh install.ps1 scripts/run_tests.sh
+rg -n "~/\\.xhermes|xhermes-agent/venv" scripts/install.sh install.ps1 scripts/run_tests.sh
 ```
 Expected: 无残留
 
@@ -518,10 +518,10 @@ git commit -m "feat(xhermes): install tree under ~/.xhermes/xhermes-agent"
 
 - [ ] **Step 1: `apps/desktop/electron/main.ts`**
 
-- `path.join(home, '.hermes')`（L565,576 `ACTIVE_HERMES_ROOT`）→ `path.join(home, '.xhermes')`
-- `ACTIVE_HERMES_ROOT = .../xhermes-agent`（原 `.../hermes-agent`）
-- bootstrap marker `'.hermes-bootstrap-complete'` → `'.xhermes-bootstrap-complete'`
-- `app.setAppUserModelId('com.nousresearch.hermes')` → `'com.xhermes.app'`（L973）
+- `path.join(home, '.xhermes')`（L565,576 `ACTIVE_HERMES_ROOT`）→ `path.join(home, '.xhermes')`
+- `ACTIVE_HERMES_ROOT = .../xhermes-agent`（原 `.../xhermes-agent`）
+- bootstrap marker `'.xhermes-bootstrap-complete'` → `'.xhermes-bootstrap-complete'`
+- `app.setAppUserModelId('com.nousresearch.xhermes')` → `'com.xhermes.app'`（L973）
 
 - [ ] **Step 2: `apps/desktop/electron/backend-command.ts`**
 
@@ -529,14 +529,14 @@ git commit -m "feat(xhermes): install tree under ~/.xhermes/xhermes-agent"
 
 - [ ] **Step 3: `apps/desktop/package.json`**
 
-- `name: "hermes"` → `"xhermes"`
-- `productName: "Hermes"` → `"xHermes"`
-- `appId: "com.nousresearch.hermes"` → `"com.xhermes.app"`（L165）
-- `artifactName: "Hermes-..."` → `"xHermes-..."`（L176）
+- `name: "xhermes"` → `"xhermes"`
+- `productName: "XHermes"` → `"xHermes"`
+- `appId: "com.nousresearch.xhermes"` → `"com.xhermes.app"`（L165）
+- `artifactName: "XHermes-..."` → `"xHermes-..."`（L176）
 
 - [ ] **Step 4: 桌面端测试断言更新**
 
-`apps/desktop/electron/remote-lifecycle.test.ts:118` 等路径断言 `hermes-agent/venv/bin/hermes` → `xhermes-agent/venv/bin/xhermes`。
+`apps/desktop/electron/remote-lifecycle.test.ts:118` 等路径断言 `xhermes-agent/venv/bin/xhermes` → `xhermes-agent/venv/bin/xhermes`。
 
 - [ ] **Step 5: 验证（若 node 环境可用）**
 
@@ -556,28 +556,28 @@ git commit -m "feat(xhermes): desktop uses ~/.xhermes home and xhermes backend"
 ## Task 10: 前端包名（Phase 5）
 
 **Files:**
-- Modify: `apps/shared/package.json`、`ui-tui/package.json`、`ui-tui/packages/hermes-ink/package.json`、`apps/bootstrap-installer/package.json`、`web/package.json`
+- Modify: `apps/shared/package.json`、`ui-tui/package.json`、`ui-tui/packages/xhermes-ink/package.json`、`apps/bootstrap-installer/package.json`、`web/package.json`
 
-**顺序约束**：先改 `@hermes/shared`，再改依赖方（ui-tui、web、apps/desktop 的 package.json 中所有 `@hermes/shared` 引用）。
+**顺序约束**：先改 `@xhermes/shared`，再改依赖方（ui-tui、web、apps/desktop 的 package.json 中所有 `@xhermes/shared` 引用）。
 
 - [ ] **Step 1: `apps/shared/package.json`**
 
-`"name": "@hermes/shared"` → `"@xhermes/shared"`。
+`"name": "@xhermes/shared"` → `"@xhermes/shared"`。
 
 - [ ] **Step 2: 依赖方引用更新**
 
-搜索 `@hermes/shared` 在 `ui-tui`、`web`、`apps/desktop` 的 package.json 及源码 import，全部改为 `@xhermes/shared`。
+搜索 `@xhermes/shared` 在 `ui-tui`、`web`、`apps/desktop` 的 package.json 及源码 import，全部改为 `@xhermes/shared`。
 
 - [ ] **Step 3: 其余包名**
 
-- `ui-tui/package.json`: `hermes-tui` → `xhermes-tui`
-- `ui-tui/packages/hermes-ink/package.json`: `@hermes/ink` → `@xhermes/ink`
-- `apps/bootstrap-installer/package.json`: `@hermes/bootstrap-installer` → `@xhermes/bootstrap-installer`
+- `ui-tui/package.json`: `xhermes-tui` → `xhermes-tui`
+- `ui-tui/packages/xhermes-ink/package.json`: `@xhermes/ink` → `@xhermes/ink`
+- `apps/bootstrap-installer/package.json`: `@xhermes/bootstrap-installer` → `@xhermes/bootstrap-installer`
 
 - [ ] **Step 4: 验证**
 
 ```bash
-rg -n '"@hermes/' --glob '**/package.json'
+rg -n '"@xhermes/' --glob '**/package.json'
 ```
 Expected: 无输出
 
@@ -597,19 +597,19 @@ git commit -m "feat(xhermes): rename npm packages to @xhermes scope"
 
 - [ ] **Step 1: skin 品牌文案**
 
-`hermes_cli/skin_engine.py` 内置 skin 的 `agent_name: "Hermes Agent"` → `"xHermes Agent"`、`welcome` → `"Welcome to xHermes Agent!"`、`response_label` → `" ⚕ xHermes "`。用户自定义 skin 不强制改。
+`hermes_cli/skin_engine.py` 内置 skin 的 `agent_name: "XHermes Agent"` → `"xHermes Agent"`、`welcome` → `"Welcome to xHermes Agent!"`、`response_label` → `" ⚕ xHermes "`。用户自定义 skin 不强制改。
 
 - [ ] **Step 2: User-Agent**
 
 - `run_agent.py:303` `HermesAgent/{version}` → `xHermesAgent/{version}`
 - `agent/auxiliary_client.py:740` 同上
 - `gateway/platforms/base.py:887,1029` 同上
-- `tools/kanban_tools.py:993` `hermes-kanban/attach` → `xhermes-kanban/attach`
+- `tools/kanban_tools.py:993` `xhermes-kanban/attach` → `xhermes-kanban/attach`
 
 - [ ] **Step 3: 验证**
 
 ```bash
-rg -n 'HermesAgent/|hermes-kanban/attach' --glob '!tests/**'
+rg -n 'HermesAgent/|xhermes-kanban/attach' --glob '!tests/**'
 ```
 Expected: 无输出
 
@@ -632,7 +632,7 @@ git commit -m "feat(xhermes): brand defaults and user-agent to xHermes"
 `hermes_cli/update_cmd.py`：
 
 ```python
-OFFICIAL_REPO_URL = "https://github.com/<you>/hermes-agent.git"   # 原 NousResearch/hermes-agent
+OFFICIAL_REPO_URL = "https://github.com/<you>/xhermes-agent.git"   # 原 NousResearch/xhermes-agent
 ```
 
 若存在 fork 检测逻辑（判断当前仓库是否官方），同步改为判断是否为你的 fork。
@@ -640,7 +640,7 @@ OFFICIAL_REPO_URL = "https://github.com/<you>/hermes-agent.git"   # 原 NousRese
 - [ ] **Step 2: 验证**
 
 ```bash
-rg -n 'NousResearch/hermes-agent|OFFICIAL_REPO_URL' hermes_cli/update_cmd.py
+rg -n 'NousResearch/xhermes-agent|OFFICIAL_REPO_URL' hermes_cli/update_cmd.py
 ```
 Expected: OFFICIAL_REPO_URL 指向你的 fork；产品路径无 NousResearch 残留（上游同步文档除外）
 
@@ -668,17 +668,17 @@ git commit -m "feat(xhermes): xhermes update tracks own fork by default"
 set -euo pipefail
 
 # 单点常量已在 hermes_constants.py；此脚本兜底散落字面量
-sed -i '' 's|Path.home() / ".hermes"|Path.home() / HOME_DIRNAME|g' \
+sed -i '' 's|Path.home() / ".xhermes"|Path.home() / HOME_DIRNAME|g' \
   hermes_cli/main.py hermes_cli/gateway.py 2>/dev/null || true
 
-rg -l 'shutil\.which\("hermes"\)' --glob '*.py' --glob '!tests/**' | \
-  xargs -I{} sed -i '' 's/shutil.which("hermes")/shutil.which("xhermes")/g' {} 2>/dev/null || true
+rg -l 'shutil\.which\("xhermes"\)' --glob '*.py' --glob '!tests/**' | \
+  xargs -I{} sed -i '' 's/shutil.which("xhermes")/shutil.which("xhermes")/g' {} 2>/dev/null || true
 
-rg -l 'ai\.hermes\.' --glob '*.py' --glob '!tests/**' | \
-  xargs -I{} sed -i '' 's/ai\.hermes\./ai.xhermes./g' {} 2>/dev/null || true
+rg -l 'ai\.xhermes\.' --glob '*.py' --glob '!tests/**' | \
+  xargs -I{} sed -i '' 's/ai\.xhermes\./ai.xhermes./g' {} 2>/dev/null || true
 
 echo "Overlay applied. Run merge checklist (§5.4 of design doc):"
-rg -n 'shutil\.which\("hermes"\)|_SERVICE_BASE = "hermes|ai\.hermes\.' --glob '!tests/**' || echo "  clean"
+rg -n 'shutil\.which\("xhermes"\)|_SERVICE_BASE = "xhermes|ai\.xhermes\.' --glob '!tests/**' || echo "  clean"
 ```
 
 > 注意：`sed -i ''` 是 macOS 语法；Linux 用 `sed -i`。脚本内做平台判断或文档注明。
@@ -719,29 +719,29 @@ git commit -m "feat(xhermes): add upstream sync + rename overlay scripts"
 **Files:**
 - Create: `scripts/xhermes_coexist_smoke.sh`
 
-**前提**：同机已装 hermes（`~/.hermes` 存在、`hermes` 命令可用）。
+**前提**：同机已装 xhermes（`~/.xhermes` 存在、`xhermes` 命令可用）。
 
 - [ ] **Step 1: 创建 smoke 脚本**
 
 ```bash
 #!/usr/bin/env bash
-# 验证 xhermes 与 hermes 同机共存
+# 验证 xhermes 与 xhermes 同机共存
 set -euo pipefail
 
 echo "1. 版本各自正常"
 xhermes --version | grep -q xhermes
-hermes --version | grep -qi hermes
+xhermes --version | grep -qi xhermes
 
 echo "2. 家目录隔离"
 test "$(xhermes -c 'from hermes_constants import get_hermes_home; print(get_hermes_home())')" = "$HOME/.xhermes"
-test -d "$HOME/.hermes" || echo "  WARN: hermes home missing on this machine"
+test -d "$HOME/.xhermes" || echo "  WARN: xhermes home missing on this machine"
 test -d "$HOME/.xhermes"
 
 echo "3. 不修改对方家目录"
-test "$(stat -f%m "$HOME/.hermes" 2>/dev/null || echo untouched)" = "untouched" || true
+test "$(stat -f%m "$HOME/.xhermes" 2>/dev/null || echo untouched)" = "untouched" || true
 
 echo "4. 双 serve 端口不同（可选，需两个终端）"
-echo "  xhermes serve 默认 9219, hermes 默认 9119"
+echo "  xhermes serve 默认 9219, xhermes 默认 9119"
 
 echo "5. profile wrapper 指向 xhermes"
 xhermes profile create smoke-probe >/dev/null 2>&1 || true

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
 
 func TestCancelPendingTask(t *testing.T) {

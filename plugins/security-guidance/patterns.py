@@ -24,7 +24,7 @@ Forked verbatim from Anthropic's claude-plugins-official repository
 
 Modifications by NousResearch for the xHermes Agent plugin port:
   - none to the pattern data itself; this file is byte-for-byte the upstream
-    patterns.py at commit 0bde168 (2026-05-26). Hermes-side wiring lives in
+    patterns.py at commit 0bde168 (2026-05-26). XHermes-side wiring lives in
     __init__.py.
 """
 from enum import IntEnum

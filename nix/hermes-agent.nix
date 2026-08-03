@@ -1,9 +1,9 @@
-# nix/hermes-agent.nix — Overridable Hermes Agent package
+# nix/xhermes-agent.nix — Overridable XHermes Agent package
 #
 # callPackage auto-wires nixpkgs args; flake inputs are passed explicitly.
 # Users override via:
-#   pkgs.hermes-agent.override { extraPythonPackages = [...]; }
-#   pkgs.hermes-agent.override { extraDependencyGroups = [ "hindsight" ]; }
+#   pkgs.xhermes-agent.override { extraPythonPackages = [...]; }
+#   pkgs.xhermes-agent.override { extraDependencyGroups = [ "hindsight" ]; }
 {
   lib,
   stdenv,
@@ -149,7 +149,7 @@ let
                 if line.startswith('Name:'):
                     pkg = canonical(line.split(':', 1)[1].strip())
                     if pkg in core:
-                        print(f'ERROR: plugin package \"{pkg}\" collides with a package in hermes sealed venv', file=sys.stderr)
+                        print(f'ERROR: plugin package \"{pkg}\" collides with a package in xhermes sealed venv', file=sys.stderr)
                         print(f'  from: {di}', file=sys.stderr)
                         print(f'  Remove this dependency from extraPythonPackages.', file=sys.stderr)
                         sys.exit(1)
@@ -159,7 +159,7 @@ let
   '';
 in
 stdenv.mkDerivation (finalAttrs: {
-  pname = "hermes-agent";
+  pname = "xhermes-agent";
   version = (fromTOML (builtins.readFile ../pyproject.toml)).project.version;
 
   dontUnpack = true;
@@ -172,25 +172,25 @@ stdenv.mkDerivation (finalAttrs: {
     # Symlinks, not copies: these are all store paths already, and the
     # wrapper env vars just hold paths.  Symlinking keeps this derivation
     # near-instant when only the venv changed, with an identical closure.
-    mkdir -p $out/share/hermes-agent $out/bin
-    ln -s ${bundledSkills} $out/share/hermes-agent/skills
-    ln -s ${bundledOptionalSkills} $out/share/hermes-agent/optional-skills
-    ln -s ${bundledPlugins} $out/share/hermes-agent/plugins
-    ln -s ${bundledLocales} $out/share/hermes-agent/locales
-    ln -s ${bundledOptionalMcps} $out/share/hermes-agent/optional-mcps
-    ln -s ${hermesWeb} $out/share/hermes-agent/web_dist
-    ln -s ${hermesTui}/lib/hermes-tui $out/ui-tui
+    mkdir -p $out/share/xhermes-agent $out/bin
+    ln -s ${bundledSkills} $out/share/xhermes-agent/skills
+    ln -s ${bundledOptionalSkills} $out/share/xhermes-agent/optional-skills
+    ln -s ${bundledPlugins} $out/share/xhermes-agent/plugins
+    ln -s ${bundledLocales} $out/share/xhermes-agent/locales
+    ln -s ${bundledOptionalMcps} $out/share/xhermes-agent/optional-mcps
+    ln -s ${hermesWeb} $out/share/xhermes-agent/web_dist
+    ln -s ${hermesTui}/lib/xhermes-tui $out/ui-tui
 
     ${lib.concatMapStringsSep "\n"
       (name: ''
         makeWrapper ${hermesVenv}/bin/${name} $out/bin/${name} \
           --suffix PATH : "${runtimePath}" \
-          --set HERMES_BUNDLED_SKILLS $out/share/hermes-agent/skills \
-          --set HERMES_OPTIONAL_SKILLS $out/share/hermes-agent/optional-skills \
-          --set HERMES_BUNDLED_PLUGINS $out/share/hermes-agent/plugins \
-          --set HERMES_BUNDLED_LOCALES $out/share/hermes-agent/locales \
-          --set HERMES_OPTIONAL_MCPS $out/share/hermes-agent/optional-mcps \
-          --set HERMES_WEB_DIST $out/share/hermes-agent/web_dist \
+          --set HERMES_BUNDLED_SKILLS $out/share/xhermes-agent/skills \
+          --set HERMES_OPTIONAL_SKILLS $out/share/xhermes-agent/optional-skills \
+          --set HERMES_BUNDLED_PLUGINS $out/share/xhermes-agent/plugins \
+          --set HERMES_BUNDLED_LOCALES $out/share/xhermes-agent/locales \
+          --set HERMES_OPTIONAL_MCPS $out/share/xhermes-agent/optional-mcps \
+          --set HERMES_WEB_DIST $out/share/xhermes-agent/web_dist \
           --set HERMES_TUI_DIR $out/ui-tui \
           --set HERMES_PYTHON ${hermesVenv}/bin/python3 \
           --set HERMES_NODE ${lib.getExe hermesNpmLib.nodejs}${
@@ -207,9 +207,9 @@ stdenv.mkDerivation (finalAttrs: {
           }
       '')
       [
-        "hermes"
-        "hermes-agent"
-        "hermes-acp"
+        "xhermes"
+        "xhermes-agent"
+        "xhermes-acp"
       ]
     }
 
@@ -237,8 +237,8 @@ stdenv.mkDerivation (finalAttrs: {
       # `hermesDesktop` references `finalAttrs.finalPackage` (this whole
       # derivation, after all overrides are applied) so the desktop wrapper
       # can prepend its `/bin` to PATH.  The desktop's resolver step 4
-      # ("existing hermes on PATH") then picks up the fully wrapped
-      # `hermes` binary — venv with all deps, bundled skills/plugins,
+      # ("existing xhermes on PATH") then picks up the fully wrapped
+      # `xhermes` binary — venv with all deps, bundled skills/plugins,
       # runtime PATH (ripgrep/git/ffmpeg/etc).  No re-implementation
       # of the agent resolution in the desktop wrapper.
       hermesDesktop = callPackage ./desktop.nix {
@@ -262,8 +262,8 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = with lib; {
     description = "AI agent with advanced tool-calling capabilities";
-    homepage = "https://github.com/NousResearch/hermes-agent";
-    mainProgram = "hermes";
+    homepage = "https://github.com/NousResearch/xhermes-agent";
+    mainProgram = "xhermes";
     license = licenses.mit;
     platforms = platforms.unix;
   };

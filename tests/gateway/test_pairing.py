@@ -58,7 +58,7 @@ class TestProfileScopedDiscovery:
         global_dir = tmp_path / "global-pairing"
         global_dir.mkdir(parents=True)
 
-        # A profile's store anchors to the hermes ROOT, not the current
+        # A profile's store anchors to the xhermes ROOT, not the current
         # HERMES_HOME — the current home may itself be a profile, and nesting
         # profiles inside profiles is how a `-p work` CLI and its gateway end
         # up reading different files. Patch that seam, not get_hermes_home.
@@ -67,7 +67,7 @@ class TestProfileScopedDiscovery:
         ):
             store = PairingStore(profile="alice")
             # Scoped under the mocked root's profile dir, using the same
-            # consolidated layout a standalone `hermes -p alice` resolves —
+            # consolidated layout a standalone `xhermes -p alice` resolves —
             # and provably distinct from the module-global PAIRING_DIR.
             assert store._dir == home / "profiles" / "alice" / "platforms" / "pairing"
             assert store._dir != global_dir
@@ -548,7 +548,7 @@ class TestUnreadablePairingFile:
         # And the warning should include actionable advice
         msgs = " ".join(rec.getMessage() for rec in caplog.records)
         assert "docker exec" in msgs
-        assert "-u hermes" in msgs
+        assert "-u xhermes" in msgs
 
 # Profile-scoped storage (multiplexing gateway isolation)
 # ---------------------------------------------------------------------------
@@ -556,13 +556,13 @@ class TestUnreadablePairingFile:
 
 class TestProfileScopedStorage:
     """PairingStore(profile="<name>") should isolate per-profile whitelists
-    under each profile's own Hermes home so a multiplexing gateway can keep
+    under each profile's own XHermes home so a multiplexing gateway can keep
     every profile's allowlist separate.
     """
 
     def test_default_store_uses_global_dir(self, tmp_path, monkeypatch):
         """PairingStore() (no profile) keeps the legacy global path so the
-        ``hermes pairing`` CLI continues to work without a profile context."""
+        ``xhermes pairing`` CLI continues to work without a profile context."""
         from hermes_constants import get_hermes_home
         monkeypatch.setattr("hermes_constants.get_hermes_home", lambda: tmp_path)
         # Re-import PAIRING_DIR (it's a module-level constant resolved at
@@ -575,7 +575,7 @@ class TestProfileScopedStorage:
         assert store._approved_path("weixin") == tmp_path / "weixin-approved.json"
 
     def test_profile_store_uses_profiles_subdir(self, tmp_path, monkeypatch):
-        """Explicit profile stores use that profile's normal Hermes layout."""
+        """Explicit profile stores use that profile's normal XHermes layout."""
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         store = PairingStore(profile="yangyang")
         assert store.profile == "yangyang"
@@ -586,7 +586,7 @@ class TestProfileScopedStorage:
         assert expected.is_dir()
 
     def test_profile_store_matches_profile_cli_home(self, tmp_path, monkeypatch):
-        """Gateway and ``hermes -p`` must resolve the same pairing store."""
+        """Gateway and ``xhermes -p`` must resolve the same pairing store."""
         from hermes_constants import get_hermes_dir
 
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))

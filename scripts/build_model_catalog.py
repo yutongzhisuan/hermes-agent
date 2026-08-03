@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build the Hermes Model Catalog — a centralized JSON manifest of curated models.
+"""Build the XHermes Model Catalog — a centralized JSON manifest of curated models.
 
 This script reads the in-repo hardcoded curated lists (``OPENROUTER_MODELS``,
 ``_PROVIDER_MODELS["nous"]``) and writes them to a JSON manifest that the
-Hermes CLI fetches at runtime. Publishing the catalog through the docs site
-lets maintainers update model lists without shipping a Hermes release.
+XHermes CLI fetches at runtime. Publishing the catalog through the docs site
+lets maintainers update model lists without shipping a XHermes release.
 
 The runtime fetcher falls back to the same in-repo hardcoded lists if the
 manifest is unreachable, so this script is a convenience for keeping the
@@ -17,7 +17,7 @@ Usage::
 Output: ``website/static/api/model-catalog.json``
 
 Live URL (after ``deploy-site.yml`` runs on merge to main):
-``https://hermes-agent.nousresearch.com/docs/api/model-catalog.json``
+``https://xhermes-agent.nousresearch.com/docs/api/model-catalog.json``
 """
 
 from __future__ import annotations
@@ -63,8 +63,8 @@ def build_catalog() -> dict:
         "version": CATALOG_VERSION,
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "metadata": {
-            "source": "hermes-agent repo",
-            "docs": "https://hermes-agent.nousresearch.com/docs/reference/model-catalog",
+            "source": "xhermes-agent repo",
+            "docs": "https://xhermes-agent.nousresearch.com/docs/reference/model-catalog",
         },
         "providers": {
             "openrouter": {
@@ -73,7 +73,7 @@ def build_catalog() -> dict:
                     "note": (
                         "Descriptions drive picker badges. Live /api/v1/models "
                         "filters curated ids by tool-calling support and free pricing. "
-                        'The entry labeled "default": true is the model Hermes '
+                        'The entry labeled "default": true is the model XHermes '
                         "silently lands on when the user never picked one."
                     ),
                 },
@@ -88,7 +88,7 @@ def build_catalog() -> dict:
                     "note": (
                         "Free-tier gating is determined live via Portal pricing "
                         "(partition_nous_models_by_tier), not this manifest. "
-                        'The entry labeled "default": true is the model Hermes '
+                        'The entry labeled "default": true is the model XHermes '
                         "silently lands on when the user never picked one."
                     ),
                 },

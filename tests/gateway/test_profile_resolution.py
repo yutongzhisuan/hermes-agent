@@ -62,10 +62,10 @@ class TestResolutionOrder:
         with patch("hermes_cli.profiles.get_active_profile_name", return_value="active"):
             with patch("hermes_cli.profiles.get_profile_dir") as mock_get_dir:
                 with patch("hermes_cli.profiles.profile_exists", return_value=True):
-                    mock_get_dir.return_value = Path("/hermes/profiles/from-source")
+                    mock_get_dir.return_value = Path("/xhermes/profiles/from-source")
                     result = mock_runner._resolve_profile_home_for_source(discord_source)
                     
-                    assert result == Path("/hermes/profiles/from-source")
+                    assert result == Path("/xhermes/profiles/from-source")
                     mock_get_dir.assert_called_once_with("from-source")
     
     
@@ -81,14 +81,14 @@ class TestMissingProfileWarning:
         
         with patch("hermes_cli.profiles.get_active_profile_name", return_value="active"):
             with patch("hermes_cli.profiles.get_profile_dir") as mock_get_dir:
-                mock_get_dir.return_value = Path("/hermes/profiles/nonexistent")
+                mock_get_dir.return_value = Path("/xhermes/profiles/nonexistent")
                 with patch("hermes_cli.profiles.profile_exists", return_value=False):
-                    with patch("hermes_constants.get_hermes_home", return_value=Path("/hermes")):
+                    with patch("hermes_constants.get_hermes_home", return_value=Path("/xhermes")):
                         with caplog.at_level(logging.WARNING):
                             result = mock_runner._resolve_profile_home_for_source(discord_source)
                             
                             # Should fall back to global HERMES_HOME
-                            assert result == Path("/hermes")
+                            assert result == Path("/xhermes")
                             
                             # Should have logged a warning
                             assert len(caplog.records) == 1
@@ -111,12 +111,12 @@ class TestExceptionHandling:
         
         with patch("hermes_cli.profiles.get_active_profile_name", return_value="active"):
             with patch("hermes_cli.profiles.get_profile_dir", side_effect=ValueError("Invalid profile name")):
-                with patch("hermes_constants.get_hermes_home", return_value=Path("/hermes")):
+                with patch("hermes_constants.get_hermes_home", return_value=Path("/xhermes")):
                     with caplog.at_level(logging.WARNING):
                         result = mock_runner._resolve_profile_home_for_source(discord_source)
                         
                         # Should fall back to global HERMES_HOME
-                        assert result == Path("/hermes")
+                        assert result == Path("/xhermes")
                         
                         # Should have logged a warning with exception info
                         assert len(caplog.records) == 1
@@ -135,7 +135,7 @@ class TestRoutingConsultation:
         
         with patch("hermes_cli.profiles.get_active_profile_name", return_value="active"):
             with patch("hermes_cli.profiles.get_profile_dir") as mock_get_dir:
-                mock_get_dir.return_value = Path("/hermes/profiles/routed")
+                mock_get_dir.return_value = Path("/xhermes/profiles/routed")
                 
                 mock_runner._profile_name_for_source = MagicMock(return_value="routed")
                 

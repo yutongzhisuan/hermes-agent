@@ -32,7 +32,7 @@ def test_skill_config_helpers_share_raw_config_parse_cache(tmp_path, monkeypatch
     """Repeated skill config helpers should parse config.yaml only once."""
     from agent import skill_utils
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     external = tmp_path / "external-skills"
     external.mkdir()
@@ -232,7 +232,7 @@ class TestParseFrontmatterBOM:
         "description: Does a thing.\n"
         "platforms: [macos]\n"
         "metadata:\n"
-        "  hermes:\n"
+        "  xhermes:\n"
         "    config:\n"
         "      - key: my.key\n"
         "        description: A configured value\n"

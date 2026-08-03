@@ -3,7 +3,7 @@ package client_test
 import (
 	"testing"
 
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

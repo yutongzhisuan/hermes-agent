@@ -531,8 +531,8 @@ async def _standalone_send(
     """Acquire a Bot Framework bearer token and POST a single message activity.
 
     Used by ``tools/send_message_tool._send_via_adapter`` when the gateway
-    runner is not in this process (e.g. ``hermes cron`` running as a
-    separate process from ``hermes gateway``).  Without this hook,
+    runner is not in this process (e.g. ``xhermes cron`` running as a
+    separate process from ``xhermes gateway``).  Without this hook,
     ``deliver=teams`` cron jobs fail with ``No live adapter for platform``.
 
     Configuration: requires ``TEAMS_CLIENT_ID``, ``TEAMS_CLIENT_SECRET``,
@@ -654,7 +654,7 @@ def _suppress_third_party_dotenv() -> Iterator[None]:
     ``microsoft_teams.apps.app`` calls ``load_dotenv(find_dotenv(usecwd=True))``
     at module import time. That mutates process-global ``os.environ`` from
     whatever ``.env`` sits above cwd — typically a root profile's secrets.
-    Hermes owns dotenv loading; third-party import side effects must not.
+    XHermes owns dotenv loading; third-party import side effects must not.
     """
     try:
         import dotenv as _dotenv
@@ -1414,7 +1414,7 @@ def interactive_setup() -> None:
     print()
     print_info("Then expose port 3978 publicly (devtunnel / ngrok / cloudflared),")
     print_info("and create your bot:")
-    print_info("  teams app create --name \"Hermes\" --endpoint \"https://<tunnel>/api/messages\"")
+    print_info("  teams app create --name \"XHermes\" --endpoint \"https://<tunnel>/api/messages\"")
     print()
     print_info("The CLI will print CLIENT_ID, CLIENT_SECRET, and TENANT_ID. Paste them below.")
     print()
@@ -1454,15 +1454,15 @@ def interactive_setup() -> None:
         print_warning("⚠️  Open access — anyone who can message the bot can command it.")
 
     print()
-    print_success("Teams configuration saved to ~/.hermes/.env")
+    print_success("Teams configuration saved to ~/.xhermes/.env")
     print_info("Install the app in Teams:  teams app install --id <teamsAppId>")
-    print_info("Restart the gateway:       hermes gateway restart")
+    print_info("Restart the gateway:       xhermes gateway restart")
 
 
 # ── Plugin entry point ────────────────────────────────────────────────────────
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Hermes plugin system."""
+    """Plugin entry point — called by the XHermes plugin system."""
     ctx.register_platform(
         name="teams",
         label="Microsoft Teams",

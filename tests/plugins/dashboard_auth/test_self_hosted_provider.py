@@ -39,8 +39,8 @@ from hermes_cli.dashboard_auth import (
     assert_protocol_compliance,
 )
 
-_ISSUER = "https://auth.example.com/application/o/hermes"
-_CLIENT_ID = "hermes-dashboard"
+_ISSUER = "https://auth.example.com/application/o/xhermes"
+_CLIENT_ID = "xhermes-dashboard"
 
 _DISCOVERY_DOC = {
     "issuer": _ISSUER,
@@ -292,20 +292,20 @@ class TestStartLogin:
 
     def test_returns_login_start(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.example/auth/callback"
+            redirect_uri="https://xhermes.example/auth/callback"
         )
         assert isinstance(result, LoginStart)
 
 
     def test_authorize_url_has_required_params(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.example/auth/callback"
+            redirect_uri="https://xhermes.example/auth/callback"
         )
         parsed = urllib.parse.urlparse(result.redirect_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
         assert params["response_type"] == "code"
         assert params["client_id"] == _CLIENT_ID
-        assert params["redirect_uri"] == "https://hermes.example/auth/callback"
+        assert params["redirect_uri"] == "https://xhermes.example/auth/callback"
         assert params["scope"] == "openid profile email"
         assert params["code_challenge_method"] == "S256"
         assert "state" in params
@@ -314,7 +314,7 @@ class TestStartLogin:
 
     def test_state_in_cookie_matches_url(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.example/auth/callback"
+            redirect_uri="https://xhermes.example/auth/callback"
         )
         parsed = urllib.parse.urlparse(result.redirect_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
@@ -351,7 +351,7 @@ class TestCompleteLogin:
                 code="abc",
                 state="s",
                 code_verifier="vfy",
-                redirect_uri="https://hermes.example/auth/callback",
+                redirect_uri="https://xhermes.example/auth/callback",
             )
         assert isinstance(session, Session)
         assert session.user_id == "usr_abc"
@@ -374,7 +374,7 @@ class TestCompleteLogin:
                 code="abc",
                 state="s",
                 code_verifier="vfy",
-                redirect_uri="https://hermes.example/auth/callback",
+                redirect_uri="https://xhermes.example/auth/callback",
             )
         assert session.refresh_token == ""
 
@@ -390,7 +390,7 @@ class TestCompleteLogin:
                     code="x",
                     state="s",
                     code_verifier="v",
-                    redirect_uri="https://hermes.example/auth/callback",
+                    redirect_uri="https://xhermes.example/auth/callback",
                 )
 
     def test_400_raises_invalid_code(self, provider):
@@ -403,7 +403,7 @@ class TestCompleteLogin:
                     code="bad",
                     state="s",
                     code_verifier="v",
-                    redirect_uri="https://hermes.example/auth/callback",
+                    redirect_uri="https://xhermes.example/auth/callback",
                 )
 
 
@@ -440,7 +440,7 @@ class TestConfidentialClient:
                 code="the-code",
                 state="s",
                 code_verifier="the-verifier",
-                redirect_uri="https://hermes.example/auth/callback",
+                redirect_uri="https://xhermes.example/auth/callback",
             )
         _, kwargs = mock_post.call_args
         return kwargs

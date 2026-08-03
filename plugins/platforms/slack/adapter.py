@@ -68,7 +68,7 @@ except ImportError:  # pragma: no cover - plugin loaded outside package context
 logger = logging.getLogger(__name__)
 
 # User-Agent prefix for outbound Slack API calls so platform partners can
-# identify xHermesAgent traffic — matching other Hermes outbound surfaces
+# identify xHermesAgent traffic — matching other XHermes outbound surfaces
 # that already set ``xHermesAgent/<version>`` for platform-partner attribution.
 try:
     from hermes_cli import __version__ as _HERMES_VERSION
@@ -864,7 +864,7 @@ class SlackAdapter(BasePlatformAdapter):
       - DMs and channel messages (mention-gated in channels)
       - Thread support
       - File/image/audio attachments
-      - Slash commands (/hermes)
+      - Slash commands (/xhermes)
       - Typing indicators (not natively supported by Slack bots)
     """
 
@@ -1679,7 +1679,7 @@ class SlackAdapter(BasePlatformAdapter):
                     "and 'message.mpim' event. Add 'mpim:history' (and "
                     "'mpim:read') to bot scopes, add 'message.mpim' to event "
                     "subscriptions, then REINSTALL the app to the workspace. "
-                    "Regenerating the app from `hermes slack` produces a "
+                    "Regenerating the app from `xhermes slack` produces a "
                     "manifest with these already included.",
                     team_key or "this workspace",
                 )
@@ -1775,14 +1775,14 @@ class SlackAdapter(BasePlatformAdapter):
         if not raw_token:
             logger.error(
                 "[Slack] SLACK_BOT_TOKEN not set — this is a permanent config "
-                "error; set SLACK_BOT_TOKEN via `hermes gateway setup` "
-                "or in the active profile's ~/.hermes/.env file, then restart "
+                "error; set SLACK_BOT_TOKEN via `xhermes gateway setup` "
+                "or in the active profile's ~/.xhermes/.env file, then restart "
                 "the gateway.",
             )
             self._set_fatal_error(
                 "missing_slack_bot_token",
-                "SLACK_BOT_TOKEN not configured. Use `hermes gateway setup` "
-                "or add it to your active profile's ~/.hermes/.env file, "
+                "SLACK_BOT_TOKEN not configured. Use `xhermes gateway setup` "
+                "or add it to your active profile's ~/.xhermes/.env file, "
                 "then restart the gateway.",
                 retryable=False,
             )
@@ -1790,14 +1790,14 @@ class SlackAdapter(BasePlatformAdapter):
         if not app_token:
             logger.error(
                 "[Slack] SLACK_APP_TOKEN not set — this is a permanent config "
-                "error; set SLACK_APP_TOKEN via `hermes gateway setup` "
-                "or in the active profile's ~/.hermes/.env file, then restart "
+                "error; set SLACK_APP_TOKEN via `xhermes gateway setup` "
+                "or in the active profile's ~/.xhermes/.env file, then restart "
                 "the gateway.",
             )
             self._set_fatal_error(
                 "missing_slack_app_token",
-                "SLACK_APP_TOKEN not configured. Use `hermes gateway setup` "
-                "or add it to your active profile's ~/.hermes/.env file, "
+                "SLACK_APP_TOKEN not configured. Use `xhermes gateway setup` "
+                "or add it to your active profile's ~/.xhermes/.env file, "
                 "then restart the gateway.",
                 retryable=False,
             )
@@ -1999,7 +1999,7 @@ class SlackAdapter(BasePlatformAdapter):
                 await self._handle_assistant_thread_lifecycle_event(event, body)
 
             # Catch-all no-op ack for any other subscribed event type that
-            # Hermes has no listener for (e.g. user_change,
+            # XHermes has no listener for (e.g. user_change,
             # user_huddle_changed, member_joined_channel, channel_archive,
             # pin_added, etc.).
             #
@@ -2029,9 +2029,9 @@ class SlackAdapter(BasePlatformAdapter):
             async def handle_unhandled_event(event, body, logger):
                 logger.debug(
                     "[Slack] Ignoring unhandled event type=%s (no listener "
-                    "registered; subscribed events not handled by Hermes can "
+                    "registered; subscribed events not handled by XHermes can "
                     "be removed from the Slack app manifest via "
-                    "`hermes slack manifest`)",
+                    "`xhermes slack manifest`)",
                     (event or {}).get(
                         "type",
                         (body or {}).get("event", {}).get("type", "unknown"),
@@ -2042,12 +2042,12 @@ class SlackAdapter(BasePlatformAdapter):
             #
             # Every gateway command from COMMAND_REGISTRY is a native Slack
             # slash, matching Discord and Telegram's model (e.g. /btw, /stop,
-            # /model work directly without /hermes prefix). A single regex
+            # /model work directly without /xhermes prefix). A single regex
             # matcher dispatches all of them to one handler so we don't need
             # N identical @app.command() decorators.
             #
             # The slash commands must ALSO be declared in the Slack app
-            # manifest (see `hermes slack manifest`). In Socket Mode, Slack
+            # manifest (see `xhermes slack manifest`). In Socket Mode, Slack
             # routes the command event through the socket regardless of the
             # manifest's request URL, but it will not deliver an event for
             # a slash command the manifest doesn't declare.
@@ -2060,7 +2060,7 @@ class SlackAdapter(BasePlatformAdapter):
                     r"^/(?:" + "|".join(_re.escape(n) for n in _slash_names) + r")$"
                 )
             else:  # pragma: no cover - registry always non-empty
-                _slash_pattern = _re.compile(r"^/hermes$")
+                _slash_pattern = _re.compile(r"^/xhermes$")
 
             @self._app.command(_slash_pattern)
             async def handle_hermes_command(ack, command):
@@ -2202,7 +2202,7 @@ class SlackAdapter(BasePlatformAdapter):
                     "[Slack] allow_bots=%s — for bot-to-bot interop also ensure: "
                     "(a) the Slack app manifest subscribes to message.channels / "
                     "message.groups / message.im as appropriate (run "
-                    "'hermes slack manifest' if unsure), and (b) the other bot's "
+                    "'xhermes slack manifest' if unsure), and (b) the other bot's "
                     "Slack user id is in SLACK_ALLOWED_USERS or "
                     "GATEWAY_ALLOW_ALL_USERS=true. Without these, bot events are "
                     "silently dropped upstream of the allow_bots gate.",
@@ -2239,7 +2239,7 @@ class SlackAdapter(BasePlatformAdapter):
             if client is None:
                 return None
             seed_text = (
-                f":thread: Hermes handoff — *{(name or 'session').strip()[:80]}*"
+                f":thread: XHermes handoff — *{(name or 'session').strip()[:80]}*"
             )
             result = await client.chat_postMessage(
                 channel=parent_chat_id,
@@ -3026,7 +3026,7 @@ class SlackAdapter(BasePlatformAdapter):
         """Whether top-level Slack DMs get per-message session threads.
 
         Defaults to ``True`` so each visible DM reply thread is isolated as its
-        own Hermes session — matching the per-thread behavior channels already
+        own XHermes session — matching the per-thread behavior channels already
         have.  Set ``platforms.slack.extra.dm_top_level_threads_as_sessions``
         to ``false`` in config.yaml to revert to the legacy behavior where all
         top-level DMs share one continuous session.
@@ -4697,7 +4697,7 @@ class SlackAdapter(BasePlatformAdapter):
         user_id = event.get("user") or event.get("user_id") or ""
         team_id = self._event_team_id(event, body)
         # ``context_channel_id`` is a channel the user is viewing, not the DM
-        # Hermes owns. Do not write it into _channel_team: channel IDs can be
+        # XHermes owns. Do not write it into _channel_team: channel IDs can be
         # shared across Slack Connect workspaces, so doing so can misroute a
         # later unrelated send. Workspace ownership is recorded from actual
         # inbound DM/channel events below.
@@ -5617,7 +5617,7 @@ class SlackAdapter(BasePlatformAdapter):
 
         # Some Slack bot posts arrive as ordinary-looking message events with a
         # bot *user* id but without ``bot_id``/``subtype=bot_message``.  This is
-        # the shape produced by peer Hermes agents in Socket Mode on some
+        # the shape produced by peer XHermes agents in Socket Mode on some
         # workspaces.  If we let those fall through as human users, an old
         # thread mention or active session will re-trigger the target agent on
         # every peer status/error/ack message, causing agent-agent loops.  Apply
@@ -7636,9 +7636,9 @@ class SlackAdapter(BasePlatformAdapter):
         Discord and Telegram model. The slash name itself is the command;
         any text after it is the argument list.
 
-        The legacy ``/hermes <subcommand> [args]`` form is preserved for
+        The legacy ``/xhermes <subcommand> [args]`` form is preserved for
         backward compatibility with older workspace manifests and for users
-        who want a single entry point for free-form questions (``/hermes
+        who want a single entry point for free-form questions (``/xhermes
         what's the weather`` — non-slash text is treated as a regular
         message).
         """
@@ -7653,8 +7653,8 @@ class SlackAdapter(BasePlatformAdapter):
         if team_id and channel_id:
             self._remember_channel_team(channel_id, team_id)
 
-        if slash_name in {"hermes", ""}:
-            # Legacy /hermes <subcommand> [args] routing + free-form questions.
+        if slash_name in {"xhermes", ""}:
+            # Legacy /xhermes <subcommand> [args] routing + free-form questions.
             # Empty slash_name falls into this branch for backward compat
             # with any caller that didn't populate command["command"].
             legacy_text = raw_text.strip()
@@ -7663,7 +7663,7 @@ class SlackAdapter(BasePlatformAdapter):
             subcommand_map = slack_subcommand_map()
             subcommand_map["compact"] = "/compress"
             # Guard against whitespace-only text where ``text`` is truthy but
-            # ``text.split()`` returns ``[]`` (e.g. user sends ``/hermes   ``).
+            # ``text.split()`` returns ``[]`` (e.g. user sends ``/xhermes   ``).
             parts = legacy_text.split() if legacy_text else []
             first_word = parts[0] if parts else ""
             if first_word in subcommand_map:
@@ -7742,7 +7742,7 @@ class SlackAdapter(BasePlatformAdapter):
         # channel+user can be routed ephemerally (replaces the initial
         # "Running /cmd…" ack shown by handle_hermes_command).
         # Only stash for COMMAND events (text starts with "/") — free-form
-        # questions via "/hermes <question>" must produce public replies so
+        # questions via "/xhermes <question>" must produce public replies so
         # the whole channel can see the agent's answer.
         response_url = command.get("response_url", "")
         if response_url and user_id and channel_id and text.startswith("/"):
@@ -8872,7 +8872,7 @@ def interactive_setup() -> None:
 
             manifest = _build_full_manifest(
                 bot_name="xHermes",
-                bot_description="Your Hermes agent on Slack",
+                bot_description="Your XHermes agent on Slack",
             )
             target = Path(get_hermes_home()) / "slack-manifest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -8887,8 +8887,8 @@ def interactive_setup() -> None:
                 "reinstall if scopes or slash commands changed."
             )
             print_info(
-                "   Re-run `hermes slack manifest --write` anytime to refresh after "
-                "Hermes adds new commands."
+                "   Re-run `xhermes slack manifest --write` anytime to refresh after "
+                "XHermes adds new commands."
             )
         except Exception as e:
             print_warning(f"Could not write Slack manifest: {e}")
@@ -8902,7 +8902,7 @@ def interactive_setup() -> None:
             # new commands (e.g. /btw, /stop, ...) get registered in Slack.
             if prompt_yes_no(
                 "Regenerate the Slack app manifest with the latest command "
-                "list? (recommended after `hermes update`)",
+                "list? (recommended after `xhermes update`)",
                 True,
             ):
                 _write_slack_manifest_and_instruct()
@@ -8916,7 +8916,7 @@ def interactive_setup() -> None:
     print_info("   3. Install to Workspace: Settings → Install App")
     print_info("   4. After installing, invite the bot to channels: /invite @YourBot")
     print()
-    print_info("   Full guide: https://hermes-agent.nousresearch.com/docs/user-guide/messaging/slack/")
+    print_info("   Full guide: https://xhermes-agent.nousresearch.com/docs/user-guide/messaging/slack/")
     print()
 
     # Generate and write manifest up-front so the user can paste it into
@@ -8949,7 +8949,7 @@ def interactive_setup() -> None:
         print_info("   Set SLACK_ALLOW_ALL_USERS=true or GATEWAY_ALLOW_ALL_USERS=true only if you intentionally want open workspace access.")
 
     print()
-    print_info("📬 Home Channel: where Hermes delivers cron job results,")
+    print_info("📬 Home Channel: where XHermes delivers cron job results,")
     print_info("   cross-platform messages, and notifications.")
     print_info("   To get a channel ID: open the channel in Slack, then right-click")
     print_info("   the channel name → Copy link — the ID starts with C (e.g. C01ABC2DE3F).")
@@ -9050,7 +9050,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Hermes plugin system."""
+    """Plugin entry point — called by the XHermes plugin system."""
     ctx.register_platform(
         name="slack",
         label="Slack",
@@ -9058,7 +9058,7 @@ def register(ctx) -> None:
         check_fn=check_slack_requirements,
         is_connected=_is_connected,
         required_env=["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
-        install_hint="Run `hermes setup` to install Slack support.",
+        install_hint="Run `xhermes setup` to install Slack support.",
         # Interactive setup wizard — replaces hermes_cli/setup.py::_setup_slack
         # and the static _PLATFORMS["slack"] dict in hermes_cli/gateway.py.
         setup_fn=interactive_setup,

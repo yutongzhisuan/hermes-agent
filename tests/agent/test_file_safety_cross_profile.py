@@ -1,13 +1,13 @@
-"""Tests for the cross-Hermes-profile write guard in agent/file_safety.
+"""Tests for the cross-XHermes-profile write guard in agent/file_safety.
 
-The guard fires when a tool tries to write into another Hermes profile's
+The guard fires when a tool tries to write into another XHermes profile's
 skills/plugins/cron/memories directory. It's a soft guard — defense in
 depth, NOT a security boundary — but it prevents the agent from silently
 corrupting a profile that belongs to a different session.
 
-Reference: May 2026 incident — a hermes-security profile session
-accidentally edited skills under both ~/.hermes/profiles/hermes-security/skills/
-AND ~/.hermes/skills/ (the default profile's skills), realizing only
+Reference: May 2026 incident — a xhermes-security profile session
+accidentally edited skills under both ~/.xhermes/profiles/xhermes-security/skills/
+AND ~/.xhermes/skills/ (the default profile's skills), realizing only
 afterwards that the second path belonged to a different profile.
 """
 from __future__ import annotations
@@ -18,14 +18,14 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# Helpers — set up a fake Hermes root with two profiles, monkeypatch the
+# Helpers — set up a fake XHermes root with two profiles, monkeypatch the
 # resolver helpers so the classifier sees the test layout.
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def fake_hermes(tmp_path, monkeypatch):
-    """Build a fake Hermes layout:
+    """Build a fake XHermes layout:
 
         <tmp>/
           skills/foo/SKILL.md           # default profile
@@ -33,20 +33,20 @@ def fake_hermes(tmp_path, monkeypatch):
           cron/<state>
           memories/MEMORY.md
           profiles/
-            hermes-security/
+            xhermes-security/
               skills/foo/SKILL.md       # named profile
               plugins/...
             coder/
               skills/foo/SKILL.md       # another named profile
     """
-    root = tmp_path / "fake-hermes"
+    root = tmp_path / "fake-xhermes"
     (root / "skills" / "foo").mkdir(parents=True)
     (root / "skills" / "foo" / "SKILL.md").write_text("# default skill\n")
     (root / "plugins" / "foo").mkdir(parents=True)
     (root / "memories").mkdir(parents=True)
     (root / "cron").mkdir(parents=True)
 
-    sec_home = root / "profiles" / "hermes-security"
+    sec_home = root / "profiles" / "xhermes-security"
     (sec_home / "skills" / "foo").mkdir(parents=True)
     (sec_home / "skills" / "foo" / "SKILL.md").write_text("# sec skill\n")
     (sec_home / "plugins").mkdir(parents=True)
@@ -117,7 +117,7 @@ class TestClassifyCrossProfileTarget:
             str(fake_hermes["default_home"] / "skills" / "foo" / "SKILL.md")
         )
         assert result is not None
-        assert result["active_profile"] == "hermes-security"
+        assert result["active_profile"] == "xhermes-security"
         assert result["target_profile"] == "default"
         assert result["area"] == "skills"
 
@@ -130,7 +130,7 @@ class TestClassifyCrossProfileTarget:
         )
         assert result is not None
         assert result["active_profile"] == "default"
-        assert result["target_profile"] == "hermes-security"
+        assert result["target_profile"] == "xhermes-security"
 
 
     @pytest.mark.parametrize("area", ["skills", "plugins", "cron", "memories"])
@@ -167,7 +167,7 @@ class TestGetCrossProfileWarning:
         assert warn is not None
         # Must name BOTH profiles so the model knows which is which.
         assert "default" in warn
-        assert "hermes-security" in warn
+        assert "xhermes-security" in warn
         # Must name the bypass kwarg.
         assert "cross_profile=True" in warn
         # Must reference the area.

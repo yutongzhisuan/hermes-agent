@@ -1,17 +1,17 @@
 ---
-name: inspecting-hermes-desktop-dom
-description: "Read the live Hermes desktop DOM/CSS over CDP."
+name: inspecting-xhermes-desktop-dom
+description: "Read the live XHermes desktop DOM/CSS over CDP."
 version: 1.0.0
-author: Hermes Agent
+author: XHermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
-  hermes:
+  xhermes:
     tags: [desktop, electron, cdp, dom, ui-verification, self-inspection]
     related_skills: [node-inspect-debugger, systematic-debugging, dogfood]
 ---
 
-# Inspecting the live Hermes desktop DOM
+# Inspecting the live XHermes desktop DOM
 
 ## Overview
 
@@ -39,7 +39,7 @@ CDP; hand aesthetics to the user.
 - Reading renderer console errors the user mentions but can't copy out
 
 **Don't use for:** perf profiling or heap work (`node-inspect-debugger`,
-`debugging-hermes-desktop`), or anything where the real question is "does this
+`debugging-xhermes-desktop`), or anything where the real question is "does this
 look right".
 
 ## The port
@@ -142,7 +142,7 @@ also want the perf harness.
   kill nukes Chromium's socket pool, and the resulting `ERR_NETWORK_CHANGED`
   gets blamed on whatever you just changed.
 - **A throwaway `HERMES_HOME` has no backend.** The app logs `ECONNREFUSED` for
-  `hermes:api` and may exit on its own. The renderer still mounts and the DOM is
+  `xhermes:api` and may exit on its own. The renderer still mounts and the DOM is
   readable — read promptly, and don't mistake a self-exited probe for a broken
   port. Chromium logs `DevTools listening on ws://127.0.0.1:<port>/…` when it
   binds; that line is the proof the port opened.

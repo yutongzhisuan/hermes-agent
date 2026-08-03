@@ -31,7 +31,7 @@ from hermes_cli.kanban import run_slash
 
 @pytest.fixture
 def kanban_home(tmp_path, monkeypatch):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     # Existing crash-detection tests pre-date the grace window; pin to 0
@@ -339,7 +339,7 @@ def test_max_runtime_terminates_overrun_worker(kanban_home):
 def test_migration_renames_legacy_event_kinds(tmp_path, monkeypatch):
     """A DB created with the old vocab must have its event rows renamed
     in place on init_db()."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
@@ -609,7 +609,7 @@ def test_migration_backfill_idempotent_under_re_run(tmp_path, monkeypatch):
     """init_db must be safe to re-run repeatedly. Each call should leave
     at most one run row per in-flight task, even if called while a
     dispatcher is simultaneously claiming."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
@@ -702,7 +702,7 @@ def test_default_spawn_does_not_auto_load_any_skill(kanban_home, monkeypatch):
     when the task carries no per-task skills.
 
     We intercept Popen to capture the argv without actually spawning a
-    hermes subprocess (which would hang trying to call an LLM).
+    xhermes subprocess (which would hang trying to call an LLM).
     """
     captured = {}
 
@@ -1011,7 +1011,7 @@ def test_cli_daemon_help_marks_deprecated():
                     break
     assert found_deprecation, (
         "daemon subparser help should be marked DEPRECATED so users see "
-        "the migration guidance in `hermes kanban --help` output"
+        "the migration guidance in `xhermes kanban --help` output"
     )
 
 

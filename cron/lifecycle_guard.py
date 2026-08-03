@@ -1,7 +1,7 @@
 """Gateway lifecycle guard for cron job creation (#30719).
 
 An agent running inside a gateway can schedule a cron job that calls
-``hermes gateway restart`` (or ``launchctl kickstart ai.xhermes.gateway``
+``xhermes gateway restart`` (or ``launchctl kickstart ai.xhermes.gateway``
 or ``systemctl restart xhermes-gateway``).  When the cron fires, the
 gateway dies, the supervisor (launchd KeepAlive / systemd Restart=)
 revives it, auto-resume picks up the offending session, and the resumed
@@ -11,11 +11,11 @@ until manually broken.
 This module rejects cron job specs whose prompt or script contains a
 direct shell-level gateway-lifecycle command.  It is enforced at
 ``cron.jobs.create_job`` so it fires on every job-creation path: the
-``hermes cron create`` CLI subcommand AND the agent's ``cronjob`` model
+``xhermes cron create`` CLI subcommand AND the agent's ``cronjob`` model
 tool (which calls ``create_job`` directly, bypassing the CLI layer).
 
 The pattern is intentionally command-shaped: it anchors on a concrete
-command identifier (``hermes gateway``, ``launchctl ... xhermes-gateway``,
+command identifier (``xhermes gateway``, ``launchctl ... xhermes-gateway``,
 ``systemctl ... xhermes-gateway``, ``pkill`` against the gateway) so it
 cannot fire on prose.  A cron ``prompt`` is fed to a future LLM, not a
 shell, so an over-broad substring match on English ("Kong API gateway
@@ -26,7 +26,7 @@ command shape.
 This is a defence-in-depth layer.  ``tools/terminal_tool.py`` blocks direct
 commands and shell scripts they reference when ``_HERMES_GATEWAY=1``. It also
 rejects ``launchctl submit`` in gateway sessions because launchd treats that
-primitive as a persistent KeepAlive job, not a one-shot task. ``hermes gateway
+primitive as a persistent KeepAlive job, not a one-shot task. ``xhermes gateway
 stop|restart`` separately refuse to self-target from inside the gateway.
 Blocking cron specs at creation time as well means the agent gets an immediate,
 informative rejection instead of scheduling a job that will only fail
@@ -59,8 +59,8 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     r"(?:xhermes\s+gateway\s+(?:restart|stop))"
     # Branch B: launchctl ops on a xhermes-gateway label. macOS launchd
     # labels look like `ai.xhermes.gateway` / `xhermes-gateway`. Requiring the
-    # gateway identifier prevents blocking unrelated hermes services (e.g.
-    # `launchctl unload ai.hermes.update-checker.plist`).
+    # gateway identifier prevents blocking unrelated xhermes services (e.g.
+    # `launchctl unload ai.xhermes.update-checker.plist`).
     # `submit` and `bootstrap` are included alongside the direct verbs
     # (kickstart/etc.): `launchctl submit -l ai.xhermes.gateway-<suffix> --
     # <helper-script>` (or `launchctl bootstrap gui/<uid> <plist>`) creates
@@ -151,7 +151,7 @@ def contains_launchctl_submit_command(command: str) -> bool:
     """Detect an executed ``launchctl submit``/``bootstrap``, not quoted text.
 
     Label-independent by design: the label of a submitted/bootstrapped job is
-    chosen by whoever writes it, so a neutral name (``ai.hermes.svc-reload-tmp``)
+    chosen by whoever writes it, so a neutral name (``ai.xhermes.svc-reload-tmp``)
     defeats any label-anchored regex (#62891, second reproduction). Both verbs
     register a NEW persistent launchd job (``submit`` jobs get KeepAlive
     semantics; ``bootstrap`` loads an arbitrary plist), which is never safe to
@@ -218,7 +218,7 @@ def _iter_referenced_shell_scripts(
             continue
 
         # A bare "/" token is pathlib's division operator in Python sources
-        # (e.g. `Path.home() / ".hermes"`), not an executable reference.
+        # (e.g. `Path.home() / ".xhermes"`), not an executable reference.
         # Resolving it walks to the filesystem root and fails the
         # regular-file check below, hard-blocking innocent .py scripts
         # (#77131). Skip pure-separator tokens.
@@ -364,7 +364,7 @@ def _resolve_script_path(script_path: str) -> Path:
     under ``<HERMES_HOME>/scripts/`` and only accepts absolute paths as-is.
     We MUST mirror that here so the guard scans the file that will actually
     run — otherwise a job whose script lives at the scheduler's real location
-    (``~/.hermes/scripts/restart.sh``) but is passed as the bare name
+    (``~/.xhermes/scripts/restart.sh``) but is passed as the bare name
     ``restart.sh`` would read as a nonexistent relative path and silently
     scan prompt-only content, letting the command through.
     """
@@ -385,7 +385,7 @@ def _read_script_for_scanning(script_path: str) -> str:
     """
     script_text, unsafe = _read_referenced_script(_resolve_script_path(script_path))
     if unsafe:
-        return "hermes gateway restart"
+        return "xhermes gateway restart"
     return script_text or ""
 
 
@@ -420,7 +420,7 @@ def check_gateway_lifecycle(
         # the filesystem root and trips the regular-file check, blocking
         # every innocent .py cron script, #77131). The direct command
         # regex below still scans the full text, so a literal
-        # `hermes gateway restart` embedded in a .py script is still
+        # `xhermes gateway restart` embedded in a .py script is still
         # blocked. Non-regular/oversized script files still fail closed
         # via the lifecycle-shaped sentinel in _read_script_for_scanning.
         unsafe = contains_gateway_lifecycle_command(combined)
@@ -435,6 +435,6 @@ def check_gateway_lifecycle(
             "Blocked: cron job contains a gateway lifecycle command or persistent "
             "launchctl submit operation. This is blocked to prevent agent-driven "
             "SIGTERM-respawn loops under launchd/systemd supervision "
-            "(#30719). Run `hermes gateway restart` from a shell outside "
+            "(#30719). Run `xhermes gateway restart` from a shell outside "
             "the running gateway instead."
         )

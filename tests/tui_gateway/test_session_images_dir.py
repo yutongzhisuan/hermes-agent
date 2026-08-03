@@ -17,7 +17,7 @@ from tui_gateway.server import _session_images_dir
 
 def test_profile_home_session_writes_under_profile(tmp_path):
     """A session pinned to a profile writes uploads under that profile's home."""
-    profile_home = tmp_path / ".hermes" / "profiles" / "coder"
+    profile_home = tmp_path / ".xhermes" / "profiles" / "coder"
     session = {"profile_home": str(profile_home)}
 
     assert _session_images_dir(session) == profile_home / "images"
@@ -25,7 +25,7 @@ def test_profile_home_session_writes_under_profile(tmp_path):
 
 def test_launch_home_fallback_when_no_profile(tmp_path):
     """No ``profile_home`` on the session → the gateway launch home is used."""
-    launch_home = tmp_path / ".hermes"
+    launch_home = tmp_path / ".xhermes"
     session = {}
 
     with patch("tui_gateway.server._hermes_home", launch_home):
@@ -34,7 +34,7 @@ def test_launch_home_fallback_when_no_profile(tmp_path):
 
 def test_empty_profile_home_falls_back_to_launch_home(tmp_path):
     """An empty-string ``profile_home`` is treated as absent, not as ``/images``."""
-    launch_home = tmp_path / ".hermes"
+    launch_home = tmp_path / ".xhermes"
     session = {"profile_home": ""}
 
     with patch("tui_gateway.server._hermes_home", launch_home):
@@ -43,8 +43,8 @@ def test_empty_profile_home_falls_back_to_launch_home(tmp_path):
 
 def test_two_profiles_are_isolated(tmp_path):
     """Uploads from different profile sessions never share an images dir."""
-    home_a = tmp_path / ".hermes" / "profiles" / "a"
-    home_b = tmp_path / ".hermes" / "profiles" / "b"
+    home_a = tmp_path / ".xhermes" / "profiles" / "a"
+    home_b = tmp_path / ".xhermes" / "profiles" / "b"
 
     dir_a = _session_images_dir({"profile_home": str(home_a)})
     dir_b = _session_images_dir({"profile_home": str(home_b)})

@@ -36,7 +36,7 @@ def test_sessions_export_md_writes_single_session(monkeypatch, tmp_path, capsys)
         sys,
         "argv",
         [
-            "hermes",
+            "xhermes",
             "sessions",
             "export",
             "--format",
@@ -93,7 +93,7 @@ def test_sessions_export_redact_scrubs_secrets(monkeypatch, tmp_path):
         sys,
         "argv",
         [
-            "hermes", "sessions", "export", "--format", "md",
+            "xhermes", "sessions", "export", "--format", "md",
             "--session-id", "s1", "--redact", str(tmp_path),
         ],
     )

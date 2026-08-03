@@ -1,12 +1,12 @@
-// Unit tests for the pure Windows `hermes` resolution helpers extracted from
+// Unit tests for the pure Windows `xhermes` resolution helpers extracted from
 // main.ts's findOnPath(), handOffWindowsBootstrapRecovery(), and
 // unwrapWindowsVenvHermesCommand(). These pin the two Windows resolution bugs
 // that caused desktop reinstall loops:
 //   1. buildPathExtCandidates() — PATHEXT extensions must be tried BEFORE the
-//      empty extension, or an extensionless Git-Bash `hermes` shim shadows
-//      the real hermes.cmd/hermes.exe.
+//      empty extension, or an extensionless Git-Bash `xhermes` shim shadows
+//      the real xhermes.cmd/xhermes.exe.
 //   2. chooseUpdaterArgs() — must gate on haveRealInstall (any real-install
-//      signal), not just the hermes.exe console-script shim, or healthy
+//      signal), not just the xhermes.exe console-script shim, or healthy
 //      installs get forced into a destructive --repair.
 //   3. resolveVenvHermesCommand() — must probe the venv python via
 //      canImportHermesCli() before trusting it, or a broken venv gets
@@ -22,7 +22,7 @@ import {
   chooseUpdaterArgs,
   getVenvSitePackagesEntries,
   resolveVenvHermesCommand
-} from './windows-hermes-path'
+} from './windows-xhermes-path'
 
 test('buildPathExtCandidates: Windows tries PATHEXT extensions before the empty extension', () => {
   const extensions = buildPathExtCandidates('.COM;.EXE;.BAT;.CMD', true)
@@ -68,7 +68,7 @@ function makeDeps(overrides: Partial<Parameters<typeof resolveVenvHermesCommand>
     getVenvPython: (venvRoot: string) => `${venvRoot}/Scripts/python.exe`,
     getVenvSitePackagesEntries: () => [],
     buildDesktopBackendEnv: () => ({ FAKE_ENV: '1' }),
-    hermesHome: '/fake/hermes-home',
+    hermesHome: '/fake/xhermes-home',
     resolvePath: (...segments: string[]) => segments.join('/').replace(/\/+/g, '/'),
     dirname: (p: string) => p.slice(0, p.lastIndexOf('/')) || '/',
     basename: (p: string) => p.slice(p.lastIndexOf('/') + 1),
@@ -80,16 +80,16 @@ function makeDeps(overrides: Partial<Parameters<typeof resolveVenvHermesCommand>
 test('resolveVenvHermesCommand: returns null off Windows', () => {
   const deps = makeDeps({ isWindows: false })
 
-  assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/hermes.exe', [], deps), null)
+  assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/xhermes.exe', [], deps), null)
 })
 
 test('resolveVenvHermesCommand: returns null for a .cmd/.bat script command', () => {
   const deps = makeDeps({ isCommandScript: () => true })
 
-  assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/hermes.cmd', [], deps), null)
+  assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/xhermes.cmd', [], deps), null)
 })
 
-test('resolveVenvHermesCommand: returns null when the basename is not hermes/hermes.exe', () => {
+test('resolveVenvHermesCommand: returns null when the basename is not xhermes/xhermes.exe', () => {
   const deps = makeDeps()
 
   assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/python.exe', [], deps), null)
@@ -98,13 +98,13 @@ test('resolveVenvHermesCommand: returns null when the basename is not hermes/her
 test('resolveVenvHermesCommand: returns null when the parent dir is not Scripts', () => {
   const deps = makeDeps()
 
-  assert.equal(resolveVenvHermesCommand('/root/venv/bin/hermes.exe', [], deps), null)
+  assert.equal(resolveVenvHermesCommand('/root/venv/bin/xhermes.exe', [], deps), null)
 })
 
 test('resolveVenvHermesCommand: returns null when the venv python does not exist on disk', () => {
   const deps = makeDeps({ fileExists: () => false })
 
-  assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/hermes.exe', [], deps), null)
+  assert.equal(resolveVenvHermesCommand('/root/venv/Scripts/xhermes.exe', [], deps), null)
 })
 
 test('resolveVenvHermesCommand: probes the venv python before trusting it (returns null on failed probe)', () => {
@@ -119,7 +119,7 @@ test('resolveVenvHermesCommand: probes the venv python before trusting it (retur
     }
   })
 
-  const result = resolveVenvHermesCommand('/root/venv/Scripts/hermes.exe', ['serve'], deps)
+  const result = resolveVenvHermesCommand('/root/venv/Scripts/xhermes.exe', ['serve'], deps)
 
   assert.equal(probed, true, 'must probe the venv interpreter; a broken venv must not be re-selected forever')
   assert.equal(result, null, 'a failed probe must fall through (return null) so the resolver reaches bootstrap')
@@ -127,7 +127,7 @@ test('resolveVenvHermesCommand: probes the venv python before trusting it (retur
 
 test('resolveVenvHermesCommand: returns the resolved python backend descriptor when the probe passes', () => {
   const deps = makeDeps()
-  const result = resolveVenvHermesCommand('/root/venv/Scripts/hermes.exe', ['serve', '--port', '0'], deps)
+  const result = resolveVenvHermesCommand('/root/venv/Scripts/xhermes.exe', ['serve', '--port', '0'], deps)
 
   assert.ok(result, 'a passing probe must return a backend descriptor, not null')
   assert.equal(result.command, '/root/venv/Scripts/python.exe')
@@ -138,11 +138,11 @@ test('resolveVenvHermesCommand: returns the resolved python backend descriptor w
   assert.deepEqual(result.env, { FAKE_ENV: '1' })
 })
 
-test('resolveVenvHermesCommand: is case-insensitive on hermes.exe and the Scripts dir name', () => {
+test('resolveVenvHermesCommand: is case-insensitive on xhermes.exe and the Scripts dir name', () => {
   const deps = makeDeps()
 
   assert.ok(resolveVenvHermesCommand('/root/venv/Scripts/HERMES.EXE', [], deps))
-  assert.ok(resolveVenvHermesCommand('/root/venv/SCRIPTS/hermes.exe', [], deps))
+  assert.ok(resolveVenvHermesCommand('/root/venv/SCRIPTS/xhermes.exe', [], deps))
 })
 
 // ── getVenvSitePackagesEntries ─────────────────────────────────────────────

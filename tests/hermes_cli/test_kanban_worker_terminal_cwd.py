@@ -38,7 +38,7 @@ def _make_task(kb, *, assignee: str = "w"):
 
 
 def _capture_spawn_env(kb, monkeypatch, workspace: str) -> dict:
-    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["xhermes"])
 
     captured: dict = {}
 
@@ -58,7 +58,7 @@ def _capture_spawn_env(kb, monkeypatch, workspace: str) -> dict:
 
 def test_terminal_cwd_pinned_to_workspace(monkeypatch, tmp_path):
     """A real, absolute workspace dir is pinned as TERMINAL_CWD."""
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".xhermes"
     (root / "profiles" / "w").mkdir(parents=True)
     (root / "profiles" / "w" / "config.yaml").write_text("toolsets:\n  - kanban\n", encoding="utf-8")
     root.joinpath("config.yaml").write_text("toolsets:\n  - kanban\n", encoding="utf-8")

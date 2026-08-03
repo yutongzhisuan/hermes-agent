@@ -3,8 +3,8 @@ package contextref_test
 import (
 	"testing"
 
-	hubref "github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/contextref"
-	master "github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	hubref "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextref"
+	master "github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 func TestSignContextRefMatchesMasterSDK(t *testing.T) {

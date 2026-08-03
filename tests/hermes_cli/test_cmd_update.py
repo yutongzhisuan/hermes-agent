@@ -99,7 +99,7 @@ class TestCmdUpdateNpmLockfileCache:
 
     def test_package_json_only_edit_defeats_skip(self, tmp_path, monkeypatch):
         """Reviewer scenario (#61580): dev edits package.json WITHOUT running
-        npm — lockfile unchanged. `hermes update` must still install (the
+        npm — lockfile unchanged. `xhermes update` must still install (the
         npm-install fallback is what syncs node_modules in that state)."""
         from hermes_cli import main as hm
 
@@ -210,7 +210,7 @@ class TestCmdUpdateBranchFallback:
         """Regression for issue #26172: forks whose local HEAD already matches
         origin/<branch> must still consult upstream/main before printing
         "Already up to date!" — otherwise a fork that's caught up to its own
-        origin but behind NousResearch/hermes-agent silently misses updates.
+        origin but behind NousResearch/xhermes-agent silently misses updates.
         Only the "main" branch (explicit or upstream-tracked) probes upstream:
         xhermes-agent is the fork's working branch and must NOT auto-merge
         upstream main.
@@ -226,7 +226,7 @@ class TestCmdUpdateBranchFallback:
             patch.object(
                 hm,
                 "_get_origin_url",
-                return_value="https://github.com/example/hermes-agent.git",
+                return_value="https://github.com/example/xhermes-agent.git",
             ),
             patch.object(hm, "_sync_with_upstream_if_needed") as sync_mock,
         ):
@@ -377,9 +377,9 @@ class TestCmdUpdateProfileSkillSync:
             branch="main", verify_ok=True, commit_count="1"
         )
 
-        default_p = SimpleNamespace(name="default", path=Path("/fake/.hermes"))
-        active_p = SimpleNamespace(name="bit", path=Path("/fake/.hermes/profiles/bit"))
-        other_p = SimpleNamespace(name="work", path=Path("/fake/.hermes/profiles/work"))
+        default_p = SimpleNamespace(name="default", path=Path("/fake/.xhermes"))
+        active_p = SimpleNamespace(name="bit", path=Path("/fake/.xhermes/profiles/bit"))
+        other_p = SimpleNamespace(name="work", path=Path("/fake/.xhermes/profiles/work"))
         all_profiles = [default_p, active_p, other_p]
 
         synced_paths = []
@@ -415,7 +415,7 @@ class TestCmdUpdateProfileSkillSync:
             branch="main", verify_ok=True, commit_count="1"
         )
 
-        default_p = SimpleNamespace(name="default", path=Path("/fake/.hermes"))
+        default_p = SimpleNamespace(name="default", path=Path("/fake/.xhermes"))
         synced_paths = []
 
         def fake_seed(path, quiet=False):
@@ -435,7 +435,7 @@ class TestCmdUpdateProfileSkillSync:
 
 
 class TestCmdUpdateBranchFlag:
-    """``hermes update --branch <name>`` targets the requested branch.
+    """``xhermes update --branch <name>`` targets the requested branch.
 
     The CLI default stays 'main'; --branch lets callers pick a different
     target without monkey-patching the implementation.
@@ -553,7 +553,7 @@ class TestCmdUpdateBranchFlag:
 
 
 class TestCmdUpdateCheckBranchFlag:
-    """``hermes update --check --branch <name>`` honors the branch override.
+    """``xhermes update --check --branch <name>`` honors the branch override.
 
     The check path used to call ``git rev-list HEAD..origin/<branch> --count``
     with ``check=True``. When the branch didn't exist on origin, the fetch
@@ -692,7 +692,7 @@ class TestCmdUpdateCheckBranchFlag:
 
 
 class TestCmdUpdateZipBranchRefusal:
-    """``hermes update --branch=<non-main>`` must refuse on the ZIP fallback path.
+    """``xhermes update --branch=<non-main>`` must refuse on the ZIP fallback path.
 
     The ZIP fallback hard-codes a GitHub archive URL for main.zip; honoring
     --branch arbitrarily would require remote-branch existence checks the

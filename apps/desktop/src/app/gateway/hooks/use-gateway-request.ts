@@ -2,7 +2,7 @@ import { isGatewayReauthRequired, resolveGatewayWsUrl } from '@xhermes/shared'
 import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useRef } from 'react'
 
-import type { HermesGateway } from '@/hermes'
+import type { HermesGateway } from '@/xhermes'
 import { $gateway, ensureActiveGatewayOpen, isActivePrimary } from '@/store/gateway'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $gatewayState, setConnection } from '@/store/session'
@@ -108,7 +108,7 @@ export function useGatewayRequest() {
       const gateway = gatewayRef.current
 
       if (!gateway) {
-        throw new Error('Hermes gateway unavailable')
+        throw new Error('XHermes gateway unavailable')
       }
 
       try {

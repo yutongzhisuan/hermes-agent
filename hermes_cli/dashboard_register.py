@@ -1,19 +1,19 @@
-"""``hermes dashboard register`` — register a self-hosted dashboard OAuth client.
+"""``xhermes dashboard register`` — register a self-hosted dashboard OAuth client.
 
 Automates what a user otherwise does by hand: open the Nous Portal
 ``/local-dashboards`` page in a browser, click "register", copy the
-resulting ``agent:{id}`` OAuth client ID, and paste it into ``~/.hermes/.env``
+resulting ``agent:{id}`` OAuth client ID, and paste it into ``~/.xhermes/.env``
 as ``HERMES_DASHBOARD_OAUTH_CLIENT_ID``.
 
 This command:
   1. Resolves a fresh Nous Portal access token from the existing login
-     (``~/.hermes/auth.json``), refreshing it if needed. Fails fast with a
-     "run `hermes setup`" hint when the user isn't logged in.
+     (``~/.xhermes/auth.json``), refreshing it if needed. Fails fast with a
+     "run `xhermes setup`" hint when the user isn't logged in.
   2. POSTs to ``{portal}/api/oauth/self-hosted-client`` with that bearer
      token, which creates a SELF_HOSTED agent client owned by the caller's
      org and returns the fully-formed ``agent:{id}`` client_id.
   3. Writes ``HERMES_DASHBOARD_OAUTH_CLIENT_ID`` and (if absent)
-     ``HERMES_DASHBOARD_PORTAL_URL`` into ``~/.hermes/.env`` idempotently.
+     ``HERMES_DASHBOARD_PORTAL_URL`` into ``~/.xhermes/.env`` idempotently.
   4. Prints a post-register hint explaining that the OAuth gate only engages
      on a non-loopback bind.
 
@@ -104,7 +104,7 @@ def _register_self_hosted_client(
     When ``existing_client_id`` is provided (the client_id this install
     persisted on a prior run), it is sent so the portal updates that existing
     dashboard record in place instead of minting a duplicate — this is what
-    makes re-running ``hermes dashboard register`` idempotent. The portal
+    makes re-running ``xhermes dashboard register`` idempotent. The portal
     falls back to creating a fresh client if the id no longer resolves to a row
     in the caller's org (stale/deleted), so passing it is always safe.
 
@@ -155,7 +155,7 @@ def _register_self_hosted_client(
         if exc.code == 401:
             raise RuntimeError(
                 "Nous Portal rejected the access token (401). "
-                "Try `hermes auth add nous` to re-authenticate."
+                "Try `xhermes auth add nous` to re-authenticate."
             ) from exc
         if exc.code == 403:
             raise RuntimeError(
@@ -199,7 +199,7 @@ def _print_post_register_hint(
     print()
     print(
         "  Heads up — Nous login only *engages* on a non-loopback bind. A plain\n"
-        "  `hermes dashboard` (localhost) leaves the gate off and serves locally\n"
+        "  `xhermes dashboard` (localhost) leaves the gate off and serves locally\n"
         "  without auth, which is fine for your own machine."
     )
     print()
@@ -216,7 +216,7 @@ def _print_post_register_hint(
         print("  at its /login page.")
     else:
         print("  To require Nous login (e.g. exposing on your LAN or a public host):")
-        print("    hermes dashboard --host 0.0.0.0")
+        print("    xhermes dashboard --host 0.0.0.0")
         print("  …then log in at the dashboard's /login page.")
     print()
     print(
@@ -238,7 +238,7 @@ def cmd_dashboard_register(args) -> None:
     # mistake — and save_env_value refuses to write anyway.
     if is_managed():
         print(
-            "✗ `hermes dashboard register` is not available in a managed/hosted "
+            "✗ `xhermes dashboard register` is not available in a managed/hosted "
             "install.\n"
             "  The dashboard OAuth client is provisioned by the hosting platform."
         )
@@ -251,7 +251,7 @@ def cmd_dashboard_register(args) -> None:
     except AuthError as exc:
         if getattr(exc, "relogin_required", False):
             print("✗ You're not logged into Nous Portal.")
-            print("  Run `hermes setup` (or `hermes auth add nous`) first, then retry.")
+            print("  Run `xhermes setup` (or `xhermes auth add nous`) first, then retry.")
         else:
             print(f"✗ Could not resolve a Nous Portal access token: {exc}")
         sys.exit(1)
@@ -377,7 +377,7 @@ def cmd_dashboard_register(args) -> None:
     # Persist the dashboard public URL derived from the OAuth redirect URI.
     #
     # --redirect-uri is the full public HTTPS callback the user registered with
-    # the portal, e.g. https://hermes.example.com/auth/callback. At serve time
+    # the portal, e.g. https://xhermes.example.com/auth/callback. At serve time
     # the dashboard auth layer (dashboard_auth/routes._redirect_uri) reconstructs
     # that same callback by taking HERMES_DASHBOARD_PUBLIC_URL and appending
     # "/auth/callback" verbatim. So the value the runtime actually consumes is

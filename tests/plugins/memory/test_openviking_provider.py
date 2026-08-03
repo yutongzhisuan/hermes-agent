@@ -207,7 +207,7 @@ def test_link_ovcli_profile_removes_stale_inline_config(tmp_path):
 
 def test_post_setup_existing_profile_picker_validates_and_links_saved_profile(tmp_path, monkeypatch):
     _clear_openviking_env(monkeypatch)
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir()
     env_path = hermes_home / ".env"
     env_path.write_text("OPENVIKING_ENDPOINT=http://old.local\nOTHER_KEY=keep\n", encoding="utf-8")
@@ -305,7 +305,7 @@ def test_https_local_endpoint_is_not_runtime_autostart_eligible(monkeypatch):
     assert provider._client is None
     assert warnings == [
         "Remote OpenViking server at https://localhost:1934 is not reachable; "
-        "OpenViking memory disabled for this Hermes run. "
+        "OpenViking memory disabled for this XHermes run. "
         "Check the configured endpoint and network connectivity."
     ]
 
@@ -338,7 +338,7 @@ def test_runtime_does_not_autostart_when_local_server_reports_unhealthy(monkeypa
     assert provider._client is None
     assert warnings == [
         "OpenViking server at http://localhost:1934 responded but reported unhealthy status. "
-        "OpenViking memory disabled for this Hermes run."
+        "OpenViking memory disabled for this XHermes run."
     ]
 
 
@@ -478,7 +478,7 @@ def test_viking_client_delete_uses_identity_headers(monkeypatch):
         api_key="test-key",
         account="acct",
         user="alice",
-        agent="hermes",
+        agent="xhermes",
     )
     captured = {}
 
@@ -501,7 +501,7 @@ def test_viking_client_delete_uses_identity_headers(monkeypatch):
     assert captured["url"] == "https://example.com/api/v1/fs"
     assert captured["kwargs"]["params"] == {"uri": "viking://user/memories/x.md"}
     assert captured["kwargs"]["headers"]["Authorization"] == "Bearer test-key"
-    assert captured["kwargs"]["headers"]["X-OpenViking-Actor-Peer"] == "hermes"
+    assert captured["kwargs"]["headers"]["X-OpenViking-Actor-Peer"] == "xhermes"
 
 
 def test_validate_openviking_reachability_uses_health_only(monkeypatch):
@@ -528,7 +528,7 @@ def test_validate_openviking_reachability_uses_health_only(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# on_session_switch — flush + commit + rotate behavior (hermes-agent#28296)
+# on_session_switch — flush + commit + rotate behavior (xhermes-agent#28296)
 # ---------------------------------------------------------------------------
 
 def _make_provider_with_session(session_id: str, turn_count: int):
@@ -564,7 +564,7 @@ def test_sync_turn_captures_session_id_before_worker_runs():
     provider._api_key = ""
     provider._account = "acct"
     provider._user = "usr"
-    provider._agent = "hermes"
+    provider._agent = "xhermes"
     provider._session_id = "old-sid"
 
     started = threading.Event()
@@ -609,7 +609,7 @@ def test_sync_turn_captures_session_id_before_worker_runs():
     assert captured_payloads == [{
         "messages": [
             {"role": "user", "parts": [{"type": "text", "text": "u"}]},
-            {"role": "assistant", "parts": [{"type": "text", "text": "a"}], "peer_id": "hermes"},
+            {"role": "assistant", "parts": [{"type": "text", "text": "a"}], "peer_id": "xhermes"},
         ]
     }]
 
@@ -643,7 +643,7 @@ def test_end_then_switch_does_not_double_commit():
 
 
 def test_session_needs_commit_guard_wins_over_stale_turn_count():
-    """Regression for hermes-agent#28296 review (M3): once a session is marked
+    """Regression for xhermes-agent#28296 review (M3): once a session is marked
     committed, _session_needs_commit must return False even if turn_count is
     still positive. A racing sync_turn can re-increment _turn_count after the
     commit+reset; without the guard ordering, a follow-up finalizer would
@@ -767,7 +767,7 @@ def test_shutdown_waits_for_memory_write_worker(monkeypatch):
     provider._api_key = ""
     provider._account = "acct"
     provider._user = "usr"
-    provider._agent = "hermes"
+    provider._agent = "xhermes"
 
     worker_started = threading.Event()
     release_worker = threading.Event()
@@ -813,7 +813,7 @@ def _make_prefetch_provider() -> OpenVikingMemoryProvider:
     provider._api_key = ""
     provider._account = "acct"
     provider._user = "usr"
-    provider._agent = "hermes"
+    provider._agent = "xhermes"
     return provider
 
 

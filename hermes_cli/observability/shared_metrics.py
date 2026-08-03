@@ -1,4 +1,4 @@
-"""Durable aggregation and local export for Hermes shared metrics."""
+"""Durable aggregation and local export for XHermes shared metrics."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from .shared_metrics_contract import (
 )
 
 
-_PACKAGE_SCHEMA_VERSION = "hermes.shared_metrics.v1"
+_PACKAGE_SCHEMA_VERSION = "xhermes.shared_metrics.v1"
 _STORE_SCHEMA_VERSION = "1"
 _BUSY_TIMEOUT_MS = 250
 _SCHEMA_BUSY_TIMEOUT_MS = 5_000
@@ -196,7 +196,7 @@ class SharedMetricsStore:
 
     def _ensure_schema(self) -> None:
         with self._connection(busy_timeout_ms=_SCHEMA_BUSY_TIMEOUT_MS) as connection:
-            # Serialize first-run creation and upgrades across Hermes processes.
+            # Serialize first-run creation and upgrades across XHermes processes.
             with write_txn(connection):
                 self._ensure_schema_in_transaction(connection)
 

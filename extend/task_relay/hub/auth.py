@@ -15,7 +15,7 @@ Worker JWT claim keys (exact, per spec):
     {
       "sub": "worker-01",
       "aud": "task-relay-hub",
-      "iss": "hermes-relay-hub",
+      "iss": "xhermes-relay-hub",
       "allowed_toolsets": ["terminal", "file"],
       "max_concurrent": 2,
       "exp": 1710003600

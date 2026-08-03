@@ -4,7 +4,7 @@ The dashboard host exposes a sanctioned, gated-mode-aware auth surface on the
 plugin SDK (``window.__HERMES_PLUGIN_SDK__``): ``fetchJSON`` (JSON REST),
 ``authedFetch`` (uploads / blob downloads), and ``buildWsUrl`` /
 ``buildWsAuthParam`` (WebSockets). These handle BOTH dashboard auth modes —
-loopback (``X-Hermes-Session-Token`` header) and gated OAuth
+loopback (``X-XHermes-Session-Token`` header) and gated OAuth
 (``hermes_session_at`` cookie / single-use ``?ticket=``).
 
 Plugins that hand-roll ``fetch`` / ``WebSocket`` and read
@@ -52,7 +52,7 @@ def test_there_are_plugin_bundles_to_check() -> None:
     doesn't silently turn this guard into a no-op."""
     bundles = _plugin_frontend_bundles()
     names = {b.parent.parent.parent.name for b in bundles}
-    # kanban + hermes-achievements are bundled today; assert at least one is
+    # kanban + xhermes-achievements are bundled today; assert at least one is
     # found so the guard can't pass vacuously.
     assert bundles, "no plugin dashboard bundles found — glob/layout drift?"
     assert names, "could not resolve plugin names from bundle paths"

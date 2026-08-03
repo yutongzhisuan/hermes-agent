@@ -69,25 +69,25 @@ class TestGetDefaultHermesRoot:
 
         Design §3.2b: HERMES_HOME stays a valid fallback so xhermes-propagated
         children resolve correctly; only get_default_hermes_root() guards the
-        hermes-home leak (see test_default_root_never_points_at_legacy_home).
+        xhermes-home leak (see test_default_root_never_points_at_legacy_home).
         """
         monkeypatch.delenv("XHERMES_HOME", raising=False)
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-        assert get_hermes_home() == tmp_path / ".hermes"
+        assert get_hermes_home() == tmp_path / ".xhermes"
 
     def test_xhermes_home_explicit_wins(self, tmp_path, monkeypatch):
         """XHERMES_HOME explicitly set beats legacy HERMES_HOME."""
         monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "custom"))
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
 
         assert get_hermes_home() == tmp_path / "custom"
 
     def test_default_root_never_points_at_legacy_home(self, tmp_path, monkeypatch):
-        """get_default_hermes_root() must never resolve to hermes's home."""
+        """get_default_hermes_root() must never resolve to xhermes's home."""
         monkeypatch.delenv("XHERMES_HOME", raising=False)
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
         assert get_default_hermes_root() == tmp_path / ".xhermes"
@@ -125,7 +125,7 @@ class TestGetProcessHermesHome:
 
 class TestHermesManagedNode:
     def test_windows_node_dir_prefers_portable_root(self, tmp_path, monkeypatch):
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         node_dir = home / "node"
         bin_dir = node_dir / "bin"
         node_dir.mkdir(parents=True)
@@ -136,7 +136,7 @@ class TestHermesManagedNode:
         assert iter_hermes_node_dirs() == [node_dir, bin_dir]
 
     def test_windows_finds_npm_cmd_before_path(self, tmp_path, monkeypatch):
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         node_dir = home / "node"
         node_dir.mkdir(parents=True)
         npm_cmd = node_dir / "npm.cmd"
@@ -150,7 +150,7 @@ class TestHermesManagedNode:
     def test_windows_skips_broken_managed_npm_without_path_fallback(
         self, tmp_path, monkeypatch
     ):
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         managed_npm = home / "node" / "npm.cmd"
         managed_npm.parent.mkdir(parents=True)
         managed_npm.write_text("@echo off\n")
@@ -178,7 +178,7 @@ class TestHermesManagedNode:
     os.name == "nt", reason="POSIX shell stubs; Windows uses .cmd shims"
 )
 class TestNodeToolRunnable:
-    """node_tool_runnable() rejects broken Hermes-managed npm/node wrappers."""
+    """node_tool_runnable() rejects broken XHermes-managed npm/node wrappers."""
 
     def _stub(self, tmp_path, name, body, mode=0o755):
         path = tmp_path / name
@@ -488,7 +488,7 @@ class TestSecureParentDir:
 
     def test_safe_path_calls_chmod(self, tmp_path, monkeypatch):
         """Normal nested path (depth >= 3) should call os.chmod."""
-        safe_dir = tmp_path / "home" / "user" / ".hermes"
+        safe_dir = tmp_path / "home" / "user" / ".xhermes"
         safe_dir.mkdir(parents=True)
         target = safe_dir / "auth.json"
         target.touch()

@@ -15,14 +15,14 @@ import {
   saveMoaModels,
   setEnvVar,
   setModelAssignment
-} from '@/hermes'
+} from '@/xhermes'
 import type {
   AuxiliaryModelsResponse,
   MoaConfigResponse,
   MoaModelSlot,
   ModelOptionProvider,
   StaleAuxAssignment
-} from '@/hermes'
+} from '@/xhermes'
 import { useI18n } from '@/i18n'
 import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'
 import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_VALUES } from '@/lib/reasoning-effort'
@@ -92,7 +92,7 @@ const isFastTier = (tier: unknown): boolean =>
   )
 
 // A provider row is "ready" to pick a model from when it reports models. The
-// backend now surfaces the full `hermes model` universe (every canonical
+// backend now surfaces the full `xhermes model` universe (every canonical
 // provider), so unconfigured providers come back with `authenticated:false`
 // and an empty `models` list — those need a setup step before a model exists.
 function isProviderReady(p?: ModelOptionProvider): boolean {
@@ -555,7 +555,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
       setApiKeyDraft('')
 
       // Pick a sensible default for the freshly-activated provider (mirrors
-      // `hermes model` curation). Best-effort — fall through to the refreshed
+      // `xhermes model` curation). Best-effort — fall through to the refreshed
       // model list if it fails.
       let nextModel = ''
 
@@ -830,7 +830,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
           <p className="mt-2 text-xs text-muted-foreground">
             {selectedProviderRow?.auth_type === 'api_key'
               ? `${selectedProviderRow?.name} needs an API key — set it up to choose a model.`
-              : `${selectedProviderRow?.name} signs in through your browser — Hermes runs the flow for you.`}
+              : `${selectedProviderRow?.name} signs in through your browser — XHermes runs the flow for you.`}
           </p>
         )}
         {config && mainModel && (reasoningSupported || fastSupported) && (

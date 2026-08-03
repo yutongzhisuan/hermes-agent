@@ -77,7 +77,7 @@ def test_all_profiles_register():
 def test_user_plugin_overrides_bundled(tmp_path, monkeypatch):
     """A user plugin with the same name must override the bundled profile."""
     # Point HERMES_HOME at a fresh temp dir
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     # get_hermes_home() may be module-cached depending on codebase; ensure the

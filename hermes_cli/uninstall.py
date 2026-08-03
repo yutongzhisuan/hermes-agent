@@ -3,7 +3,7 @@ xHermes Agent Uninstaller.
 
 Provides options for:
 - Full uninstall: Remove everything including configs and data
-- Keep data: Remove code but keep ~/.hermes/ (configs, sessions, logs)
+- Keep data: Remove code but keep ~/.xhermes/ (configs, sessions, logs)
 """
 
 import os
@@ -55,7 +55,7 @@ def find_shell_configs() -> list:
 
 
 def remove_path_from_shell_configs():
-    """Remove Hermes PATH entries from shell configuration files."""
+    """Remove XHermes PATH entries from shell configuration files."""
     configs = find_shell_configs()
     removed_from = []
 
@@ -64,22 +64,22 @@ def remove_path_from_shell_configs():
             content = config_path.read_text(encoding="utf-8")
             original_content = content
 
-            # Remove lines containing hermes-agent or hermes PATH entries
+            # Remove lines containing xhermes-agent or xhermes PATH entries
             new_lines = []
             skip_next = False
 
             for line in content.split("\n"):
                 # Skip the "# xHermes Agent" comment and following line
-                if "# xHermes Agent" in line or "# hermes-agent" in line:
+                if "# xHermes Agent" in line or "# xhermes-agent" in line:
                     skip_next = True
                     continue
-                if skip_next and ("hermes" in line.lower() and "PATH" in line):
+                if skip_next and ("xhermes" in line.lower() and "PATH" in line):
                     skip_next = False
                     continue
                 skip_next = False
 
-                # Remove any PATH line containing hermes
-                if "hermes" in line.lower() and (
+                # Remove any PATH line containing xhermes
+                if "xhermes" in line.lower() and (
                     "PATH=" in line or "path=" in line.lower()
                 ):
                     continue
@@ -103,14 +103,14 @@ def remove_path_from_shell_configs():
 
 
 def remove_wrapper_script():
-    """Remove the hermes wrapper script if it exists."""
+    """Remove the xhermes wrapper script if it exists."""
     wrapper_paths = [
-        Path.home() / ".local" / "bin" / "hermes",
-        Path.home() / ".local" / "bin" / "hermes-acp",
-        Path.home() / ".local" / "bin" / "hermes-agent",
-        Path("/usr/local/bin/hermes"),
-        Path("/usr/local/bin/hermes-acp"),
-        Path("/usr/local/bin/hermes-agent"),
+        Path.home() / ".local" / "bin" / "xhermes",
+        Path.home() / ".local" / "bin" / "xhermes-acp",
+        Path.home() / ".local" / "bin" / "xhermes-agent",
+        Path("/usr/local/bin/xhermes"),
+        Path("/usr/local/bin/xhermes-acp"),
+        Path("/usr/local/bin/xhermes-agent"),
     ]
 
     removed = []
@@ -119,7 +119,7 @@ def remove_wrapper_script():
             try:
                 # Check if it's our wrapper (contains hermes_cli reference)
                 content = wrapper.read_text(encoding="utf-8")
-                if "hermes_cli" in content or "hermes-agent" in content:
+                if "hermes_cli" in content or "xhermes-agent" in content:
                     wrapper.unlink()
                     removed.append(wrapper)
             except Exception as e:
@@ -145,7 +145,7 @@ def remove_node_symlinks(hermes_home: Path) -> list:
     """Remove the node/npm/npx symlinks the installer placed on PATH.
 
     The POSIX installer (``scripts/install.sh`` / ``scripts/lib/node-bootstrap.sh``)
-    symlinks node/npm/npx into the same directory as the ``hermes`` command:
+    symlinks node/npm/npx into the same directory as the ``xhermes`` command:
 
     - ``/usr/local/bin/`` on root FHS installs (Linux, uid 0)
     - ``$PREFIX/bin/`` on Termux
@@ -154,7 +154,7 @@ def remove_node_symlinks(hermes_home: Path) -> list:
     We check all candidate directories so that uninstall works regardless of
     how the install was done (e.g. a root FHS install that placed links in
     ``/usr/local/bin``, or an older install that used ``~/.local/bin`` before
-    the FHS fix).  Only symlinks that resolve into this Hermes home's ``node``
+    the FHS fix).  Only symlinks that resolve into this XHermes home's ``node``
     directory are removed — links the user has repointed elsewhere (nvm, fnm,
     etc.) are left untouched.
     """
@@ -194,7 +194,7 @@ def uninstall_gateway_service():
     - Linux: user + system systemd services (with proper DBUS env setup)
     - macOS: launchd plists
     - Windows: Scheduled Task + Startup-folder fallback, via ``gateway_windows``
-    - All platforms: standalone ``hermes gateway run`` processes
+    - All platforms: standalone ``xhermes gateway run`` processes
     - Termux/Android: skips systemd (no systemd on Android), still kills standalone processes
     """
     import platform
@@ -329,15 +329,15 @@ def uninstall_gateway_service():
 #      don't live in ~/.bashrc — they're in the Windows registry at
 #      HKCU\Environment.
 #   2. Prepends to User-scope ``PATH`` (same registry location) entries
-#      like ``%LOCALAPPDATA%\hermes\git\cmd``, ``%LOCALAPPDATA%\hermes\git\bin``,
-#      ``%LOCALAPPDATA%\hermes\git\usr\bin``, ``%LOCALAPPDATA%\hermes\node``.
+#      like ``%LOCALAPPDATA%\xhermes\git\cmd``, ``%LOCALAPPDATA%\xhermes\git\bin``,
+#      ``%LOCALAPPDATA%\xhermes\git\usr\bin``, ``%LOCALAPPDATA%\xhermes\node``.
 #      Again not in any rc file — only accessible via the registry or the
 #      .NET [Environment] API.
-#   3. Downloads PortableGit to ``%LOCALAPPDATA%\hermes\git\`` and Node to
-#      ``%LOCALAPPDATA%\hermes\node\`` as user-scoped, isolated copies.
+#   3. Downloads PortableGit to ``%LOCALAPPDATA%\xhermes\git\`` and Node to
+#      ``%LOCALAPPDATA%\xhermes\node\`` as user-scoped, isolated copies.
 #      These are ~200MB combined and serve no purpose after uninstall.
-#   4. On the ``hermes dashboard`` + gateway paths, drops files into
-#      ``%LOCALAPPDATA%\hermes\gateway-service\`` and sometimes
+#   4. On the ``xhermes dashboard`` + gateway paths, drops files into
+#      ``%LOCALAPPDATA%\xhermes\gateway-service\`` and sometimes
 #      ``%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\`` — the
 #      latter is handled by ``gateway_windows.uninstall()`` already.
 #
@@ -350,25 +350,25 @@ def uninstall_gateway_service():
 
 
 def _hermes_path_markers(hermes_home: Path) -> list[str]:
-    """Path-entry substrings that identify Hermes-owned User-PATH entries."""
+    """Path-entry substrings that identify XHermes-owned User-PATH entries."""
     root = str(hermes_home).rstrip("\\/")
     # Match on prefix so sub-entries (git\cmd, git\bin, git\usr\bin, node, etc.)
-    # all get swept.  Also match the bare hermes-agent install dir.
+    # all get swept.  Also match the bare xhermes-agent install dir.
     markers = [
-        root + "\\hermes-agent",
+        root + "\\xhermes-agent",
         root + "\\git",
         root + "\\node",
         root + "\\venv",
     ]
     # Also match if HERMES_HOME was customised to somewhere else — find-and-nuke
-    # any entry whose path component contains "hermes".  We don't want to catch
+    # any entry whose path component contains "xhermes".  We don't want to catch
     # unrelated entries like "chermes-foo" or "ephermeral", so we look for
-    # backslash-hermes as a word-ish boundary.
+    # backslash-xhermes as a word-ish boundary.
     return markers
 
 
 def remove_path_from_windows_registry(hermes_home: Path) -> list[str]:
-    """Strip Hermes-owned entries from User-scope PATH in the registry.
+    """Strip XHermes-owned entries from User-scope PATH in the registry.
 
     Returns the list of removed path entries.  Operates on HKCU\\Environment,
     same key the installer wrote to via ``[Environment]::SetEnvironmentVariable``.
@@ -439,7 +439,7 @@ def remove_hermes_env_vars_windows() -> list[str]:
 
 def remove_portable_tooling_windows(hermes_home: Path) -> list[Path]:
     """Delete PortableGit and Node installs the Windows installer created under
-    ``%LOCALAPPDATA%\\hermes\\``.  Only called on full uninstall; they're
+    ``%LOCALAPPDATA%\\xhermes\\``.  Only called on full uninstall; they're
     isolated from any system Git / Node so they cannot break other tools."""
     removed: list[Path] = []
     for sub in ("git", "node", "gateway-service"):
@@ -488,7 +488,7 @@ def _uninstall_profile(profile) -> None:
     """Fully uninstall a single named profile: stop its gateway service,
     remove its alias wrapper, and wipe its HERMES_HOME directory.
 
-    We shell out to ``hermes -p <name> gateway stop|uninstall`` because
+    We shell out to ``xhermes -p <name> gateway stop|uninstall`` because
     service names, unit paths, and plist paths are all derived from the
     current HERMES_HOME and can't be easily switched in-process.
     """
@@ -500,7 +500,7 @@ def _uninstall_profile(profile) -> None:
     log_info(f"Uninstalling profile '{name}'...")
 
     # 1. Stop and remove this profile's gateway service.
-    #    Use `python -m hermes_cli.main` so we don't depend on a `hermes`
+    #    Use `python -m hermes_cli.main` so we don't depend on a `xhermes`
     #    wrapper that may be half-removed mid-uninstall.
     hermes_invocation = [_sys.executable, "-m", "hermes_cli.main", "--profile", name]
     for subcmd in ("stop", "uninstall"):
@@ -540,7 +540,7 @@ def _uninstall_profile(profile) -> None:
 def run_gui_uninstall(args):
     """GUI-only uninstall: remove the Chat GUI, leave the agent + data intact.
 
-    Mirrors ``hermes uninstall --gui``. Removes the desktop app's built
+    Mirrors ``xhermes uninstall --gui``. Removes the desktop app's built
     artifacts, the packaged app bundle (best-effort), and the Electron
     userData dir — nothing under ``$HERMES_HOME`` config/sessions/.env, and
     never the Python agent or its venv.
@@ -565,7 +565,7 @@ def run_gui_uninstall(args):
     )
     print(
         color(
-            "│         ⚕ Hermes Chat GUI Uninstaller                  │",
+            "│         ⚕ XHermes Chat GUI Uninstaller                  │",
             Colors.MAGENTA,
             Colors.BOLD,
         )
@@ -580,13 +580,13 @@ def run_gui_uninstall(args):
     print()
 
     if not summary["gui_installed"]:
-        print("No Hermes Chat GUI installation was found.")
+        print("No XHermes Chat GUI installation was found.")
         print(f"  Checked: {hermes_home}, and the standard app locations for this OS.")
         return
 
     print(
         color(
-            "This removes the Chat GUI only. The Hermes agent stays installed.",
+            "This removes the Chat GUI only. The XHermes agent stays installed.",
             Colors.CYAN,
         )
     )
@@ -601,7 +601,7 @@ def run_gui_uninstall(args):
     print()
     if agent_is_installed(hermes_home):
         print(color("Kept intact:", Colors.GREEN, Colors.BOLD))
-        print(f"  • The Hermes agent at {hermes_home / 'hermes-agent'}")
+        print(f"  • The XHermes agent at {hermes_home / 'xhermes-agent'}")
         print(f"  • Your config, sessions, and secrets under {hermes_home}")
         print()
 
@@ -649,8 +649,8 @@ def run_gui_uninstall(args):
         )
     )
     print()
-    print("The Hermes agent is still installed. Run 'hermes' to use the CLI,")
-    print("or 'hermes uninstall' to remove the agent too.")
+    print("The XHermes agent is still installed. Run 'xhermes' to use the CLI,")
+    print("or 'xhermes uninstall' to remove the agent too.")
     print()
 
 
@@ -659,8 +659,8 @@ def run_uninstall(args):
     Run the uninstall process.
 
     Options:
-    - Full uninstall: removes code + ~/.hermes/ (configs, data, logs)
-    - Keep data: removes code but keeps ~/.hermes/ for future reinstall
+    - Full uninstall: removes code + ~/.xhermes/ (configs, data, logs)
+    - Keep data: removes code but keeps ~/.xhermes/ for future reinstall
     """
     project_root = get_project_root()
     hermes_home = get_hermes_home()
@@ -680,7 +680,7 @@ def run_uninstall(args):
     named_profiles = _discover_named_profiles() if is_default_profile else []
 
     # Non-interactive fast path (``--yes``): no prompts. ``--full`` selects a
-    # full wipe (code + ~/.hermes data); otherwise keep-data. Named profiles
+    # full wipe (code + ~/.xhermes data); otherwise keep-data. Named profiles
     # are NOT auto-removed here — that's a destructive, surprising default for
     # an unattended run, so it stays opt-in to the interactive flow. This is
     # the path the desktop app's detached cleanup script uses for its
@@ -809,7 +809,7 @@ def run_uninstall(args):
     if full_uninstall:
         print(
             color(
-                "⚠️  WARNING: This will permanently delete ALL Hermes data!",
+                "⚠️  WARNING: This will permanently delete ALL XHermes data!",
                 Colors.RED,
                 Colors.BOLD,
             )
@@ -829,7 +829,7 @@ def run_uninstall(args):
                 )
             )
     else:
-        print("This will remove the Hermes code but keep your configuration and data.")
+        print("This will remove the XHermes code but keep your configuration and data.")
 
     print()
     try:
@@ -870,12 +870,12 @@ def _print_uninstall_dry_run(
     print()
     print(color("Would inspect/remove:", Colors.YELLOW, Colors.BOLD))
     print("  • Gateway services and standalone gateway processes")
-    print("  • Hermes PATH entries from shell configs / Windows User PATH")
-    print("  • Hermes wrapper scripts and Hermes-managed node/npm/npx symlinks")
+    print("  • XHermes PATH entries from shell configs / Windows User PATH")
+    print("  • XHermes wrapper scripts and XHermes-managed node/npm/npx symlinks")
     print("  • Desktop Chat GUI artifacts")
     print(f"  • Code checkout: {project_root}")
     if full_uninstall:
-        print(f"  • Hermes config/data: {hermes_home}")
+        print(f"  • XHermes config/data: {hermes_home}")
         if _is_default_hermes_home(hermes_home):
             profiles = _discover_named_profiles()
             if profiles:
@@ -885,7 +885,7 @@ def _print_uninstall_dry_run(
                 for prof in profiles:
                     print(f"    - {prof.name}: {prof.path}")
     else:
-        print(f"  • Keep Hermes config/data: {hermes_home}")
+        print(f"  • Keep XHermes config/data: {hermes_home}")
     print()
 
 
@@ -901,7 +901,7 @@ def _perform_uninstall(
     paths so the destructive sequence lives in exactly one place.
 
     Steps: stop gateway → strip PATH (rc files + Windows registry) → remove the
-    ``hermes`` wrapper + node symlinks → remove the desktop Chat GUI artifacts →
+    ``xhermes`` wrapper + node symlinks → remove the desktop Chat GUI artifacts →
     delete the code checkout → (Windows) remove PortableGit/Node → optionally
     wipe ``$HERMES_HOME`` data and named profiles on full uninstall.
     """
@@ -929,7 +929,7 @@ def _perform_uninstall(
         log_info("Removing PATH entries from Windows User environment...")
         # Expand %LOCALAPPDATA% etc. in hermes_home so the marker matching is
         # against fully resolved paths — installer writes literal strings
-        # like C:\Users\<u>\AppData\Local\hermes\git\cmd, not %LOCALAPPDATA%.
+        # like C:\Users\<u>\AppData\Local\xhermes\git\cmd, not %LOCALAPPDATA%.
         removed_path_entries = remove_path_from_windows_registry(
             Path(os.path.expandvars(str(hermes_home)))
         )
@@ -937,7 +937,7 @@ def _perform_uninstall(
             for entry in removed_path_entries:
                 log_success(f"Removed from User PATH: {entry}")
         else:
-            log_info("No Hermes-owned PATH entries in User environment")
+            log_info("No XHermes-owned PATH entries in User environment")
 
         log_info("Removing HERMES_HOME / HERMES_GIT_BASH_PATH User env vars...")
         removed_env = remove_hermes_env_vars_windows()
@@ -945,10 +945,10 @@ def _perform_uninstall(
             for name in removed_env:
                 log_success(f"Removed User env var: {name}")
         else:
-            log_info("No Hermes-set User env vars to remove")
+            log_info("No XHermes-set User env vars to remove")
 
     # 3. Remove wrapper script
-    log_info("Removing hermes command...")
+    log_info("Removing xhermes command...")
     removed_wrappers = remove_wrapper_script()
     if removed_wrappers:
         for wrapper in removed_wrappers:
@@ -957,15 +957,15 @@ def _perform_uninstall(
         log_info("No wrapper script found")
 
     # 3b. Remove node/npm/npx symlinks the installer left in ~/.local/bin
-    #     (only when they still point into this Hermes home's node dir, so we
+    #     (only when they still point into this XHermes home's node dir, so we
     #     never clobber an existing nvm / user-managed Node).
-    log_info("Removing Hermes-managed node/npm/npx symlinks...")
+    log_info("Removing XHermes-managed node/npm/npx symlinks...")
     removed_node_links = remove_node_symlinks(hermes_home)
     if removed_node_links:
         for link in removed_node_links:
             log_success(f"Removed {link}")
     else:
-        log_info("No Hermes-managed node/npm/npx symlinks found")
+        log_info("No XHermes-managed node/npm/npx symlinks found")
 
     # 3c. Remove the desktop Chat GUI's artifacts too (built renderer/release,
     #     node_modules, the packaged app bundle, and the Electron userData
@@ -993,7 +993,7 @@ def _perform_uninstall(
     # We need to be careful here
     try:
         if project_root.exists():
-            # If the install is inside ~/.hermes/, just remove the hermes-agent subdir
+            # If the install is inside ~/.xhermes/, just remove the xhermes-agent subdir
             if (
                 hermes_home in project_root.parents
                 or project_root.parent == hermes_home
@@ -1025,7 +1025,7 @@ def _perform_uninstall(
         else:
             log_info("No Windows installer artifacts to remove")
 
-    # 5. Optionally remove ~/.hermes/ data directory (and named profiles)
+    # 5. Optionally remove ~/.xhermes/ data directory (and named profiles)
     if full_uninstall:
         # 5a. Stop and remove each named profile's gateway service and
         #     alias wrapper. The profile HERMES_HOME dirs live under
@@ -1080,14 +1080,14 @@ def _perform_uninstall(
         if _is_windows():
             print(
                 color(
-                    "  iex (irm https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.ps1)",
+                    "  iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.ps1)",
                     Colors.DIM,
                 )
             )
         else:
             print(
                 color(
-                    "  curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.sh | bash",
+                    "  curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash",
                     Colors.DIM,
                 )
             )

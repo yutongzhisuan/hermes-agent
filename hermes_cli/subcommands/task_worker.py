@@ -1,4 +1,4 @@
-"""``hermes task-worker`` subcommand parser."""
+"""``xhermes task-worker`` subcommand parser."""
 
 from __future__ import annotations
 

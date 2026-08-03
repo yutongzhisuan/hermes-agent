@@ -35,7 +35,7 @@ def _worker_jwt(worker_id: str, max_concurrent: int = 1) -> str:
         {
             "sub": worker_id,
             "aud": "task-relay-hub",
-            "iss": "hermes-relay-hub",
+            "iss": "xhermes-relay-hub",
             "allowed_toolsets": [],
             "max_concurrent": max_concurrent,
             "exp": int(time.time()) + 3600,
@@ -46,7 +46,7 @@ def _worker_jwt(worker_id: str, max_concurrent: int = 1) -> str:
 
 
 class FakeAgent:
-    """Fake Hermes AIAgent for unit tests."""
+    """Fake XHermes AIAgent for unit tests."""
 
     def __init__(self, block_until_interrupt: bool = True):
         self._interrupt_event = threading.Event()
@@ -77,14 +77,14 @@ class FakeAgent:
                 "interrupted": True,
                 "messages": [],
                 "api_calls": 1,
-                "session_id": "fake-hermes-session",
+                "session_id": "fake-xhermes-session",
             }
 
         return {
             "final_response": "all done",
             "messages": [],
             "api_calls": 1,
-            "session_id": "fake-hermes-session",
+            "session_id": "fake-xhermes-session",
             "prompt_tokens": 10,
             "completion_tokens": 20,
             "total_tokens": 30,
@@ -242,7 +242,7 @@ async def test_acp_backend_completion_green_path():
         "total_tokens": 30,
     }
     assert result.fields is not None
-    assert result.fields.get("acp_session_id") == "fake-hermes-session"
+    assert result.fields.get("acp_session_id") == "fake-xhermes-session"
 
 
 

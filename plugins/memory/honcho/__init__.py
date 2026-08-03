@@ -415,13 +415,13 @@ class HonchoMemoryProvider(MemoryProvider):
                 gateway_session_key=gateway_session_key,
             )
             or session_id
-            or "hermes-default"
+            or "xhermes-default"
         )
 
     def _start_session_init_background(self, *, wait_timeout: float = 0.0) -> None:
         """Start Honcho session initialization in a daemon thread.
 
-        This keeps Hermes CLI/gateway startup responsive when Honcho is down,
+        This keeps XHermes CLI/gateway startup responsive when Honcho is down,
         slow, or its database is unhealthy. The thread may still take the SDK
         timeout path, but it cannot block agent construction or first prompt
         assembly. ``wait_timeout`` lets fast/mock initializations finish before
@@ -442,7 +442,7 @@ class HonchoMemoryProvider(MemoryProvider):
 
             cfg = self._config
             init_kwargs = dict(self._lazy_init_kwargs)
-            init_session_id = self._lazy_init_session_id or "hermes-default"
+            init_session_id = self._lazy_init_session_id or "xhermes-default"
 
             def _run() -> None:
                 try:
@@ -488,7 +488,7 @@ class HonchoMemoryProvider(MemoryProvider):
         # not treat that partially initialized state as usable.
         session = self._manager.get_or_create(self._session_key)
 
-        # Skip under per-session strategy: every Hermes run creates a fresh
+        # Skip under per-session strategy: every XHermes run creates a fresh
         # Honcho session by design, so uploading MEMORY.md/USER.md/SOUL.md to
         # each one would flood the backend with short-lived duplicates instead
         # of performing a one-time migration.
@@ -566,7 +566,7 @@ class HonchoMemoryProvider(MemoryProvider):
         try:
             self._do_session_init(
                 self._config,
-                self._lazy_init_session_id or "hermes-default",
+                self._lazy_init_session_id or "xhermes-default",
                 **self._lazy_init_kwargs,
             )
             # Clear lazy refs

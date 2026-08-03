@@ -1,4 +1,4 @@
-"""Run a real Hermes CLI turn and validate the Relay shared-metrics output."""
+"""Run a real XHermes CLI turn and validate the Relay shared-metrics output."""
 
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ RESPONSE_CANARY = "relay-smoke-sensitive-response"
 
 def _resolve_hermes_executable(hermes_repo: Path) -> Path:
     for relative_path in (
-        Path(".venv") / "bin" / "hermes",
-        Path(".venv") / "Scripts" / "hermes.exe",
+        Path(".venv") / "bin" / "xhermes",
+        Path(".venv") / "Scripts" / "xhermes.exe",
     ):
         candidate = hermes_repo / relative_path
         if candidate.is_file():
@@ -34,7 +34,7 @@ def _resolve_hermes_executable(hermes_repo: Path) -> Path:
     if discovered:
         return Path(discovered)
     raise SystemExit(
-        "Hermes executable not found in the repository virtual environment "
+        "XHermes executable not found in the repository virtual environment "
         "or on PATH"
     )
 
@@ -161,10 +161,10 @@ class _ModelHandler(BaseHTTPRequestHandler):
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--hermes-repo",
+        "--xhermes-repo",
         type=Path,
         default=Path.cwd(),
-        help="Hermes source checkout containing .venv/bin/hermes",
+        help="XHermes source checkout containing .venv/bin/xhermes",
     )
     parser.add_argument(
         "--relay-python",
@@ -222,15 +222,15 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
     ]
     by_name = {counter["name"]: counter for counter in counters}
     if set(by_name) != {
-        "hermes.model_call.count",
-        "hermes.task_run.finished",
-        "hermes.task_run.started",
+        "xhermes.model_call.count",
+        "xhermes.task_run.finished",
+        "xhermes.task_run.started",
     }:
         raise AssertionError(
             f"Unexpected SQLite counters:\n{json.dumps(counters, indent=2)}"
         )
     expected_model = {
-        "name": "hermes.model_call.count",
+        "name": "xhermes.model_call.count",
         "dimensions": {
             "call_role": "primary",
             "locality": "local",
@@ -241,12 +241,12 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
         "value": 1,
         "packaged_value": 1,
     }
-    if by_name["hermes.model_call.count"] != expected_model:
+    if by_name["xhermes.model_call.count"] != expected_model:
         raise AssertionError(
-            f"Unexpected model counter: {by_name['hermes.model_call.count']}"
+            f"Unexpected model counter: {by_name['xhermes.model_call.count']}"
         )
     expected_start = {
-        "name": "hermes.task_run.started",
+        "name": "xhermes.task_run.started",
         "dimensions": {
             "entrypoint": "interactive",
             "execution_surface": "cli",
@@ -254,11 +254,11 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
         "value": 1,
         "packaged_value": 1,
     }
-    if by_name["hermes.task_run.started"] != expected_start:
+    if by_name["xhermes.task_run.started"] != expected_start:
         raise AssertionError(
-            f"Unexpected task start: {by_name['hermes.task_run.started']}"
+            f"Unexpected task start: {by_name['xhermes.task_run.started']}"
         )
-    terminal = by_name["hermes.task_run.finished"]
+    terminal = by_name["xhermes.task_run.finished"]
     expected_terminal_dimensions = {
         "duration_bucket": terminal["dimensions"].get("duration_bucket"),
         "end_reason": "completed",
@@ -289,7 +289,7 @@ def _validate_package(outbox: Path, schema_path: Path) -> tuple[Path, dict[str, 
         import jsonschema
     except ImportError as exc:
         raise RuntimeError(
-            "The Hermes development environment requires jsonschema"
+            "The XHermes development environment requires jsonschema"
         ) from exc
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     jsonschema.validate(package, schema)
@@ -302,14 +302,14 @@ def _validate_package(outbox: Path, schema_path: Path) -> tuple[Path, dict[str, 
             )
     metrics = {metric["name"]: metric for metric in package.get("metrics", [])}
     if set(metrics) != {
-        "hermes.model_call.count",
-        "hermes.task_run.finished",
-        "hermes.task_run.started",
+        "xhermes.model_call.count",
+        "xhermes.task_run.finished",
+        "xhermes.task_run.started",
     }:
         raise AssertionError(
             f"Unexpected package metrics:\n{json.dumps(package.get('metrics'), indent=2)}"
         )
-    if metrics["hermes.model_call.count"]["dimensions"] != {
+    if metrics["xhermes.model_call.count"]["dimensions"] != {
         "call_role": "primary",
         "locality": "local",
         "model_family": "gpt",
@@ -317,9 +317,9 @@ def _validate_package(outbox: Path, schema_path: Path) -> tuple[Path, dict[str, 
         "provider_family": "custom",
     }:
         raise AssertionError(
-            f"Unexpected model metric: {metrics['hermes.model_call.count']}"
+            f"Unexpected model metric: {metrics['xhermes.model_call.count']}"
         )
-    terminal = metrics["hermes.task_run.finished"]
+    terminal = metrics["xhermes.task_run.finished"]
     if terminal["dimensions"] != {
         "duration_bucket": terminal["dimensions"].get("duration_bucket"),
         "end_reason": "completed",
@@ -339,7 +339,7 @@ def main() -> int:
     args = _arguments()
     hermes_repo = args.hermes_repo.resolve()
     relay_python = args.relay_python.resolve() if args.relay_python else None
-    hermes = _resolve_hermes_executable(hermes_repo)
+    xhermes = _resolve_hermes_executable(hermes_repo)
     if relay_python is not None and not any(
         (relay_python / "nemo_relay").glob("_native.*")
     ):
@@ -354,8 +354,8 @@ def main() -> int:
             raise SystemExit(f"Refusing to replace existing output directory: {root}")
         root.mkdir(parents=True)
     else:
-        root = Path(tempfile.mkdtemp(prefix="hermes-relay-shared-metrics-"))
-    home = root / "hermes-home"
+        root = Path(tempfile.mkdtemp(prefix="xhermes-relay-shared-metrics-"))
+    home = root / "xhermes-home"
     workdir = root / "workspace"
     workdir.mkdir()
     home.mkdir()
@@ -376,7 +376,7 @@ def main() -> int:
             ]).rstrip(os.pathsep)
         result = subprocess.run(
             [
-                str(hermes),
+                str(xhermes),
                 "chat",
                 "--query",
                 PROMPT_CANARY,
@@ -402,22 +402,22 @@ def main() -> int:
         server.server_close()
         thread.join(timeout=5)
 
-    (root / "hermes.stdout.txt").write_text(result.stdout, encoding="utf-8")
-    (root / "hermes.stderr.txt").write_text(result.stderr, encoding="utf-8")
+    (root / "xhermes.stdout.txt").write_text(result.stdout, encoding="utf-8")
+    (root / "xhermes.stderr.txt").write_text(result.stderr, encoding="utf-8")
     if result.returncode != 0:
         raise AssertionError(
-            f"Hermes exited with {result.returncode}\n"
+            f"XHermes exited with {result.returncode}\n"
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         )
     if not _ModelHandler.requests:
-        raise AssertionError("Hermes did not call the local model endpoint")
+        raise AssertionError("XHermes did not call the local model endpoint")
     request = _ModelHandler.requests[0]
     if request.get("model") != MODEL_CANARY:
         raise AssertionError(f"Unexpected model request: {request.get('model')!r}")
     if PROMPT_CANARY not in json.dumps(request.get("messages", [])):
-        raise AssertionError("Hermes model request did not contain the prompt canary")
+        raise AssertionError("XHermes model request did not contain the prompt canary")
     if RESPONSE_CANARY not in result.stdout:
-        raise AssertionError("Hermes did not print the mock model response")
+        raise AssertionError("XHermes did not print the mock model response")
 
     telemetry = home / "telemetry" / "shared_metrics"
     counters = _validate_store(telemetry / "metrics.sqlite3")
@@ -427,10 +427,10 @@ def main() -> int:
         / "hermes_cli"
         / "observability"
         / "schemas"
-        / "hermes.shared_metrics.v1.schema.json",
+        / "xhermes.shared_metrics.v1.schema.json",
     )
 
-    print("Hermes -> NeMo Relay shared-metrics smoke test passed")
+    print("XHermes -> NeMo Relay shared-metrics smoke test passed")
     print(f"Artifact directory: {root}")
     print(f"Model requests: {len(_ModelHandler.requests)}")
     print(f"SQLite counters: {json.dumps(counters, indent=2)}")

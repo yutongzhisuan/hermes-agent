@@ -1,6 +1,6 @@
 import { resolveGatewayWsUrl } from '@xhermes/shared'
 
-import { getApiRequestProfile, speakText } from '@/hermes'
+import { getApiRequestProfile, speakText } from '@/xhermes'
 import {
   $voicePlayback,
   setVoicePlaybackState,

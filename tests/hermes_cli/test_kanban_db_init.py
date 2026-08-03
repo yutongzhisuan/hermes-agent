@@ -46,7 +46,7 @@ def _make_legacy_db(path: Path) -> None:
 
 
 def _setup_home(tmp_path, monkeypatch) -> Path:
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)

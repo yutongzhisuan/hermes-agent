@@ -1,6 +1,6 @@
 package router
 
-import "github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/metrics"
+import "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
 
 func recordDispatched(batch bool) {
 	metrics.Inc("relay_tasks_dispatched_total", map[string]string{

@@ -15,11 +15,12 @@
 package taskrelayv1
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -3267,7 +3268,7 @@ const file_task_relay_v1_proto_rawDesc = "" +
 	"\vListWorkers\x12!.task_relay.v1.ListWorkersRequest\x1a\".task_relay.v1.ListWorkersResponse\x12N\n" +
 	"\tListTasks\x12\x1f.task_relay.v1.ListTasksRequest\x1a .task_relay.v1.ListTasksResponse\x12Q\n" +
 	"\n" +
-	"CancelTask\x12 .task_relay.v1.CancelTaskRequest\x1a!.task_relay.v1.CancelTaskResponseBCZAgithub.com/infa/hermes-agent/extend/task_relay/gen/go;taskrelayv1b\x06proto3"
+	"CancelTask\x12 .task_relay.v1.CancelTaskRequest\x1a!.task_relay.v1.CancelTaskResponseBCZAgithub.com/infa/xhermes-agent/extend/task_relay/gen/go;taskrelayv1b\x06proto3"
 
 var (
 	file_task_relay_v1_proto_rawDescOnce sync.Once

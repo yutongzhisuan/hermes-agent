@@ -1,4 +1,4 @@
-"""``hermes relay-hub`` subcommand parser."""
+"""``xhermes relay-hub`` subcommand parser."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """ACP execution backend for the Task Relay worker.
 
-Runs a relay task through an in-process Hermes ACP session managed by
+Runs a relay task through an in-process XHermes ACP session managed by
 :mod:`acp_adapter.session`. Progress is throttled and forwarded as
 ``task.progress`` frames; the final agent result drives ``task.complete``.
 
@@ -43,7 +43,7 @@ def _import_session_manager() -> Any:
 
 
 class AcpTaskBackend(TaskBackend):
-    """Backend that executes relay tasks via a Hermes ACP session."""
+    """Backend that executes relay tasks via a XHermes ACP session."""
 
     def __init__(
         self,

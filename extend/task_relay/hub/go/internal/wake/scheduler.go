@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
 )
 
 const defaultWakeTTLSeconds = 60

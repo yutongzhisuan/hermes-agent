@@ -34,7 +34,7 @@ from agent.proxy_sources import iron_proxy as ip
 def hermes_home(tmp_path, monkeypatch):
     """Point HERMES_HOME at a temp dir so install paths don't touch the real $HOME."""
 
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     # Make sure no stale provider keys influence discovery.
@@ -489,7 +489,7 @@ def test_ensure_management_token_persists_and_is_stable(hermes_home):
     t1 = ip.ensure_management_token()
     t2 = ip.ensure_management_token()
     assert t1 == t2
-    assert t1.startswith("hermes-mgmt-")
+    assert t1.startswith("xhermes-mgmt-")
     p = ip._proxy_state_dir() / "management.token"
     assert p.exists()
     assert (p.stat().st_mode & 0o777) == 0o600
@@ -575,7 +575,7 @@ def test_start_proxy_injects_management_key_env(hermes_home, monkeypatch):
 
     ip.start_proxy(binary=fake_bin, config_path=cfg_path, install_if_missing=False)
     assert captured_env.get(ip._MGMT_API_KEY_ENV)
-    assert captured_env[ip._MGMT_API_KEY_ENV].startswith("hermes-mgmt-")
+    assert captured_env[ip._MGMT_API_KEY_ENV].startswith("xhermes-mgmt-")
 
 
 # ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ from gateway import run as gateway_run
 
 
 def test_reload_runtime_env_preserves_config_max_turns(tmp_path: Path, monkeypatch) -> None:
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         yaml.safe_dump({"agent": {"max_turns": 9000}}),
@@ -47,9 +47,9 @@ def test_reload_runtime_env_preserves_config_terminal_backend(
     gateway starts on the bridged local backend, works for hours, then a
     later turn's reload re-loads .env with override=True and every terminal /
     execute_code / read_file call starts trying Docker — while
-    ``hermes config get terminal.backend`` still says local.
+    ``xhermes config get terminal.backend`` still says local.
     """
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         yaml.safe_dump({"terminal": {"backend": "local"}}),

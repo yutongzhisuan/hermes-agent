@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/delivery"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/store"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/wsserver"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/delivery"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/wsserver"
 )
 
 func TestHubPingJSONRPC(t *testing.T) {
@@ -82,7 +82,7 @@ func TestModeAPollComplete(t *testing.T) {
 
 func setupWS(t *testing.T) (*wsserver.Server, *router.Router, string) {
 	t.Helper()
-	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour, nil)
+	verifier, err := auth.New("secret", "xhermes-relay-hub", "task-relay-hub", time.Hour, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

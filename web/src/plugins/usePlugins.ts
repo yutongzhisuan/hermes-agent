@@ -17,7 +17,7 @@ import {
   setPluginLoadError,
 } from "./registry";
 
-export const MANIFEST_CACHE_KEY = "hermes:plugin-manifests";
+export const MANIFEST_CACHE_KEY = "xhermes:plugin-manifests";
 
 export function getCachedManifests(): PluginManifest[] | null {
   try {
@@ -124,7 +124,7 @@ export function usePlugins() {
       }
 
       const script = document.createElement("script");
-      script.setAttribute("data-hermes-plugin", manifest.name);
+      script.setAttribute("data-xhermes-plugin", manifest.name);
       script.src = scriptSrc;
       script.async = true;
       // SRI integrity verification — defense against compromised plugin

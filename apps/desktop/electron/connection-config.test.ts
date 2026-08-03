@@ -95,12 +95,12 @@ test('profileRemoteOverride ignores local or url-less profile entries', () => {
 test('profileRemoteOverride returns the per-profile remote with defaulted auth mode', () => {
   const config = {
     profiles: {
-      coder: { mode: 'remote', url: '  https://coder.example.com/hermes  ', token: { value: 'sek' } }
+      coder: { mode: 'remote', url: '  https://coder.example.com/xhermes  ', token: { value: 'sek' } }
     }
   }
 
   assert.deepEqual(profileRemoteOverride(config, 'coder'), {
-    url: 'https://coder.example.com/hermes',
+    url: 'https://coder.example.com/xhermes',
     authMode: 'token',
     token: { value: 'sek' }
   })
@@ -198,7 +198,7 @@ test('normalizeSshConfig handles IPv6 and strict port bounds', () => {
 })
 
 test('localProfileEntry preserves inactive SSH drafts but drops Cloud state', () => {
-  const ssh = { mode: 'ssh', host: 'box', user: 'alice', remoteHermesPath: '/hermes' }
+  const ssh = { mode: 'ssh', host: 'box', user: 'alice', remoteHermesPath: '/xhermes' }
   assert.deepEqual(localProfileEntry(ssh), { mode: 'local', savedSsh: ssh })
   assert.deepEqual(localProfileEntry({ mode: 'local', savedSsh: ssh }), {
     mode: 'local',
@@ -359,12 +359,12 @@ test('pathWithGlobalRemoteProfile skips empty profile/path safely', () => {
 
 test('normalizeRemoteBaseUrl strips trailing slashes, hash, and query', () => {
   assert.equal(normalizeRemoteBaseUrl('https://gw.example.com/'), 'https://gw.example.com')
-  assert.equal(normalizeRemoteBaseUrl('https://gw.example.com/hermes/'), 'https://gw.example.com/hermes')
-  assert.equal(normalizeRemoteBaseUrl('https://gw.example.com/hermes?x=1#frag'), 'https://gw.example.com/hermes')
+  assert.equal(normalizeRemoteBaseUrl('https://gw.example.com/xhermes/'), 'https://gw.example.com/xhermes')
+  assert.equal(normalizeRemoteBaseUrl('https://gw.example.com/xhermes?x=1#frag'), 'https://gw.example.com/xhermes')
 })
 
 test('normalizeRemoteBaseUrl preserves a path prefix', () => {
-  assert.equal(normalizeRemoteBaseUrl('https://host/hermes'), 'https://host/hermes')
+  assert.equal(normalizeRemoteBaseUrl('https://host/xhermes'), 'https://host/xhermes')
 })
 
 test('normalizeRemoteBaseUrl rejects empty input', () => {
@@ -386,7 +386,7 @@ test('normalizeRemoteBaseUrl auto-prepends http:// for scheme-less host:port inp
   assert.equal(normalizeRemoteBaseUrl('mini.tailnet-1234.ts.net:9119'), 'http://mini.tailnet-1234.ts.net:9119')
   assert.equal(normalizeRemoteBaseUrl('localhost:9119'), 'http://localhost:9119')
   assert.equal(normalizeRemoteBaseUrl('gw.example.com'), 'http://gw.example.com')
-  assert.equal(normalizeRemoteBaseUrl('gw.example.com/hermes/'), 'http://gw.example.com/hermes')
+  assert.equal(normalizeRemoteBaseUrl('gw.example.com/xhermes/'), 'http://gw.example.com/xhermes')
 })
 
 test('normalizeRemoteBaseUrl still rejects explicit non-http(s) schemes after scheme-less handling', () => {
@@ -405,7 +405,7 @@ test('buildGatewayWsUrl uses ws for http', () => {
 })
 
 test('buildGatewayWsUrl honors a path prefix', () => {
-  assert.equal(buildGatewayWsUrl('https://host/hermes', 't'), 'wss://host/hermes/api/ws?token=t')
+  assert.equal(buildGatewayWsUrl('https://host/xhermes', 't'), 'wss://host/xhermes/api/ws?token=t')
 })
 
 test('buildGatewayWsUrl url-encodes the token', () => {
@@ -415,8 +415,8 @@ test('buildGatewayWsUrl url-encodes the token', () => {
 // --- buildGatewayWsUrlWithTicket (oauth) ---
 
 test('buildGatewayWsUrlWithTicket uses ?ticket= not ?token=', () => {
-  const url = buildGatewayWsUrlWithTicket('https://gw.example.com/hermes', 'tkt-9')
-  assert.equal(url, 'wss://gw.example.com/hermes/api/ws?ticket=tkt-9')
+  const url = buildGatewayWsUrlWithTicket('https://gw.example.com/xhermes', 'tkt-9')
+  assert.equal(url, 'wss://gw.example.com/xhermes/api/ws?ticket=tkt-9')
   assert.ok(!url.includes('token='))
 })
 
@@ -558,7 +558,7 @@ test('cookiesHavePrivySession is false for an empty value', () => {
   assert.equal(cookiesHavePrivySession([{ name: 'privy-token', value: '' }]), false)
 })
 
-test('cookiesHavePrivySession does NOT treat hermes gateway cookies as a portal session', () => {
+test('cookiesHavePrivySession does NOT treat xhermes gateway cookies as a portal session', () => {
   // The whole point of Q7: a gateway session cookie is NOT a portal sign-in.
   assert.equal(cookiesHavePrivySession([{ name: 'hermes_session_at', value: 'x' }]), false)
   assert.equal(cookiesHavePrivySession([{ name: '__Host-hermes_session_rt', value: 'x' }]), false)
@@ -682,7 +682,7 @@ test('gateway WS URL IPC result serializes success and the auth-vs-transport mat
 
   for (const error of [
     Object.assign(new Error('500: unavailable'), { statusCode: 500 }),
-    new Error('Timed out connecting to Hermes backend after 8000ms'),
+    new Error('Timed out connecting to XHermes backend after 8000ms'),
     Object.assign(new Error('socket reset'), { code: 'ECONNRESET' })
   ]) {
     assert.deepEqual(await gatewayWsUrlIpcResult(async () => Promise.reject(error)), {

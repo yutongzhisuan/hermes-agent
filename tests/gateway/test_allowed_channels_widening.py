@@ -97,7 +97,7 @@ class TestTelegramAllowedChats:
         """slack-style config.yaml → env var bridge works."""
         from gateway.config import load_gateway_config
 
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         (hermes_home / "config.yaml").write_text(
             "telegram:\n"
@@ -181,7 +181,7 @@ class TestMattermostAllowedChannels:
     def test_config_bridge(self, monkeypatch, tmp_path):
         from gateway.config import load_gateway_config
 
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         (hermes_home / "config.yaml").write_text(
             "mattermost:\n"

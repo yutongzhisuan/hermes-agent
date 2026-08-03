@@ -672,10 +672,10 @@ def _is_mcp_toolset_name(name: str) -> bool:
 def _expand_parent_toolsets(parent_toolsets: set) -> set:
     """Expand composite toolsets so individual toolset names are recognized.
 
-    When a parent uses a composite toolset like ``hermes-cli`` (which bundles
+    When a parent uses a composite toolset like ``xhermes-cli`` (which bundles
     all core tools), the child may request individual toolsets such as ``web``
     or ``terminal``.  A simple name-based intersection would reject them
-    because ``"web" != "hermes-cli"``.
+    because ``"web" != "xhermes-cli"``.
 
     This helper collects the tool names from each parent toolset, then adds
     the names of any individual toolsets whose tools are a *subset* of the
@@ -916,7 +916,7 @@ def _blocked_toolsets_for_role(role: str) -> List[str]:
     """Return one-tool deny toolsets for a delegated child role.
 
     ``_strip_blocked_tools`` can remove fully blocked toolsets, but it must keep
-    mixed platform bundles such as ``hermes-cli`` because those also contain
+    mixed platform bundles such as ``xhermes-cli`` because those also contain
     useful tools. Passing these exact deny toolsets to AIAgent lets
     ``model_tools`` subtract blocked names *after* composite expansion, and the
     restriction survives later registry/MCP refreshes through the agent's
@@ -1270,7 +1270,7 @@ def _build_child_agent(
 
     if toolsets:
         # Intersect with parent — subagent must not gain tools the parent lacks.
-        # Expand composite toolsets (e.g. hermes-cli) so that individual
+        # Expand composite toolsets (e.g. xhermes-cli) so that individual
         # toolset names (e.g. web, terminal) are recognised during intersection.
         expanded_parent = _expand_parent_toolsets(parent_toolsets)
         child_toolsets = [t for t in toolsets if t in expanded_parent]
@@ -1286,8 +1286,8 @@ def _build_child_agent(
     else:
         child_toolsets = _strip_blocked_tools(DEFAULT_TOOLSETS)
 
-    # Blocked tools also live inside mixed platform bundles (hermes-cli,
-    # hermes-telegram, etc.) that _strip_blocked_tools must keep because they
+    # Blocked tools also live inside mixed platform bundles (xhermes-cli,
+    # xhermes-telegram, etc.) that _strip_blocked_tools must keep because they
     # carry useful tools too. Pass exact one-tool deny toolsets through to the
     # child so model_tools subtracts the blocked names AFTER composite
     # expansion, and the restriction survives later registry/MCP refreshes.
@@ -1382,7 +1382,7 @@ def _build_child_agent(
     #
     # Nous Portal is dual-wire within a single provider: anthropic/* → Messages,
     # everything else → chat_completions. Same-provider inheritance would pin a
-    # child Hermes/Qwen subagent onto the parent's Claude Messages wire (or the
+    # child XHermes/Qwen subagent onto the parent's Claude Messages wire (or the
     # reverse). agent_init honors an explicit api_mode above its nous branch, so
     # re-derive here before construction.
     _parent_provider = getattr(parent_agent, "provider", None) or ""
@@ -1625,7 +1625,7 @@ def _dump_subagent_timeout_diagnostic(
 
     See issue #14726: users hit "subagent timed out after 300s with no response"
     with zero API calls and no way to inspect what happened. This helper
-    writes a dedicated log under ``~/.hermes/logs/subagent-<sid>-<ts>.log``
+    writes a dedicated log under ``~/.xhermes/logs/subagent-<sid>-<ts>.log``
     capturing the child's config, system-prompt / tool-schema sizes, activity
     tracker snapshot, and the worker thread's Python stack at timeout.
 
@@ -2924,7 +2924,7 @@ def delegate_task(
     # set_current_session_id(child.session_id), which clobbers the
     # HERMES_SESSION_ID ContextVar and os.environ with the subagent's internal
     # id before the background-dispatch code below would read it. The
-    # request-scoped chat_id binding (the raw X-Hermes-Session-Id on
+    # request-scoped chat_id binding (the raw X-XHermes-Session-Id on
     # api_server) is untouched by child construction, so read it here and
     # thread it through the dispatch.
     from tools.async_delegation import _current_origin_session_id
@@ -3183,7 +3183,7 @@ def delegate_task(
             # bound (the API server always binds one — see
             # ApiServerAdapter._bind_api_server_session), gateway.wake can
             # still reach the session by self-POSTing /v1/chat/completions
-            # with that id in X-Hermes-Session-Id once the batch completes.
+            # with that id in X-XHermes-Session-Id once the batch completes.
             # Only fall back to forced-sync execution when there is truly no
             # session id to wake. Uses the origin captured before child
             # construction (see _origin_wake_sid above) — reading
@@ -3210,7 +3210,7 @@ def delegate_task(
                 _sync_result["note"] = (
                     "background=true is not available in this session — it cannot "
                     "receive a detached subagent result after the turn ends (a "
-                    "one-shot runner such as `hermes -z`, a cron job, a Kanban "
+                    "one-shot runner such as `xhermes -z`, a cron job, a Kanban "
                     "worker, or a stateless HTTP endpoint). The subagent(s) ran "
                     "SYNCHRONOUSLY and the result is included above."
                 )
@@ -3588,7 +3588,7 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
     if not api_key:
         raise ValueError(
             f"Delegation provider '{configured_provider}' resolved but has no API key. "
-            f"Set the appropriate environment variable or run 'hermes auth'."
+            f"Set the appropriate environment variable or run 'xhermes auth'."
         )
 
     return {
@@ -3605,7 +3605,7 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
 
 def _load_config() -> dict:
-    """Load delegation config from the active Hermes config.
+    """Load delegation config from the active XHermes config.
 
     Prefer the shared persistent loader because it follows the active
     HERMES_HOME/profile. ``cli.CLI_CONFIG`` is a legacy fallback for entry
@@ -3618,7 +3618,7 @@ def _load_config() -> dict:
     rebuild via ``_get_max_concurrent_children``, so skipping the defensive
     deepcopy matters. Do NOT mutate the returned dict.
 
-    ``HERMES_IGNORE_USER_CONFIG=1`` (``hermes chat --ignore-user-config``) is
+    ``HERMES_IGNORE_USER_CONFIG=1`` (``xhermes chat --ignore-user-config``) is
     only honored by the legacy ``cli`` loader, not the shared one, so when the
     flag is set we keep ``cli.CLI_CONFIG`` authoritative to preserve the
     flag's contract of suppressing user config.yaml settings.

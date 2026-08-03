@@ -106,11 +106,11 @@ class TestFallbackChainInit:
             "fallback_providers": [
                 {"provider": "openrouter", "model": "anthropic/claude-sonnet-4.6"},
             ],
-            "fallback_model": {"provider": "nous", "model": "Hermes-4"},
+            "fallback_model": {"provider": "nous", "model": "XHermes-4"},
         })
         assert cli._fallback_model == [
             {"provider": "openrouter", "model": "anthropic/claude-sonnet-4.6"},
-            {"provider": "nous", "model": "Hermes-4"},
+            {"provider": "nous", "model": "XHermes-4"},
         ]
 
 
@@ -276,11 +276,11 @@ class TestHistoryDisplay:
         output = capsys.readouterr().out
 
         assert "[You #1]" in output
-        assert "[Hermes #2]" in output
+        assert "[XHermes #2]" in output
         assert "(requested 2 tool calls)" in output
         assert "[Tools]" in output
         assert "(2 tool messages hidden)" in output
-        assert "[Hermes #3]" in output
+        assert "[XHermes #3]" in output
         assert "[You #4]" in output
         assert "[You #5]" not in output
         assert "A" * 250 in output
@@ -300,8 +300,8 @@ class TestHistoryDisplay:
             },
             {
                 "id": "20260401_201329_d85961",
-                "title": "Checking Running Hermes Agent",
-                "preview": "check running gateways for hermes agent",
+                "title": "Checking Running XHermes Agent",
+                "preview": "check running gateways for xhermes agent",
                 "last_active": 0,
             },
         ]
@@ -310,7 +310,7 @@ class TestHistoryDisplay:
         output = capsys.readouterr().out
 
         assert "Recent sessions" in output
-        assert "Checking Running Hermes Agent" in output
+        assert "Checking Running XHermes Agent" in output
         assert "Use /resume" in output
         assert "session title" in output
 
@@ -330,8 +330,8 @@ class TestHistoryDisplay:
         cli._session_db.list_sessions_rich.return_value = [
             {
                 "id": "20260401_201329_d85961",
-                "title": "Checking Running Hermes Agent",
-                "preview": "check running gateways for hermes agent",
+                "title": "Checking Running XHermes Agent",
+                "preview": "check running gateways for xhermes agent",
                 "last_active": 0,
             },
         ]
@@ -343,7 +343,7 @@ class TestHistoryDisplay:
 
         assert "Unknown command" not in output
         assert "Recent sessions" in output
-        assert "Checking Running Hermes Agent" in output
+        assert "Checking Running XHermes Agent" in output
         assert "20260401_201329_d85961" in output
 
 
@@ -356,10 +356,10 @@ class TestHistoryDisplay:
         """
         cli = _make_cli()
         with patch.object(cli, "_handle_resume_command") as mock_resume:
-            cli.process_command("/sessions Checking Running Hermes Agent")
+            cli.process_command("/sessions Checking Running XHermes Agent")
 
         mock_resume.assert_called_once_with(
-            "/resume Checking Running Hermes Agent"
+            "/resume Checking Running XHermes Agent"
         )
 
 
@@ -371,7 +371,7 @@ class TestRootLevelProviderOverride:
         """model.provider takes priority — root-level provider is only a fallback."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
@@ -394,7 +394,7 @@ class TestRootLevelProviderOverride:
         """Legacy root-level provider still populates model.provider in the CLI loader."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
@@ -417,7 +417,7 @@ class TestRootLevelProviderOverride:
         """Legacy root-level base_url still populates model.base_url in the CLI loader."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
@@ -439,7 +439,7 @@ class TestRootLevelProviderOverride:
         """Classic CLI must expose terminal.vercel_runtime to terminal_tool.py."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
         monkeypatch.delenv("TERMINAL_VERCEL_RUNTIME", raising=False)

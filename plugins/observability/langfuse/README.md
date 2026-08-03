@@ -1,6 +1,6 @@
 # Langfuse Observability Plugin
 
-This plugin ships bundled with Hermes but is **opt-in** — it only loads when
+This plugin ships bundled with XHermes but is **opt-in** — it only loads when
 you explicitly enable it.
 
 ## Enable
@@ -9,16 +9,16 @@ Pick one:
 
 ```bash
 # Interactive: walks you through credentials + SDK install + enable
-hermes tools  # → Langfuse Observability
+xhermes tools  # → Langfuse Observability
 
 # Manual
 pip install langfuse
-hermes plugins enable observability/langfuse
+xhermes plugins enable observability/langfuse
 ```
 
 ## Required credentials
 
-Set these in `~/.hermes/.env` (or via `hermes tools`):
+Set these in `~/.xhermes/.env` (or via `xhermes tools`):
 
 ```bash
 HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -32,8 +32,8 @@ open.
 ## Verify
 
 ```bash
-hermes plugins list                 # observability/langfuse should show "enabled"
-hermes chat -q "hello"              # then check Langfuse for a "Hermes turn" trace
+xhermes plugins list                 # observability/langfuse should show "enabled"
+xhermes chat -q "hello"              # then check Langfuse for a "XHermes turn" trace
 ```
 
 ## Optional tuning
@@ -49,5 +49,5 @@ HERMES_LANGFUSE_DEBUG=true           # verbose plugin logging
 ## Disable
 
 ```bash
-hermes plugins disable observability/langfuse
+xhermes plugins disable observability/langfuse
 ```

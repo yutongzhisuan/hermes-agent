@@ -64,7 +64,7 @@ def test_commit_swaps_every_entry(tmp_path):
     assert (live / "agent" / "version.txt").read_text() == "new"
     assert (live / "tools" / "version.txt").read_text() == "new"
     # No staging/backup litter left behind.
-    assert not [p for p in os.listdir(live) if "hermes-update" in p]
+    assert not [p for p in os.listdir(live) if "xhermes-update" in p]
 
 
 def test_failed_swap_rolls_back_every_earlier_swap(tmp_path, monkeypatch):
@@ -119,7 +119,7 @@ def test_staging_clears_leftovers_from_an_interrupted_run(tmp_path):
     live, new = tmp_path / "live", tmp_path / "new"
     _live_tree(live, {"agent": "old"})
     _live_tree(new, {"agent": "new"})
-    stale = Path(f"{live / 'agent'}.hermes-update-staging")
+    stale = Path(f"{live / 'agent'}.xhermes-update-staging")
     stale.mkdir()
     (stale / "junk.txt").write_text("from a previous crash")
 
@@ -218,7 +218,7 @@ def test_top_level_files_are_swapped_atomically(tmp_path):
     update_cmd._commit_staged_replacements(staged)
 
     assert (live / "run_agent.py").read_text() == "new"
-    assert not [p for p in os.listdir(live) if "hermes-update" in p]
+    assert not [p for p in os.listdir(live) if "xhermes-update" in p]
 
 
 def test_file_swap_failure_restores_the_original_file(tmp_path, monkeypatch):
@@ -290,7 +290,7 @@ def test_failed_staging_leaves_no_orphaned_copies(tmp_path, monkeypatch):
             raise
     monkeypatch.undo()
 
-    leftovers = [p for p in os.listdir(live) if "hermes-update" in p]
+    leftovers = [p for p in os.listdir(live) if "xhermes-update" in p]
     assert leftovers == [], f"orphaned staging copies: {leftovers}"
     # And nothing live was touched.
     for n in ("agent", "tools", "gateway"):
@@ -306,7 +306,7 @@ def test_atomic_replace_dir_still_works_as_a_shim(tmp_path):
     update_cmd._atomic_replace_dir(str(new / "ui-tui"), str(live / "ui-tui"))
 
     assert (live / "ui-tui" / "version.txt").read_text() == "new"
-    assert not [p for p in os.listdir(live) if "hermes-update" in p]
+    assert not [p for p in os.listdir(live) if "xhermes-update" in p]
 
 
 def test_venv_helpers_honour_an_explicit_platform_verdict():
@@ -364,7 +364,7 @@ def test_staging_restores_backup_when_dst_is_missing(tmp_path, monkeypatch):
     live.mkdir()
     _live_tree(new, {"agent": "new"})
     # Simulate the crashed state: dst gone, backup holds the old tree.
-    backup = live / "agent.hermes-update-old"
+    backup = live / "agent.xhermes-update-old"
     backup.mkdir()
     (backup / "version.txt").write_text("old")
 
@@ -385,7 +385,7 @@ def test_staging_restores_backup_when_dst_is_missing(tmp_path, monkeypatch):
     staged = _stage_all(live, new, ["agent"])
     update_cmd._commit_staged_replacements(staged)
     assert (live / "agent" / "version.txt").read_text() == "new"
-    assert not [p for p in os.listdir(live) if "hermes-update" in p]
+    assert not [p for p in os.listdir(live) if "xhermes-update" in p]
 
 
 def test_commit_failure_plus_discard_leaves_no_staging_litter(tmp_path, monkeypatch):
@@ -426,7 +426,7 @@ def test_commit_failure_plus_discard_leaves_no_staging_litter(tmp_path, monkeypa
     for n in ("agent", "tools", "gateway"):
         assert (live / n / "version.txt").read_text() == "old"
     # ...and zero litter of any kind (staging OR backup).
-    litter = [p for p in os.listdir(live) if "hermes-update" in p]
+    litter = [p for p in os.listdir(live) if "xhermes-update" in p]
     assert litter == [], f"orphaned update litter: {litter}"
 
 

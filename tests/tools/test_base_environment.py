@@ -196,7 +196,7 @@ class TestAtomicSnapshotConcurrencyBehavioral:
             import pytest
             pytest.skip("bash required")
         import shlex
-        snap = str(tmp_path / "hermes-snap-x.sh")
+        snap = str(tmp_path / "xhermes-snap-x.sh")
         _q = shlex.quote
         _tmpl = _q(snap + ".tmp.XXXXXXXXXX")
         # One writer iteration = the exact atomic sequence _wrap_command emits.

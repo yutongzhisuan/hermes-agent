@@ -1,4 +1,4 @@
-"""Tests for the direct Hermes-to-Relay shared-metrics runtime."""
+"""Tests for the direct XHermes-to-Relay shared-metrics runtime."""
 
 from __future__ import annotations
 
@@ -145,7 +145,7 @@ class _Relay:
 @pytest.fixture
 def direct_runtime(tmp_path, monkeypatch):
     fake = _Relay()
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes-home"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "xhermes-home"))
     monkeypatch.setattr(relay_runtime, "_load_nemo_relay", lambda: fake)
     monkeypatch.setattr(
         "hermes_cli.config.read_raw_config_readonly",
@@ -164,7 +164,7 @@ def real_binding_runtime(tmp_path, monkeypatch):
     relay = pytest.importorskip("nemo_relay")
     if getattr(relay, "_native", None) is None:
         pytest.skip("NeMo Relay native binding is unavailable on this platform")
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes-home"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "xhermes-home"))
     monkeypatch.setattr(
         "hermes_cli.config.read_raw_config_readonly",
         lambda: {"telemetry": {"shared_metrics": {"enabled": True}}},
@@ -248,7 +248,7 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
     ]
     assert len(scope_starts) == 2
     assert scope_starts[0][2] == direct_runtime.ScopeType.Agent
-    assert scope_starts[1][1] == "hermes.task_run"
+    assert scope_starts[1][1] == "xhermes.task_run"
     assert scope_starts[1][2] == direct_runtime.ScopeType.Function
     assert scope_starts[1][3]["handle"][1] == relay_runtime.SESSION_SCOPE
     assert scope_starts[1][3]["input"] == {
@@ -276,20 +276,20 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
     assert "gpt-sensitive-model-id" not in serialized_events
     assert plugins.get_plugin_manager().list_plugins() == []
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "xhermes-home" / "telemetry" / "shared_metrics"
     packages = list((root / "outbox").glob("*.json"))
     assert len(packages) == 1
     package = json.loads(packages[0].read_text(encoding="utf-8"))
     metrics = {metric["name"]: metric for metric in package["metrics"]}
     assert set(metrics) == {
-        "hermes.model_call.count",
-        "hermes.task_run.finished",
-        "hermes.task_run.started",
+        "xhermes.model_call.count",
+        "xhermes.task_run.finished",
+        "xhermes.task_run.started",
     }
-    assert metrics["hermes.model_call.count"]["dimensions"]["model_family"] == "claude"
-    assert metrics["hermes.model_call.count"]["value"] == 1
-    assert metrics["hermes.task_run.started"] == {
-        "name": "hermes.task_run.started",
+    assert metrics["xhermes.model_call.count"]["dimensions"]["model_family"] == "claude"
+    assert metrics["xhermes.model_call.count"]["value"] == 1
+    assert metrics["xhermes.task_run.started"] == {
+        "name": "xhermes.task_run.started",
         "type": "counter",
         "dimensions": {
             "entrypoint": "interactive",
@@ -297,7 +297,7 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
         },
         "value": 1,
     }
-    terminal = metrics["hermes.task_run.finished"]["dimensions"]
+    terminal = metrics["xhermes.task_run.finished"]["dimensions"]
     assert terminal["duration_bucket"] in {
         "lt_1s",
         "1s_to_5s",
@@ -417,7 +417,7 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
 
     from hermes_cli.observability.shared_metrics import SharedMetricsStore
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "xhermes-home" / "telemetry" / "shared_metrics"
     store = SharedMetricsStore(root / "metrics.sqlite3", root / "outbox")
     tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
     monkeypatch.setattr(
@@ -430,15 +430,15 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
     for counter in snapshot:
         by_metric.setdefault(counter["metric_name"], []).append(counter)
 
-    assert len(by_metric["hermes.task_run.started"]) == 1
-    assert by_metric["hermes.task_run.started"][0]["value"] == 3
+    assert len(by_metric["xhermes.task_run.started"]) == 1
+    assert by_metric["xhermes.task_run.started"][0]["value"] == 3
     assert {
         counter["dimensions"]["outcome"]
-        for counter in by_metric["hermes.model_call.count"]
+        for counter in by_metric["xhermes.model_call.count"]
     } == {"success", "failed", "cancelled"}
     terminal_by_outcome = {
         counter["dimensions"]["outcome"]: counter
-        for counter in by_metric["hermes.task_run.finished"]
+        for counter in by_metric["xhermes.task_run.finished"]
     }
     assert set(terminal_by_outcome) == {"success", "failed", "cancelled"}
     assert terminal_by_outcome["success"]["dimensions"]["retry_count_bucket"] == "1"
@@ -465,7 +465,7 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
         json.loads(package.read_text(encoding="utf-8")) for package in packages
     ]
     for package in package_payloads:
-        assert package["schema_version"] == "hermes.shared_metrics.v1"
+        assert package["schema_version"] == "xhermes.shared_metrics.v1"
         for metric in package["metrics"]:
             key = (metric["name"], tuple(sorted(metric["dimensions"].items())))
             package_values[key] = package_values.get(key, 0) + metric["value"]
@@ -557,8 +557,8 @@ def test_core_runtime_is_fail_open_without_a_published_binding(monkeypatch, capl
         tool_name="terminal",
         args={"command": "true"},
     ) == {"command": "true"}
-    assert not relay_runtime.emit_mark("hermes.probe", session_id="s1")
-    assert "Hermes Relay runtime initialization failed" in caplog.text
+    assert not relay_runtime.emit_mark("xhermes.probe", session_id="s1")
+    assert "XHermes Relay runtime initialization failed" in caplog.text
     relay_runtime._reset_for_tests()
 
 
@@ -727,10 +727,10 @@ def test_disabling_shared_metrics_stops_collection_and_shutdown_export(
         kind="scope",
         category="function",
         category_profile=None,
-        name="hermes.task_run",
+        name="xhermes.task_run",
         scope_category="start",
         metadata={
-            "hermes.metrics.schema_version": "hermes.metrics.event.v1",
+            "xhermes.metrics.schema_version": "xhermes.metrics.event.v1",
             relay_runtime.RUNTIME_INSTANCE_KEY: runtime.host.runtime_id,
         },
         data={"entrypoint": "interactive", "execution_surface": "cli"},
@@ -752,7 +752,7 @@ def test_disabling_shared_metrics_stops_collection_and_shutdown_export(
     root = profile / "telemetry" / "shared_metrics"
     store = SharedMetricsStore(root / "metrics.sqlite3", root / "outbox")
     assert [row["metric_name"] for row in store.counter_snapshot()] == [
-        "hermes.task_run.started"
+        "xhermes.task_run.started"
     ]
     assert list((root / "outbox").glob("*.json")) == []
     relay_runtime._reset_for_tests()
@@ -950,7 +950,7 @@ def test_failed_flush_keeps_daily_export_open_for_later_task(
 
     finish_desktop_task("t1")
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "xhermes-home" / "telemetry" / "shared_metrics"
     assert list((root / "outbox").glob("*.json")) == []
     with sqlite3.connect(root / "metrics.sqlite3") as connection:
         [package_count] = connection.execute(
@@ -963,10 +963,10 @@ def test_failed_flush_keeps_daily_export_open_for_later_task(
     [package_path] = list((root / "outbox").glob("*.json"))
     package = json.loads(package_path.read_text(encoding="utf-8"))
     metrics = {metric["name"]: metric for metric in package["metrics"]}
-    assert metrics["hermes.task_run.started"]["value"] == 2
-    assert metrics["hermes.task_run.finished"]["value"] == 2
+    assert metrics["xhermes.task_run.started"]["value"] == 2
+    assert metrics["xhermes.task_run.finished"]["value"] == 2
     assert flush_attempts == 2
-    assert "Hermes shared-metrics task flush failed" in caplog.text
+    assert "XHermes shared-metrics task flush failed" in caplog.text
 
 
 

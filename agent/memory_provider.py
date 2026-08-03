@@ -28,7 +28,7 @@ Optional hooks (override to opt in):
   on_pre_compress(messages) -> str       — extract before context compression
   on_memory_write(action, target, content, metadata=None) — mirror built-in memory writes
   on_delegation(task, result, **kwargs)  — parent-side observation of subagent work
-  backup_paths() -> list[str]            — extra on-disk paths to include in `hermes backup`
+  backup_paths() -> list[str]            — extra on-disk paths to include in `xhermes backup`
 """
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ class MemoryProvider(ABC):
 
         kwargs always include:
           - hermes_home (str): The active HERMES_HOME directory path. Use this
-            for profile-scoped storage instead of hardcoding ``~/.hermes``.
+            for profile-scoped storage instead of hardcoding ``~/.xhermes``.
           - platform (str): "cli", "telegram", "discord", "cron", etc.
 
         kwargs may also include:
@@ -114,7 +114,7 @@ class MemoryProvider(ABC):
             prompts would corrupt user representations).
           - agent_identity (str): Profile name (e.g. "coder"). Use for
             per-profile provider identity scoping.
-          - agent_workspace (str): Shared workspace name (e.g. "hermes").
+          - agent_workspace (str): Shared workspace name (e.g. "xhermes").
           - parent_session_id (str): For subagents, the parent's session_id.
           - user_id (str): Platform user identifier (gateway sessions).
           - user_id_alt (str): Optional alternate stable platform user identifier.
@@ -283,7 +283,7 @@ class MemoryProvider(ABC):
     def get_config_schema(self) -> List[Dict[str, Any]]:
         """Return config fields this provider needs for setup.
 
-        Used by 'hermes memory setup' to walk the user through configuration.
+        Used by 'xhermes memory setup' to walk the user through configuration.
         Each field is a dict with:
           key:         config key name (e.g. 'api_key', 'mode')
           description: human-readable description
@@ -301,7 +301,7 @@ class MemoryProvider(ABC):
     def save_config(self, values: Dict[str, Any], hermes_home: str) -> None:
         """Write non-secret config to the provider's native location.
 
-        Called by 'hermes memory setup' after collecting user inputs.
+        Called by 'xhermes memory setup' after collecting user inputs.
         ``values`` contains only non-secret fields (secrets go to .env).
         ``hermes_home`` is the active HERMES_HOME directory path.
 
@@ -337,14 +337,14 @@ class MemoryProvider(ABC):
     def backup_paths(self) -> List[str]:
         """Return extra on-disk paths this provider stores OUTSIDE HERMES_HOME.
 
-        ``hermes backup`` only walks HERMES_HOME, so any provider state kept
+        ``xhermes backup`` only walks HERMES_HOME, so any provider state kept
         under ``~/.honcho``, ``~/.hindsight``, ``~/.openviking``, etc. is lost
         across a backup/import cycle unless it's declared here.
 
         Return a list of absolute path strings (files or directories). The
         backup command resolves each, captures the ones that exist and live
         under the user's home directory into a reserved ``_external/`` subtree
-        of the archive, and ``hermes import`` restores them to their original
+        of the archive, and ``xhermes import`` restores them to their original
         locations. Paths outside the home directory are skipped for safety.
 
         MUST be callable without ``initialize()`` and without network — resolve

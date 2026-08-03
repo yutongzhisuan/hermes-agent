@@ -5,7 +5,7 @@ The sidecar source ships inside the installed plugin tree
 (``plugins/platforms/photon/sidecar/``). On dev/source installs that tree is
 writable and everything — ``npm ci``, the spectrum patch, the sidecar itself —
 happens in place. Hosted/managed images instead keep the whole install tree
-under an immutable ``/opt/hermes`` (read-only for the hermes user), which
+under an immutable ``/opt/xhermes`` (read-only for the xhermes user), which
 broke every install/self-heal path with EROFS (NS-606).
 
 Resolution order (mirrors ``resolve_whatsapp_bridge_dir`` for the Baileys
@@ -29,7 +29,7 @@ lockfile-vs-install-marker staleness check then triggers the ``npm ci``
 self-heal inside the mirror.
 
 This module is import-light on purpose: both ``adapter.py`` (gateway) and
-``cli.py`` (``hermes photon ...``) use it.
+``cli.py`` (``xhermes photon ...``) use it.
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ def dir_writable(path: Path) -> bool:
     mounts), so probe with a real create+unlink like the WhatsApp bridge
     resolver does.
     """
-    probe = path / ".hermes-write-probe"
+    probe = path / ".xhermes-write-probe"
     try:
         probe.touch()
         probe.unlink()

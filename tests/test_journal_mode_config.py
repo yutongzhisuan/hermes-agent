@@ -9,7 +9,7 @@ import yaml
 
 
 def _write_config(monkeypatch: pytest.MonkeyPatch, tmp_path, config: object) -> None:
-    home = tmp_path / "hermes-home"
+    home = tmp_path / "xhermes-home"
     home.mkdir(exist_ok=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
     (home / "config.yaml").write_text(

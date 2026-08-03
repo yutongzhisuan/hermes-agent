@@ -68,7 +68,7 @@ class TestHandleUpdateCommand:
             # The handler does Path(__file__).parent.parent.resolve()
             # We need to make project_root / '.git' not exist.
             # Since Path(__file__) resolves to the real gateway/run.py,
-            # project_root will be the real hermes-agent dir (which HAS .git).
+            # project_root will be the real xhermes-agent dir (which HAS .git).
             # Patch Path to control this.
             original_path = Path
 
@@ -116,12 +116,12 @@ class TestHandleUpdateCommand:
         (fake_root / "gateway").mkdir()
         (fake_root / "gateway" / "run.py").touch()
         fake_file = str(fake_root / "gateway" / "run.py")
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         with patch("gateway.run._hermes_home", hermes_home), \
              patch("gateway.run.__file__", fake_file), \
-             patch("shutil.which", side_effect=lambda x: "/usr/bin/hermes" if x == "hermes" else "/usr/bin/setsid"), \
+             patch("shutil.which", side_effect=lambda x: "/usr/bin/xhermes" if x == "xhermes" else "/usr/bin/setsid"), \
              patch("subprocess.Popen"):
             result = await runner._handle_update_command(event)
 
@@ -148,14 +148,14 @@ class TestHandleUpdateCommand:
         (fake_root / "gateway").mkdir()
         (fake_root / "gateway" / "run.py").touch()
         fake_file = str(fake_root / "gateway" / "run.py")
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         mock_popen = MagicMock()
 
         def which_no_setsid(x):
-            if x == "hermes":
-                return "/usr/bin/hermes"
+            if x == "xhermes":
+                return "/usr/bin/xhermes"
             if x == "setsid":
                 return None
             return None
@@ -174,7 +174,7 @@ class TestHandleUpdateCommand:
         # start_new_session=True should be in kwargs
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs.get("start_new_session") is True
-        assert "Starting Hermes update" in result
+        assert "Starting XHermes update" in result
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ class TestUpdateCommandPlatformGate:
 
         # The gate must NOT have rejected us — anything other than the
         # ``platform_not_messaging`` rejection string is acceptable here.
-        # Later steps may legitimately return success ("Starting Hermes
+        # Later steps may legitimately return success ("Starting XHermes
         # update…") or fail for environment reasons.
         assert "only available from messaging platforms" not in result
 
@@ -269,7 +269,7 @@ class TestSendUpdateNotification:
     async def test_defers_notification_while_update_still_running(self, tmp_path):
         """Returns False and keeps marker files when the update has not exited yet."""
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         pending_path = hermes_home / ".update_pending.json"
@@ -292,7 +292,7 @@ class TestSendUpdateNotification:
     async def test_recovers_from_claimed_pending_file(self, tmp_path):
         """A claimed pending file from a crashed notifier is still deliverable."""
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         claimed_path = hermes_home / ".update_pending.claimed.json"
@@ -316,7 +316,7 @@ class TestSendUpdateNotification:
     async def test_sends_notification_with_output(self, tmp_path):
         """Sends update output to the correct platform and chat."""
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         # Write pending marker
@@ -350,7 +350,7 @@ class TestSendUpdateNotification:
     async def test_cleans_up_on_error(self, tmp_path):
         """Files are cleaned up even if notification fails."""
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         pending_path = hermes_home / ".update_pending.json"
@@ -386,7 +386,7 @@ class TestSendUpdateNotification:
         retry can deliver once the platform is back.
         """
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
 
         pending = {"platform": "discord", "chat_id": "111", "user_id": "222"}

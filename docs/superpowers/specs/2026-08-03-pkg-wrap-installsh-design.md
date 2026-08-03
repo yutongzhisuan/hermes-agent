@@ -11,11 +11,11 @@
 现有 macOS pkg（自包含方案，见 `docs/packaging/macos.md`）把 CPython +
 site-packages + 精简源码树整体打进 pkg，优点是离线秒装、构建时锁定；但
 **更新断裂**——payload 无 `.git`，`detect_install_method` 返回 `unknown`，
-`hermes update` 无法 git pull，升级只能重下 pkg 重装。
+`xhermes update` 无法 git pull，升级只能重下 pkg 重装。
 
 本文提出第二种形态：**pkg 退化为薄壳，只携带 `scripts/install.sh`，
 postinstall 在安装时执行它完成真正的安装**。安装后布局与 install.sh
-完全一致（带 `.git` + `.install_method=git`），`hermes update` 完整可用，
+完全一致（带 `.git` + `.install_method=git`），`xhermes update` 完整可用，
 两条分发路径最终收敛为同一套代码与同一份安装产物。
 
 ### 为什么可行
@@ -40,7 +40,7 @@ install.sh 已为被包装场景预埋完整机制：
 
 - pkg 安装后 == install.sh 安装后（字节级等价：同一 INSTALL_DIR、同一
   venv、同一命令链接、同一 `.install_method`）
-- `hermes update` 在 pkg 安装的实例上完整可用
+- `xhermes update` 在 pkg 安装的实例上完整可用
 - 单一实现：pkg 不再维护自包含 payload 逻辑，只跟 install.sh 演进
 - 保留现有 distribution 外壳（`enable_currentUserHome`），GUI 双击可用
 
@@ -183,13 +183,13 @@ run_stage() {
 ### 6.2 半安装状态的识别
 
 半安装（clone 成功但 venv/依赖失败）时目录里**已有 `.git`**——
-`detect_install_method` 会返回 `git`，`hermes update` 可能把半装当完整。
+`detect_install_method` 会返回 `git`，`xhermes update` 可能把半装当完整。
 处理：
 
 - install.sh 在**全部 stage 完成后**才写 `.install_method = git`
   （现有行为：`main()` 末尾写）——半装时无此 stamp
 - postinstall 失败时**补写** `.install_method = pkg-incomplete`（新值），
-  让 `detect_install_method` 返回非 `git`，`hermes update` 拒绝执行并
+  让 `detect_install_method` 返回非 `git`，`xhermes update` 拒绝执行并
   提示先完成安装
 - `detect_install_method` 需新增对该值的处理（见 §8 代码变更）
 
@@ -256,7 +256,7 @@ rsync 源码树、xattr 清理、launcher 生成、shebang 重写。构建时间
 |---|---|---|
 | 离线安装 | ✅ | ❌（需网络） |
 | 安装时长 | 秒级 | 分钟级 |
-| 自动更新 | ❌ 断裂 | ✅ `hermes update` 完整 |
+| 自动更新 | ❌ 断裂 | ✅ `xhermes update` 完整 |
 | 实现唯一性 | 双份（pkg + install.sh） | 单份 |
 | 供应链审计 | 构建时锁定 | 安装时点 |
 | 体积 | 75MB | 1MB |
@@ -289,6 +289,6 @@ rsync 源码树、xattr 清理、launcher 生成、shebang 重写。构建时间
 |---|---|
 | GUI root 降权后 node/浏览器 stage 行为差异 | 默认跳过 node-deps；`launchctl asuser` 保留 GUI 环境 |
 | 安装时长波动（网络慢） | stage 级超时 + postinstall 总超时 30min + 失败可续跑 |
-| 半装被误认完整 | `pkg-incomplete` stamp 挡住 `hermes update` |
+| 半装被误认完整 | `pkg-incomplete` stamp 挡住 `xhermes update` |
 | install.sh 上游演进破坏 stage 契约 | stage 清单来自 `--manifest` 动态读取，不硬编码 |
 | 离线需求回归 | 预留 `--offline-bundle` 扩展点，不在本文实现 |

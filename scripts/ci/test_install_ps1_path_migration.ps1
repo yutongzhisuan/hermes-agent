@@ -48,7 +48,7 @@ $definition = $definition -replace `
 
 Invoke-Expression $definition
 
-$NODE = 'C:\Users\me\AppData\Local\hermes\node'
+$NODE = 'C:\Users\me\AppData\Local\xhermes\node'
 $script:Failures = 0
 
 function Invoke-Migration {

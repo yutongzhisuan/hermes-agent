@@ -47,7 +47,7 @@ def test_resolve_max_concurrent_sessions_values(caplog):
 
 
 def test_cross_process_acquire_claims_only_one_last_slot(tmp_path, monkeypatch):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     monkeypatch.setenv("HERMES_HOME", str(home))
     repo_root = Path(__file__).resolve().parents[2]
     ready_dir = tmp_path / "ready"
@@ -142,11 +142,11 @@ def test_cross_process_acquire_claims_only_one_last_slot(tmp_path, monkeypatch):
 def test_release_orphaned_leases_reclaims_only_unowned_own_pid_entries(tmp_path, monkeypatch):
     """A long-lived server must reclaim leases whose session skipped teardown.
 
-    ``_prune_dead`` only fires when the owning pid dies, so a ``hermes
+    ``_prune_dead`` only fires when the owning pid dies, so a ``xhermes
     dashboard`` running for days holds a leaked lease until restart. The
     process reconciles against the leases it still owns instead.
     """
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
     cfg = {"max_concurrent_sessions": 5}
     kept, orphan = (
         active_sessions.try_acquire_active_session(

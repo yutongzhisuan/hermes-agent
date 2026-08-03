@@ -198,7 +198,7 @@ class TestLoadGatewayConfigApiServerExplicitDisable:
     def test_load_gateway_config_honors_explicit_api_server_disable(
         self, tmp_path, monkeypatch
     ):
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         (hermes_home / "config.yaml").write_text(
             "platforms:\n"

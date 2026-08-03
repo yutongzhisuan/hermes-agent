@@ -23,7 +23,7 @@ def _isolate_approval_state(monkeypatch):
     """Keep these security regression tests hermetic.
 
     Earlier tests (e.g. tests/acp/test_permissions.py) lazily load the
-    developer's real ``~/.hermes/config.yaml`` command allowlist into
+    developer's real ``~/.xhermes/config.yaml`` command allowlist into
     ``tools.approval._permanent_approved``. If that allowlist contains a
     pattern like "recursive delete", ``rm -rf …`` is auto-approved before
     the interactive callback fires and the GHSA regression assertions fail

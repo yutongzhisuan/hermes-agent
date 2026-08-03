@@ -25,7 +25,7 @@ import pytest
 
 
 def _seed_pool(tmp_path, monkeypatch, entries, provider="openrouter"):
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir(parents=True, exist_ok=True)
     (hermes_home / "auth.json").write_text(
         json.dumps({"version": 1, "credential_pool": {provider: entries}})

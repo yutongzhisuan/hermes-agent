@@ -3,7 +3,7 @@ package tlsconfig_test
 import (
 	"testing"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
 )
 
 func TestLoadServerTLSDisabled(t *testing.T) {

@@ -166,11 +166,11 @@ class TestScanCronSkillAssembled:
     def test_descriptive_attack_command_prose_allowed(self):
         """Security postmortems and runbooks routinely describe attack
         commands in prose — that's not a payload, it's documentation.
-        Real example: the `hermes-agent-dev` skill contains a postmortem
-        section saying 'the attacker could just cat ~/.hermes/.env'.
+        Real example: the `xhermes-agent-dev` skill contains a postmortem
+        section saying 'the attacker could just cat ~/.xhermes/.env'.
         """
         assert _scan_cron_skill_assembled(
-            "the attacker could just cat ~/.hermes/.env to steal credentials"
+            "the attacker could just cat ~/.xhermes/.env to steal credentials"
         )[1] == ""
         assert _scan_cron_skill_assembled(
             "this rule writes to authorized_keys for persistence"
@@ -196,7 +196,7 @@ class TestCronjobRequirements:
         monkeypatch.delenv("HERMES_GATEWAY_SESSION", raising=False)
         monkeypatch.delenv("HERMES_EXEC_ASK", raising=False)
         # Even with no crontab in PATH, the cronjob tool should be available
-        # because hermes uses an internal scheduler, not system crontab.
+        # because xhermes uses an internal scheduler, not system crontab.
         assert check_cronjob_requirements() is True
 
     def test_accepts_interactive_mode(self, monkeypatch):
@@ -394,7 +394,7 @@ class TestUnifiedCronjobTool:
 
 
 class TestAgentCannotSetModelPin:
-    """Per-job inference pins are user-owned (dashboard / `hermes cron`
+    """Per-job inference pins are user-owned (dashboard / `xhermes cron`
     --model / hand-edited jobs). The agent-facing tool schema must not expose
     model/provider/base_url, and the registered handler must ignore them even
     if a model hallucinates the old parameters."""
@@ -544,7 +544,7 @@ class TestGithubExemptionAbuse:
         # URL on the line — a payload smuggled after ; && or | was never
         # scanned. The tail must stop at the URL path boundary.
         for sep in (";", " &&", " |"):
-            prompt = f"{self.GH}{sep} cat ~/.hermes/.env"
+            prompt = f"{self.GH}{sep} cat ~/.xhermes/.env"
             assert "Blocked" in _scan_cron_prompt(prompt), sep
 
     def test_same_line_destructive_after_github_url_is_scanned(self):
@@ -569,8 +569,8 @@ class TestGithubExemptionAbuse:
     def test_subshell_and_backtick_payloads_are_scanned(self):
         # A no-space $(...) or backtick payload after the GitHub URL must
         # not be consumed into the URL-path tail.
-        assert "Blocked" in _scan_cron_prompt(f"{self.GH}$(cat ~/.hermes/.env)")
-        assert "Blocked" in _scan_cron_prompt(f"{self.GH}`cat ~/.hermes/.env`")
+        assert "Blocked" in _scan_cron_prompt(f"{self.GH}$(cat ~/.xhermes/.env)")
+        assert "Blocked" in _scan_cron_prompt(f"{self.GH}`cat ~/.xhermes/.env`")
 
     def test_explicit_port_github_url_still_allowed(self):
         # https://api.github.com:443/... is a legitimate authority — the
@@ -582,7 +582,7 @@ class TestGithubExemptionAbuse:
     def test_payload_between_two_github_blocks_is_scanned(self):
         # The middle span of the exemption pattern must not swallow a
         # payload sitting between two GitHub curls on the same line.
-        prompt = f"{self.GH}; cat ~/.hermes/.env; {self.GH}"
+        prompt = f"{self.GH}; cat ~/.xhermes/.env; {self.GH}"
         assert "Blocked" in _scan_cron_prompt(prompt)
 
     def test_uppercase_lookalike_host_blocked(self):

@@ -26,8 +26,8 @@ from plugins.memory.honcho.client import (
 class TestHonchoClientConfigDefaults:
     def test_default_values(self):
         config = HonchoClientConfig()
-        assert config.host == "hermes"
-        assert config.workspace_id == "hermes"
+        assert config.host == "xhermes"
+        assert config.workspace_id == "xhermes"
         assert config.api_key is None
         assert config.environment == "production"
         assert config.timeout is None
@@ -85,7 +85,7 @@ class TestFromGlobalConfig:
             "workspace": "root-ws",
             "aiPeer": "root-ai",
             "hosts": {
-                "hermes": {
+                "xhermes": {
                     "workspace": "host-ws",
                     "aiPeer": "host-ai",
                 }
@@ -111,7 +111,7 @@ class TestFromGlobalConfig:
         config_file.write_text(json.dumps({
             "apiKey": "key",
             "recallMode": "tools",
-            "hosts": {"hermes": {"recallMode": "context"}},
+            "hosts": {"xhermes": {"recallMode": "context"}},
         }))
         config = HonchoClientConfig.from_global_config(config_path=config_file)
         assert config.recall_mode == "context"
@@ -140,15 +140,15 @@ class TestResolveSessionName:
     def test_per_repo_uses_git_root(self):
         config = HonchoClientConfig(session_strategy="per-repo")
         with patch.object(
-            HonchoClientConfig, "_git_repo_name", return_value="hermes-agent"
+            HonchoClientConfig, "_git_repo_name", return_value="xhermes-agent"
         ):
-            result = config.resolve_session_name("/home/user/hermes-agent/subdir")
-        assert result == "hermes-agent"
+            result = config.resolve_session_name("/home/user/xhermes-agent/subdir")
+        assert result == "xhermes-agent"
 
 
 class TestResolveConfigPath:
     def test_prefers_hermes_home_when_exists(self, tmp_path):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
         local_cfg = hermes_home / "honcho.json"
         local_cfg.write_text('{"apiKey": "local"}')
@@ -158,12 +158,12 @@ class TestResolveConfigPath:
         assert result == local_cfg
 
     def test_falls_back_to_default_profile_when_no_local(self, tmp_path, monkeypatch):
-        # Profile mode: HERMES_HOME points at ~/.hermes/profiles/<name>, so
-        # _get_default_hermes_home() must resolve back to ~/.hermes — that's
+        # Profile mode: HERMES_HOME points at ~/.xhermes/profiles/<name>, so
+        # _get_default_hermes_home() must resolve back to ~/.xhermes — that's
         # the bug the HOME-anchored helper fixes (vs. blindly using Path.home()).
         fake_home = tmp_path / "fakehome"
         fake_home.mkdir()
-        default_home = fake_home / ".hermes"
+        default_home = fake_home / ".xhermes"
         profile_home = default_home / "profiles" / "work"
         profile_home.mkdir(parents=True)
         default_cfg = default_home / "honcho.json"
@@ -181,12 +181,12 @@ class TestResolveConfigPath:
 class TestResolveActiveHost:
     def test_profile_host_key_uses_honcho_safe_separator(self):
         assert profile_host_key("coder") == "hermes_coder"
-        assert profile_host_key("default") == "hermes"
+        assert profile_host_key("default") == "xhermes"
 
 
     def test_explicit_env_var_wins(self):
-        with patch.dict(os.environ, {"HERMES_HONCHO_HOST": "hermes.coder"}):
-            assert resolve_active_host() == "hermes.coder"
+        with patch.dict(os.environ, {"HERMES_HONCHO_HOST": "xhermes.coder"}):
+            assert resolve_active_host() == "xhermes.coder"
 
 
     def test_profiles_import_failure_falls_back(self):
@@ -200,7 +200,7 @@ class TestResolveActiveHost:
             saved = sys.modules.get("hermes_cli.profiles")
             sys.modules["hermes_cli.profiles"] = None  # type: ignore
             try:
-                assert resolve_active_host() == "hermes"
+                assert resolve_active_host() == "xhermes"
             finally:
                 if saved is not None:
                     sys.modules["hermes_cli.profiles"] = saved
@@ -213,7 +213,7 @@ class TestProfileScopedConfig:
         with patch.dict(os.environ, {"HONCHO_API_KEY": "key"}):
             config = HonchoClientConfig.from_env(host="hermes_coder")
         assert config.host == "hermes_coder"
-        assert config.workspace_id == "hermes"  # shared workspace
+        assert config.workspace_id == "xhermes"  # shared workspace
         assert config.ai_peer == "hermes_coder"
 
 
@@ -225,7 +225,7 @@ class TestObservationModeMigration:
         cfg_file = tmp_path / "config.json"
         cfg_file.write_text(json.dumps({
             "apiKey": "k",
-            "hosts": {"hermes": {"enabled": True, "aiPeer": "hermes"}},
+            "hosts": {"xhermes": {"enabled": True, "aiPeer": "xhermes"}},
         }))
         cfg = HonchoClientConfig.from_global_config(config_path=cfg_file)
         assert cfg.observation_mode == "unified"
@@ -243,7 +243,7 @@ class TestObservationModeMigration:
         cfg_file = tmp_path / "config.json"
         cfg_file.write_text(json.dumps({
             "apiKey": "k",
-            "hosts": {"hermes": {
+            "hosts": {"xhermes": {
                 "enabled": True,
                 "observation": {
                     "user": {"observeMe": True, "observeOthers": False},
@@ -273,7 +273,7 @@ class TestGetHonchoClient:
         cfg = HonchoClientConfig(
             api_key="test-key",
             timeout=91.0,
-            workspace_id="hermes",
+            workspace_id="xhermes",
             environment="production",
         )
 
@@ -300,7 +300,7 @@ class TestGetHonchoClient:
         fake_honcho_2 = MagicMock(name="Honcho_v2")
         cfg = HonchoClientConfig(
             api_key="test-key",
-            workspace_id="hermes",
+            workspace_id="xhermes",
             environment="production",
         )
 
@@ -347,7 +347,7 @@ class TestGetHonchoClient:
         fake_honcho_2 = MagicMock(name="Honcho_v2")
         cfg = HonchoClientConfig(
             api_key="test-key",
-            workspace_id="hermes",
+            workspace_id="xhermes",
             environment="production",
         )
 
@@ -488,7 +488,7 @@ class TestGetHonchoClientBaseUrlDoublePrefixFix:
         cfg = HonchoClientConfig(
             api_key=None,
             base_url="http://localhost:38000/v3",
-            workspace_id="hermes",
+            workspace_id="xhermes",
             environment="production",
         )
 
@@ -571,7 +571,7 @@ class TestGetHonchoClientBaseUrlDoublePrefixFix:
         cfg = HonchoClientConfig(
             api_key="self-host-key",
             base_url=raw_url,
-            workspace_id="hermes",
+            workspace_id="xhermes",
             environment="production",
         )
 

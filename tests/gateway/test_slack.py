@@ -195,7 +195,7 @@ def adapter():
 
 @pytest.fixture(autouse=True)
 def _redirect_cache(tmp_path, monkeypatch):
-    """Point document cache to tmp_path so tests don't touch ~/.hermes."""
+    """Point document cache to tmp_path so tests don't touch ~/.xhermes."""
     monkeypatch.setattr(
         "gateway.platforms.base.DOCUMENT_CACHE_DIR", tmp_path / "doc_cache"
     )
@@ -372,7 +372,7 @@ class TestAppMentionHandler:
         assert "assistant_thread_started" in registered_events
         assert "assistant_thread_context_changed" in registered_events
         # Slack slash commands are registered via a single regex matcher
-        # covering every COMMAND_REGISTRY entry (e.g. /hermes, /btw, /stop,
+        # covering every COMMAND_REGISTRY entry (e.g. /xhermes, /btw, /stop,
         # /model, ...) so users get native-slash parity with Discord and
         # Telegram. Verify the regex matches the key expected slashes.
         assert (
@@ -382,7 +382,7 @@ class TestAppMentionHandler:
         import re as _re
 
         assert isinstance(slash_matcher, _re.Pattern)
-        for expected in ("/hermes", "/btw", "/stop", "/model", "/help"):
+        for expected in ("/xhermes", "/btw", "/stop", "/model", "/help"):
             assert slash_matcher.match(
                 expected
             ), f"Slack slash regex does not match {expected}"
@@ -551,7 +551,7 @@ class TestSlackConnectCleanup:
     async def test_disconnect_closes_workspace_clients_and_clears_runtime_state(self):
         """Regression for #51465: shutdown must close Slack WebClients.
 
-        ``hermes gateway run --replace`` takes the old process through the
+        ``xhermes gateway run --replace`` takes the old process through the
         normal adapter.disconnect() path. If Slack leaves AsyncWebClient
         instances open there, aiohttp logs ``Unclosed client session`` while
         the old gateway exits after SIGTERM.
@@ -3094,7 +3094,7 @@ class TestSlashCommands:
 
     # ------------------------------------------------------------------
     # Native slash commands — /btw, /stop, /model, ... dispatched directly
-    # instead of as /hermes subcommands. This is the Discord/Telegram parity
+    # instead of as /xhermes subcommands. This is the Discord/Telegram parity
     # fix: the slash name itself becomes the command.
     # ------------------------------------------------------------------
 
@@ -3138,14 +3138,14 @@ class TestSlashCommands:
 
     @pytest.mark.asyncio
     async def test_legacy_hermes_prefix_still_works(self, adapter):
-        """Backward compat: /hermes btw foo must still route to /btw foo.
+        """Backward compat: /xhermes btw foo must still route to /btw foo.
 
-        Old workspace manifests only declared /hermes as the single slash.
+        Old workspace manifests only declared /xhermes as the single slash.
         After users refresh their manifest they get /btw natively, but the
         legacy form must keep working during the transition.
         """
         command = {
-            "command": "/hermes",
+            "command": "/xhermes",
             "text": "btw run the tests",
             "user_id": "U1",
             "channel_id": "C1",
@@ -4006,7 +4006,7 @@ class TestMissingCredentials:
         assert fatal_errors[0]["code"] == "missing_slack_app_token"
         assert fatal_errors[0]["retryable"] is False
         assert "SLACK_APP_TOKEN" in fatal_errors[0]["message"]
-        assert "hermes gateway setup" in fatal_errors[0]["message"].lower() or ".env" in fatal_errors[0]["message"]
+        assert "xhermes gateway setup" in fatal_errors[0]["message"].lower() or ".env" in fatal_errors[0]["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -4101,7 +4101,7 @@ class TestTrackingStructureBounds:
         adapter.handle_hermes_command = AsyncMock(return_value=None)
         for i in range(10):
             command = {
-                "command": "/hermes",
+                "command": "/xhermes",
                 "text": "/status",
                 "user_id": f"U{i}",
                 "channel_id": "C1",
@@ -4327,7 +4327,7 @@ class TestThreadImageContext:
             ("T_TEAM", "U_ALICE"): "Alice",
             ("T_TEAM", "U_USER"): "User",
         }
-        a._download_slack_file = AsyncMock(return_value="/tmp/hermes-cached.png")
+        a._download_slack_file = AsyncMock(return_value="/tmp/xhermes-cached.png")
         return a
 
     @pytest.fixture()
@@ -4387,7 +4387,7 @@ class TestThreadImageContext:
 
         a.handle_message.assert_awaited_once()
         msg_event = a.handle_message.call_args[0][0]
-        assert msg_event.media_urls == ["/tmp/hermes-cached.png"]
+        assert msg_event.media_urls == ["/tmp/xhermes-cached.png"]
         assert msg_event.media_types == ["image/png"]
         assert msg_event.message_type == MessageType.PHOTO
         # The context marker AND the delivered image coexist.

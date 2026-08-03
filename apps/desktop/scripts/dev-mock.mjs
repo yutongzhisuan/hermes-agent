@@ -142,8 +142,8 @@ function startMockServer() {
 // ── Config + env writing (mirrors e2e/fixtures.ts) ─────────────────────
 
 function createSandbox() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), `hermes-dev-mock-${Date.now()}`))
-  const hermesHome = path.join(root, 'hermes-home')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `xhermes-dev-mock-${Date.now()}`))
+  const hermesHome = path.join(root, 'xhermes-home')
   const userDataDir = path.join(root, 'electron-user-data')
   fs.mkdirSync(hermesHome, { recursive: true })
   fs.mkdirSync(userDataDir, { recursive: true })

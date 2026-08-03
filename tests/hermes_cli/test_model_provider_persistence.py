@@ -1,4 +1,4 @@
-"""Tests that provider selection via `hermes model` always persists correctly.
+"""Tests that provider selection via `xhermes model` always persists correctly.
 
 Regression tests for the bug where _save_model_choice could save config.model
 as a plain string, causing subsequent provider writes (which check
@@ -14,7 +14,7 @@ import pytest
 @pytest.fixture
 def config_home(tmp_path, monkeypatch):
     """Isolated HERMES_HOME with a minimal string-format config."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     config_yaml = home / "config.yaml"
     # Start with model as a plain string — the format that triggered the bug

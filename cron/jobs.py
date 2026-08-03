@@ -1,8 +1,8 @@
 """
 Cron job storage and management.
 
-Jobs are stored in ~/.hermes/cron/jobs.json
-Output is saved to ~/.hermes/cron/output/{job_id}/{timestamp}.md
+Jobs are stored in ~/.xhermes/cron/jobs.json
+Output is saved to ~/.xhermes/cron/output/{job_id}/{timestamp}.md
 """
 
 import contextlib
@@ -68,7 +68,7 @@ def _ensure_croniter() -> bool:
 # Cron is per-profile by design (issue #4707). Each profile owns its own cron
 # store under its own HERMES_HOME, and a profile-scoped gateway runs that
 # profile's jobs under that same HERMES_HOME — so a job authored in profile
-# `coder` lives in `~/.hermes/profiles/coder/cron/jobs.json` and executes with
+# `coder` lives in `~/.xhermes/profiles/coder/cron/jobs.json` and executes with
 # `coder`'s `.env`, `config.yaml`, and skills. We deliberately anchor on
 # `get_hermes_home()` (the active profile home), NOT `get_default_hermes_root()`
 # (the shared root). Anchoring at the root would funnel every profile's jobs
@@ -84,7 +84,7 @@ HERMES_DIR = get_hermes_home().resolve()
 CRON_DIR = HERMES_DIR / "cron"
 JOBS_FILE = CRON_DIR / "jobs.json"
 # Heartbeat file the in-process ticker touches on every loop iteration. The
-# gateway process and the (separate) ``hermes cron status`` process share it
+# gateway process and the (separate) ``xhermes cron status`` process share it
 # so status can tell whether the ticker THREAD is alive, not just whether the
 # gateway PROCESS exists — a ticker that dies silently inside a live gateway
 # would otherwise report healthy (#32612, #32895).
@@ -94,7 +94,7 @@ TICKER_HEARTBEAT_FILE = CRON_DIR / "ticker_heartbeat"
 TICKER_SUCCESS_FILE = CRON_DIR / "ticker_last_success"
 # Default ticker loop interval (seconds). The single source of truth shared by
 # the in-process ticker (cron/scheduler_provider.py) and the staleness
-# threshold in `hermes cron status` (hermes_cli/cron.py), so the two never
+# threshold in `xhermes cron status` (hermes_cli/cron.py), so the two never
 # drift apart.
 TICKER_INTERVAL_SECONDS = 60
 
@@ -274,7 +274,7 @@ def _jobs_lock():
     Combines the in-process threading lock (cheap mutual exclusion between
     the gateway's parallel tick threads) with a cross-process advisory file
     lock on ``<cron dir>/.jobs.lock`` (mutual exclusion between the gateway process
-    and standalone ``hermes`` CLI invocations, which previously shared no lock
+    and standalone ``xhermes`` CLI invocations, which previously shared no lock
     at all — a `cron pause` could be silently clobbered by a concurrent
     gateway write, leaving a "paused" job still firing).
 
@@ -494,7 +494,7 @@ def _preserve_file_ownership(path: Path, before: Optional[os.stat_result]) -> No
 
     The atomic-write pattern (mkstemp + replace) makes the rewritten file owned
     by the *writer's* euid. When a root shell runs a state-writing cron CLI
-    command (``docker exec hermes hermes cron create ...`` — ``docker exec``
+    command (``docker exec xhermes xhermes cron create ...`` — ``docker exec``
     defaults to root) against a store owned by the unprivileged gateway user,
     the replace flips ``jobs.json`` to ``root:root`` mode 600 and the gateway's
     ticker (uid 1000) is silently locked out of every subsequent tick (#68483).
@@ -620,7 +620,7 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
             # Make naive timestamps timezone-aware at parse time so the stored
             # value doesn't depend on the system timezone matching at check time.
             #
-            # Anchor to the CONFIGURED Hermes timezone, not the server's local
+            # Anchor to the CONFIGURED XHermes timezone, not the server's local
             # timezone. The due-check (`get_due_jobs`) compares `next_run_at`
             # against `hermes_time.now()`, which uses the configured zone. If a
             # naive "20:07" were interpreted as server-local (e.g. UTC) while
@@ -662,13 +662,13 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
 
 
 def _ensure_aware(dt: datetime) -> datetime:
-    """Return a timezone-aware datetime in Hermes configured timezone.
+    """Return a timezone-aware datetime in XHermes configured timezone.
 
     Backward compatibility:
     - Older stored timestamps may be naive.
     - Naive values are interpreted as *system-local wall time* (the timezone
       `datetime.now()` used when they were created), then converted to the
-      configured Hermes timezone.
+      configured XHermes timezone.
 
     This preserves relative ordering for legacy naive timestamps across
     timezone changes and avoids false not-due results.
@@ -695,7 +695,7 @@ def _timezone_offset_mismatch(stored: datetime, current: datetime) -> bool:
 def _stored_wall_clock_is_future(stored: datetime, current: datetime) -> bool:
     """Return True when the stored local wall-clock time has not arrived yet.
 
-    Cron schedules express local wall-clock intent. If Hermes/system local time
+    Cron schedules express local wall-clock intent. If XHermes/system local time
     changes after next_run_at was persisted, an old offset can make a future
     wall-clock run look due at the converted absolute time (for example
     21:00+10 becomes 13:00+02). Comparing naive wall-clock values lets us
@@ -809,7 +809,7 @@ def compute_next_run(schedule: Dict[str, Any], last_run_at: Optional[str] = None
             logger.warning(
                 "Cannot compute next run for cron schedule %r: 'croniter' is "
                 "not installed. croniter is a core dependency as of v0.9.x; "
-                "reinstall hermes-agent or run 'pip install croniter' in your "
+                "reinstall xhermes-agent or run 'pip install croniter' in your "
                 "runtime env.",
                 expr,
             )
@@ -832,7 +832,7 @@ def compute_next_run(schedule: Dict[str, Any], last_run_at: Optional[str] = None
 
 
 # =============================================================================
-# Ticker heartbeat (liveness signal for `hermes cron status`)
+# Ticker heartbeat (liveness signal for `xhermes cron status`)
 # =============================================================================
 
 def _atomic_write_epoch(path: Path) -> None:
@@ -840,7 +840,7 @@ def _atomic_write_epoch(path: Path) -> None:
 
     Delegates to :func:`utils.atomic_write_text` (tmpfile + fsync +
     ``atomic_replace``, same pattern as ``save_jobs``) so a concurrent reader
-    in another process (``hermes cron status``) never sees a torn/truncated
+    in another process (``xhermes cron status``) never sees a torn/truncated
     file. Best-effort: failures are swallowed by callers.
     """
     ensure_dirs()
@@ -870,7 +870,7 @@ def record_ticker_heartbeat(success: bool = False) -> None:
 
     The ticker calls this once per loop iteration. ``success=True`` additionally
     bumps the *last successful tick* marker. We track two distinct signals so
-    `hermes cron status` can tell a thread that is merely *alive and looping*
+    `xhermes cron status` can tell a thread that is merely *alive and looping*
     (heartbeat fresh, success stale) from one that is actually *firing jobs*
     (both fresh) — a ticker stuck failing every tick would otherwise keep the
     plain heartbeat fresh and falsely report healthy (#32612, #32895).
@@ -909,7 +909,7 @@ def get_ticker_heartbeat_age() -> Optional[float]:
 
     Resolution uses ``_current_cron_store()`` so the heartbeat is correctly
     scoped to the active profile — critical under multiplex_profiles where
-    ``hermes cron status`` must report per-profile liveness (#69377).
+    ``xhermes cron status`` must report per-profile liveness (#69377).
     """
     store = _current_cron_store()
     return _epoch_file_age(store.cron_dir / "ticker_heartbeat")
@@ -920,7 +920,7 @@ def get_ticker_success_age() -> Optional[float]:
 
     Resolution uses ``_current_cron_store()`` so the heartbeat is correctly
     scoped to the active profile — critical under multiplex_profiles where
-    ``hermes cron status`` must report per-profile liveness (#69377).
+    ``xhermes cron status`` must report per-profile liveness (#69377).
     """
     store = _current_cron_store()
     return _epoch_file_age(store.cron_dir / "ticker_last_success")
@@ -942,7 +942,7 @@ def record_catch_up_occurrence() -> None:
 def record_ticker_error(message: str) -> None:
     """Persist the most recent tick failure so other processes can surface it.
 
-    The ticker thread lives inside the gateway process; ``hermes cron
+    The ticker thread lives inside the gateway process; ``xhermes cron
     status``/``list`` run in a separate process and previously could only
     infer "ticks may be failing" from marker staleness, with no clue WHY.
     A root-owned ``jobs.json`` (#68483) failed every tick for ~14h with the
@@ -1283,7 +1283,7 @@ def create_job(
                 delivered verbatim. Without ``no_agent``, its stdout is
                 injected into the agent's prompt as context (data-collection /
                 change-detection pattern). Paths resolve under
-                ~/.hermes/scripts/; ``.sh`` / ``.bash`` files run via bash,
+                ~/.xhermes/scripts/; ``.sh`` / ``.bash`` files run via bash,
                 anything else via Python.
         context_from: Optional job ID (or list of job IDs) whose most recent output
                       is injected into the prompt as context before each run.
@@ -1361,7 +1361,7 @@ def create_job(
     # agent-driven SIGTERM-respawn loops under launchd/systemd KeepAlive
     # (#30719). Enforced here (not only in the CLI layer) so the agent's
     # `cronjob` model tool — which calls create_job directly — is also
-    # covered, not just `hermes cron create`.
+    # covered, not just `xhermes cron create`.
     from cron.lifecycle_guard import check_gateway_lifecycle
     check_gateway_lifecycle(prompt_text, normalized_script)
 

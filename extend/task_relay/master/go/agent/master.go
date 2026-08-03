@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 const defaultInstruction = `You are a Task Relay Master agent coordinating local and remote workers.
@@ -18,7 +18,7 @@ const defaultInstruction = `You are a Task Relay Master agent coordinating local
 Local vs remote:
 - Use the "task" tool to delegate LOCAL subagent work (planning, analysis, drafting).
   Available local subagents include the general-purpose agent and local-planner.
-- Use dispatch_task / dispatch_batch + watch_and_join for REMOTE Hermes workers via Relay Hub.
+- Use dispatch_task / dispatch_batch + watch_and_join for REMOTE XHermes workers via Relay Hub.
   Remote work requires toolsets, NAT traversal, checkpoints, and leases that local subagents do not provide.
 
 Workflow:
@@ -185,7 +185,7 @@ func buildAgent(
 		}
 		return deep.New(ctx, &deep.Config{
 			Name:                   "task-relay-master",
-			Description:            "Deep Master coordinating local subagents and remote Hermes workers via Task Relay",
+			Description:            "Deep Master coordinating local subagents and remote XHermes workers via Task Relay",
 			Instruction:            cfg.Instruction,
 			ChatModel:              chatModel,
 			ToolsConfig:            toolsConfig,

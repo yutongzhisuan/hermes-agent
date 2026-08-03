@@ -1,4 +1,4 @@
-module github.com/infa/hermes-agent/extend/task_relay/gen/go
+module github.com/infa/xhermes-agent/extend/task_relay/gen/go
 
 go 1.23
 

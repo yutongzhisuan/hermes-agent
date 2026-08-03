@@ -4,7 +4,7 @@ Protocol: reads JSON lines from stdin {id, command}, writes {id, ok, output|erro
 """
 
 # Stop a ``utils/`` (or ``proxy/``, ``ui/``) package in the launch directory
-# from shadowing Hermes's own top-level modules.  This worker is spawned as
+# from shadowing XHermes's own top-level modules.  This worker is spawned as
 # ``-m tui_gateway.slash_worker`` and inherits the user's CWD, so the ``import
 # cli`` below would otherwise resolve ``utils`` to a colliding local package
 # and crash the child in a retry loop (issue #51286).  ``hermes_bootstrap``
@@ -60,7 +60,7 @@ def _is_orphaned(original_ppid, getppid=os.getppid) -> bool:
 def _prepare_slash_worker_runtime() -> None:
     """Start bounded MCP discovery before HermesCLI snapshots tools.
 
-    Each slash_worker child is its own process — the parent ``hermes serve``
+    Each slash_worker child is its own process — the parent ``xhermes serve``
     discovery thread does not populate this registry (issue #61891).
     """
     import logging

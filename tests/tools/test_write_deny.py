@@ -28,7 +28,7 @@ class TestWriteDenyExactPaths:
 
         Before the fix, ``build_write_denied_paths`` only added
         ``<active_profile>/.env`` to the deny list, so the global
-        ``~/.hermes/.env`` (whose credentials are inherited by every profile)
+        ``~/.xhermes/.env`` (whose credentials are inherited by every profile)
         could be silently overwritten by ``write_file`` while a profile was
         active.
         """

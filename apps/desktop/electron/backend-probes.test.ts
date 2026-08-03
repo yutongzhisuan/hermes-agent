@@ -45,11 +45,11 @@ test('canImportHermesCli returns false when interpreter cannot run -c', () => {
 })
 
 test('canImportHermesCli returns false when binary does not exist', () => {
-  const ghost = path.join(os.tmpdir(), 'hermes-probes-ghost-' + Date.now() + '.exe')
+  const ghost = path.join(os.tmpdir(), 'xhermes-probes-ghost-' + Date.now() + '.exe')
   assert.equal(canImportHermesCli(ghost), false)
 })
 
-test('hermes runtime import probe checks config dependencies', () => {
+test('xhermes runtime import probe checks config dependencies', () => {
   const probe = hermesRuntimeImportProbe()
   assert.match(probe, /\bimport yaml\b/)
   // dotenv is the first third-party import on the CLI boot path
@@ -59,11 +59,11 @@ test('hermes runtime import probe checks config dependencies', () => {
   assert.match(probe, /\bimport hermes_cli\.config\b/)
 })
 
-test('explicit Hermes override is authoritative', () => {
-  assert.equal(shouldTrustHermesOverride('/nix/store/abc/bin/hermes'), true)
+test('explicit XHermes override is authoritative', () => {
+  assert.equal(shouldTrustHermesOverride('/nix/store/abc/bin/xhermes'), true)
 })
 
-test('empty Hermes override is not authoritative', () => {
+test('empty XHermes override is not authoritative', () => {
   assert.equal(shouldTrustHermesOverride(''), false)
   assert.equal(shouldTrustHermesOverride(undefined), false)
 })
@@ -75,15 +75,15 @@ test('verifyHermesCli returns false when command is falsy', () => {
 })
 
 test('verifyHermesCli returns false when binary does not exist', () => {
-  const ghost = path.join(os.tmpdir(), 'hermes-probes-ghost-' + Date.now() + '.exe')
+  const ghost = path.join(os.tmpdir(), 'xhermes-probes-ghost-' + Date.now() + '.exe')
   assert.equal(verifyHermesCli(ghost), false)
 })
 
 test('verifyHermesCli returns true when --version exits 0', () => {
   // Write a tiny script that exits 0 regardless of args, then invoke
-  // it through node. This stands in for a working hermes binary --
+  // it through node. This stands in for a working xhermes binary --
   // verifyHermesCli only cares about the exit code.
-  const scriptPath = path.join(os.tmpdir(), `hermes-probes-ok-${Date.now()}-${process.pid}.cjs`)
+  const scriptPath = path.join(os.tmpdir(), `xhermes-probes-ok-${Date.now()}-${process.pid}.cjs`)
   fs.writeFileSync(scriptPath, 'process.exit(0)\n')
 
   try {

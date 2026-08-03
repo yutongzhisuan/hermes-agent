@@ -1,12 +1,12 @@
 /**
  * remote-lifecycle.ts
  *
- * Pure, electron-free remote Hermes dashboard lifecycle over SSH for Desktop
+ * Pure, electron-free remote XHermes dashboard lifecycle over SSH for Desktop
  * SSH remote mode. Composes an SshConnection (injected) with HTTP probes
  * through the established tunnel (injected fetch) and the served-token adoption
  * step (injected). Knows how to:
  *
- *   - locate the Hermes install on the remote (login-shell probe),
+ *   - locate the XHermes install on the remote (login-shell probe),
  *   - gate the remote platform to Linux/macOS via `uname`,
  *   - reuse an existing desktop-dedicated dashboard via a lockfile + an
  *     AUTHENTICATED /api/status probe (pid liveness alone is insufficient),
@@ -33,7 +33,7 @@ const LOCKFILE_SCHEMA_VERSION = 2
 // args, served-token reconciliation). A mismatch forces a clean respawn.
 const PROTOCOL_VERSION = 1
 const READY_RE = /^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
-const REMOTE_LOCK_DIR = '~/.hermes/desktop-ssh'
+const REMOTE_LOCK_DIR = '~/.xhermes/desktop-ssh'
 const SUPPORTED_REMOTE_OS = new Set(['Linux', 'Darwin'])
 const DEFAULT_READY_TIMEOUT_MS = 45_000
 const READY_POLL_INTERVAL_MS = 750
@@ -122,7 +122,7 @@ function expandRemotePath(p) {
   return shq(p)
 }
 
-// Resolve the remote hermes executable. An EXPLICIT path is honored strictly
+// Resolve the remote xhermes executable. An EXPLICIT path is honored strictly
 // (throws a path-naming error if not executable — never silently falls back to a
 // different install). A BLANK path auto-detects: login-shell `command -v` (a
 // non-login `ssh host cmd` PATH misses user installs), then known install paths.
@@ -165,19 +165,19 @@ async function locateHermes(ssh, remoteHermesPath) {
     }
 
     const err: any = new Error(
-      `The Hermes path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
-        'Check the path (it must be the full path to the `hermes` binary on the remote, e.g. ' +
-        '~/hermes-agent/.venv/bin/hermes), or clear it to auto-detect.'
+      `The XHermes path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
+        'Check the path (it must be the full path to the `xhermes` binary on the remote, e.g. ' +
+        '~/xhermes-agent/.venv/bin/xhermes), or clear it to auto-detect.'
     )
 
-    err.kind = 'hermes-not-found'
+    err.kind = 'xhermes-not-found'
     throw err
   }
 
   const candidates: string[] = []
 
   try {
-    const found = (await ssh.exec(`bash -lc ${shq('command -v hermes')}`)).trim()
+    const found = (await ssh.exec(`bash -lc ${shq('command -v xhermes')}`)).trim()
 
     if (found) {
       candidates.push(found.split('\n').pop().trim())
@@ -188,9 +188,9 @@ async function locateHermes(ssh, remoteHermesPath) {
 
   // Fallback candidates when the login-shell probe misses: the installer's
   // command locations (scripts/install.sh) — per-user, root/FHS, legacy venv.
-  candidates.push('~/.local/bin/hermes')
-  candidates.push('/usr/local/bin/hermes')
-  candidates.push('~/.hermes/hermes-agent/venv/bin/hermes')
+  candidates.push('~/.local/bin/xhermes')
+  candidates.push('/usr/local/bin/xhermes')
+  candidates.push('~/.xhermes/xhermes-agent/venv/bin/xhermes')
 
   for (const candidate of candidates) {
     if (!candidate) {
@@ -203,17 +203,17 @@ async function locateHermes(ssh, remoteHermesPath) {
   }
 
   const err: any = new Error(
-    'Hermes is not installed on the remote host (could not find a `hermes` executable). ' +
-      'Install it on the remote with:  curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/main/scripts/install.sh | sh  ' +
-      '— or set the Hermes path explicitly in the SSH connection settings.'
+    'XHermes is not installed on the remote host (could not find a `xhermes` executable). ' +
+      'Install it on the remote with:  curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.sh | sh  ' +
+      '— or set the XHermes path explicitly in the SSH connection settings.'
   )
 
-  err.kind = 'hermes-not-found'
+  err.kind = 'xhermes-not-found'
   throw err
 }
 
-// Probe the resolved binary's version string (first line of `<hermes> --version`,
-// e.g. "Hermes Agent v0.18.2 ..."), or '' on failure. Surfaces WHICH hermes a
+// Probe the resolved binary's version string (first line of `<xhermes> --version`,
+// e.g. "XHermes Agent v0.18.2 ..."), or '' on failure. Surfaces WHICH xhermes a
 // connection uses, so a stale/unexpected install is visible.
 async function probeHermesVersion(ssh, hermesPath) {
   try {
@@ -232,7 +232,7 @@ async function probeRemotePlatform(ssh) {
 
   if (!SUPPORTED_REMOTE_OS.has(osName)) {
     const err: any = new Error(
-      `Unsupported remote platform "${osName || 'unknown'}". Hermes Desktop SSH mode supports Linux, macOS, and Windows remote hosts.`
+      `Unsupported remote platform "${osName || 'unknown'}". XHermes Desktop SSH mode supports Linux, macOS, and Windows remote hosts.`
     )
 
     err.kind = 'unsupported-platform'
@@ -243,15 +243,15 @@ async function probeRemotePlatform(ssh) {
 }
 
 // The HERMES_HOME the remote dashboard will use (explicit env wins, else
-// ~/.hermes). Recorded in the lockfile so a future reuse can tell it's the same
+// ~/.xhermes). Recorded in the lockfile so a future reuse can tell it's the same
 // state store; best-effort.
 async function probeRemoteHermesHome(ssh) {
   try {
-    const out = (await ssh.exec('echo "${HERMES_HOME:-$HOME/.hermes}"')).trim().split('\n').pop()
+    const out = (await ssh.exec('echo "${HERMES_HOME:-$HOME/.xhermes}"')).trim().split('\n').pop()
 
-    return out || '~/.hermes'
+    return out || '~/.xhermes'
   } catch (cause) {
-    const error: any = new Error('Could not resolve the remote Hermes home.')
+    const error: any = new Error('Could not resolve the remote XHermes home.')
     error.kind = 'transient-transport-error'
     error.cause = cause
     throw error
@@ -444,14 +444,14 @@ async function cleanupStale(ssh, ownershipId, lock, pidAlive = true) {
 // starts a new session; macOS has no setsid, so fall back to nohup (HUP-immune;
 // fd-detachment is already handled by </dev/null + redirect + &).
 function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
-  const hermes = expandRemotePath(hermesPath)
+  const xhermes = expandRemotePath(hermesPath)
   const profileArgs = profile ? `--profile ${shq(profile)} ` : ''
   const logPath = expandRemotePath(opts.logPath)
   const tokenFilePath = opts.tokenFilePath
   const tokenArg = tokenFilePath ? ` --ssh-session-token-file ${expandRemotePath(tokenFilePath)}` : ''
   const ownerArg = opts.spawnNonce ? ` --ssh-owner-nonce ${validateSpawnNonce(opts.spawnNonce)}` : ''
   const subCmd = `serve --isolated --host 127.0.0.1 --port 0${tokenArg}${ownerArg}`
-  const dashCmd = `env HERMES_DESKTOP=1 ${hermes} ${profileArgs}${subCmd}`
+  const dashCmd = `env HERMES_DESKTOP=1 ${xhermes} ${profileArgs}${subCmd}`
 
   return (
     `mkdir -p "$(dirname ${logPath})" && ` +
@@ -460,10 +460,10 @@ function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
 }
 
 async function remoteSupportsSshOwnership(ssh, hermesPath) {
-  const hermes = expandRemotePath(hermesPath)
+  const xhermes = expandRemotePath(hermesPath)
 
   const out = await ssh.exec(
-    `help="$(${hermes} serve --help 2>&1)"; ` +
+    `help="$(${xhermes} serve --help 2>&1)"; ` +
       `printf '%s' "$help" | grep -q ssh-session-token-file && ` +
       `printf '%s' "$help" | grep -q ssh-owner-nonce && echo YES || echo NO`
   )
@@ -511,8 +511,8 @@ async function scrapeReadyPort(ssh, logPath, { timeoutMs = DEFAULT_READY_TIMEOUT
 async function spawnRemoteDashboard(ssh, { hermesPath, profile, token, ownershipId }) {
   if (!(await remoteSupportsSshOwnership(ssh, hermesPath))) {
     const err: any = new Error(
-      'The remote Hermes install does not support --ssh-session-token-file and --ssh-owner-nonce. ' +
-        'Update Hermes on the remote host to continue using Desktop SSH mode.'
+      'The remote XHermes install does not support --ssh-session-token-file and --ssh-owner-nonce. ' +
+        'Update XHermes on the remote host to continue using Desktop SSH mode.'
     )
 
     err.kind = 'update-required'
@@ -694,11 +694,11 @@ async function connect(deps) {
   const platform = await probeRemotePlatform(ssh)
   log(`remote platform ${platform.os}/${platform.arch}`)
   const hermesPath = await locateHermes(ssh, remoteHermesPath)
-  log(`located hermes at ${hermesPath}`)
+  log(`located xhermes at ${hermesPath}`)
   const hermesVersion = await probeHermesVersion(ssh, hermesPath)
 
   if (hermesVersion) {
-    log(`remote hermes version: ${hermesVersion}`)
+    log(`remote xhermes version: ${hermesVersion}`)
   }
 
   const reuseToken = deps.reuseToken || ''

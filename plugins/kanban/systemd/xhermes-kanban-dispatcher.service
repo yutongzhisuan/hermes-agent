@@ -4,7 +4,7 @@
 #
 #     systemctl --user disable --now xhermes-kanban-dispatcher.service
 #     # then make sure a gateway is running; e.g. a systemd user unit
-#     # for `hermes gateway start`. The gateway hosts the dispatcher.
+#     # for `xhermes gateway start`. The gateway hosts the dispatcher.
 #
 # This unit is kept for users who truly cannot run the gateway (host
 # policy forbids long-lived services, etc.). It now invokes the
@@ -14,8 +14,8 @@
 # dispatch_in_gateway=true is NOT supported.
 
 [Unit]
-Description=Hermes Kanban dispatcher (DEPRECATED standalone daemon — prefer gateway-embedded dispatch)
-Documentation=https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban
+Description=XHermes Kanban dispatcher (DEPRECATED standalone daemon — prefer gateway-embedded dispatch)
+Documentation=https://xhermes-agent.nousresearch.com/docs/user-guide/features/kanban
 After=network.target
 
 [Service]

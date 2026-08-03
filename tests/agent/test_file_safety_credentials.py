@@ -1,6 +1,6 @@
 """Tests for HERMES_HOME credential-file read blocking in file_safety.
 
-Regression for https://github.com/NousResearch/hermes-agent/issues/17656 —
+Regression for https://github.com/NousResearch/xhermes-agent/issues/17656 —
 ``read_file`` was previously only sandboxed against ``HERMES_HOME`` itself,
 which left ``auth.json`` and ``.anthropic_oauth.json`` (plaintext provider
 keys + OAuth tokens) readable by the agent. A prompt-injection reaching
@@ -193,7 +193,7 @@ def test_webhook_subscriptions_blocked(fake_home):
 def test_identically_named_hermes_files_outside_home_not_blocked(
     fake_home, tmp_path
 ):
-    """Hermes-specific filenames (``auth.json``, ``mcp-tokens/``, ``google_oauth.json``)
+    """XHermes-specific filenames (``auth.json``, ``mcp-tokens/``, ``google_oauth.json``)
     outside HERMES_HOME must remain readable — the gate is per-location for
     those, not per-filename. ``.env`` is the exception: it's blocked anywhere
     on disk (see test_project_local_env_blocked) because the basename always
@@ -245,7 +245,7 @@ def test_profile_mode_blocks_root_credentials(tmp_path, monkeypatch):
     inherited by every profile."""
     import agent.file_safety as fs
 
-    root = tmp_path / "hermes"
+    root = tmp_path / "xhermes"
     profile = root / "profiles" / "coder"
     profile.mkdir(parents=True)
     monkeypatch.setattr(fs, "_hermes_home_path", lambda: profile)

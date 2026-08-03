@@ -330,7 +330,7 @@ def _make_hermes_provider_class() -> Optional[type]:
             registration. This addresses the recurring manual-reset ritual in
             GH#36767 for the auto-detectable subset (token-endpoint rejection);
             the browser-side "Redirect URI Mismatch" case has no HTTP signal
-            and is handled by ``hermes mcp reauth``.
+            and is handled by ``xhermes mcp reauth``.
 
             Conservative by construction — acts ONLY when all hold:
               * status is 400/401,
@@ -347,7 +347,7 @@ def _make_hermes_provider_class() -> Optional[type]:
             preemptive refresh — but only when ``token_endpoint`` was
             discovered (``_initialize`` prefetches it on cold-load). If that
             discovery was skipped, the guard returns early and the user falls
-            back to ``hermes mcp reauth``.
+            back to ``xhermes mcp reauth``.
             """
             try:
                 if self._hermes_preregistered:
@@ -563,7 +563,7 @@ class MCPOAuthManager:
             raise OAuthNonInteractiveError(
                 "MCP OAuth for "
                 f"'{server_name}': non-interactive environment and no "
-                "cached tokens found. Run `hermes mcp login "
+                "cached tokens found. Run `xhermes mcp login "
                 f"{server_name}` interactively first to complete initial "
                 "authorization."
             )
@@ -595,8 +595,8 @@ class MCPOAuthManager:
     ) -> _ProviderEntry | None:
         """Evict the provider from cache AND delete tokens from disk.
 
-        Called by ``hermes mcp remove <name>`` and (indirectly) by
-        ``hermes mcp login <name>`` during forced re-auth.
+        Called by ``xhermes mcp remove <name>`` and (indirectly) by
+        ``xhermes mcp login <name>`` during forced re-auth.
         """
         with self._entries_lock:
             entry = self._entries.pop(self._key(server_name, hermes_home), None)

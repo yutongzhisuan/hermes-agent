@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/join"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/join"
 )
 
 func TestGoMasterDispatchWatchTerminal(t *testing.T) {

@@ -26,7 +26,7 @@ def _python_with_repo_path(code: str) -> str:
 
 
 def _make_running_kanban_task(monkeypatch, tmp_path):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     attachments_root = tmp_path / "attachments"
     workspace = tmp_path / "parent-workspace"
@@ -68,7 +68,7 @@ def test_delegated_child_context_suppresses_env_gated_kanban_tools(monkeypatch, 
     """
     monkeypatch.setenv("HERMES_KANBAN_TASK", "t_parent")
     monkeypatch.setenv("HERMES_KANBAN_RUN_ID", "123")
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
 
@@ -140,7 +140,7 @@ def test_delegate_child_execute_code_env_bridges_contextvar_and_scrubs_kanban(
     ``os.environ`` and therefore never wrote HERMES_DELEGATED_CHILD_CONTEXT into
     the sandbox env.
     """
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setenv("HERMES_KANBAN_TASK", "t_parent")

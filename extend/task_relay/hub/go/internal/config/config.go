@@ -4,10 +4,10 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/tokenserver"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tokenserver"
 )
 
 // Config holds process-level Hub settings for the Go port.
@@ -89,7 +89,7 @@ func Parse(args []string) (Config, error) {
 		MetricsPort:             *metricsPort,
 		DBPath:                  *dbPath,
 		JWTSecret:               *jwtSecret,
-		JWTIssuer:               "hermes-relay-hub",
+		JWTIssuer:               "xhermes-relay-hub",
 		JWTAudience:             "task-relay-hub",
 		WakeTTLSeconds:          *wakeTTLSeconds,
 		EventRetentionDays:      *eventRetentionDays,

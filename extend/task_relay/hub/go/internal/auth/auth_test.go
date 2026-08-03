@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
 )
 
 func TestIssueAndVerifyMasterJWT(t *testing.T) {
-	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour, nil)
+	verifier, err := auth.New("secret", "xhermes-relay-hub", "task-relay-hub", time.Hour, nil)
 	if err != nil {
 		t.Fatalf("new auth: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestIssueAndVerifyMasterJWT(t *testing.T) {
 }
 
 func TestVerifyMasterJWTRejectsWorkerRole(t *testing.T) {
-	verifier, err := auth.New("secret", "hermes-relay-hub", "task-relay-hub", time.Hour, nil)
+	verifier, err := auth.New("secret", "xhermes-relay-hub", "task-relay-hub", time.Hour, nil)
 	if err != nil {
 		t.Fatalf("new auth: %v", err)
 	}

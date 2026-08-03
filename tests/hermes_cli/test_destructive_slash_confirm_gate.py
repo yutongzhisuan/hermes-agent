@@ -34,7 +34,7 @@ class TestUserConfigMerge:
     def test_existing_user_config_without_key_gets_default(self, tmp_path, monkeypatch):
         import yaml
 
-        home = tmp_path / ".hermes"
+        home = tmp_path / ".xhermes"
         home.mkdir()
         cfg_path = home / "config.yaml"
         legacy = {

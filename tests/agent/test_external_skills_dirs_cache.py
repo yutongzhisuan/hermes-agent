@@ -25,8 +25,8 @@ from agent.skill_utils import (
 
 @pytest.fixture
 def hermes_home_with_config(tmp_path, monkeypatch):
-    """Isolated ``~/.hermes/`` with a config.yaml referencing one external dir."""
-    home = tmp_path / ".hermes"
+    """Isolated ``~/.xhermes/`` with a config.yaml referencing one external dir."""
+    home = tmp_path / ".xhermes"
     home.mkdir()
     external = tmp_path / "external_skills"
     external.mkdir()
@@ -83,7 +83,7 @@ def test_cache_invalidates_on_mtime_change(hermes_home_with_config):
 
 def test_cache_key_is_per_config_path(tmp_path, monkeypatch):
     """Two different HERMES_HOMEs keep separate cache entries."""
-    home_a = tmp_path / "home_a" / ".hermes"
+    home_a = tmp_path / "home_a" / ".xhermes"
     home_a.mkdir(parents=True)
     ext_a = tmp_path / "ext_a"
     ext_a.mkdir()
@@ -91,7 +91,7 @@ def test_cache_key_is_per_config_path(tmp_path, monkeypatch):
         f"skills:\n  external_dirs:\n    - {ext_a}\n", encoding="utf-8"
     )
 
-    home_b = tmp_path / "home_b" / ".hermes"
+    home_b = tmp_path / "home_b" / ".xhermes"
     home_b.mkdir(parents=True)
     ext_b = tmp_path / "ext_b"
     ext_b.mkdir()

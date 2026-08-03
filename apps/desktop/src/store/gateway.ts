@@ -1,7 +1,7 @@
 import { type ConnectionState, type GatewayEvent, resolveGatewayWsUrl } from '@xhermes/shared'
 import { atom } from 'nanostores'
 
-import { HermesGateway } from '@/hermes'
+import { HermesGateway } from '@/xhermes'
 import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
 import { markNativeNotifyBaseline } from '@/store/notify-baseline'
 import { setGatewayState } from '@/store/session'
@@ -60,7 +60,7 @@ interface GatewayRegistryState {
   $gateway: ReturnType<typeof atom<HermesGateway | null>>
 }
 
-const STATE_KEY = Symbol.for('hermes.desktop.gatewayRegistryState')
+const STATE_KEY = Symbol.for('xhermes.desktop.gatewayRegistryState')
 
 function createRegistryState(): GatewayRegistryState {
   return {

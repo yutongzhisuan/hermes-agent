@@ -1,5 +1,5 @@
 """Tests for kanban DB corruption repair, backup retention, WAL checkpointing,
-and the ``hermes kanban repair`` CLI verb."""
+and the ``xhermes kanban repair`` CLI verb."""
 
 from __future__ import annotations
 
@@ -237,11 +237,11 @@ def test_dispatch_tick_runs_wal_checkpoint_at_interval(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# repair_db() API + `hermes kanban repair` CLI verb
+# repair_db() API + `xhermes kanban repair` CLI verb
 # ---------------------------------------------------------------------------
 
 def _run_kanban_cli(argv: list[str]) -> int:
-    """Drive the real argparse surface exactly like `hermes kanban …`."""
+    """Drive the real argparse surface exactly like `xhermes kanban …`."""
     import argparse
 
     from hermes_cli import kanban as kc
@@ -256,7 +256,7 @@ def _run_kanban_cli(argv: list[str]) -> int:
 @pytest.fixture
 def cli_home(tmp_path, monkeypatch):
     """Isolated HERMES_HOME so kanban_db_path() resolves inside tmp_path."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)

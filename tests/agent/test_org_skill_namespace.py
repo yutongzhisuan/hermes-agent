@@ -239,7 +239,7 @@ class TestOrgPullIsWiredIn:
             / "main.py"
         ).read_text(encoding="utf-8")
         assert "maybe_pull_org_skills" in main_src, (
-            "`hermes sync pull` must also refresh the org mirror."
+            "`xhermes sync pull` must also refresh the org mirror."
         )
 
     def test_sync_status_exposes_org_state(self):
@@ -273,11 +273,11 @@ class TestOrgPullIsWiredIn:
 
 
 class TestSkillSyncIsOneCommand:
-    """Every Skill Sync verb lives under `hermes sync` for launch.
+    """Every Skill Sync verb lives under `xhermes sync` for launch.
 
     The surface is deliberately encapsulated: one command to learn, one to
     document, and top-level `sync` stays free of skill-management verbs that
-    belong elsewhere. `propose` in particular used to sit under `hermes
+    belong elsewhere. `propose` in particular used to sit under `xhermes
     skills`, which split one feature across two commands.
     """
 
@@ -291,22 +291,22 @@ class TestSkillSyncIsOneCommand:
     def test_propose_is_a_sync_subcommand(self):
         sync_src = self._src("hermes_cli", "subcommands", "sync.py")
         assert '"propose"' in sync_src, (
-            "`propose` must be a `hermes sync` subcommand."
+            "`propose` must be a `xhermes sync` subcommand."
         )
 
     def test_propose_is_not_under_skills(self):
         skills_src = self._src("hermes_cli", "subcommands", "skills.py")
         assert '"propose"' not in skills_src, (
-            "`propose` must NOT remain under `hermes skills` — Skill Sync is "
+            "`propose` must NOT remain under `xhermes skills` — Skill Sync is "
             "one command for launch."
         )
 
     def test_sync_usage_lists_propose(self):
         main_src = self._src("hermes_cli", "main.py")
-        usage_start = main_src.index("usage: hermes sync ")
+        usage_start = main_src.index("usage: xhermes sync ")
         usage_block = main_src[usage_start : usage_start + 1400]
         assert "propose" in usage_block, (
-            "`hermes sync` usage must list the propose verb."
+            "`xhermes sync` usage must list the propose verb."
         )
 
 

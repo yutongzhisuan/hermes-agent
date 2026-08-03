@@ -4,7 +4,7 @@ from hermes_cli.config import load_env
 
 
 def test_save_anthropic_oauth_token_uses_token_slot_and_clears_api_key(tmp_path, monkeypatch):
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
 
@@ -18,7 +18,7 @@ def test_save_anthropic_oauth_token_uses_token_slot_and_clears_api_key(tmp_path,
 
 
 def test_use_anthropic_claude_code_credentials_clears_env_slots(tmp_path, monkeypatch):
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
 

@@ -17,7 +17,7 @@ from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 
 SECRET = "t" * 32
-ISSUER = "hermes-relay-hub"
+ISSUER = "xhermes-relay-hub"
 AUDIENCE = "task-relay-hub"
 
 

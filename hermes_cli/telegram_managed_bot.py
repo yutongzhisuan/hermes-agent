@@ -1,7 +1,7 @@
 """Telegram Managed Bot onboarding client.
 
 Uses Telegram's Managed Bots feature to create a user-owned child bot without
-manual BotFather token copy-paste. Hermes talks only to the Nous onboarding
+manual BotFather token copy-paste. XHermes talks only to the Nous onboarding
 service; the raw Telegram token is saved locally after one-time retrieval.
 """
 
@@ -20,7 +20,7 @@ import httpx
 
 # Default pairing API base URL (Nous-hosted Cloudflare Worker).
 # Override for PoC/staging with TELEGRAM_ONBOARDING_URL.
-DEFAULT_API_URL = "https://setup.hermes-agent.nousresearch.com"
+DEFAULT_API_URL = "https://setup.xhermes-agent.nousresearch.com"
 TELEGRAM_ONBOARDING_URL_ENV = "TELEGRAM_ONBOARDING_URL"
 
 # The Nous-hosted manager bot username (without @). The backend returns the
@@ -286,11 +286,11 @@ def auto_setup_telegram_bot_result(
     _ = manager_bot, profile_name
     resolved_api_url = _api_url(api_url)
     print()
-    print(f"  Contacting Hermes Telegram onboarding service: {resolved_api_url}")
+    print(f"  Contacting XHermes Telegram onboarding service: {resolved_api_url}")
     sys.stdout.flush()
     pairing = create_pairing(resolved_api_url)
     if not pairing:
-        print("  ✗ Could not reach the Hermes Telegram onboarding service.")
+        print("  ✗ Could not reach the XHermes Telegram onboarding service.")
         print("    Try the manual setup instead, or check your network.")
         return None
 

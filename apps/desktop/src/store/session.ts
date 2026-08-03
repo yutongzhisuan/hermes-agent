@@ -6,23 +6,23 @@ import type { ContextSuggestion } from '@/app/types'
 import type { HermesConnection } from '@/global'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { persistBoolean, persistString, storedBoolean, storedString } from '@/lib/storage'
-import type { SessionInfo, UsageStats } from '@/types/hermes'
+import type { SessionInfo, UsageStats } from '@/types/xhermes'
 
 type Updater<T> = T | ((current: T) => T)
 export type ComposerModelSource = '' | 'default' | 'manual'
 
-const WORKSPACE_CWD_KEY = 'hermes.desktop.workspace-cwd'
+const WORKSPACE_CWD_KEY = 'xhermes.desktop.workspace-cwd'
 
 // The composer's model/effort/fast is sticky UI state, NOT the profile default
 // (that lives in Settings → Model). Persisting it in localStorage makes a pick
 // follow across Cmd+N and app restarts instead of snapping back to the default.
 // It's deliberately global (not per-profile): a profile switch force-reseeds to
 // that profile's default, while within a profile new chats keep your last pick.
-const COMPOSER_MODEL_KEY = 'hermes.desktop.composer.model'
-const COMPOSER_PROVIDER_KEY = 'hermes.desktop.composer.provider'
-const COMPOSER_MODEL_SOURCE_KEY = 'hermes.desktop.composer.model-source'
-const COMPOSER_EFFORT_KEY = 'hermes.desktop.composer.reasoning-effort'
-const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
+const COMPOSER_MODEL_KEY = 'xhermes.desktop.composer.model'
+const COMPOSER_PROVIDER_KEY = 'xhermes.desktop.composer.provider'
+const COMPOSER_MODEL_SOURCE_KEY = 'xhermes.desktop.composer.model-source'
+const COMPOSER_EFFORT_KEY = 'xhermes.desktop.composer.reasoning-effort'
+const COMPOSER_FAST_KEY = 'xhermes.desktop.composer.fast'
 
 // The last chat the user had open, so a relaunch lands back on it instead of an
 // empty new-chat. Stored (not runtime) id — the route is keyed by stored id.
@@ -33,7 +33,7 @@ const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
 // appears to bleed between profiles (#63590). Each profile now remembers its
 // own last session. The default profile keeps the original unsuffixed key so
 // existing installs' remembered session survives the upgrade.
-const LAST_SESSION_KEY = 'hermes.desktop.lastSessionId'
+const LAST_SESSION_KEY = 'xhermes.desktop.lastSessionId'
 
 function rememberedSessionKey(profile?: null | string): string {
   const key = (profile ?? '').trim()
@@ -80,7 +80,7 @@ export function rememberedSessionProfile(
 // entirely, because the route is preferred over the id on cold start
 // (#67603 family). The default profile keeps the original unsuffixed key so
 // existing installs' remembered route survives the upgrade.
-const LAST_ROUTE_KEY = 'hermes.desktop.lastRoute'
+const LAST_ROUTE_KEY = 'xhermes.desktop.lastRoute'
 
 function rememberedRouteKey(profile?: null | string): string {
   const key = (profile ?? '').trim()

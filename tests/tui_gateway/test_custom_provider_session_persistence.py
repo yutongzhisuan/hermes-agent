@@ -9,7 +9,7 @@ or ``_reset_session_agent``, ``_stored_session_runtime_overrides`` fed
 provider="custom" back into ``_make_agent`` →
 ``resolve_runtime_provider(requested="custom")``, which cannot match an entry
 named "mimo-v2.5-pro". Depending on config the rebuild either raised
-"No LLM provider configured. Run `hermes model`..." (resume failed) or
+"No LLM provider configured. Run `xhermes model`..." (resume failed) or
 silently resolved placeholder credentials ("no-key-required") against the
 patched-back base_url.
 
@@ -301,7 +301,7 @@ class TestBareCustomNoBaseUrlHealsFromConfig:
 # provider (e.g. Nous) but who switched THIS session to a self-hosted model
 # gets no heal: the bare provider is dropped, resume falls back to the default
 # provider, and the default provider's endpoint 404s with "Model '<x>' not
-# found" (the b200/hermes-ultra-sft report). The stored MODEL NAME is the one
+# found" (the b200/xhermes-ultra-sft report). The stored MODEL NAME is the one
 # session-scoped fact that still identifies the entry — these tests lock the
 # model-name recovery tier.
 
@@ -312,10 +312,10 @@ ULTRA_CONFIG = {
     # fallback must not fire; only the model lookup can recover the entry.
     "model": {"default": "some-nous-model", "provider": "nous"},
     "providers": {
-        "hermes-ultra": {
+        "xhermes-ultra": {
             "api": ULTRA_URL,
             "api_key": "sk-ultra",
-            "models": ["hermes-ultra-sft"],
+            "models": ["xhermes-ultra-sft"],
         }
     },
 }
@@ -324,10 +324,10 @@ ULTRA_LEGACY_CONFIG = {
     "model": {"default": "some-nous-model", "provider": "nous"},
     "custom_providers": [
         {
-            "name": "hermes-ultra",
+            "name": "xhermes-ultra",
             "base_url": ULTRA_URL,
             "api_key": "sk-ultra",
-            "model": "hermes-ultra-sft",
+            "model": "xhermes-ultra-sft",
         }
     ],
 }
@@ -338,8 +338,8 @@ class TestModelNameRecoversEntryIdentity:
         monkeypatch.setattr(rp, "load_config", lambda: ULTRA_CONFIG)
 
         assert (
-            rp.find_custom_provider_identity_by_model("hermes-ultra-sft")
-            == "custom:hermes-ultra"
+            rp.find_custom_provider_identity_by_model("xhermes-ultra-sft")
+            == "custom:xhermes-ultra"
         )
 
 

@@ -18,7 +18,7 @@ def test_check_for_updates_uses_cache(tmp_path, monkeypatch):
     from hermes_cli import __version__
 
     # Create a fake git repo and fresh cache
-    repo_dir = tmp_path / "hermes-agent"
+    repo_dir = tmp_path / "xhermes-agent"
     repo_dir.mkdir()
     (repo_dir / ".git").mkdir()
 

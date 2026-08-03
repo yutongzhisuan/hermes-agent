@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/config"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/grpcserver"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
-	gohub "github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/hub"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/config"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/grpcserver"
+	gohub "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/hub"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -28,7 +28,7 @@ func startTestHubGRPC(t *testing.T) (*gohub.Hub, func(context.Context, string) (
 		GRPCPort:    0,
 		DBPath:      filepath.Join(t.TempDir(), "relay.db"),
 		JWTSecret:   "secret",
-		JWTIssuer:   "hermes-relay-hub",
+		JWTIssuer:   "xhermes-relay-hub",
 		JWTAudience: "task-relay-hub",
 	}
 	h, err := gohub.New(cfg)

@@ -187,7 +187,7 @@ class TestPromptApiKey:
 class TestPostSetup:
 
     def test_platform_flag_mode(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("sys.argv", ["hermes", "--mode", "platform", "--api-key", "sk-test"])
+        monkeypatch.setattr("sys.argv", ["xhermes", "--mode", "platform", "--api-key", "sk-test"])
         monkeypatch.setattr("plugins.memory.mem0._setup.get_hermes_home", lambda: tmp_path)
         _inject_fake_hermes_cli(monkeypatch)
         config = {"memory": {}}
@@ -201,7 +201,7 @@ class TestPostSetup:
 
     def test_selfhosted_flag_mode(self, tmp_path, monkeypatch):
         monkeypatch.setattr("sys.argv", [
-            "hermes", "--mode", "selfhosted",
+            "xhermes", "--mode", "selfhosted",
             "--host", "http://localhost:8888/", "--api-key", "admin-key",
         ])
         monkeypatch.setattr("plugins.memory.mem0._setup.get_hermes_home", lambda: tmp_path)
@@ -214,7 +214,7 @@ class TestPostSetup:
         assert "MEM0_API_KEY=admin-key" in env_content
         mem0_json = json.loads((tmp_path / "mem0.json").read_text())
         assert mem0_json["host"] == "http://localhost:8888"  # trailing slash stripped
-        assert mem0_json["user_id"] == "hermes-user"
+        assert mem0_json["user_id"] == "xhermes-user"
 
 
 class TestDryRun:

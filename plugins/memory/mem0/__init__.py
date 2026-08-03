@@ -13,7 +13,7 @@ Secret (lives in $HERMES_HOME/.env or the environment):
                        plugin talks to that server directly over HTTP
                        (X-API-Key auth) instead of the cloud API.
 
-Behavioral settings (live in $HERMES_HOME/mem0.json, set via `hermes memory
+Behavioral settings (live in $HERMES_HOME/mem0.json, set via `xhermes memory
 setup`):
   mode               — Backend mode: "platform" (default) or "oss"
   host               — Self-hosted Mem0 server URL (alt: MEM0_HOST env var).
@@ -23,7 +23,7 @@ setup`):
                        Discord, …) so the same human gets one merged memory
                        store. When unset, the gateway-native id (e.g. Telegram
                        numeric id, Discord snowflake) is used instead.
-  agent_id           — Agent identifier (default: hermes)
+  agent_id           — Agent identifier (default: xhermes)
 
 The matching MEM0_MODE / MEM0_USER_ID / MEM0_AGENT_ID environment variables are
 still read as a backward-compatible fallback, but mem0.json is the canonical
@@ -59,7 +59,7 @@ _CLIENT_ERROR_TYPES = ("MemoryNotFoundError", "ValidationError")
 # that legacy mem0.json files written by the setup wizard (which historically
 # wrote this exact placeholder) still allow gateway-native ids to flow
 # through instead of silently overriding them with the placeholder.
-_DEFAULT_USER_ID = "hermes-user"
+_DEFAULT_USER_ID = "xhermes-user"
 
 
 def _is_client_error(exc: Exception) -> bool:
@@ -88,7 +88,7 @@ def _load_config() -> dict:
         "mode": os.environ.get("MEM0_MODE", "platform"),
         "api_key": get_secret("MEM0_API_KEY", ""),
         "host": os.environ.get("MEM0_HOST", ""),
-        "agent_id": os.environ.get("MEM0_AGENT_ID", "hermes"),
+        "agent_id": os.environ.get("MEM0_AGENT_ID", "xhermes"),
         "oss": {},
     }
     # Only carry user_id when the operator explicitly configured one (env or
@@ -204,7 +204,7 @@ class Mem0MemoryProvider(MemoryProvider):
         self._api_key = ""
         self._host = ""
         self._user_id = _DEFAULT_USER_ID
-        self._agent_id = "hermes"
+        self._agent_id = "xhermes"
         self._rerank_default = False
         self._channel = "cli"  # gateway channel name (cli/telegram/discord/...)
         self._sync_thread = None
@@ -255,8 +255,8 @@ class Mem0MemoryProvider(MemoryProvider):
         return [
             {"key": "api_key", "description": "Mem0 Platform API key", "secret": True, "required": api_key_required, "env_var": "MEM0_API_KEY", "url": "https://app.mem0.ai"},
             {"key": "host", "description": "Self-hosted Mem0 server URL (leave blank for cloud)", "required": False, "env_var": "MEM0_HOST"},
-            {"key": "user_id", "description": "User identifier", "default": "hermes-user"},
-            {"key": "agent_id", "description": "Agent identifier", "default": "hermes"},
+            {"key": "user_id", "description": "User identifier", "default": "xhermes-user"},
+            {"key": "agent_id", "description": "Agent identifier", "default": "xhermes"},
             {"key": "rerank", "description": "Enable reranking for recall", "default": "false", "choices": ["true", "false"]},
         ]
 
@@ -354,7 +354,7 @@ class Mem0MemoryProvider(MemoryProvider):
         if configured == _DEFAULT_USER_ID:
             configured = None
         self._user_id = configured or kwargs.get("user_id") or _DEFAULT_USER_ID
-        self._agent_id = self._config.get("agent_id", "hermes")
+        self._agent_id = self._config.get("agent_id", "xhermes")
         # Persisted rerank preference (setup wizard / mem0.json). Used as the
         # DEFAULT for mem0_search when the model doesn't pass ``rerank``
         # explicitly; per-call args still win. Platform-only feature — other

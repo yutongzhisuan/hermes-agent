@@ -35,24 +35,24 @@ from hermes_cli.tools_config import (
 
 def test_all_invalid_platform_toolsets_logs_runtime_warning(caplog):
     """#38798: an explicit platform config whose toolset names are all invalid
-    (e.g. 'hermes' instead of 'hermes-cli') must warn at resolve time so an
+    (e.g. 'xhermes' instead of 'xhermes-cli') must warn at resolve time so an
     already-corrupted config is caught at runtime, not just during migration."""
     import hermes_cli.tools_config as _tc
     # The runtime warning fires once per platform per process; clear the guard
     # so this test is deterministic regardless of prior resolutions.
     _tc._warned_invalid_platform_toolsets.discard("cli")
-    config = {"platform_toolsets": {"cli": ["hermes"]}}
+    config = {"platform_toolsets": {"cli": ["xhermes"]}}
 
     with caplog.at_level(logging.WARNING, logger="hermes_cli.tools_config"):
         _get_platform_tools(config, "cli")
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any("#38798" in m and "hermes" in m for m in warnings), warnings
+    assert any("#38798" in m and "xhermes" in m for m in warnings), warnings
 
 
 def test_valid_platform_toolsets_no_runtime_warning(caplog):
     """A correctly-configured platform must not emit the #38798 warning."""
-    config = {"platform_toolsets": {"cli": ["hermes-cli"]}}
+    config = {"platform_toolsets": {"cli": ["xhermes-cli"]}}
 
     with caplog.at_level(logging.WARNING, logger="hermes_cli.tools_config"):
         _get_platform_tools(config, "cli")
@@ -64,7 +64,7 @@ def test_partially_valid_platform_toolsets_no_runtime_warning(caplog):
     """When at least one configured toolset is valid, tools still resolve, so
     the runtime zero-tools warning must not fire (the migration-time check still
     flags the individual bad name)."""
-    config = {"platform_toolsets": {"cli": ["hermes-cli", "bogus"]}}
+    config = {"platform_toolsets": {"cli": ["xhermes-cli", "bogus"]}}
 
     with caplog.at_level(logging.WARNING, logger="hermes_cli.tools_config"):
         _get_platform_tools(config, "cli")
@@ -117,7 +117,7 @@ def test_get_platform_tools_homeassistant_uses_active_profile_token(monkeypatch)
 
 # ─── #35527: platform-restricted default-off toolsets (discord/discord_admin)
 # are stripped by _DEFAULT_OFF_TOOLSETS even when the user explicitly opts in
-# via the platform's native composite. The composite ``hermes-discord``
+# via the platform's native composite. The composite ``xhermes-discord``
 # contains both ``discord`` and ``discord_admin`` tools, so configuring it is
 # an explicit opt-in that should survive the default-off strip. ───────────────
 
@@ -126,7 +126,7 @@ def test_discord_toolsets_do_not_leak_to_other_platforms():
     """Layer 4 (guard): discord/discord_admin are platform-restricted — they
     must never appear on a non-discord platform even when that platform is
     explicitly configured."""
-    config = {"platform_toolsets": {"telegram": ["hermes-telegram", "discord"]}}
+    config = {"platform_toolsets": {"telegram": ["xhermes-telegram", "discord"]}}
     enabled = _get_platform_tools(config, "telegram")
     assert "discord" not in enabled
     assert "discord_admin" not in enabled
@@ -158,7 +158,7 @@ def test_toolset_has_keys_for_vision_accepts_codex_auth(tmp_path, monkeypatch):
 def test_save_platform_tools_preserves_mcp_server_names():
     """Ensure MCP server names are preserved when saving platform tools.
 
-    Regression test for https://github.com/NousResearch/hermes-agent/issues/1247
+    Regression test for https://github.com/NousResearch/xhermes-agent/issues/1247
     """
     config = {
         "platform_toolsets": {
@@ -278,11 +278,11 @@ class TestPlatformToolsetConsistency:
             )
 
     def test_gateway_toolset_includes_all_messaging_platforms(self):
-        """hermes-gateway includes list should cover all messaging platforms."""
+        """xhermes-gateway includes list should cover all messaging platforms."""
         from hermes_cli.tools_config import PLATFORMS
         from toolsets import TOOLSETS
 
-        gateway_includes = set(TOOLSETS["hermes-gateway"]["includes"])
+        gateway_includes = set(TOOLSETS["xhermes-gateway"]["includes"])
         # Exclude non-messaging platforms from the check
         non_messaging = {"cli", "api_server", "cron"}
         for platform, meta in PLATFORMS.items():
@@ -291,7 +291,7 @@ class TestPlatformToolsetConsistency:
             ts_name = meta["default_toolset"]
             assert ts_name in gateway_includes, (
                 f"Platform {platform!r} toolset {ts_name!r} missing from "
-                f"hermes-gateway includes"
+                f"xhermes-gateway includes"
             )
 
     def test_skills_config_covers_tools_config_platforms(self):
@@ -315,7 +315,7 @@ def test_numeric_mcp_server_name_does_not_crash_sorted():
     _get_platform_tools must normalise them to str so that sorted()
     on the returned set never raises TypeError on mixed int/str.
 
-    Regression test for https://github.com/NousResearch/hermes-agent/issues/6901
+    Regression test for https://github.com/NousResearch/xhermes-agent/issues/6901
     """
     config = {
         "platform_toolsets": {"cli": ["web", 12306]},
@@ -432,7 +432,7 @@ class TestImagegenModelPicker:
 def test_get_effective_configurable_toolsets_dedupes_bundled_plugins():
     """Bundled plugins (plugins/spotify) share their toolset key with the
     built-in CONFIGURABLE_TOOLSETS entry. The effective list must not list
-    them twice — otherwise `hermes tools` → "reconfigure existing" shows
+    them twice — otherwise `xhermes tools` → "reconfigure existing" shows
     the same toolset two rows in a row.
     """
     from hermes_cli.tools_config import _get_effective_configurable_toolsets
@@ -468,13 +468,13 @@ def test_get_effective_configurable_toolsets_dedupes_bundled_plugins():
 
 
 # ── Checklist diff scope: non-configurable toolsets (kanban) must not be
-#    reported as added/removed by `hermes tools` ──────────────────────────
+#    reported as added/removed by `xhermes tools` ──────────────────────────
 
 
 
 
 def test_kanban_not_reported_as_removed_in_diff():
-    """Reproduces the false-signal bug: `hermes tools` printed ``- kanban``
+    """Reproduces the false-signal bug: `xhermes tools` printed ``- kanban``
     when saving a platform that resolves kanban as enabled, even though the
     checklist never offered kanban as a toggle.
 
@@ -618,7 +618,7 @@ def test_visible_providers_reuses_pool_video_feature_snapshot(monkeypatch):
 # ── Windows console-flash guard for post-setup subprocess spawns ──────────────
 #
 # The desktop GUI runs post-setup hooks through a detached, console-less
-# `hermes tools post-setup <key>` child. On Windows each console child (npm,
+# `xhermes tools post-setup <key>` child. On Windows each console child (npm,
 # npx, pip, powershell) spawned without CREATE_NO_WINDOW materializes a brand
 # new console window — the "terminal flash" reported on the Capabilities
 # browser-setup journey. `_post_setup_no_window_flags` is the single wrapper
@@ -637,10 +637,10 @@ def test_visible_providers_reuses_pool_video_feature_snapshot(monkeypatch):
 # ("browserbase") only the CLI, and camofox its npm package.
 
 
-# ── Toolsets that shipped after a platform's last `hermes tools` save ────────
+# ── Toolsets that shipped after a platform's last `xhermes tools` save ────────
 #
 # Saving the picker (or one toggle in the desktop Toolsets UI) replaces a
-# platform's composite (``[hermes-cli]``) with a frozen explicit list, and
+# platform's composite (``[xhermes-cli]``) with a frozen explicit list, and
 # nothing ever adds to that list — so a toolset shipped later stays off
 # forever, while everyone still on the composite inherits it on upgrade.
 # ``_RECENTLY_SHIPPED_TOOLSETS`` closes that gap for toolsets new enough that
@@ -681,7 +681,7 @@ def test_saved_list_gains_toolsets_that_shipped_after_it_was_written():
     """The bug: a frozen list never gained bfl, so composite users got Nous
     Portal video generation on upgrade and picker users silently did not."""
     on_composite = _get_platform_tools(
-        {"platform_toolsets": {"cli": ["hermes-cli"]}},
+        {"platform_toolsets": {"cli": ["xhermes-cli"]}},
         "cli",
         include_default_mcp_servers=False,
     )
@@ -696,7 +696,7 @@ def test_saved_list_gains_toolsets_that_shipped_after_it_was_written():
 def test_unchecking_the_new_toolset_sticks():
     """Saving records it as offered, so the next read reads absence as a
     decline instead of turning it back on."""
-    config = {"platform_toolsets": {"cli": ["hermes-cli"]}}
+    config = {"platform_toolsets": {"cli": ["xhermes-cli"]}}
     enabled = _get_platform_tools(config, "cli", include_default_mcp_servers=False)
     with patch("hermes_cli.tools_config.save_config"):
         _save_platform_tools(config, "cli", enabled - _RECENTLY_SHIPPED_TOOLSETS)
@@ -720,16 +720,16 @@ def test_agent_disabled_toolsets_still_wins():
 @_requires_recently_shipped
 def test_platforms_whose_composite_excludes_it_are_left_narrow():
     """Parity is the justification, so don't widen a deliberately small
-    composite (hermes-acp, hermes-webhook) that never carried the toolset."""
+    composite (xhermes-acp, xhermes-webhook) that never carried the toolset."""
     from toolsets import TOOLSETS, resolve_toolset
 
     narrow = [
         platform
         for platform in ("acp", "webhook")
-        if f"hermes-{platform}" in TOOLSETS
+        if f"xhermes-{platform}" in TOOLSETS
         and not any(
             set(resolve_toolset(ts, include_registry=False))
-            <= set(resolve_toolset(f"hermes-{platform}"))
+            <= set(resolve_toolset(f"xhermes-{platform}"))
             for ts in _RECENTLY_SHIPPED_TOOLSETS
         )
     ]

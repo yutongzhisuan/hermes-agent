@@ -1,4 +1,4 @@
-"""hermes memory setup|status — configure memory provider plugins.
+"""xhermes memory setup|status — configure memory provider plugins.
 
 Auto-detects installed memory providers via the plugin system.
 Interactive curses-based UI for provider selection, then walks through
@@ -26,7 +26,7 @@ def _provider_pip_dependencies(provider_name: str, declared: list) -> list:
     some providers install mode-dependent extras at setup time that the
     manifest can't express. Hindsight's ``local_embedded`` mode installs
     ``hindsight-all`` (daemon + embedder + client) during
-    ``hermes memory setup`` — if the update-time refresh only reinstalled
+    ``xhermes memory setup`` — if the update-time refresh only reinstalled
     the declared ``hindsight-client``, the embedded daemon would stay
     broken after a venv rebuild stripped ``hindsight-embed`` (#70636).
     """
@@ -46,7 +46,7 @@ def _provider_pip_dependencies(provider_name: str, declared: list) -> list:
 
 
 # ---------------------------------------------------------------------------
-# Curses-based interactive picker (same pattern as hermes tools)
+# Curses-based interactive picker (same pattern as xhermes tools)
 # ---------------------------------------------------------------------------
 
 def _curses_select(
@@ -110,7 +110,7 @@ def _install_dependencies(provider_name: str, *, force: bool = False) -> None:
     When ``force`` is true, every declared dependency is handed to the
     installer even if its import currently succeeds — the resolver then
     reinstalls anything missing or version-drifted and no-ops on satisfied
-    ranges. This is how ``hermes update`` heals the active memory provider
+    ranges. This is how ``xhermes update`` heals the active memory provider
     after a venv rebuild/sync removed or downgraded its bridge packages
     (#53272, #70636).
     """
@@ -255,7 +255,7 @@ def cmd_setup_provider(provider_name: str) -> None:
 
     if not match:
         print(f"\n  Memory provider '{provider_name}' not found.")
-        print("  Run 'hermes memory setup' to see available providers.\n")
+        print("  Run 'xhermes memory setup' to see available providers.\n")
         return
 
     name, _, provider = match
@@ -288,7 +288,7 @@ def cmd_setup(args) -> None:
 
     if not providers:
         print("\n  No memory provider plugins detected.")
-        print("  Install a plugin to ~/.hermes/plugins/ and try again.\n")
+        print("  Install a plugin to ~/.xhermes/plugins/ and try again.\n")
         return
 
     # Build picker items
@@ -490,7 +490,7 @@ def cmd_status(args) -> None:
     user_mark = "enabled ✓" if user_profile_enabled else "disabled ✗"
 
     # Check if the memory tool is enabled for the CLI platform via the
-    # canonical resolver (handles composite toolsets like hermes-cli).
+    # canonical resolver (handles composite toolsets like xhermes-cli).
     from hermes_cli.tools_config import _get_platform_tools
     cli_tools = _get_platform_tools(config, "cli", include_default_mcp_servers=False)
     memory_tool_enabled = "memory" in cli_tools
@@ -548,7 +548,7 @@ def cmd_status(args) -> None:
                         print(line)
         else:
             print("\n  Plugin:    NOT installed ✗")
-            print(f"  Install the '{provider_name}' memory plugin to ~/.hermes/plugins/")
+            print(f"  Install the '{provider_name}' memory plugin to ~/.xhermes/plugins/")
 
     if providers:
         print("\n  Installed plugins:")

@@ -1,5 +1,5 @@
 /**
- * Canonical Hermes skin — the theme SDK's cross-surface contract.
+ * Canonical XHermes skin — the theme SDK's cross-surface contract.
  *
  * A skin is authored once as YAML in `$HERMES_HOME/skins/<name>.yaml` (or a
  * built-in), resolved by the Python skin engine (`hermes_cli/skin_engine.py`),

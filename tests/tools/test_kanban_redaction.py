@@ -19,7 +19,7 @@ import pytest
 @pytest.fixture
 def worker_env(monkeypatch, tmp_path):
     """Isolated HERMES_HOME with a running task; returns the task id."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setenv("HERMES_PROFILE", "test-worker")

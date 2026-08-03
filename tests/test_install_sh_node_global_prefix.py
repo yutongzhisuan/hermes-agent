@@ -1,4 +1,4 @@
-"""Regression tests for the Hermes-managed Node's npm global prefix.
+"""Regression tests for the XHermes-managed Node's npm global prefix.
 
 When the installer falls back to a bundled Node under ``$HERMES_HOME/node``,
 npm's default global prefix is that Node dir, so ``npm install -g <pkg>``

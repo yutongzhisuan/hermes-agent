@@ -14,7 +14,7 @@ import gateway.run as gateway_run
 
 
 def _write_home(tmp_path: Path, sessions_cfg: dict, env_text: str = "") -> Path:
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         yaml.safe_dump({"sessions": sessions_cfg}), encoding="utf-8"

@@ -23,14 +23,14 @@ def test_storage_defaults_to_permanent_public_urls(tmp_path, monkeypatch):
 
     storage = build_xai_storage_options(
         "image_gen",
-        filename_prefix="hermes-xai-image",
+        filename_prefix="xhermes-xai-image",
         extension="png",
     )
 
     assert storage is not None
     assert storage["public_url"] is True
     assert "expires_after" not in storage
-    assert storage["filename"].startswith("hermes-xai-image-")
+    assert storage["filename"].startswith("xhermes-xai-image-")
     assert storage["filename"].endswith(".png")
 
 
@@ -51,7 +51,7 @@ def test_invalid_storage_retention_falls_back_to_bounded_ttl(tmp_path, monkeypat
 
     storage = build_xai_storage_options(
         "video_gen",
-        filename_prefix="hermes-xai-video",
+        filename_prefix="xhermes-xai-video",
         extension="mp4",
     )
 

@@ -15,8 +15,8 @@ Rules:
   - chrome-profile→ prompt after 14 days (deep only)
   - >500 MB files → prompt always (deep only)
 
-Scope: strictly HERMES_HOME and /tmp/hermes-*
-Never touches: ~/.hermes/logs/ or any system directory.
+Scope: strictly HERMES_HOME and /tmp/xhermes-*
+Never touches: ~/.xhermes/logs/ or any system directory.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def get_log_file() -> Path:
 # ---------------------------------------------------------------------------
 
 def is_safe_path(path: Path) -> bool:
-    """Accept only paths under HERMES_HOME or ``/tmp/hermes-*``.
+    """Accept only paths under HERMES_HOME or ``/tmp/xhermes-*``.
 
     Rejects Windows mounts (``/mnt/c`` etc.) and any system directory.
     """
@@ -74,9 +74,9 @@ def is_safe_path(path: Path) -> bool:
         return True
     except (ValueError, OSError):
         pass
-    # Allow /tmp/hermes-* explicitly
+    # Allow /tmp/xhermes-* explicitly
     parts = path.parts
-    if len(parts) >= 3 and parts[1] == "tmp" and parts[2].startswith("hermes-"):
+    if len(parts) >= 3 and parts[1] == "tmp" and parts[2].startswith("xhermes-"):
         return True
     return False
 
@@ -147,7 +147,7 @@ ALLOWED_CATEGORIES = {
 _EMPTY_DIR_PROTECTED_TOP_LEVEL = frozenset({
     "logs", "memories", "sessions", "cron", "cronjobs",
     "cache", "skills", "plugins", "disk-cleanup", "optional-skills",
-    "hermes-agent", "backups", "profiles", ".worktrees",
+    "xhermes-agent", "backups", "profiles", ".worktrees",
     # User-authored project trees — never sweep empty directories
     # inside these (#75403).
     "patches", "projects", "skins", "themes", "contributors",
@@ -383,7 +383,7 @@ def quick() -> Dict[str, Any]:
             new_tracked.append(item)
 
     # Remove empty dirs under HERMES_HOME, but never recurse into known
-    # durable state trees.  Some installs place the Hermes checkout, venv,
+    # durable state trees.  Some installs place the XHermes checkout, venv,
     # and desktop build under HERMES_HOME; a full rglob over that tree can
     # stall the gateway event loop for minutes.
     hermes_home = get_hermes_home()
@@ -580,7 +580,7 @@ def guess_category(path: Path) -> Optional[str]:
         if top in {
             "disk-cleanup", "logs", "memories", "sessions", "config.yaml",
             "skills", "plugins", ".env", "USER.md", "MEMORY.md", "SOUL.md",
-            "auth.json", "hermes-agent",
+            "auth.json", "xhermes-agent",
             # User-authored and project trees — never auto-delete files
             # inside these just because they happen to be named test_* or
             # tmp_* (#75403, also #32164, #37721).
@@ -600,7 +600,7 @@ def guess_category(path: Path) -> Optional[str]:
         if top == "cache":
             return "temp"
     except ValueError:
-        # Path isn't under HERMES_HOME (e.g. /tmp/hermes-*) — fall through.
+        # Path isn't under HERMES_HOME (e.g. /tmp/xhermes-*) — fall through.
         pass
 
     name = path.name

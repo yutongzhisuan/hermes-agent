@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/join"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/join"
 	"google.golang.org/grpc/metadata"
 )
 

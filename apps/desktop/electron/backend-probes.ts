@@ -3,7 +3,7 @@
  *
  * Cheap "does this candidate backend actually work" checks used by
  * resolveHermesBackend (main.ts). The resolver walks a ladder of
- * candidates -- bootstrap marker, `hermes` on PATH, system Python with
+ * candidates -- bootstrap marker, `xhermes` on PATH, system Python with
  * hermes_cli installed -- and historically returned the first candidate
  * whose binary existed on disk. That assumption breaks when a user has
  * a pre-installed Python 3.11-3.13 (so findSystemPython() returns a
@@ -107,13 +107,13 @@ function execProbeSync(
       throw err
     }
 
-    // One cold-cache / AV miss should not force hermes-setup --update (#61764).
+    // One cold-cache / AV miss should not force xhermes-setup --update (#61764).
     execFileSync(command, args, options)
   }
 }
 
 /**
- * Return the Python snippet used to verify Hermes can import far enough to
+ * Return the Python snippet used to verify XHermes can import far enough to
  * launch the CLI. Kept exported for tests so dependency regressions are
  * caught without needing a real broken venv fixture.
  *
@@ -124,7 +124,7 @@ function hermesRuntimeImportProbe() {
 }
 
 /**
- * Return true iff the Hermes runtime import probe exits 0.
+ * Return true iff the XHermes runtime import probe exits 0.
  *
  * Used to gate the "fallback to system Python with hermes_cli installed"
  * rung of resolveHermesBackend. Without this, a system Python 3.11-3.13
@@ -163,16 +163,16 @@ function canImportHermesCli(pythonPath: string, opts: { env?: Record<string, str
 /**
  * Return true iff `<hermesCommand> --version` exits 0.
  *
- * Used to gate the "existing `hermes` on PATH" rung. Without this, a
- * stale hermes.cmd shim left behind by an uninstalled pip install (or
- * a half-built venv whose `hermes` entry-point points at a deleted
+ * Used to gate the "existing `xhermes` on PATH" rung. Without this, a
+ * stale xhermes.cmd shim left behind by an uninstalled pip install (or
+ * a half-built venv whose `xhermes` entry-point points at a deleted
  * Python) survives findOnPath() and gets selected as the backend.
  *
  * We intentionally avoid invoking the command with the dashboard args
  * here -- `--version` is the cheapest "is this binary alive" smoke
  * test that every hermes_cli entry-point has supported since 0.1.
  *
- * @param {string} hermesCommand - Resolved absolute path to a hermes
+ * @param {string} hermesCommand - Resolved absolute path to a xhermes
  *   executable (or an interpreter+script wrapper).
  * @param {boolean} [opts.shell] - Whether to run through a shell. For
  *   .cmd/.bat shims on Windows execFileSync needs shell:true to find
@@ -183,7 +183,7 @@ function canImportHermesCli(pythonPath: string, opts: { env?: Record<string, str
 /**
  * An explicit desktop backend command is a deployment contract, not a PATH
  * discovery candidate. In particular, the Nix desktop wrapper points this at
- * its immutable, matching Hermes package; it must never fall through to the
+ * its immutable, matching XHermes package; it must never fall through to the
  * mutable install-script bootstrap path if a best-effort probe is slow.
  */
 function shouldTrustHermesOverride(hermesOverride?: string) {

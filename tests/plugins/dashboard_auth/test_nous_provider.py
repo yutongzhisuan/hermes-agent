@@ -1,6 +1,6 @@
 """Tests for the bundled Nous dashboard-auth plugin.
 
-Covers four shapes from Phase 4 of ``.hermes/plans/2026-05-21-dashboard-oauth-auth.md``:
+Covers four shapes from Phase 4 of ``.xhermes/plans/2026-05-21-dashboard-oauth-auth.md``:
 
 1. Plugin entry-point registration gating (env var checks).
 2. ``start_login`` shape (PKCE/state, authorize URL parameters).
@@ -159,7 +159,7 @@ class TestConstruction:
     def test_rejects_malformed_client_id(self):
         with pytest.raises(ValueError, match="agent:"):
             nous_plugin.NousDashboardAuthProvider(
-                client_id="hermes-dashboard", portal_url="https://x"
+                client_id="xhermes-dashboard", portal_url="https://x"
             )
 
 
@@ -310,13 +310,13 @@ class TestStartLogin:
 
     def test_returns_login_start(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         assert isinstance(result, LoginStart)
 
     def test_redirect_url_targets_portal_authorize(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         assert result.redirect_url.startswith(
             "https://portal.example.com/oauth/authorize?"
@@ -324,13 +324,13 @@ class TestStartLogin:
 
     def test_authorize_url_has_required_params(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         parsed = urllib.parse.urlparse(result.redirect_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
         assert params["response_type"] == "code"
         assert params["client_id"] == "agent:inst1"
-        assert params["redirect_uri"] == "https://hermes.fly.dev/auth/callback"
+        assert params["redirect_uri"] == "https://xhermes.fly.dev/auth/callback"
         assert params["scope"] == "agent_dashboard:access"
         assert params["code_challenge_method"] == "S256"
         assert "state" in params
@@ -338,7 +338,7 @@ class TestStartLogin:
 
     def test_code_verifier_in_cookie_payload_43_to_128_chars(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         assert "hermes_session_pkce" in result.cookie_payload
         pkce = result.cookie_payload["hermes_session_pkce"]
@@ -351,7 +351,7 @@ class TestStartLogin:
 
     def test_state_in_cookie_payload_matches_url_param(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         parsed = urllib.parse.urlparse(result.redirect_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
@@ -362,10 +362,10 @@ class TestStartLogin:
 
     def test_two_calls_produce_different_state_and_verifier(self, provider):
         a = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         b = provider.start_login(
-            redirect_uri="https://hermes.fly.dev/auth/callback"
+            redirect_uri="https://xhermes.fly.dev/auth/callback"
         )
         assert a.cookie_payload["hermes_session_pkce"] != b.cookie_payload[
             "hermes_session_pkce"
@@ -378,7 +378,7 @@ class TestStartLogin:
         # accepted; this client-side fast-fail must not reject self-hosted
         # dashboards reached over plain HTTP (LAN IPs, internal hostnames,
         # TLS-terminating reverse proxies). Should not raise.
-        provider.start_login(redirect_uri="http://hermes.fly.dev/auth/callback")
+        provider.start_login(redirect_uri="http://xhermes.fly.dev/auth/callback")
         provider.start_login(redirect_uri="http://192.168.1.50:8080/auth/callback")
         provider.start_login(redirect_uri="http://my-internal-host/auth/callback")
 
@@ -427,7 +427,7 @@ class TestCompleteLogin:
                 code="abc",
                 state="state-val",
                 code_verifier="vfy",
-                redirect_uri="https://hermes.fly.dev/auth/callback",
+                redirect_uri="https://xhermes.fly.dev/auth/callback",
             )
         assert isinstance(session, Session)
         assert session.user_id == "usr_abc"
@@ -447,7 +447,7 @@ class TestCompleteLogin:
             with pytest.raises(InvalidCodeError, match="invalid_grant"):
                 provider.complete_login(
                     code="bad", state="s", code_verifier="v",
-                    redirect_uri="https://hermes.fly.dev/auth/callback",
+                    redirect_uri="https://xhermes.fly.dev/auth/callback",
                 )
 
     def test_500_raises_provider_error(self, provider):
@@ -457,7 +457,7 @@ class TestCompleteLogin:
             with pytest.raises(ProviderError, match="500"):
                 provider.complete_login(
                     code="x", state="s", code_verifier="v",
-                    redirect_uri="https://hermes.fly.dev/auth/callback",
+                    redirect_uri="https://xhermes.fly.dev/auth/callback",
                 )
 
     def test_missing_access_token_raises(self, provider):
@@ -466,7 +466,7 @@ class TestCompleteLogin:
             with pytest.raises(ProviderError, match="access_token"):
                 provider.complete_login(
                     code="x", state="s", code_verifier="v",
-                    redirect_uri="https://hermes.fly.dev/auth/callback",
+                    redirect_uri="https://xhermes.fly.dev/auth/callback",
                 )
 
     def test_unexpected_token_type_raises(self, provider, rsa_keypair):
@@ -478,7 +478,7 @@ class TestCompleteLogin:
             with pytest.raises(ProviderError, match="token_type"):
                 provider.complete_login(
                     code="x", state="s", code_verifier="v",
-                    redirect_uri="https://hermes.fly.dev/auth/callback",
+                    redirect_uri="https://xhermes.fly.dev/auth/callback",
                 )
 
     def test_network_error_raises_provider_error(self, provider):
@@ -489,7 +489,7 @@ class TestCompleteLogin:
             with pytest.raises(ProviderError, match="unreachable"):
                 provider.complete_login(
                     code="x", state="s", code_verifier="v",
-                    redirect_uri="https://hermes.fly.dev/auth/callback",
+                    redirect_uri="https://xhermes.fly.dev/auth/callback",
                 )
 
     def test_captures_refresh_token_if_present_forward_compat(
@@ -509,7 +509,7 @@ class TestCompleteLogin:
         with patch("plugins.dashboard_auth.nous.httpx.post", return_value=mock_resp):
             session = provider.complete_login(
                 code="x", state="s", code_verifier="v",
-                redirect_uri="https://hermes.fly.dev/auth/callback",
+                redirect_uri="https://xhermes.fly.dev/auth/callback",
             )
         assert session.refresh_token == "rt-opaque"
 

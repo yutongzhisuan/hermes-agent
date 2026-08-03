@@ -42,7 +42,7 @@ test('platform detection preserves POSIX and falls back to Windows PowerShell', 
         os: 'Windows',
         arch: 'ARM64',
         hermesHome: 'C:\\h',
-        hermesPath: 'C:\\h\\hermes.exe',
+        hermesPath: 'C:\\h\\xhermes.exe',
         python: 'C:\\h\\python.exe'
       })
     })
@@ -74,23 +74,23 @@ test('platform detection surfaces transport failures as themselves, not unsuppor
           throw new Error('not recognized')
         }
 
-        throw new Error('Hermes is not installed on the remote Windows host.')
+        throw new Error('XHermes is not installed on the remote Windows host.')
       })
     ),
-    (err: any) => err.kind === 'unsupported-platform' && /Hermes is not installed/.test(err.message)
+    (err: any) => err.kind === 'unsupported-platform' && /XHermes is not installed/.test(err.message)
   )
 })
 
 test('helper command uses the fixed remote Python entry point and quotes path data', () => {
-  const command = helperCommand({ python: "C:\\Program Files\\Hermes's\\python.exe" }, 'inspect', [
-    'C:\\x y\\hermes.exe'
+  const command = helperCommand({ python: "C:\\Program Files\\XHermes's\\python.exe" }, 'inspect', [
+    'C:\\x y\\xhermes.exe'
   ])
 
   const encoded = command.split(' ').pop()!
   const script = Buffer.from(encoded, 'base64').toString('utf16le')
   assert.match(script, /-m' 'hermes_cli\.windows_ssh_runtime' 'inspect'/)
-  assert.match(script, /Hermes''s/)
-  assert.match(script, /C:\\x y\\hermes\.exe/)
+  assert.match(script, /XHermes''s/)
+  assert.match(script, /C:\\x y\\xhermes\.exe/)
 })
 
 test('Windows lock validation is scoped and exact', () => {
@@ -103,7 +103,7 @@ test('Windows lock validation is scoped and exact', () => {
     creationTimeNs: '1784219690452757504',
     port: 1234,
     tokenFingerprint: 'a'.repeat(32),
-    hermesPath: 'C:\\h\\hermes.exe',
+    hermesPath: 'C:\\h\\xhermes.exe',
     hermesHome: 'C:\\h'
   }
 
@@ -129,7 +129,7 @@ test('Windows SSH reuse requires the requested remote profile to match the lock'
     port: 1234,
     profile: 'default',
     tokenFingerprint: crypto.createHash('sha256').update(token).digest('hex').slice(0, 32),
-    hermesPath: 'C:\\h\\hermes.exe',
+    hermesPath: 'C:\\h\\xhermes.exe',
     hermesHome: 'C:\\h'
   }
 

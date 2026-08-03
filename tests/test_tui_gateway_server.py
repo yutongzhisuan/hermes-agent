@@ -39,7 +39,7 @@ def _neuter_agent_prewarm_timer(request, monkeypatch):
 
 
 def test_session_slot_is_claimed_on_first_turn_not_on_create(monkeypatch, tmp_path):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     (home / "config.yaml").write_text("max_concurrent_sessions: 1\n", encoding="utf-8")
     token = set_hermes_home_override(home)
@@ -789,7 +789,7 @@ def test_completion_cwd_prefers_launch_config_over_stale_env(monkeypatch, tmp_pa
     """
     configured = tmp_path / "omni"
     configured.mkdir()
-    stale = tmp_path / "hermes-agent"
+    stale = tmp_path / "xhermes-agent"
     stale.mkdir()
 
     monkeypatch.setenv("TERMINAL_CWD", str(stale))
@@ -1502,13 +1502,13 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
 
     monkeypatch.setattr(wake_word, "load_wake_word_config", lambda: {
         "enabled": True,
-        "phrase": "hey hermes",
+        "phrase": "hey xhermes",
         "surface": "auto",
         "start_new_session": True,
     })
     monkeypatch.setattr(wake_word, "check_wake_word_requirements", lambda _cfg: {
         "available": True,
-        "phrase": "hey hermes",
+        "phrase": "hey xhermes",
         "provider": "test",
         "hint": "",
     })
@@ -1590,7 +1590,7 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
         assert emitted == [(
             "wake.detected",
             "first-session",
-            {"phrase": "hey hermes", "profile": None, "start_new_session": True},
+            {"phrase": "hey xhermes", "profile": None, "start_new_session": True},
             first,
         )]
         assert state["paused"] is True
@@ -1627,7 +1627,7 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
         assert emitted[-1] == (
             "wake.detected",
             "second-session",
-            {"phrase": "hey hermes", "profile": None, "start_new_session": True},
+            {"phrase": "hey xhermes", "profile": None, "start_new_session": True},
             second,
         )
 
@@ -1650,7 +1650,7 @@ def test_wake_toggle_persists_enabled_flag_only_on_explicit_gesture(monkeypatch)
     """The ear toggle / /wake on|off write wake_word.enabled; auto-arm never does."""
     from tools import wake_word
 
-    config = {"enabled": False, "phrase": "hey hermes", "surface": "auto",
+    config = {"enabled": False, "phrase": "hey xhermes", "surface": "auto",
               "start_new_session": True}
     persisted = []
 
@@ -1663,7 +1663,7 @@ def test_wake_toggle_persists_enabled_flag_only_on_explicit_gesture(monkeypatch)
     monkeypatch.setattr(wake_word, "load_wake_word_config", lambda: dict(config))
     monkeypatch.setattr(wake_word, "check_wake_word_requirements", lambda _cfg: {
         "available": True,
-        "phrase": "hey hermes",
+        "phrase": "hey xhermes",
         "provider": "test",
         "hint": "",
     })
@@ -1730,7 +1730,7 @@ def test_wake_status_reports_configured_input_device_and_windows_silence_hint(mo
 
     config = {
         "enabled": True,
-        "phrase": "hey hermes",
+        "phrase": "hey xhermes",
         "provider": "openwakeword",
         "surface": "gui",
         "input_device": "Microphone Array",
@@ -1750,7 +1750,7 @@ def test_wake_status_reports_configured_input_device_and_windows_silence_hint(mo
         lambda cfg: {
             "available": True,
             "hint": "",
-            "phrase": "hey hermes",
+            "phrase": "hey xhermes",
             "provider": "openwakeword",
         },
     )
@@ -2013,7 +2013,7 @@ def test_load_enabled_toolsets_rejects_disabled_mcp_env(monkeypatch, capsys):
     )
 
     # Sorted: ["kanban", "memory", "project"]. `kanban` is auto-recovered by
-    # _get_platform_tools (a non-configurable platform toolset in hermes-cli's
+    # _get_platform_tools (a non-configurable platform toolset in xhermes-cli's
     # universe); `project` is GUI-only, folded in by _load_enabled_toolsets.
     # Toolsets inside their first release (_RECENTLY_SHIPPED_TOOLSETS) are
     # back-filled onto saved lists that never offered them — allow those too.
@@ -3140,10 +3140,10 @@ def test_resolve_model_strips_config_model(monkeypatch):
     monkeypatch.delenv("HERMES_MODEL", raising=False)
     monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
     monkeypatch.setattr(
-        server, "_load_cfg", lambda: {"model": {"default": " nous/hermes-test "}}
+        server, "_load_cfg", lambda: {"model": {"default": " nous/xhermes-test "}}
     )
 
-    assert server._resolve_model() == "nous/hermes-test"
+    assert server._resolve_model() == "nous/xhermes-test"
 
 
 def _sync_test_session(**extra):
@@ -3305,7 +3305,7 @@ def test_config_sync_config_wins_over_env_seed(monkeypatch):
 
 
 def test_config_sync_ignores_env_seed_without_config_model(monkeypatch):
-    # `hermes --tui -m <model>` sets HERMES_MODEL/HERMES_INFERENCE_MODEL as a
+    # `xhermes --tui -m <model>` sets HERMES_MODEL/HERMES_INFERENCE_MODEL as a
     # launch-scoped seed. When config.yaml has NO model.default (typical
     # custom-provider-only setup), the sync must NOT adopt the env seed as a
     # config target — doing so replayed the -m flag as a /model switch and
@@ -3377,15 +3377,15 @@ def test_apply_model_switch_persist_override_false_never_persists(monkeypatch):
 
 
 def test_startup_runtime_uses_tui_provider_env(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "nous/hermes-test")
+    monkeypatch.setenv("HERMES_MODEL", "nous/xhermes-test")
     monkeypatch.setenv("HERMES_TUI_PROVIDER", "nous")
     monkeypatch.delenv("HERMES_INFERENCE_PROVIDER", raising=False)
 
-    assert server._resolve_startup_runtime() == ("nous/hermes-test", "nous")
+    assert server._resolve_startup_runtime() == ("nous/xhermes-test", "nous")
 
 
 def test_startup_runtime_does_not_treat_inference_provider_as_explicit(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "nous/hermes-test")
+    monkeypatch.setenv("HERMES_MODEL", "nous/xhermes-test")
     monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
     monkeypatch.setenv("HERMES_INFERENCE_PROVIDER", "nous")
     monkeypatch.setattr(
@@ -3393,7 +3393,7 @@ def test_startup_runtime_does_not_treat_inference_provider_as_explicit(monkeypat
         lambda model, provider: None,
     )
 
-    assert server._resolve_startup_runtime() == ("nous/hermes-test", None)
+    assert server._resolve_startup_runtime() == ("nous/xhermes-test", None)
 
 
 def test_startup_runtime_detects_provider_for_model_env(monkeypatch):
@@ -5109,7 +5109,7 @@ def test_ensure_session_db_row_persists_session_source(monkeypatch):
 def test_ensure_session_db_row_records_a_terminal_workspace(monkeypatch, tmp_path):
     """A terminal session's directory IS its workspace, so the row records it.
 
-    The user cd'd there before running hermes. Leaving it null stranded the row
+    The user cd'd there before running xhermes. Leaving it null stranded the row
     with no cwd and no git_repo_root, so the sidebar could never place the
     session under its project.
     """
@@ -5593,7 +5593,7 @@ def test_config_get_approval_mode_uses_smart_default_when_key_is_missing(
     monkeypatch.setattr(server, "_hermes_home", tmp_path)
     # Point the canonical resolver (load_config → env HERMES_HOME) at the
     # temp home too, so the smart default is asserted against THIS config
-    # rather than whatever the developer's real ~/.hermes happens to hold.
+    # rather than whatever the developer's real ~/.xhermes happens to hold.
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         yaml.safe_dump({"approvals": {"timeout": 15}})
@@ -7946,11 +7946,11 @@ def test_file_attach_uploads_remote_file_into_session_workspace(monkeypatch, tmp
             }
         )
 
-        stored = workspace / ".hermes" / "desktop-attachments" / "report.txt"
+        stored = workspace / ".xhermes" / "desktop-attachments" / "report.txt"
         assert resp["result"]["attached"] is True
         assert resp["result"]["uploaded"] is True
         assert resp["result"]["path"] == str(stored)
-        assert resp["result"]["ref_text"] == "@file:.hermes/desktop-attachments/report.txt"
+        assert resp["result"]["ref_text"] == "@file:.xhermes/desktop-attachments/report.txt"
         assert stored.read_text(encoding="utf-8") == "hello world"
     finally:
         server._sessions.pop("sid", None)
@@ -7979,10 +7979,10 @@ def test_file_attach_copies_gateway_visible_file_outside_workspace(monkeypatch, 
             }
         )
 
-        stored = workspace / ".hermes" / "desktop-attachments" / "outside.txt"
+        stored = workspace / ".xhermes" / "desktop-attachments" / "outside.txt"
         assert resp["result"]["attached"] is True
         assert resp["result"]["uploaded"] is True
-        assert resp["result"]["ref_text"] == "@file:.hermes/desktop-attachments/outside.txt"
+        assert resp["result"]["ref_text"] == "@file:.xhermes/desktop-attachments/outside.txt"
         assert stored.read_text(encoding="utf-8") == "outside workspace"
     finally:
         server._sessions.pop("sid", None)
@@ -8015,7 +8015,7 @@ def test_file_attach_uses_in_workspace_file_without_copying(monkeypatch, tmp_pat
         assert resp["result"]["uploaded"] is False
         assert resp["result"]["ref_text"] == "@file:data/exam.csv"
         # No copy: nothing staged under desktop-attachments.
-        assert not (workspace / ".hermes" / "desktop-attachments").exists()
+        assert not (workspace / ".xhermes" / "desktop-attachments").exists()
     finally:
         server._sessions.pop("sid", None)
 
@@ -8073,7 +8073,7 @@ def test_file_attach_quotes_ref_with_spaces(monkeypatch, tmp_path):
         )
 
         assert resp["result"]["attached"] is True
-        assert resp["result"]["ref_text"] == "@file:`.hermes/desktop-attachments/my exam schedule.csv`"
+        assert resp["result"]["ref_text"] == "@file:`.xhermes/desktop-attachments/my exam schedule.csv`"
     finally:
         server._sessions.pop("sid", None)
 
@@ -8264,7 +8264,7 @@ def test_session_status_reads_live_gateway_agent(monkeypatch):
         server._sessions.pop("sid", None)
 
     out = resp["result"]["output"]
-    assert "Hermes TUI Status" in out
+    assert "XHermes TUI Status" in out
     assert "Session ID: session-key" in out
     assert "Title: Live TUI" in out
     assert "Model: live-model (live-provider)" in out
@@ -11653,13 +11653,13 @@ def test_pending_title_finalizer_uses_session_profile_db(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------
-# model.options — curated-list parity with `hermes model` and classic /model
+# model.options — curated-list parity with `xhermes model` and classic /model
 # --------------------------------------------------------------------------
 
 
 def test_model_options_does_not_overwrite_curated_models(monkeypatch):
     """The TUI model.options handler must surface the same curated model
-    list as `hermes model` and the classic CLI /model picker.
+    list as `xhermes model` and the classic CLI /model picker.
 
     Regression: earlier versions of this handler unconditionally replaced
     each provider's curated ``models`` field with ``provider_model_ids()``
@@ -12201,7 +12201,7 @@ def test_session_active_list_excludes_finalized_sessions(monkeypatch):
     that window ``session.active_list`` would otherwise still report the dead
     session, which is exactly the footer "N sessions" count that only ever grew
     until a gateway restart. A live session on the real stdio transport (the
-    standalone ``hermes --tui`` case) must still be reported.
+    standalone ``xhermes --tui`` case) must still be reported.
     """
     class _DB:
         def get_session_title(self, key):
@@ -12556,7 +12556,7 @@ def test_verification_status_outside_workspace_is_not_applicable(monkeypatch, tm
 
     monkeypatch.setattr(coding_context, "project_facts_for", lambda _cwd=None: None)
 
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     token = set_hermes_home_override(home)
     try:
@@ -13378,7 +13378,7 @@ def test_config_set_indicator_none_keeps_blank_repr(monkeypatch):
 
 
 def test_reload_env_rpc_calls_hermes_cli_reload_env(monkeypatch):
-    """reload.env mirrors classic CLI's `/reload` — re-reads ~/.hermes/.env
+    """reload.env mirrors classic CLI's `/reload` — re-reads ~/.xhermes/.env
     into the gateway process and reports the count of vars updated."""
     calls = {"n": 0}
 
@@ -13778,7 +13778,7 @@ def test_notification_poller_requeues_when_busy(monkeypatch):
 
 
 def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, tmp_path):
-    """TUI /save (session.save RPC) must snapshot under the Hermes profile
+    """TUI /save (session.save RPC) must snapshot under the XHermes profile
     home — not the project/workspace CWD — and include the system prompt,
     mirroring the classic CLI /save and the dashboard save export.
 
@@ -13786,7 +13786,7 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
     ``os.path.abspath(...)`` (the workspace CWD) and only exported ``model``
     and ``messages``, so ``system_prompt`` was missing.
     """
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
 
@@ -13797,10 +13797,10 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
 
     sid = "save-sid"
     agent = types.SimpleNamespace(
-        model="hermes-test",
+        model="xhermes-test",
         session_id="20260101_120000_abc123",
         session_start=datetime(2026, 1, 1, 12, 0, 0),
-        _cached_system_prompt="You are Hermes.",
+        _cached_system_prompt="You are XHermes.",
     )
     history = [
         {"role": "user", "content": "hi"},
@@ -13829,10 +13829,10 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
     assert saved_file.exists()
 
     payload = json.loads(saved_file.read_text())
-    assert payload["model"] == "hermes-test"
+    assert payload["model"] == "xhermes-test"
     assert payload["session_id"] == "20260101_120000_abc123"
     assert payload["session_start"] == "2026-01-01T12:00:00"
-    assert payload["system_prompt"] == "You are Hermes."
+    assert payload["system_prompt"] == "You are XHermes."
     assert payload["messages"] == history
 
 
@@ -15978,7 +15978,7 @@ def test_build_persist_message_quotes_paths_containing_spaces(tmp_path):
     with a space parses as a truncated ref with the tail left as loose text.
     Desktop composer images live in the app's userData dir, which on macOS is
     ``~/Library/Application Support/...`` — a space every time."""
-    img_dir = tmp_path / "Application Support" / "Hermes" / "composer-images"
+    img_dir = tmp_path / "Application Support" / "XHermes" / "composer-images"
     img_dir.mkdir(parents=True)
     img = img_dir / "cat.png"
     img.write_bytes(b"png")

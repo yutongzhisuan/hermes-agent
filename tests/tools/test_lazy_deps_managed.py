@@ -1,6 +1,6 @@
 """Managed-install guard in :func:`tools.lazy_deps.ensure` (#48628).
 
-A package-manager install (NixOS, and anything else shipping Hermes from a
+A package-manager install (NixOS, and anything else shipping XHermes from a
 read-only store) cannot receive lazy pip installs: the venv's site-packages
 lives in the store, so the uv -> pip -> ensurepip ladder burns ~15s
 bootstrapping ensurepip only to fail. ``ensure()`` must fail fast instead.
@@ -20,7 +20,7 @@ def _missing_and_installable(monkeypatch):
     """Reach the guard: deps missing, installs allowed, no durable target.
 
     ``_allow_lazy_installs`` is patched explicitly so the suite does not
-    depend on the host's ~/.hermes/config.yaml (a local
+    depend on the host's ~/.xhermes/config.yaml (a local
     ``allow_lazy_installs: false`` otherwise short-circuits with a different
     rejection reason).
     """

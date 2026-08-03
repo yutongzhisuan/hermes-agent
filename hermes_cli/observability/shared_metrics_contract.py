@@ -1,4 +1,4 @@
-"""Bounded product contract for the first Hermes shared-metrics slice."""
+"""Bounded product contract for the first XHermes shared-metrics slice."""
 
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ from typing import Any
 
 from agent.relay_runtime import RUNTIME_INSTANCE_KEY
 
-SCHEMA_KEY = "hermes.metrics.schema_version"
-SCHEMA_VERSION = "hermes.metrics.event.v1"
-MODEL_CALL_SCOPE = "hermes.model_call"
-TASK_SCOPE = "hermes.task_run"
-SUBSCRIBER_NAME = "hermes.nemo_relay.shared_metrics"
+SCHEMA_KEY = "xhermes.metrics.schema_version"
+SCHEMA_VERSION = "xhermes.metrics.event.v1"
+MODEL_CALL_SCOPE = "xhermes.model_call"
+TASK_SCOPE = "xhermes.task_run"
+SUBSCRIBER_NAME = "xhermes.nemo_relay.shared_metrics"
 PRIMARY_MODEL_CALL_ROLE = "primary"
-MODEL_CALL_METRIC = "hermes.model_call.count"
-TASK_STARTED_METRIC = "hermes.task_run.started"
-TASK_FINISHED_METRIC = "hermes.task_run.finished"
+MODEL_CALL_METRIC = "xhermes.model_call.count"
+TASK_STARTED_METRIC = "xhermes.task_run.started"
+TASK_FINISHED_METRIC = "xhermes.task_run.finished"
 
 EXECUTION_SURFACES: frozenset[str] = frozenset({
     "api",
@@ -160,7 +160,7 @@ _MODEL_FAMILY_PATTERN = re.compile(
 )
 
 # These providers route across model families but are not marked as aggregators
-# in Hermes's execution metadata because that flag has narrower routing/catalog
+# in XHermes's execution metadata because that flag has narrower routing/catalog
 # semantics there.
 _TELEMETRY_AGGREGATOR_OVERRIDES = frozenset({
     "copilot-acp",
@@ -169,7 +169,7 @@ _TELEMETRY_AGGREGATOR_OVERRIDES = frozenset({
     "nous",
 })
 
-# Hermes intentionally resolves these local runtimes through the generic custom
+# XHermes intentionally resolves these local runtimes through the generic custom
 # provider path, so canonical provider metadata cannot distinguish them alone.
 _LOCAL_CUSTOM_PROVIDER_ALIASES = frozenset({"mlx", "ollama"})
 
@@ -371,7 +371,7 @@ def task_terminal_fields(
 
 
 def task_terminal_state(kwargs: dict[str, Any]) -> tuple[str, str, str]:
-    """Map Hermes terminal state to bounded task outcome dimensions."""
+    """Map XHermes terminal state to bounded task outcome dimensions."""
     reason = str(kwargs.get("turn_exit_reason") or "").strip().lower()
     if kwargs.get("interrupted") or "interrupt" in reason or "cancel" in reason:
         return "cancelled", "user_cancelled", "user_cancelled"
@@ -421,7 +421,7 @@ def count_bucket(count: int) -> str:
 
 
 def provider_family(kwargs: dict[str, Any]) -> str:
-    """Map a Hermes provider to a bounded product category."""
+    """Map a XHermes provider to a bounded product category."""
     raw_provider = str(kwargs.get("provider") or "").strip().lower().replace("_", "-")
     if not raw_provider:
         return "unknown"
@@ -458,7 +458,7 @@ def _provider_metadata(provider: str) -> tuple[str, bool, bool]:
 
 @lru_cache(maxsize=1)
 def _known_provider_ids() -> frozenset[str]:
-    """Cache Hermes's static provider catalog for the process lifetime."""
+    """Cache XHermes's static provider catalog for the process lifetime."""
     try:
         from hermes_cli.provider_catalog import provider_catalog_by_slug
 

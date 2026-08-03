@@ -11,7 +11,7 @@
  *
  * Background on the two auth models a remote gateway can use:
  *   - 'token': legacy static dashboard session token. REST uses an
- *     `X-Hermes-Session-Token` header; WS uses `?token=`.
+ *     `X-XHermes-Session-Token` header; WS uses `?token=`.
  *   - 'oauth': hosted gateways gate behind an OAuth provider. REST is authed
  *     by an HttpOnly session cookie; WS upgrades require a single-use
  *     `?ticket=` minted at POST /api/auth/ws-ticket. The gateway advertises
@@ -28,7 +28,7 @@
 //     Max-Age tracks the access-token TTL, so the cookie jar drops it the
 //     instant the AT expires.
 //   - hermes_session_rt: the OAuth refresh token. Long-lived (24h rotating,
-//     reuse-detected — Portal NAS #293 / hermes #37247). When the AT cookie
+//     reuse-detected — Portal NAS #293 / xhermes #37247). When the AT cookie
 //     has lapsed but the RT cookie is still present, the gateway middleware
 //     transparently rotates a fresh AT on the next authenticated request
 //     (POST /api/auth/ws-ticket), so the session is still LIVE even with no
@@ -37,7 +37,7 @@
 const AT_COOKIE_VARIANTS = ['__Host-hermes_session_at', '__Secure-hermes_session_at', 'hermes_session_at']
 const RT_COOKIE_VARIANTS = ['__Host-hermes_session_rt', '__Secure-hermes_session_rt', 'hermes_session_rt']
 
-// The Nous portal (NAS) does NOT use Hermes gateway session cookies — it is a
+// The Nous portal (NAS) does NOT use XHermes gateway session cookies — it is a
 // Privy-authed Next.js app. NAS `auth()` (src/server/auth/session.ts) reads the
 // `privy-token` access-token cookie (with `privy-id-token` alongside), which is
 // also exactly what the `/api/agents` cookie-auth path validates. So portal
@@ -47,7 +47,7 @@ const RT_COOKIE_VARIANTS = ['__Host-hermes_session_rt', '__Secure-hermes_session
 const PRIVY_SESSION_COOKIE_VARIANTS = ['__Host-privy-token', '__Secure-privy-token', 'privy-token', 'privy-session']
 // Keep this aligned with hermes_cli.profiles.validate_profile_name(). `default`
 // is the built-in root alias; these names cannot be created as profiles.
-const RESERVED_REMOTE_PROFILES = new Set(['hermes', 'test', 'tmp', 'root', 'sudo'])
+const RESERVED_REMOTE_PROFILES = new Set(['xhermes', 'test', 'tmp', 'root', 'sudo'])
 
 function normalizeRemoteBaseUrl(rawUrl) {
   let value = String(rawUrl || '').trim()
@@ -206,7 +206,7 @@ function normAuthMode(mode) {
 }
 
 // True for connection modes that resolve to a REMOTE backend. 'cloud' is a
-// Hermes Cloud connection (cloud-auto-discovery Q3/Q6): it carries a
+// XHermes Cloud connection (cloud-auto-discovery Q3/Q6): it carries a
 // remote-shaped block and reuses the entire remote connect/probe/reconnect
 // path, so every resolution site treats it exactly like 'remote'. The only
 // places that distinguish cloud from remote are the settings UI (which card to
@@ -285,8 +285,8 @@ function normalizeSshConfig(entry) {
   }
 
   // A Desktop profile can be a local routing label rather than the profile
-  // name used by the remote Hermes installation. Preserve an explicit mapping
-  // when it is a valid Hermes profile identifier; otherwise fall back to the
+  // name used by the remote XHermes installation. Preserve an explicit mapping
+  // when it is a valid XHermes profile identifier; otherwise fall back to the
   // historical same-name behavior in the caller.
   const remoteProfile = String(entry.remoteProfile || '').trim()
 
@@ -447,7 +447,7 @@ function pathWithGlobalRemoteProfile(path, profile, opts: ProfileRouteOptions = 
   let parsed
 
   try {
-    parsed = new URL(rawPath, 'http://hermes.local')
+    parsed = new URL(rawPath, 'http://xhermes.local')
   } catch {
     return path
   }
@@ -502,7 +502,7 @@ function resolveAuthMode(inputAuthMode, existingAuthMode) {
 }
 
 /**
- * True if any cookie in `cookies` is a hermes session ACCESS-token cookie
+ * True if any cookie in `cookies` is a xhermes session ACCESS-token cookie
  * with a non-empty value. `cookies` is an array of {name, value} (the shape
  * Electron's session.cookies.get returns).
  *
@@ -545,7 +545,7 @@ function cookiesHaveLiveSession(cookies) {
  * True if the cookie jar holds a live Nous PORTAL (Privy) session — a non-empty
  * `privy-token` (access-token) cookie, or a variant. This is the portal
  * analogue of `cookiesHaveLiveSession`: the portal authenticates via Privy, not
- * the Hermes gateway session cookies, so cloud sign-in / discovery liveness
+ * the XHermes gateway session cookies, so cloud sign-in / discovery liveness
  * must check THIS, not the gateway helpers. (NAS `auth()` and the `/api/agents`
  * cookie path both key off `privy-token`.)
  */

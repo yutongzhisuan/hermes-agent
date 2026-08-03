@@ -68,7 +68,7 @@ import type {
   WebhookCreateResponse,
   WebhookEnableResponse,
   WebhooksResponse
-} from '@/types/hermes'
+} from '@/types/xhermes'
 
 // Desktop startup fires a burst of read-only data calls (config, profiles,
 // model info/options, cron) the moment the backend passes readiness. On a
@@ -76,7 +76,7 @@ import type {
 // /api/profiles runs list_profiles(), which does a recursive skill-tree walk
 // per profile — so the 15s default (DEFAULT_FETCH_TIMEOUT_MS in hardening.ts)
 // times out a backend that is alive-but-busy, surfacing as a spurious
-// "Timed out connecting to Hermes backend" that hangs the UI (#48504).
+// "Timed out connecting to XHermes backend" that hangs the UI (#48504).
 //
 // Give the boot burst a generous per-call timeout instead of raising the
 // global default: interactive/runtime calls and the liveness poll (/api/status)
@@ -222,15 +222,15 @@ export type {
   WebhookEnableResponse,
   WebhookRoute,
   WebhooksResponse
-} from '@/types/hermes'
+} from '@/types/xhermes'
 
 export class HermesGateway extends JsonRpcGatewayClient {
   constructor() {
     super({
-      closedErrorMessage: 'Hermes gateway connection closed',
-      connectErrorMessage: 'Could not connect to Hermes gateway',
+      closedErrorMessage: 'XHermes gateway connection closed',
+      connectErrorMessage: 'Could not connect to XHermes gateway',
       createRequestId: nextId => nextId,
-      notConnectedErrorMessage: 'Hermes gateway is not connected',
+      notConnectedErrorMessage: 'XHermes gateway is not connected',
       requestTimeoutMs: DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS
     })
   }
@@ -293,7 +293,7 @@ function pluginPathSuffix(caller: string, path: string): string {
  *  declared-capability seam; today the namespace IS the boundary. */
 export async function pluginRest<T>(pluginId: string, path: string, opts: PluginRestOptions = {}): Promise<T> {
   if (!window.hermesDesktop?.api) {
-    throw new Error('Hermes desktop bridge unavailable')
+    throw new Error('XHermes desktop bridge unavailable')
   }
 
   const suffix = pluginPathSuffix('pluginRest', path)
@@ -492,7 +492,7 @@ export function resetSidebarBatchCapability() {
 // True only for "the route does not exist on this backend" shapes: the
 // backend catch-all ('404: {"detail":"No such API endpoint: ...}'), FastAPI's
 // bare 404 on headless serve (surfaces as '404: ...' directly or as
-// "Error invoking remote method 'hermes:api': Error: 404: ..." through the
+// "Error invoking remote method 'xhermes:api': Error: 404: ..." through the
 // IPC bridge), and the Electron JSON-guard ("endpoint is likely missing").
 // This GET has no path params, so a 404 status can only mean route-missing —
 // but transient failures (timeouts, 5xx, connection refused) must NOT match,
@@ -1472,7 +1472,7 @@ export interface RecommendedDefaultModel {
 }
 
 // Recommended default model for a freshly-authenticated provider. Mirrors the
-// curation `hermes model` does — for Nous it honors the free/paid tier so a
+// curation `xhermes model` does — for Nous it honors the free/paid tier so a
 // free user gets a free model instead of a paid default.
 export function getRecommendedDefaultModel(provider: string): Promise<RecommendedDefaultModel> {
   return window.hermesDesktop.api<RecommendedDefaultModel>({
@@ -1540,7 +1540,7 @@ export function restartGateway(): Promise<ActionResponse> {
 export function updateHermes(): Promise<ActionResponse> {
   return window.hermesDesktop.api<ActionResponse>({
     ...profileScoped(),
-    path: '/api/hermes/update',
+    path: '/api/xhermes/update',
     method: 'POST'
   })
 }
@@ -1551,7 +1551,7 @@ export function updateHermes(): Promise<ActionResponse> {
 export function checkHermesUpdate(force = false): Promise<BackendUpdateCheckResponse> {
   return window.hermesDesktop.api<BackendUpdateCheckResponse>({
     ...profileScoped(),
-    path: `/api/hermes/update/check${force ? '?force=true' : ''}`
+    path: `/api/xhermes/update/check${force ? '?force=true' : ''}`
   })
 }
 
@@ -1599,7 +1599,7 @@ export function getElevenLabsVoices(): Promise<ElevenLabsVoicesResponse> {
 }
 
 // ---------------------------------------------------------------------------
-// Skills hub — search / preview / scan / install (parity with `hermes skills`
+// Skills hub — search / preview / scan / install (parity with `xhermes skills`
 // and the dashboard's Browse-hub tab). Installs spawn background actions whose
 // logs are tailed via getActionStatus().
 // ---------------------------------------------------------------------------
@@ -1669,7 +1669,7 @@ export function updateSkillsFromHub(): Promise<ActionResponse> {
 
 // ---------------------------------------------------------------------------
 // MCP servers — structured list / test / enable toggle / catalog (parity with
-// `hermes mcp` and the dashboard MCP page). Raw JSON editing stays in
+// `xhermes mcp` and the dashboard MCP page). Raw JSON editing stays in
 // config.yaml via saveHermesConfig.
 // ---------------------------------------------------------------------------
 
@@ -1710,7 +1710,7 @@ export function installMcpCatalogEntry(
 }
 
 // ---------------------------------------------------------------------------
-// Memory data + curator (parity with `hermes memory` / `hermes curator`).
+// Memory data + curator (parity with `xhermes memory` / `xhermes curator`).
 // ---------------------------------------------------------------------------
 
 export function getMemoryStatus(): Promise<MemoryStatusResponse> {
@@ -1755,8 +1755,8 @@ export function runCurator(): Promise<ActionResponse> {
 }
 
 // ---------------------------------------------------------------------------
-// Maintenance operations (parity with `hermes doctor` / `hermes security
-// audit` / `hermes backup` / `hermes debug share` and the dashboard System
+// Maintenance operations (parity with `xhermes doctor` / `xhermes security
+// audit` / `xhermes backup` / `xhermes debug share` and the dashboard System
 // page). All except debug share are spawn-based background actions tailed via
 // getActionStatus().
 // ---------------------------------------------------------------------------

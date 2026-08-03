@@ -51,7 +51,7 @@ describe('partitionDroppedFiles', () => {
     // extractDroppedFiles emits a dropped directory as a path-only entry so it
     // stays a @folder: ref instead of hitting file.attach, which can't stage a
     // directory ("file not found on gateway and no data_url provided").
-    const folder = inAppRef('/Users/jeff/projects/hermes', { isDirectory: true })
+    const folder = inAppRef('/Users/jeff/projects/xhermes', { isDirectory: true })
 
     const { inAppRefs, osDrops } = partitionDroppedFiles([folder])
 
@@ -122,7 +122,7 @@ describe('extractDroppedFiles', () => {
   }
 
   it('emits a dropped directory as a path-only entry with isDirectory (no File to upload)', () => {
-    const transfer = stubTransfer([{ path: '/Users/jeff/projects/hermes', isDirectory: true }]) as DataTransfer & {
+    const transfer = stubTransfer([{ path: '/Users/jeff/projects/xhermes', isDirectory: true }]) as DataTransfer & {
       _pathByFile: Map<File, string>
     }
 
@@ -132,7 +132,7 @@ describe('extractDroppedFiles', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0]?.isDirectory).toBe(true)
-    expect(result[0]?.path).toBe('/Users/jeff/projects/hermes')
+    expect(result[0]?.path).toBe('/Users/jeff/projects/xhermes')
     // A directory carries no bytes — it must NOT ride the File/upload pipeline.
     expect(result[0]?.file).toBeUndefined()
     // And it partitions as an in-app ref (→ @folder:), never an OS upload drop.

@@ -1,4 +1,4 @@
-"""``hermes relay-acp-rpc`` subcommand parser."""
+"""``xhermes relay-acp-rpc`` subcommand parser."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ def build_relay_acp_rpc_parser(subparsers, *, cmd_relay_acp_rpc: Callable) -> No
     """Attach the ``relay-acp-rpc`` subcommand."""
     parser = subparsers.add_parser(
         "relay-acp-rpc",
-        help="Run the Hermes ACP JSON-RPC server for remote-acp workers",
+        help="Run the XHermes ACP JSON-RPC server for remote-acp workers",
         description=(
-            "Expose in-process Hermes ACP execution over HTTP JSON-RPC "
+            "Expose in-process XHermes ACP execution over HTTP JSON-RPC "
             "(acp.run / acp.cancel) for Task Relay remote-acp backends."
         ),
         add_help=False,

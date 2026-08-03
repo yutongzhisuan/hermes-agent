@@ -1,13 +1,13 @@
-"""Hermes skin/theme engine — the theme SDK for every surface.
+"""XHermes skin/theme engine — the theme SDK for every surface.
 
-A data-driven skin system that lets users (and Hermes itself) customize the
+A data-driven skin system that lets users (and XHermes itself) customize the
 visual appearance across the CLI, the TUI, and the desktop GUI from a single
-file. Skins are defined as YAML files in ~/.hermes/skins/ or as built-in presets.
+file. Skins are defined as YAML files in ~/.xhermes/skins/ or as built-in presets.
 No code changes are needed to add a new skin.
 
 This module is the source of truth: it resolves the active skin, and the gateway
 pushes the resolved palette to the TUI and desktop (see tui_gateway's
-``resolve_skin`` / ``skin.changed``). A skin dropped in ~/.hermes/skins/ therefore
+``resolve_skin`` / ``skin.changed``). A skin dropped in ~/.xhermes/skins/ therefore
 themes all three surfaces at once — the theme analogue of the plugin SDK.
 
 SKIN YAML SCHEMA
@@ -97,7 +97,7 @@ All fields are optional. Missing values inherit from the ``default`` skin.
       agent_name: "xHermes Agent"          # Banner title, status display
       welcome: "Welcome message"          # Shown at CLI startup
       goodbye: "Goodbye! ⚕"              # Shown on exit
-      response_label: " ⚕ Hermes "       # Response box header label
+      response_label: " ⚕ XHermes "       # Response box header label
       prompt_symbol: "❯"                 # Input prompt symbol (bare token; renderers add trailing space)
       help_header: "(^_^)? Commands"      # /help header text
 
@@ -122,12 +122,12 @@ USAGE
     print(skin.get_branding("agent_name"))  # "xHermes Agent"
 
     set_active_skin("ares")               # Switch to built-in ares skin
-    set_active_skin("mytheme")            # Switch to user skin from ~/.hermes/skins/
+    set_active_skin("mytheme")            # Switch to user skin from ~/.xhermes/skins/
 
 BUILT-IN SKINS
 ==============
 
-- ``default`` — Classic Hermes gold/kawaii (the current look)
+- ``default`` — Classic XHermes gold/kawaii (the current look)
 - ``ares``    — Crimson/bronze war-god theme with custom spinner wings
 - ``mono``    — Clean grayscale monochrome
 - ``slate``   — Cool blue developer-focused theme
@@ -137,7 +137,7 @@ BUILT-IN SKINS
 USER SKINS
 ==========
 
-Drop a YAML file in ``~/.hermes/skins/<name>.yaml`` following the schema above.
+Drop a YAML file in ``~/.xhermes/skins/<name>.yaml`` following the schema above.
 Activate with ``/skin <name>`` in the CLI or ``display.skin: <name>`` in config.yaml.
 """
 
@@ -201,9 +201,9 @@ class SkinConfig:
 _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
     "default": {
         "name": "default",
-        "description": "Classic Hermes — gold and kawaii",
+        "description": "Classic XHermes — gold and kawaii",
         # Dark-authored. Values match the TUI's DARK_THEME so the classic CLI
-        # and the TUI render the same Hermes gold.
+        # and the TUI render the same XHermes gold.
         "colors": {
             "banner_border": "#CD7F32",
             "banner_title": "#FFD700",
@@ -277,7 +277,7 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "agent_name": "xHermes Agent",
             "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Hermes ",
+            "response_label": " ⚕ XHermes ",
             "prompt_symbol": "❯",
             "help_header": "(^_^)? Available Commands",
         },
@@ -398,7 +398,7 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "agent_name": "xHermes Agent",
             "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Hermes ",
+            "response_label": " ⚕ XHermes ",
             "prompt_symbol": "❯",
             "help_header": "[?] Available Commands",
         },
@@ -442,7 +442,7 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "agent_name": "xHermes Agent",
             "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Hermes ",
+            "response_label": " ⚕ XHermes ",
             "prompt_symbol": "❯",
             "help_header": "(^_^)? Available Commands",
         },
@@ -488,7 +488,7 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "agent_name": "xHermes Agent",
             "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Hermes ",
+            "response_label": " ⚕ XHermes ",
             "prompt_symbol": "❯",
             "help_header": "[?] Available Commands",
         },
@@ -534,7 +534,7 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "agent_name": "xHermes Agent",
             "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! \u2695",
-            "response_label": " \u2695 Hermes ",
+            "response_label": " \u2695 XHermes ",
             "prompt_symbol": "\u276f",
             "help_header": "(^_^)? Available Commands",
         },

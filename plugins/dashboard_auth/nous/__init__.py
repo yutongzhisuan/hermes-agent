@@ -43,7 +43,7 @@ Key contract points encoded here:
     middleware persists back to the HttpOnly cookie. On a dead/expired/
     reuse-detected refresh token Portal returns 400 → ``RefreshExpiredError``
     → middleware redirects to ``/auth/login``.
-  - audience claim is the bare ``client_id`` (no ``hermes-cli:`` prefix).
+  - audience claim is the bare ``client_id`` (no ``xhermes-cli:`` prefix).
   - tolerant ``oauth_contract_version`` check: missing → warn + proceed;
     present and ``!= 1`` → refuse.
 

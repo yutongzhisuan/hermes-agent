@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 // Memory is an in-memory Store for router unit tests and local scaffolding.

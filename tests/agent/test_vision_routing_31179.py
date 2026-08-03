@@ -42,7 +42,7 @@ import pytest
 def isolated_home(monkeypatch):
     """Temp HERMES_HOME with config + clean credential env vars."""
     test_home = tempfile.mkdtemp(prefix="hermes_test_31179_")
-    hermes_home = os.path.join(test_home, ".hermes")
+    hermes_home = os.path.join(test_home, ".xhermes")
     os.makedirs(hermes_home)
     monkeypatch.setenv("HERMES_HOME", hermes_home)
 
@@ -88,7 +88,7 @@ def _module_isolation():
 
 
 def _fresh_modules():
-    """Drop cached hermes modules so each test reloads against current env."""
+    """Drop cached xhermes modules so each test reloads against current env."""
     _drop_reload_targets()
 
 

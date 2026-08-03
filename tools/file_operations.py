@@ -1009,7 +1009,7 @@ class ShellFileOperations(FileOperations):
         same filesystem, not a non-atomic cross-device copy), preserves the
         existing file's mode if it exists, then renames over the target.
         On any failure the temp file is removed so we never leak a partial
-        ``.hermes-tmp`` file next to the user's data, and the original file
+        ``.xhermes-tmp`` file next to the user's data, and the original file
         is left untouched. Content rides stdin so there is no ARG_MAX limit.
 
         Returns an :class:`ExecuteResult`; ``exit_code == 0`` means the file
@@ -1022,7 +1022,7 @@ class ShellFileOperations(FileOperations):
         # template basename: hidden so it doesn't show up in casual `ls`,
         # carries a marker so an orphaned temp (only possible on a hard
         # crash *between* cat and mv) is identifiable.
-        tmpl = self._escape_shell_arg(".hermes-tmp.XXXXXX")
+        tmpl = self._escape_shell_arg(".xhermes-tmp.XXXXXX")
 
         # One shell script, fully quoted. Notes:
         #  - `mktemp` lands the temp in the target's own dir (-p) so `mv` is
@@ -1059,8 +1059,8 @@ class ShellFileOperations(FileOperations):
             '[ -n "$rt" ] && { t="$rt"; d="$(dirname "$t")"; }; '
             "fi; "
             'tmp="$(mktemp -p "$d" ' + tmpl + ' 2>/dev/null '
-            '|| mktemp "$d/.hermes-tmp.$$.XXXXXX" 2>/dev/null '
-            '|| { tmp="$d/.hermes-tmp.$$"; : > "$tmp" && echo "$tmp"; })"; '
+            '|| mktemp "$d/.xhermes-tmp.$$.XXXXXX" 2>/dev/null '
+            '|| { tmp="$d/.xhermes-tmp.$$"; : > "$tmp" && echo "$tmp"; })"; '
             '[ -n "$tmp" ] || { echo "atomic write: could not create temp file" >&2; exit 1; }; '
             "trap 'rm -f \\\"$tmp\\\"' EXIT; "
             # preserve mode of an existing target (best-effort, never fatal)
@@ -1557,7 +1557,7 @@ class ShellFileOperations(FileOperations):
         # backend has it, falling back to a PID-stamped name otherwise. We
         # then chmod the temp to match the existing file's mode (if any) so
         # the atomic swap doesn't silently widen or narrow permissions, and
-        # clean the temp up on any failure so we never leak a ``.hermes-tmp``
+        # clean the temp up on any failure so we never leak a ``.xhermes-tmp``
         # turd next to the user's file.
         write_result = self._atomic_write(path, content)
 

@@ -65,7 +65,7 @@ def test_required_frontmatter_fields(frontmatter: dict) -> None:
     assert frontmatter["name"] == "grounded-citations"
     for field in ("version", "author", "license", "platforms"):
         assert frontmatter.get(field), f"missing frontmatter field: {field}"
-    assert frontmatter["metadata"]["hermes"]["category"] == "research"
+    assert frontmatter["metadata"]["xhermes"]["category"] == "research"
 
 
 def test_skill_body_has_modern_sections() -> None:
@@ -325,7 +325,7 @@ def test_cli_ledger_path_prefers_flag_over_env(sources_mod, tmp_path: Path, monk
 
 def test_cli_ledger_path_defaults_under_hermes_home(sources_mod, tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("HERMES_CITATION_LEDGER", raising=False)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
     path = sources_mod.resolve_ledger_path(None)
     assert path.parts[-3:] == ("cache", "citations", "ledger.json")
     assert str(tmp_path) in str(path)

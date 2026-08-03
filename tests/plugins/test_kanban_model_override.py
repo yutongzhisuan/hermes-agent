@@ -27,7 +27,7 @@ from hermes_cli import kanban_db as kb
 
 @pytest.fixture
 def kanban_home(tmp_path, monkeypatch):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
@@ -118,7 +118,7 @@ def test_migration_adds_provider_override_column(conn):
 
 
 def _spawn_and_capture(monkeypatch, tmp_path, task):
-    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["xhermes"])
     captured = {}
 
     class FakeProc:

@@ -955,7 +955,7 @@ class GatewayKanbanWatchersMixin:
 
         Gated by `kanban.dispatch_in_gateway` in config.yaml (default True).
         When true, the gateway hosts the single dispatcher for this profile:
-        no separate `hermes kanban daemon` process needed. When false, the
+        no separate `xhermes kanban daemon` process needed. When false, the
         loop exits immediately and an external daemon is expected.
 
         Each tick calls :func:`kanban_db.dispatch_once` inside
@@ -1240,7 +1240,7 @@ class GatewayKanbanWatchersMixin:
                         "SQLite database; pausing dispatch for this board until "
                         "the file changes, the gateway restarts, or the "
                         "quarantine timer expires. Move or restore the file, "
-                        "then run `hermes kanban init` if you need a fresh board.",
+                        "then run `xhermes kanban init` if you need a fresh board.",
                         slug,
                         fingerprint[0],
                     )
@@ -1255,7 +1255,7 @@ class GatewayKanbanWatchersMixin:
                         "SQLite database; pausing dispatch for this board until "
                         "the file changes, the gateway restarts, or the "
                         "quarantine timer expires. Move or restore the file, "
-                        "then run `hermes kanban init` if you need a fresh board.",
+                        "then run `xhermes kanban init` if you need a fresh board.",
                         slug,
                         fingerprint[0],
                     )
@@ -1288,7 +1288,7 @@ class GatewayKanbanWatchersMixin:
 
         def _ready_nonempty() -> bool:
             """Cheap probe: is there at least one ready+assigned+unclaimed
-            task on ANY board whose assignee maps to a real Hermes profile
+            task on ANY board whose assignee maps to a real XHermes profile
             (i.e. one the dispatcher would actually spawn for)?
 
             Tasks assigned to control-plane lanes (e.g. ``orion-cc``,
@@ -1296,7 +1296,7 @@ class GatewayKanbanWatchersMixin:
             ``claim_task`` directly and never spawnable, so a queue full
             of those is "correctly idle", not "stuck". Filtering them out
             here keeps the stuck-warn fire only on real failures (broken
-            PATH, missing venv, credential loss for a real Hermes profile).
+            PATH, missing venv, credential loss for a real XHermes profile).
             """
             try:
                 boards = _kb.list_boards(include_archived=False)
@@ -1472,7 +1472,7 @@ class GatewayKanbanWatchersMixin:
                             "kanban dispatcher stuck: ready queue non-empty for "
                             "%d consecutive ticks but 0 workers spawned. Check "
                             "profile health (venv, PATH, credentials) and "
-                            "`hermes kanban list --status ready`.",
+                            "`xhermes kanban list --status ready`.",
                             bad_ticks,
                         )
                         last_warn_at = now

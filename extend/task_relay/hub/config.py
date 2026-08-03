@@ -14,10 +14,10 @@ from extend.task_relay.hub.tls import TlsConfig
 
 
 def _default_db_path() -> str:
-    """Return the default SQLite DB path under the Hermes home directory.
+    """Return the default SQLite DB path under the XHermes home directory.
 
     Uses ``hermes_constants.get_hermes_home()`` when available. Falls back to
-    ``~/.hermes/relay/tasks.db`` so the Hub can still start in environments
+    ``~/.xhermes/relay/tasks.db`` so the Hub can still start in environments
     where the constants module is unreachable.
     """
     try:
@@ -71,7 +71,7 @@ class HubConfig:
     # Auth.from_config rejects an empty secret (fail-closed): a deployment
     # MUST set jwt_secret explicitly before any token can be issued.
     jwt_secret: str = ""
-    jwt_issuer: str = "hermes-relay-hub"
+    jwt_issuer: str = "xhermes-relay-hub"
     jwt_audience: str = "task-relay-hub"
     # Lifetime of issued worker/master JWTs.
     jwt_ttl_seconds: int = 3600
@@ -156,7 +156,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--db",
         default=_default_db_path(),
-        help="SQLite path or postgres:// URL (default: SQLite under Hermes home)",
+        help="SQLite path or postgres:// URL (default: SQLite under XHermes home)",
     )
     parser.add_argument(
         "--jwt-secret",

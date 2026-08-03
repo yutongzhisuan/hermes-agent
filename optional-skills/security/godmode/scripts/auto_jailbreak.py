@@ -54,7 +54,7 @@ if _race_path.exists():
     exec(compile(open(_race_path).read(), str(_race_path), 'exec'), _caller_globals)
 
 # ═══════════════════════════════════════════════════════════════════
-# Hermes config paths
+# XHermes config paths
 # ═══════════════════════════════════════════════════════════════════
 
 HERMES_HOME = Path(os.getenv("HERMES_HOME", Path.home() / ".xhermes"))
@@ -178,8 +178,8 @@ MODEL_STRATEGIES = {
             ),
         },
     },
-    # Nous/Hermes models — already uncensored, just needs clean prompt
-    "hermes": {
+    # Nous/XHermes models — already uncensored, just needs clean prompt
+    "xhermes": {
         "order": ["prefill_only"],
         "system_templates": {},
     },
@@ -305,8 +305,8 @@ def _detect_model_family(model: str) -> str:
         return "gemini"
     if "grok" in model_lower or "x-ai" in model_lower:
         return "grok"
-    if "hermes" in model_lower or "nous" in model_lower:
-        return "hermes"
+    if "xhermes" in model_lower or "nous" in model_lower:
+        return "xhermes"
     if "deepseek" in model_lower:
         return "deepseek"
     if "llama" in model_lower or "meta" in model_lower:
@@ -319,7 +319,7 @@ def _detect_model_family(model: str) -> str:
 
 
 def _get_current_model() -> tuple:
-    """Read current model and provider from Hermes config.yaml.
+    """Read current model and provider from XHermes config.yaml.
     Returns (model_str, base_url)."""
     if not CONFIG_PATH.exists():
         return None, None
@@ -408,7 +408,7 @@ def _write_config(system_prompt: str = None, prefill_file: str = None):
 
 
 def _write_prefill(prefill_messages: list):
-    """Write prefill messages to ~/.hermes/prefill.json."""
+    """Write prefill messages to ~/.xhermes/prefill.json."""
     with open(PREFILL_PATH, "w") as f:
         json.dump(prefill_messages, f, indent=2, ensure_ascii=False)
     return str(PREFILL_PATH)
@@ -669,7 +669,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             if verbose:
                 print(f"[LOCKED] Config written to: {config_written}")
                 print()
-                print("[DONE] Jailbreak locked in. Restart Hermes for changes to take effect.")
+                print("[DONE] Jailbreak locked in. Restart XHermes for changes to take effect.")
         else:
             if verbose:
                 print("[DRY RUN] Would write config + prefill but dry_run=True")
@@ -738,7 +738,7 @@ def undo_jailbreak(verbose=True):
             print(f"[UNDO] Deleted {PREFILL_PATH}")
 
     if verbose:
-        print("[UNDO] Jailbreak removed. Restart Hermes for changes to take effect.")
+        print("[UNDO] Jailbreak removed. Restart XHermes for changes to take effect.")
 
 
 # ═══════════════════════════════════════════════════════════════════

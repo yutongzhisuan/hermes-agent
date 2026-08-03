@@ -27,7 +27,7 @@ from tools.tirith_security import _load_security_config
 
 @pytest.fixture
 def config_home(tmp_path, monkeypatch):
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     (home / "config.yaml").write_text(
         "model:\n  default: test-model\n"

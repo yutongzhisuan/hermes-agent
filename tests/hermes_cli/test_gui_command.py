@@ -1,4 +1,4 @@
-"""Tests for ``hermes gui`` desktop launcher wiring."""
+"""Tests for ``xhermes gui`` desktop launcher wiring."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _ns(**kw):
 
 
 def _make_desktop_tree(tmp_path: Path) -> Path:
-    root = tmp_path / "hermes-agent"
+    root = tmp_path / "xhermes-agent"
     desktop_dir = root / "apps" / "desktop"
     desktop_dir.mkdir(parents=True)
     (desktop_dir / "package.json").write_text("{}", encoding="utf-8")
@@ -40,11 +40,11 @@ def _make_packaged_executable(root: Path, monkeypatch, platform: str = "darwin")
     monkeypatch.setattr(cli_main.sys, "platform", platform)
     desktop_dir = root / "apps" / "desktop"
     if platform == "darwin":
-        exe = desktop_dir / "release" / "mac-arm64" / "Hermes.app" / "Contents" / "MacOS" / "Hermes"
+        exe = desktop_dir / "release" / "mac-arm64" / "XHermes.app" / "Contents" / "MacOS" / "XHermes"
     elif platform == "win32":
-        exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+        exe = desktop_dir / "release" / "win-unpacked" / "XHermes.exe"
     else:
-        exe = desktop_dir / "release" / "linux-unpacked" / "hermes"
+        exe = desktop_dir / "release" / "linux-unpacked" / "xhermes"
     exe.parent.mkdir(parents=True)
     exe.write_text("", encoding="utf-8")
     return exe
@@ -86,7 +86,7 @@ def test_gui_installs_packages_and_launches_desktop_app(tmp_path, monkeypatch):
 def test_gui_install_env_prepends_managed_node_on_bare_path(tmp_path, monkeypatch):
     """Regression: npm's child scripts (electron-winstaller's select-7z-arch.js)
     shell out to bare ``node``. When Desktop is launched from the updater chain
-    the parent PATH is stripped, so the install env MUST carry the Hermes-managed
+    the parent PATH is stripped, so the install env MUST carry the XHermes-managed
     Node ahead of that bare PATH or the install dies with ``node: not found``.
     """
     import os
@@ -98,14 +98,14 @@ def test_gui_install_env_prepends_managed_node_on_bare_path(tmp_path, monkeypatc
     _make_packaged_executable(root, monkeypatch, platform="win32")
 
     # A managed Node tree on disk so with_hermes_node_path() actually prepends it.
-    home = tmp_path / "hermes-home"
+    home = tmp_path / "xhermes-home"
     (home / "node" / "bin").mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
     # Simulate the stripped PATH the desktop updater chain hands us.
     monkeypatch.setenv("PATH", os.pathsep.join(["/usr/bin", "/bin"]))
 
     install_ok = subprocess.CompletedProcess(["npm", "ci"], 0)
-    launch_ok = subprocess.CompletedProcess(["hermes"], 0)
+    launch_ok = subprocess.CompletedProcess(["xhermes"], 0)
 
     with patch("hermes_cli.main._resolve_node_runtime_npm", return_value="/usr/bin/npm"), \
          patch("hermes_cli.main._run_npm_install_deterministic", return_value=install_ok) as mock_install, \
@@ -189,7 +189,7 @@ def test_gui_does_not_retry_after_packaged_executable_exists(tmp_path, monkeypat
     Electron-download problem the cache purge + mirror retries exist to repair.
 
     Regression for #40187: a late failure such as macOS code signing leaves
-    Hermes.app/Contents/MacOS/Hermes in place. Re-downloading Electron can't
+    XHermes.app/Contents/MacOS/XHermes in place. Re-downloading Electron can't
     repair a signing failure, so the destructive purge + slow mirror retry must
     be skipped — we fail directly instead of grinding through an identical retry.
     """
@@ -291,19 +291,19 @@ def _write_info_plist(bundle: Path, identifier: str) -> None:
 
 
 def _make_signable_app(desktop_dir: Path) -> Path:
-    """Build a fake packaged Hermes.app with the pieces the signer must find."""
+    """Build a fake packaged XHermes.app with the pieces the signer must find."""
     ent_dir = desktop_dir / "electron"
     ent_dir.mkdir(parents=True, exist_ok=True)
     (ent_dir / "entitlements.mac.plist").write_text("<plist/>", encoding="utf-8")
     (ent_dir / "entitlements.mac.inherit.plist").write_text("<plist/>", encoding="utf-8")
 
-    app = desktop_dir / "release" / "mac-arm64" / "Hermes.app"
-    _write_info_plist(app, "com.nousresearch.hermes")
+    app = desktop_dir / "release" / "mac-arm64" / "XHermes.app"
+    _write_info_plist(app, "com.nousresearch.xhermes")
     (app / "Contents" / "MacOS").mkdir(parents=True)
-    (app / "Contents" / "MacOS" / "Hermes").write_text("", encoding="utf-8")
+    (app / "Contents" / "MacOS" / "XHermes").write_text("", encoding="utf-8")
 
-    helper = app / "Contents" / "Frameworks" / "Hermes Helper.app"
-    _write_info_plist(helper, "com.nousresearch.hermes.helper")
+    helper = app / "Contents" / "Frameworks" / "XHermes Helper.app"
+    _write_info_plist(helper, "com.nousresearch.xhermes.helper")
 
     native_dir = app / "Contents" / "Resources" / "app.asar.unpacked" / "node_modules" / "pty"
     native_dir.mkdir(parents=True)
@@ -330,7 +330,7 @@ def test_desktop_macos_local_codesign_signs_native_binaries(tmp_path, monkeypatc
     """The standalone Mach-O pass must actually find files inside the bundle.
 
     Regression: an absolute-path parts check always matches the outer
-    Hermes.app component, silently skipping every .node/.dylib/crashpad
+    XHermes.app component, silently skipping every .node/.dylib/crashpad
     binary — codesign then rejects the outer signature (nested code unsigned).
     """
     desktop_dir = tmp_path / "apps" / "desktop"

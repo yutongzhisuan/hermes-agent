@@ -7,7 +7,7 @@ the package's declared ``name``. A stale link (old path, old name) makes
 ``npm install`` fail: npm 10 crashes opaquely in arborist ("Cannot read
 properties of undefined (reading 'extraneous')") and npm 11 aborts with
 EMISSINGTARGET ("Missing target in lock file"). This bit the xhermes rename
-(``hermes-ink`` -> ``xhermes-ink``) across five workspaces, not just one.
+(``xhermes-ink`` -> ``xhermes-ink``) across five workspaces, not just one.
 
 These tests pin the relationship, not any specific package names — they are
 contracts between the lockfile and the working tree, so they keep guarding

@@ -27,7 +27,7 @@ def isolated_home(tmp_path, monkeypatch):
     files in the same worker (which breaks their import-time mocks), we snapshot
     the affected modules and restore them on teardown.
     """
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     monkeypatch.delenv("HERMES_MAX_TOKENS", raising=False)

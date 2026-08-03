@@ -10,7 +10,7 @@ These tests stand up a container with a named volume, create profiles
 inside it in various gateway states, restart the container, and
 assert the reconciler did the right thing.
 
-Every ``docker exec`` here runs as the unprivileged ``hermes`` user
+Every ``docker exec`` here runs as the unprivileged ``xhermes`` user
 (via :func:`docker_exec` / :func:`docker_exec_sh` in conftest); see
 the conftest module docstring.
 """
@@ -52,8 +52,8 @@ def restart_container(request, built_image: str):
     """A long-running container with a named volume so docker restart
     preserves $HERMES_HOME/profiles/."""
     safe = request.node.name.replace("[", "_").replace("]", "_")
-    name = f"hermes-restart-{safe}"
-    volume = f"hermes-restart-vol-{safe}"
+    name = f"xhermes-restart-{safe}"
+    volume = f"xhermes-restart-vol-{safe}"
     _docker("rm", "-f", name)
     _docker("volume", "rm", "-f", volume)
     _docker("volume", "create", volume, timeout=10).check_returncode()
@@ -80,7 +80,7 @@ def restart_container(request, built_image: str):
 def test_stopped_gateway_stays_stopped_after_restart(restart_container: str) -> None:
     container = restart_container
 
-    docker_exec(container, "hermes", "profile", "create", "writer").check_returncode()
+    docker_exec(container, "xhermes", "profile", "create", "writer").check_returncode()
 
     # Write 'stopped' directly so we don't have to race against the
     # gateway's own state writes.
@@ -111,7 +111,7 @@ def test_stale_gateway_pid_cleaned_up_on_restart(restart_container: str) -> None
     process-mismatch checks."""
     container = restart_container
 
-    docker_exec(container, "hermes", "profile", "create", "ghost").check_returncode()
+    docker_exec(container, "xhermes", "profile", "create", "ghost").check_returncode()
 
     # Stamp stale runtime files alongside a 'running' state so the
     # reconciler walks this profile.

@@ -23,7 +23,7 @@ def hermes_home(monkeypatch, tmp_path):
     (real file_ops and terminal environments get created under
     task_id='default' via _resolve_container_task_id).
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     yield home

@@ -1,4 +1,4 @@
-"""Integration tests for the Hermes ACP JSON-RPC server."""
+"""Integration tests for the XHermes ACP JSON-RPC server."""
 
 from __future__ import annotations
 

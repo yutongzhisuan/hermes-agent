@@ -1,4 +1,4 @@
-"""Helpers for loading Hermes .env files consistently across entrypoints."""
+"""Helpers for loading XHermes .env files consistently across entrypoints."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ _WARNED_UTF32_PATHS: set[str] = set()
 
 # Map of env-var name → source label ("bitwarden", etc.) for credentials
 # that were injected by an external secret source during load_hermes_dotenv().
-# Used by setup / `hermes model` flows to label detected credentials so
+# Used by setup / `xhermes model` flows to label detected credentials so
 # users understand WHERE a key came from when their .env doesn't contain it
 # directly (otherwise the "credentials detected ✓" line looks identical to
 # the .env case and they don't know Bitwarden is wired up).
@@ -55,7 +55,7 @@ _SECRET_SOURCE_CACHE_LOCK = threading.RLock()
 
 
 def _known_hermes_env_keys() -> set[str]:
-    """Return the combined set of known Hermes env-var keys.
+    """Return the combined set of known XHermes env-var keys.
 
     Includes both ``OPTIONAL_ENV_VARS`` (setup-flow vars with metadata) and
     ``_EXTRA_ENV_KEYS`` (provider/platform keys managed outside the setup
@@ -68,7 +68,7 @@ def _known_hermes_env_keys() -> set[str]:
     return set(OPTIONAL_ENV_VARS.keys()) | set(_EXTRA_ENV_KEYS)
 
 
-# Behavioral routing keys a parent Hermes process injects into child env and
+# Behavioral routing keys a parent XHermes process injects into child env and
 # that silently redirect a profile onto the wrong provider path (ACP auth
 # method, copilot-ACP endpoints). These — and ONLY these — are scrubbed from
 # os.environ at startup when absent from the profile's .env. Credential keys
@@ -114,7 +114,7 @@ def _env_keys_defined_in_dotenv(path: Path) -> set[str]:
 
 
 def _clear_known_keys_missing_from_dotenv(path: Path) -> None:
-    """Remove inherited profile-managed Hermes keys absent from ``.env``.
+    """Remove inherited profile-managed XHermes keys absent from ``.env``.
 
     After the profile's ``.env`` has been loaded with ``override=True``,
     scan the file for which profile-managed keys it explicitly defines and
@@ -123,14 +123,14 @@ def _clear_known_keys_missing_from_dotenv(path: Path) -> None:
 
     Scope is deliberately NARROW: only ``_PROFILE_MANAGED_ENV_KEYS`` —
     behavioral routing keys (ACP auth method, copilot-ACP endpoints) that a
-    parent Hermes process injects and that silently change *which provider
+    parent XHermes process injects and that silently change *which provider
     path* a profile uses. Provider API keys (OPENAI_API_KEY, …) are
     intentionally excluded: users legitimately export those in their shell
     (``export OPENAI_API_KEY=…`` is a documented flow — see
     ``tests/hermes_cli/test_dump_env_visibility.py``), and a startup scrub
     cannot distinguish a shell export from parent-process leakage. Clearing
     the full known-key set would delete user-exported credentials on every
-    ``hermes`` invocation.
+    ``xhermes`` invocation.
 
     Cross-profile *credential* isolation is handled at read time by
     ``agent.secret_scope.get_secret`` (scope authoritative under
@@ -333,7 +333,7 @@ def _sanitize_loaded_credentials() -> None:
             "rich-text editor, or web page that substituted lookalike\n"
             "  Unicode glyphs for ASCII letters. If authentication fails "
             '(e.g. "API key not valid"), re-copy the key from the\n'
-            "  provider's dashboard and run `hermes setup` (or edit the "
+            "  provider's dashboard and run `xhermes setup` (or edit the "
             ".env file in a plain-text editor).",
             file=sys.stderr,
         )
@@ -465,10 +465,10 @@ def load_hermes_dotenv(
     hermes_home: str | os.PathLike | None = None,
     project_env: str | os.PathLike | None = None,
 ) -> list[Path]:
-    """Load Hermes environment files with user config taking precedence.
+    """Load XHermes environment files with user config taking precedence.
 
     Behavior:
-    - `~/.hermes/.env` overrides stale shell-exported values when present.
+    - `~/.xhermes/.env` overrides stale shell-exported values when present.
     - project `.env` acts as a dev fallback and only fills missing values when
       the user env exists.
     - if no user env exists, the project `.env` also overrides stale shell vars.
@@ -488,7 +488,7 @@ def load_hermes_dotenv(
     if user_env.exists():
         _load_dotenv_with_fallback(user_env, override=True)
         loaded.append(user_env)
-        # Mirror reload_env() known-key cleanup so inherited Hermes keys
+        # Mirror reload_env() known-key cleanup so inherited XHermes keys
         # absent from this profile's .env do not leak into the runtime.
         _clear_known_keys_missing_from_dotenv(user_env)
 
@@ -499,7 +499,7 @@ def load_hermes_dotenv(
     # .op.env is gitignored — the service-account token never enters the
     # committed .env file.
     # Users on systemd can alternatively use:
-    #   EnvironmentFile=-/path/to/.hermes/.op.env
+    #   EnvironmentFile=-/path/to/.xhermes/.op.env
     # in their gateway unit, which takes precedence (override=False below
     # ensures .op.env never clobbers a token already in the environment).
     op_env = home_path / ".op.env"
@@ -515,8 +515,8 @@ def load_hermes_dotenv(
 
     # config.yaml is the documented source of truth for terminal.* settings,
     # but the dotenv loads above run with override=True — so a stale
-    # TERMINAL_ENV=docker left in ~/.hermes/.env (e.g. written by an older
-    # `hermes setup` before the user switched terminal.backend in config.yaml)
+    # TERMINAL_ENV=docker left in ~/.xhermes/.env (e.g. written by an older
+    # `xhermes setup` before the user switched terminal.backend in config.yaml)
     # silently wins again on every reload. Startup launchers bridge
     # config→env once, but long-lived processes (gateway per-turn reload,
     # cron standalone runs) call load_hermes_dotenv() repeatedly and used to
@@ -593,7 +593,7 @@ def _apply_external_secret_sources(home_path: Path) -> None:
     """Pull secrets from every enabled external source into env.
 
     Runs AFTER dotenv loads so .env values are visible (sources use them
-    to locate bootstrap tokens) but BEFORE the rest of Hermes reads
+    to locate bootstrap tokens) but BEFORE the rest of XHermes reads
     ``os.environ`` for credentials.  Any failure here is logged and
     swallowed — external secret sources must never block startup.
 
@@ -658,7 +658,7 @@ def _apply_external_secret_sources(home_path: Path) -> None:
         # user-supplied and might have the same copy-paste corruption as
         # a manually edited .env (see #6843).
         _sanitize_loaded_credentials()
-        # Remember where each var came from so setup / `hermes model`
+        # Remember where each var came from so setup / `xhermes model`
         # flows can label detected credentials with "(from Bitwarden)" /
         # "(from 1Password)" — otherwise users see "credentials ✓" with
         # no hint the value came from a vault rather than .env.
@@ -717,7 +717,7 @@ def _load_secrets_config(home_path: Path) -> dict:
     if not config_path.exists():
         return {}
     # Prefer the shared (mtime, size)-keyed raw-config cache — this is the
-    # first config.yaml read in a normal `hermes` startup, so populating the
+    # first config.yaml read in a normal `xhermes` startup, so populating the
     # shared cache here lets main.py's early bridge and hermes_logging reuse
     # the same parse (one parse per process instead of 3-4). Falls back to a
     # direct isolated parse if the shared reader is unavailable, preserving

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 func TestAttachTraceToSpecUsesExplicitContext(t *testing.T) {

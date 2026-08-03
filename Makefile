@@ -84,19 +84,19 @@ build-desktop: install-js ## Electron renderer + main
 
 # ── Run ─────────────────────────────────────────────────────────────
 run: ## Interactive CLI
-	$(UV) run hermes
+	$(UV) run xhermes
 
 run-tui: build-tui ## TUI mode
-	$(UV) run hermes --tui
+	$(UV) run xhermes --tui
 
 run-gateway: ## Messaging gateway (foreground)
-	$(UV) run hermes gateway
+	$(UV) run xhermes gateway
 
 run-dashboard: build-web ## Web dashboard
-	$(UV) run hermes dashboard
+	$(UV) run xhermes dashboard
 
 run-serve: build-web ## Headless backend (desktop/dashboard API)
-	$(UV) run hermes serve
+	$(UV) run xhermes serve
 
 run-desktop-dev: ## Desktop dev (Vite + Electron)
 	cd apps/desktop && $(NPM) run dev
@@ -109,7 +109,7 @@ run-website-dev: ## Docs site dev server
 
 # ── Package / Release ───────────────────────────────────────────────
 pack-docker: ## Build Docker image locally
-	docker build -t hermes-agent:local .
+	docker build -t xhermes-agent:local .
 
 release: ## Preview release changelog (dry run)
 	$(UV) run python scripts/release.py

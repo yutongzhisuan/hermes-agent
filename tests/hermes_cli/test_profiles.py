@@ -157,7 +157,7 @@ class TestCreateProfile:
 
 
 class TestNoSkillsOptOut:
-    """Tests for `hermes profile create --no-skills` and the opt-out marker."""
+    """Tests for `xhermes profile create --no-skills` and the opt-out marker."""
 
     def test_no_skills_writes_marker_and_skips_seeding(self, profile_env):
         profile_dir = create_profile("orchestrator", no_alias=True, no_skills=True)
@@ -211,7 +211,7 @@ class TestNoSkillsOptOut:
 
 
 class TestBackfillProfileEnvs:
-    """Tests for backfill_profile_envs() — the `hermes update` pass that
+    """Tests for backfill_profile_envs() — the `xhermes update` pass that
     gives pre-#44792 profiles (created before .env seeding) their own
     .env, copied from the default install so credentials don't break."""
 
@@ -450,7 +450,7 @@ class TestWrapperScript:
     def test_creates_sh_on_posix(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "darwin")
         monkeypatch.setattr(
-            "hermes_cli.profiles.shutil.which", lambda name: "/opt/hermes/bin/hermes"
+            "hermes_cli.profiles.shutil.which", lambda name: "/opt/xhermes/bin/xhermes"
         )
         from hermes_cli.profiles import create_wrapper_script
 
@@ -459,7 +459,7 @@ class TestWrapperScript:
         assert wrapper.name == "mybot"
         content = wrapper.read_text()
         assert content.startswith("#!/bin/sh")
-        assert "exec /opt/hermes/bin/hermes -p mybot" in content
+        assert "exec /opt/xhermes/bin/xhermes -p mybot" in content
 
     def test_remove_finds_bat_on_windows(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "win32")
@@ -566,14 +566,14 @@ class TestRenameProfile:
         honcho_path.write_text(
             json.dumps({
                 "hosts": {
-                    "hermes.ssi_health": {
+                    "xhermes.ssi_health": {
                         "recallMode": "hybrid",
                         "writeFrequency": "async",
                         "sessionStrategy": "per-session",
                         "saveMessages": True,
                         "peerName": "user-peer",
                         "aiPeer": "ssi_health",
-                        "workspace": "hermes",
+                        "workspace": "xhermes",
                         "enabled": True,
                     }
                 }
@@ -584,7 +584,7 @@ class TestRenameProfile:
             rename_profile("ssi_health", "heimdall")
 
         cfg = json.loads(honcho_path.read_text())
-        assert "hermes.ssi_health" not in cfg["hosts"]
+        assert "xhermes.ssi_health" not in cfg["hosts"]
         assert cfg["hosts"]["hermes_heimdall"]["aiPeer"] == "ssi_health"
         assert cfg["hosts"]["hermes_heimdall"]["peerName"] == "user-peer"
 
@@ -741,8 +741,8 @@ class TestEdgeCases:
         (default_home / "gateway_state.json").write_text(
             json.dumps({
                 "pid": live_pid,
-                "kind": "hermes-gateway",
-                "argv": ["hermes", "gateway", "run"],
+                "kind": "xhermes-gateway",
+                "argv": ["xhermes", "gateway", "run"],
                 "start_time": gw_status._get_process_start_time(live_pid),
                 "gateway_state": "running",
                 "active_agents": 0,
@@ -761,7 +761,7 @@ class TestEdgeCases:
             patch("gateway.status.get_running_pid", return_value=None),
             patch(
                 "gateway.status._read_process_cmdline",
-                return_value="hermes gateway run --replace",
+                return_value="xhermes gateway run --replace",
             ),
         ):
             assert _check_gateway_running(default_home) is True

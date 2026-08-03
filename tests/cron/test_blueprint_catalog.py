@@ -135,13 +135,13 @@ class TestRenderers:
 
     def test_deeplink_shape(self):
         url = blueprint_deeplink(get_blueprint("morning-brief"), {"time": "07:15"})
-        assert url.startswith("hermes://blueprint/morning-brief?")
+        assert url.startswith("xhermes://blueprint/morning-brief?")
         assert "time=07" in url
 
 
 @pytest.fixture
 def isolated_home(tmp_path, monkeypatch):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     import hermes_constants

@@ -6,7 +6,7 @@ read the other's reactions as conversational signal.
 
 ## What already exists
 
-Hermes already models reactions on the **platform** side — the desktop is the
+XHermes already models reactions on the **platform** side — the desktop is the
 only surface without them.
 
 | Surface | Reaction support | Where |
@@ -134,7 +134,7 @@ sees a familiar shape and no existing conversation is rewritten.
 - **No durable message id crosses the gateway RPC path.** `_history_to_messages()`
   (`tui_gateway/server.py:6545`) builds `{"role", "text"}` and drops the id. The
   REST path carries `messages.id` incidentally via `SELECT *` but TS
-  `SessionMessage` (`types/hermes.ts:513-533`) doesn't declare it. Renderer ids
+  `SessionMessage` (`types/xhermes.ts:513-533`) doesn't declare it. Renderer ids
   are ephemeral and change shape between rehydrated (`<ts>-<i>-<role>`), live
   (`assistant-<ms>`), and optimistic (`user-<ms>-<rand>`) messages. A reaction
   needs a stable key — this is the first thing to fix.

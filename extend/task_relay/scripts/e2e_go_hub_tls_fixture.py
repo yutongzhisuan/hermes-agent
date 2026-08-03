@@ -88,7 +88,7 @@ def main() -> None:
             hub_proc.kill()
             raise RuntimeError("go hub did not become ready")
 
-        auth = Auth(secret=SECRET, issuer="hermes-relay-hub", audience="task-relay-hub")
+        auth = Auth(secret=SECRET, issuer="xhermes-relay-hub", audience="task-relay-hub")
         master_jwt = auth.issue_master_jwt("go-hub-mtls-master", ttl_s=3600)
         print(
             json.dumps(

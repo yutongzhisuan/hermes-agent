@@ -441,7 +441,7 @@ class TestInstallArchiveMemberValidation:
         member.size = len(payload)
         archive, checksums = self._write_archive(tmp_path, member, payload)
 
-        hermes_home = tmp_path / "hermes-home"
+        hermes_home = tmp_path / "xhermes-home"
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
         with patch("tools.tirith_security._download_file",
                    side_effect=self._download_side_effect(archive, checksums)):
@@ -468,7 +468,7 @@ class TestInstallArchiveMemberValidation:
         member.linkname = "/bin/sh"
         archive, checksums = self._write_archive(tmp_path, member)
 
-        hermes_home = tmp_path / "hermes-home"
+        hermes_home = tmp_path / "xhermes-home"
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
         with patch("tools.tirith_security._download_file",
                    side_effect=self._download_side_effect(archive, checksums)):
@@ -566,7 +566,7 @@ class TestDiskFailureMarker:
 
 class TestHermesHomeIsolation:
     def test_hermes_bin_dir_respects_hermes_home(self):
-        """_hermes_bin_dir must use HERMES_HOME, not hardcoded ~/.hermes."""
+        """_hermes_bin_dir must use HERMES_HOME, not hardcoded ~/.xhermes."""
         from tools.tirith_security import _hermes_bin_dir
         import tempfile
         tmpdir = tempfile.mkdtemp()

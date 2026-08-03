@@ -9,7 +9,7 @@ syntax = "proto3";
 
 package task_relay.v1;
 
-option go_package = "github.com/infa/hermes-agent/extend/task_relay/gen/go;taskrelayv1";
+option go_package = "github.com/infa/xhermes-agent/extend/task_relay/gen/go;taskrelayv1";
 
 // gRPC Service (Master ↔ Hub)
 service TaskRelay {

@@ -1,4 +1,4 @@
-"""Thin ``hermes relay-hub`` style wrapper for the Task Relay Hub."""
+"""Thin ``xhermes relay-hub`` style wrapper for the Task Relay Hub."""
 
 from __future__ import annotations
 

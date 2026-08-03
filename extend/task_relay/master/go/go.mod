@@ -1,11 +1,11 @@
-module github.com/infa/hermes-agent/extend/task_relay/master/go
+module github.com/infa/xhermes-agent/extend/task_relay/master/go
 
 go 1.25.0
 
 require (
 	github.com/cloudwego/eino v0.9.13
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
-	github.com/infa/hermes-agent/extend/task_relay/gen/go v0.0.0
+	github.com/infa/xhermes-agent/extend/task_relay/gen/go v0.0.0
 	github.com/prometheus/client_golang v1.24.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0
 	go.opentelemetry.io/otel v1.44.0
@@ -68,4 +68,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/infa/hermes-agent/extend/task_relay/gen/go => ../../gen/go
+replace github.com/infa/xhermes-agent/extend/task_relay/gen/go => ../../gen/go

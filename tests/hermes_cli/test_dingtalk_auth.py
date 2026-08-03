@@ -21,7 +21,7 @@ class TestApiPost:
         with patch("hermes_cli.dingtalk_auth.requests.post",
                    side_effect=requests.ConnectionError("nope")):
             with pytest.raises(RegistrationError, match="Network error"):
-                _api_post("/app/registration/init", {"source": "hermes"})
+                _api_post("/app/registration/init", {"source": "xhermes"})
 
     def test_raises_on_nonzero_errcode(self):
         from hermes_cli.dingtalk_auth import _api_post, RegistrationError
@@ -32,7 +32,7 @@ class TestApiPost:
 
         with patch("hermes_cli.dingtalk_auth.requests.post", return_value=mock_resp):
             with pytest.raises(RegistrationError, match=r"boom \(errcode=42\)"):
-                _api_post("/app/registration/init", {"source": "hermes"})
+                _api_post("/app/registration/init", {"source": "xhermes"})
 
 
 # ---------------------------------------------------------------------------

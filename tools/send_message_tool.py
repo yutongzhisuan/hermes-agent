@@ -90,11 +90,11 @@ def _media_caption_split(text, media_files, *, max_caption_len):
     """Decide whether the accompanying text should ride on the media bubble.
 
     Single enforced chokepoint for the ``MEDIA:<path> caption`` behavior
-    across every standalone sender. ``hermes send`` (and the send_message
+    across every standalone sender. ``xhermes send`` (and the send_message
     tool / cron) strips the ``MEDIA:`` tag and leaves the remaining prose as
     ``text``; historically each platform sent that ``text`` as a *separate*
     message before an uncaptioned media bubble, splitting the reported case
-    ``hermes send --to whatsapp "MEDIA:/x.png This Caption"`` into two parts.
+    ``xhermes send --to whatsapp "MEDIA:/x.png This Caption"`` into two parts.
 
     Returns ``(caption, body_text)``:
 
@@ -427,9 +427,9 @@ def _handle_send(args):
                     },
                 )
             else:
-                return tool_error(f"Platform '{platform_name}' is not configured. Set up credentials in ~/.hermes/config.yaml or environment variables.")
+                return tool_error(f"Platform '{platform_name}' is not configured. Set up credentials in ~/.xhermes/config.yaml or environment variables.")
         else:
-            return tool_error(f"Platform '{platform_name}' is not configured. Set up credentials in ~/.hermes/config.yaml or environment variables.")
+            return tool_error(f"Platform '{platform_name}' is not configured. Set up credentials in ~/.xhermes/config.yaml or environment variables.")
 
     from gateway.platforms.base import BasePlatformAdapter
 
@@ -461,7 +461,7 @@ def _handle_send(args):
             return tool_error(
                 f"No home channel set for {platform_name} to determine where to send the message. "
                 f"Either specify a channel directly with '{platform_name}:CHANNEL_NAME', "
-                f"or set a home channel via: hermes config set {home_env} <channel_id>"
+                f"or set a home channel via: xhermes config set {home_env} <channel_id>"
             )
 
     duplicate_skip = _maybe_skip_cron_duplicate_send(platform_name, chat_id, thread_id)
@@ -1803,7 +1803,7 @@ async def _send_matrix_via_adapter(pconfig, chat_id, message, media_files=None, 
     that exhaust recipient OTKs and silently drop messages (issue #46310).
 
     Falls back to an ephemeral connect/disconnect cycle only when no gateway
-    is running (standalone cron, ``hermes send`` CLI).
+    is running (standalone cron, ``xhermes send`` CLI).
     """
     media_files = media_files or []
     metadata = {"thread_id": thread_id} if thread_id else None
@@ -2109,7 +2109,7 @@ from tools.registry import tool_error
 # ``_send_via_adapter``, ``_parse_target_ref``, the per-platform ``_send_*``
 # helpers) remains the shared transport used by:
 #   - cron delivery (cron/scheduler.py)
-#   - the ``hermes send`` CLI command (hermes_cli/send_cmd.py)
+#   - the ``xhermes send`` CLI command (hermes_cli/send_cmd.py)
 #   - the gateway kanban notifier (dashboard-toggled, outside agent control)
 #   - the standalone MCP server (mcp_serve.py), which is an opt-in surface
 # Those callers import the helpers directly; none of them need the registry

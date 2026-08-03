@@ -6,7 +6,7 @@ import { dedupeGeneratedImageEchoesInParts } from '@/lib/generated-images'
 import { mediaDisplayLabel, mediaMarkdownHref } from '@/lib/media'
 import { normalize } from '@/lib/text'
 import { parseTodos } from '@/lib/todos'
-import type { MessageReaction, SessionMessage, UsageStats } from '@/types/hermes'
+import type { MessageReaction, SessionMessage, UsageStats } from '@/types/xhermes'
 
 export type ChatMessagePart = Exclude<ThreadMessageLike['content'], string>[number]
 

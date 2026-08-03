@@ -1,4 +1,4 @@
-"""Offline, non-destructive recovery for a damaged Hermes session database.
+"""Offline, non-destructive recovery for a damaged XHermes session database.
 
 The recovery path deliberately avoids in-place repair:
 
@@ -323,7 +323,7 @@ def _snapshot_and_inspect(
 ) -> tuple[tempfile.TemporaryDirectory[str], Path, dict[str, Any]]:
     before = _source_fingerprint(source)
     temp_dir = tempfile.TemporaryDirectory(
-        prefix="hermes-session-recovery-",
+        prefix="xhermes-session-recovery-",
         dir=str(work_root),
     )
     snapshot_dir = Path(temp_dir.name)
@@ -333,7 +333,7 @@ def _snapshot_and_inspect(
         if before != after:
             raise SessionRecoverySafetyError(
                 "The source database bundle changed while it was being copied. "
-                "Stop every Hermes process using this profile and retry."
+                "Stop every XHermes process using this profile and retry."
             )
 
         conn = sqlite3.connect(

@@ -1,4 +1,4 @@
-"""Tests for `hermes curator status` output.
+"""Tests for `xhermes curator status` output.
 
 Covers:
 - y0shualee's "least recently active" semantic (view/patch/use all count as activity).
@@ -22,7 +22,7 @@ import pytest
 @pytest.fixture
 def curator_status_env(tmp_path, monkeypatch):
     """Isolated HERMES_HOME with real agent-created skills on disk."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     skills = home / "skills"
     skills.mkdir(parents=True)
     (home / "logs").mkdir()
@@ -48,7 +48,7 @@ def curator_status_env(tmp_path, monkeypatch):
             "description: test\n"
             "version: 1.0.0\n"
             "metadata:\n"
-            "  hermes:\n"
+            "  xhermes:\n"
             "    agent_created: true\n"
             "---\n"
             f"# {name}\n"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Let the agent react to a message with an emoji in the Hermes desktop app.
+"""Let the agent react to a message with an emoji in the XHermes desktop app.
 
 The conversational counterpart to the user's tapback: the same reaction store,
 the same one-per-author semantics, just written with ``author="agent"``.

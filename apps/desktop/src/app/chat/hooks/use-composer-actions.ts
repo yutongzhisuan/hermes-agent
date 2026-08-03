@@ -79,11 +79,11 @@ export interface DroppedFile {
 
 /** MIME emitted by in-app drag sources (project tree, gutter line numbers).
  * Payload is JSON `{ path; isDirectory?; line?; lineEnd? }[]`. */
-export const HERMES_PATHS_MIME = 'application/x-hermes-paths'
+export const HERMES_PATHS_MIME = 'application/x-xhermes-paths'
 
 /**
  * Eagerly resolve files from a drop event into [File?, path, isDirectory?]
- * triples. Internal Hermes sources (e.g. the project tree) ride on a custom
+ * triples. Internal XHermes sources (e.g. the project tree) ride on a custom
  * MIME and produce path-only entries; OS drops produce File-bearing entries.
  *
  * Must be called synchronously from inside the drop handler — `DataTransfer`

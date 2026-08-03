@@ -64,7 +64,7 @@ async def test_video_input_from_public_url_uses_url_field():
 def test_xai_video_image_input_blocks_credential_store_symlink(tmp_path, monkeypatch):
     from plugins.video_gen.xai import _image_ref_to_xai_input
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     auth_json = hermes_home / "auth.json"
     auth_json.write_text('{"api_key":"sk-secret"}', encoding="utf-8")

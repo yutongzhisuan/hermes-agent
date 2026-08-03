@@ -118,7 +118,7 @@ def make_prefetch_provider(monkeypatch, responses, **env):
     provider._endpoint = "http://openviking.test"
     provider._account = "default"
     provider._user = "default"
-    provider._agent = "hermes"
+    provider._agent = "xhermes"
     provider._session_id = "session-test"
     return provider
 
@@ -129,10 +129,10 @@ def wait_prefetch(provider, query="What should we recall?", session_id="session-
 
 class TestOpenVikingSummaryUriNormalization:
     def test_normalize_summary_uri_maps_pseudo_files_to_parent_directory(self):
-        assert OpenVikingMemoryProvider._normalize_summary_uri("viking://user/hermes/.overview.md") == "viking://user/hermes"
+        assert OpenVikingMemoryProvider._normalize_summary_uri("viking://user/xhermes/.overview.md") == "viking://user/xhermes"
         assert OpenVikingMemoryProvider._normalize_summary_uri("viking://resources/.abstract.md") == "viking://resources"
         assert OpenVikingMemoryProvider._normalize_summary_uri("viking://") == "viking://"
-        assert OpenVikingMemoryProvider._normalize_summary_uri("viking://user/hermes/memories/profile.md") == "viking://user/hermes/memories/profile.md"
+        assert OpenVikingMemoryProvider._normalize_summary_uri("viking://user/xhermes/memories/profile.md") == "viking://user/xhermes/memories/profile.md"
 
 class TestOpenVikingSkillQuerySafety:
     def test_derive_returns_empty_string_for_non_string_input(self):
@@ -190,7 +190,7 @@ class TestOpenVikingSkillQuerySafety:
         provider._api_key = ""
         provider._account = "default"
         provider._user = "default"
-        provider._agent = "hermes"
+        provider._agent = "xhermes"
         skill_message = (
             '[IMPORTANT: The user has invoked the "skill-creator" skill, indicating they want '
             "you to follow its instructions. The full skill content is loaded below.]\n\n"
@@ -224,7 +224,7 @@ class TestOpenVikingSkillQuerySafety:
         provider._api_key = ""
         provider._account = "default"
         provider._user = "default"
-        provider._agent = "hermes"
+        provider._agent = "xhermes"
         provider._session_id = "session-1"
         skill_message = (
             '[IMPORTANT: The user has invoked the "skill-creator" skill, indicating they want '
@@ -252,7 +252,7 @@ class TestOpenVikingSkillQuerySafety:
                         {
                             "role": "assistant",
                             "parts": [{"type": "text", "text": "Done."}],
-                            "peer_id": "hermes",
+                            "peer_id": "xhermes",
                         },
                     ]
                 },
@@ -381,30 +381,30 @@ class TestOpenVikingRead:
             {
                 (
                     "/api/v1/content/overview",
-                    (("uri", "viking://user/hermes"),),
+                    (("uri", "viking://user/xhermes"),),
                 ): {"result": {"content": "overview text"}},
             }
         )
 
-        result = json.loads(provider._tool_read({"uri": "viking://user/hermes/.overview.md", "level": "overview"}))
+        result = json.loads(provider._tool_read({"uri": "viking://user/xhermes/.overview.md", "level": "overview"}))
 
-        assert result["uri"] == "viking://user/hermes/.overview.md"
-        assert result["resolved_uri"] == "viking://user/hermes"
+        assert result["uri"] == "viking://user/xhermes/.overview.md"
+        assert result["resolved_uri"] == "viking://user/xhermes"
         assert result["level"] == "overview"
         assert result["content"] == "overview text"
         assert provider._client.calls == [(
             "/api/v1/content/overview",
-            {"uri": "viking://user/hermes"},
+            {"uri": "viking://user/xhermes"},
         )]
 
 
     def test_read_accepts_uri_batch_and_caps_batch_full_content(self):
         provider = OpenVikingMemoryProvider()
         uris = [
-            "viking://user/hermes/memories/a.md",
-            "viking://user/hermes/memories/b.md",
-            "viking://user/hermes/memories/c.md",
-            "viking://user/hermes/memories/d.md",
+            "viking://user/xhermes/memories/a.md",
+            "viking://user/xhermes/memories/b.md",
+            "viking://user/xhermes/memories/c.md",
+            "viking://user/xhermes/memories/d.md",
         ]
         provider._client = FakeVikingClient(
             {
@@ -446,19 +446,19 @@ class TestOpenVikingRead:
             {
                 (
                     "/api/v1/content/overview",
-                    (("uri", "viking://user/hermes"),),
+                    (("uri", "viking://user/xhermes"),),
                 ): RuntimeError("500 Internal Server Error"),
             }
         )
 
         try:
-            provider._tool_read({"uri": "viking://user/hermes/.overview.md", "level": "overview"})
+            provider._tool_read({"uri": "viking://user/xhermes/.overview.md", "level": "overview"})
             assert False, "Expected summary endpoint error to be raised"
         except RuntimeError:
             pass
 
         assert provider._client.calls == [
-            ("/api/v1/content/overview", {"uri": "viking://user/hermes"}),
+            ("/api/v1/content/overview", {"uri": "viking://user/xhermes"}),
         ]
 
 
@@ -534,7 +534,7 @@ class TestOpenVikingAutoRecallPrefetch:
                             "result": {
                                 "memories": [
                                     {
-                                        "uri": "viking://user/peers/hermes/memories/e2e-full.md",
+                                        "uri": "viking://user/peers/xhermes/memories/e2e-full.md",
                                         "score": 0.9,
                                         "level": 2,
                                         "category": "events",
@@ -567,7 +567,7 @@ class TestOpenVikingAutoRecallPrefetch:
         monkeypatch.setenv("OPENVIKING_ENDPOINT", endpoint)
         monkeypatch.setenv("OPENVIKING_ACCOUNT", "acct")
         monkeypatch.setenv("OPENVIKING_USER", "user")
-        monkeypatch.setenv("OPENVIKING_AGENT", "hermes")
+        monkeypatch.setenv("OPENVIKING_AGENT", "xhermes")
 
         provider = OpenVikingMemoryProvider()
         try:
@@ -585,7 +585,7 @@ class TestOpenVikingAutoRecallPrefetch:
         assert "people/ada.md — Ada is the project owner." in block
         assert "E2E full L2 memory content." in block
         assert "E2E abstract should not be injected." not in block
-        assert records["reads"] == ["viking://user/peers/hermes/memories/e2e-full.md"]
+        assert records["reads"] == ["viking://user/peers/xhermes/memories/e2e-full.md"]
         assert [listing["uri"] for listing in records["listings"]] == [
             "viking://user/memories/preferences",
             "viking://user/memories/entities",
@@ -606,7 +606,7 @@ class TestOpenVikingAutoRecallPrefetch:
             {key.lower(): value for key, value in headers.items()}
             for headers in records["headers"]
         ]
-        assert all(headers.get("x-openviking-actor-peer") == "hermes" for headers in normalized_headers)
+        assert all(headers.get("x-openviking-actor-peer") == "xhermes" for headers in normalized_headers)
         assert all(headers.get("x-openviking-account") == "acct" for headers in normalized_headers)
         assert all(headers.get("x-openviking-user") == "user" for headers in normalized_headers)
 
@@ -618,28 +618,28 @@ class TestOpenVikingBrowse:
             {
                 (
                     "/api/v1/fs/ls",
-                    (("uri", "viking://user/hermes"),),
+                    (("uri", "viking://user/xhermes"),),
                 ): {
                     "result": {
                         "entries": [
-                            {"name": "memories", "uri": "viking://user/hermes/memories", "type": "dir"},
-                            {"rel_path": "profile.md", "uri": "viking://user/hermes/memories/profile.md", "isDir": False, "abstract": "Profile"},
+                            {"name": "memories", "uri": "viking://user/xhermes/memories", "type": "dir"},
+                            {"rel_path": "profile.md", "uri": "viking://user/xhermes/memories/profile.md", "isDir": False, "abstract": "Profile"},
                         ]
                     }
                 },
             }
         )
 
-        result = json.loads(provider._tool_browse({"action": "list", "path": "viking://user/hermes"}))
+        result = json.loads(provider._tool_browse({"action": "list", "path": "viking://user/xhermes"}))
 
-        assert result["path"] == "viking://user/hermes"
+        assert result["path"] == "viking://user/xhermes"
         assert result["entries"] == [
-            {"name": "memories", "uri": "viking://user/hermes/memories", "type": "dir", "abstract": ""},
-            {"name": "profile.md", "uri": "viking://user/hermes/memories/profile.md", "type": "file", "abstract": "Profile"},
+            {"name": "memories", "uri": "viking://user/xhermes/memories", "type": "dir", "abstract": ""},
+            {"name": "profile.md", "uri": "viking://user/xhermes/memories/profile.md", "type": "file", "abstract": "Profile"},
         ]
         assert provider._client.calls == [(
             "/api/v1/fs/ls",
-            {"uri": "viking://user/hermes"},
+            {"uri": "viking://user/xhermes"},
         )]
 
 
@@ -676,7 +676,7 @@ class TestEnsureClientReloadsEnv:
         constructions = []
 
         class _StubClient:
-            def __init__(self, endpoint, api_key, account="", user="", agent="hermes"):
+            def __init__(self, endpoint, api_key, account="", user="", agent="xhermes"):
                 constructions.append({"endpoint": endpoint, "api_key": api_key,
                                       "account": account, "user": user, "agent": agent})
                 self.endpoint, self.api_key = endpoint, api_key
@@ -750,7 +750,7 @@ class TestEnsureClientReloadsEnv:
         assert instances[1].posts[0][1]["content"] == "stable fact"
         assert instances[1].posts[0][1]["mode"] == "create"
         assert instances[1].posts[0][1]["uri"].startswith(
-            "viking://user/peers/hermes/memories/"
+            "viking://user/peers/xhermes/memories/"
         )
 
     def test_concurrent_refresh_does_not_return_stale_client(self, monkeypatch):
@@ -782,7 +782,7 @@ class TestEnsureClientReloadsEnv:
         provider._api_key = stale_client.api_key
         provider._account = ""
         provider._user = ""
-        provider._agent = "hermes"
+        provider._agent = "xhermes"
         provider._client = stale_client
         provider._env_refresh_enabled = True
 

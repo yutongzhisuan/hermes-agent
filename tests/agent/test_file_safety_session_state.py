@@ -1,7 +1,7 @@
 """Session transcript stores are read-only to agent file tools.
 
 Inspired by Claude Code 2.1.205's auto-mode rule preventing transcript
-manipulation. Hermes keeps canonical conversation history in state.db and may
+manipulation. XHermes keeps canonical conversation history in state.db and may
 also emit legacy JSON snapshots under sessions/; agent tools must not rewrite
 or delete either store.
 """
@@ -26,7 +26,7 @@ def fake_homes(tmp_path, monkeypatch):
     derive <root> via the `profiles` parent-dir rule, so both the
     profile-scoped and root-scoped deny lists resolve into tmp_path.
     """
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".xhermes"
     profile = root / "profiles" / "work"
     profile.mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(profile))

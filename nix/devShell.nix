@@ -18,7 +18,7 @@
         map (p: p.passthru.packageJsonPath or null) packages
       );
 
-      # Non-npm packages may have their own devShellHook (e.g. hermes-agent
+      # Non-npm packages may have their own devShellHook (e.g. xhermes-agent
       # stamps pyproject.toml + uv.lock for Python venv setup).
       nonNpmHooks = map (p: p.passthru.devShellHook or "") packages;
       combinedNonNpm = pkgs.lib.concatStringsSep "\n" (builtins.filter (h: h != "") nonNpmHooks);
@@ -26,9 +26,9 @@
     {
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [
-          (pkgs.runCommand "hermes" { } ''
+          (pkgs.runCommand "xhermes" { } ''
             mkdir -p $out/bin
-            install -Dm755 ${../hermes} $out/bin/hermes
+            install -Dm755 ${../xhermes} $out/bin/xhermes
           '')
           (pkgs.runCommand "dev-sandbox" { } ''
             mkdir -p $out/bin
@@ -62,8 +62,8 @@
           # environment instead of creating an empty project .venv.
           export VIRTUAL_ENV="$(dirname "$(dirname "$(readlink -f "$(command -v python)")")")"
 
-          echo "Hermes Agent dev shell in $HERMES_PYTHON_SRC_ROOT"
-          echo "Ready. Run 'hermes' or 'sandbox hermes' to start."
+          echo "XHermes Agent dev shell in $HERMES_PYTHON_SRC_ROOT"
+          echo "Ready. Run 'xhermes' or 'sandbox xhermes' to start."
         '';
       };
     };

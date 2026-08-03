@@ -1,8 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react'
 
-import type { HermesGateway } from '@/hermes'
+import type { HermesGateway } from '@/xhermes'
 import type { IconComponent } from '@/lib/icons'
-import type { EnvVarInfo } from '@/types/hermes'
+import type { EnvVarInfo } from '@/types/xhermes'
 
 export type SettingsView =
   | 'about'

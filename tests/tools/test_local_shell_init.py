@@ -130,7 +130,7 @@ class TestSnapshotEndToEnd:
         try:
             first = env.execute(
                 'export HERMES_STICKY_ENV_PROBE="sticky"; '
-                'export PATH="/tmp/hermes-session-bin:$PATH"; '
+                'export PATH="/tmp/xhermes-session-bin:$PATH"; '
                 'echo "first=$HERMES_STICKY_ENV_PROBE"'
             )
             second = env.execute(
@@ -144,7 +144,7 @@ class TestSnapshotEndToEnd:
         assert "first=sticky" in first.get("output", "")
         output = second.get("output", "")
         assert "second=sticky" in output
-        assert "/tmp/hermes-session-bin" in output
+        assert "/tmp/xhermes-session-bin" in output
 
 
     def test_snapshot_picks_up_init_file_exports(self, tmp_path, monkeypatch):

@@ -1,4 +1,4 @@
-"""``hermes doctor`` subcommand parser.
+"""``xhermes doctor`` subcommand parser.
 
 Extracted verbatim from ``hermes_cli/main.py:main()`` (god-file Phase 2).
 Handler injected to avoid importing ``main``.
@@ -28,7 +28,7 @@ def build_doctor_parser(subparsers, *, cmd_doctor: Callable) -> None:
         default=None,
         help=(
             "Acknowledge a security advisory by ID and exit. After ack, the "
-            "advisory will no longer trigger startup banners. Run `hermes "
+            "advisory will no longer trigger startup banners. Run `xhermes "
             "doctor` first to see active advisories and their IDs."
         ),
     )

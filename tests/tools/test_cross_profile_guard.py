@@ -20,16 +20,16 @@ import pytest
 
 @pytest.fixture
 def fake_hermes(tmp_path, monkeypatch):
-    """Build a two-profile Hermes layout and point HERMES_HOME at
-    the hermes-security profile (matching the original-incident shape).
+    """Build a two-profile XHermes layout and point HERMES_HOME at
+    the xhermes-security profile (matching the original-incident shape).
     """
-    root = tmp_path / "fake-hermes"
+    root = tmp_path / "fake-xhermes"
     (root / "skills" / "shared-skill").mkdir(parents=True)
     (root / "skills" / "shared-skill" / "SKILL.md").write_text(
         "---\nname: shared-skill\ndescription: default copy.\n---\n"
     )
 
-    sec_home = root / "profiles" / "hermes-security"
+    sec_home = root / "profiles" / "xhermes-security"
     (sec_home / "skills").mkdir(parents=True)
 
     coder_home = root / "profiles" / "coder"
@@ -78,7 +78,7 @@ class TestWriteFileCrossProfileGuard:
         assert result.get("error"), "Cross-profile write should be refused"
         assert "cross-profile" in result["error"].lower()
         assert "default" in result["error"]
-        assert "hermes-security" in result["error"]
+        assert "xhermes-security" in result["error"]
         # File untouched.
         assert target.read_text() == original
 
@@ -177,7 +177,7 @@ class TestSkillManageCrossProfileErrorUX:
         from tools.skill_manager_tool import _skill_not_found_error
 
         err = _skill_not_found_error("default-only-skill")
-        assert "not found in active profile 'hermes-security'" in err
+        assert "not found in active profile 'xhermes-security'" in err
         assert "default" in err
         assert "cross_profile=True" in err
 
@@ -192,7 +192,7 @@ class TestSkillManageCrossProfileErrorUX:
         from tools.skill_manager_tool import _skill_not_found_error
 
         err = _skill_not_found_error("totally-imaginary-skill")
-        assert "not found in active profile 'hermes-security'" in err
+        assert "not found in active profile 'xhermes-security'" in err
         assert "skills_list" in err
 
 
@@ -204,7 +204,7 @@ class TestSkillManageCrossProfileErrorUX:
 class TestSystemPromptActiveProfile:
     def test_default_profile_line_in_prompt(self, tmp_path, monkeypatch):
         """When active profile is 'default', the prompt names it and warns
-        about ~/.hermes/profiles/<name>/."""
+        about ~/.xhermes/profiles/<name>/."""
         # Don't set HERMES_HOME — falls back to default.
         import agent.file_safety as fs
         monkeypatch.setattr(fs, "_hermes_home_path", lambda: tmp_path / "fake")
@@ -217,7 +217,7 @@ class TestSystemPromptActiveProfile:
         # See agent/system_prompt.py for the exact wording.
 
     def test_named_profile_line_in_prompt_text(self, fake_hermes):
-        """When active profile is 'hermes-security', the prompt warns
+        """When active profile is 'xhermes-security', the prompt warns
         explicitly about NOT modifying default's skills/plugins/cron/memories."""
         # Spot-check by reading the source — the contract is:
         # (1) names the active profile, (2) names the default-profile
@@ -225,9 +225,9 @@ class TestSystemPromptActiveProfile:
         # explicit user direction.
         from pathlib import Path
         src = Path("agent/system_prompt.py").read_text()
-        assert "Active Hermes profile" in src
+        assert "Active XHermes profile" in src
         assert "cross_profile=True" in src
-        assert "~/.hermes/profiles/" in src
+        assert "~/.xhermes/profiles/" in src
         # Both branches present (default and named profile).
-        assert "Active Hermes profile: default" in src
-        assert "Active Hermes profile: {active_profile}" in src
+        assert "Active XHermes profile: default" in src
+        assert "Active XHermes profile: {active_profile}" in src

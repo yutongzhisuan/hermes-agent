@@ -54,7 +54,7 @@ const SLATE = {
 // darker calm dims).
 
 const info: SessionInfo = {
-  cwd: '/Users/brooklyn/www/hermes-agent',
+  cwd: '/Users/brooklyn/www/xhermes-agent',
   mcp_servers: [{ connected: true, name: 'figma', tools: 12, transport: 'sse' }],
   model: 'claude-opus-4.8-fast',
   skills: {

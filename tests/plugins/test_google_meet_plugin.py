@@ -25,7 +25,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolate_home(tmp_path, monkeypatch):
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     yield hermes_home
@@ -228,11 +228,11 @@ def test_enqueue_say_requires_text():
 
 
 def test_cli_register_includes_node_subcommand():
-    """`hermes meet` argparse tree includes the node subtree."""
+    """`xhermes meet` argparse tree includes the node subtree."""
     import argparse
     from plugins.google_meet.cli import register_cli
 
-    parser = argparse.ArgumentParser(prog="hermes meet")
+    parser = argparse.ArgumentParser(prog="xhermes meet")
     register_cli(parser)
 
     # Parse a known-good node invocation to prove the subtree is wired.
@@ -254,11 +254,11 @@ def test_looks_like_human_speaker():
     from plugins.google_meet.meet_bot import _looks_like_human_speaker
 
     # Blank, "unknown", "you", and the bot's own name → not human (no barge-in)
-    for s in ("", "   ", "Unknown", "unknown", "You", "you", "Hermes Agent", "hermes agent"):
-        assert not _looks_like_human_speaker(s, "Hermes Agent"), f"{s!r} should NOT be human"
+    for s in ("", "   ", "Unknown", "unknown", "You", "you", "XHermes Agent", "xhermes agent"):
+        assert not _looks_like_human_speaker(s, "XHermes Agent"), f"{s!r} should NOT be human"
     # Real names → human (barge-in)
     for s in ("Alice", "Bob Lee", "@teknium"):
-        assert _looks_like_human_speaker(s, "Hermes Agent"), f"{s!r} SHOULD be human"
+        assert _looks_like_human_speaker(s, "XHermes Agent"), f"{s!r} SHOULD be human"
 
 
 def test_detect_admission_returns_false_on_error():
@@ -283,7 +283,7 @@ def test_realtime_session_cancel_response_when_disconnected():
 
 
 # ---------------------------------------------------------------------------
-# hermes meet install CLI
+# xhermes meet install CLI
 # ---------------------------------------------------------------------------
 
 

@@ -43,7 +43,7 @@ class TestGoogleWorkspaceCredentialFiles:
         )
 
     def test_entries_are_registered_when_files_exist(self, tmp_path):
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".xhermes"
         hermes_home.mkdir()
         (hermes_home / "google_token.json").write_text("{}")
         (hermes_home / "google_client_secret.json").write_text("{}")
@@ -66,8 +66,8 @@ class TestGoogleWorkspaceCredentialFiles:
             assert missing == [], f"Unexpected missing files: {missing}"
             mounts = get_credential_file_mounts()
             container_paths = {m["container_path"] for m in mounts}
-            assert "/root/.hermes/google_token.json" in container_paths
-            assert "/root/.hermes/google_client_secret.json" in container_paths
+            assert "/root/.xhermes/google_token.json" in container_paths
+            assert "/root/.xhermes/google_client_secret.json" in container_paths
         finally:
             clear_credential_files()
 

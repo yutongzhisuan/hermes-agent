@@ -1,4 +1,4 @@
-"""Thin ``hermes task-worker`` style wrapper for the Task Relay Worker."""
+"""Thin ``xhermes task-worker`` style wrapper for the Task Relay Worker."""
 
 from __future__ import annotations
 

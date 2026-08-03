@@ -1,7 +1,7 @@
 """Tests for the TUI-hot-path mouse-residue suppression.
 
-The Python launcher (`hermes --tui …`) has a ~100–300ms cold-start window
-where stdin is still in cooked + echo mode. If a previous Hermes session
+The Python launcher (`xhermes --tui …`) has a ~100–300ms cold-start window
+where stdin is still in cooked + echo mode. If a previous XHermes session
 left DEC mouse-tracking asserted, any mouse motion during that window
 echoes literal ``^[[<…M`` text into the user's scrollback.
 
@@ -30,7 +30,7 @@ class TestEarlyMouseDisable:
 
 
     def test_respects_diagnostic_escape_hatch(self, monkeypatch):
-        monkeypatch.setattr(sys, "argv", ["hermes", "--tui"])
+        monkeypatch.setattr(sys, "argv", ["xhermes", "--tui"])
         monkeypatch.delenv("HERMES_TUI", raising=False)
         monkeypatch.setenv("HERMES_TUI_NO_EARLY_DISABLE", "1")
 
@@ -41,7 +41,7 @@ class TestEarlyMouseDisable:
 
 
     def test_oserror_is_swallowed(self, monkeypatch):
-        monkeypatch.setattr(sys, "argv", ["hermes", "--tui"])
+        monkeypatch.setattr(sys, "argv", ["xhermes", "--tui"])
         monkeypatch.delenv("HERMES_TUI", raising=False)
         monkeypatch.delenv("HERMES_TUI_NO_EARLY_DISABLE", raising=False)
 

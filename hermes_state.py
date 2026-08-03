@@ -177,7 +177,7 @@ def _workspace_key_clause(key: str) -> Tuple[str, List[str]]:
     when its recorded ``git_repo_root`` equals ``key``, or — for rows that
     predate per-session git metadata — when its ``cwd`` is at or under
     ``key`` (so a session started in ``repo/src`` still groups with ``repo``).
-    Used by ``hermes -c``/``--resume`` to continue the most recent session in
+    Used by ``xhermes -c``/``--resume`` to continue the most recent session in
     the *current* workspace rather than the global MRU.
     """
     prefix = key.rstrip("/\\") or key
@@ -247,7 +247,7 @@ def _default_db_path() -> Path:
     """Resolve the default state DB path at call time.
 
     ``DEFAULT_DB_PATH`` is computed when this module is first imported, which
-    freezes the developer's real ``~/.hermes`` even when a test fixture later
+    freezes the developer's real ``~/.xhermes`` even when a test fixture later
     redirects ``HERMES_HOME`` — importing this module during collection was
     enough to point every default ``SessionDB()`` at the real state.db.
 
@@ -812,8 +812,8 @@ def _log_wal_reset_bug_once(
         "%s: linked SQLite %s is vulnerable to the WAL-reset corruption "
         "bug (https://sqlite.org/wal.html#walresetbug) — %s. "
         "Upgrade to SQLite 3.51.3+ (or backports 3.50.7 / 3.44.6); "
-        "Hermes-managed installs can repair the embedded runtime with "
-        "`hermes update`. See `hermes doctor`. This warning fires once per "
+        "XHermes-managed installs can repair the embedded runtime with "
+        "`xhermes update`. See `xhermes doctor`. This warning fires once per "
         "process per database.",
         db_label,
         sqlite3.sqlite_version,
@@ -1048,8 +1048,8 @@ def preflight_db_writability(
     transactions. This preflight:
 
     - **Repairs** permissions with ``chmod u+rw`` when the file lives inside
-      the Hermes home tree (``get_hermes_home()``) — the safe repair scope:
-      Hermes owns those files, and the OS makes ``chmod`` fail on files the
+      the XHermes home tree (``get_hermes_home()``) — the safe repair scope:
+      XHermes owns those files, and the OS makes ``chmod`` fail on files the
       user doesn't own, which bounds the repair exactly.
     - **Fails fast with an actionable error** naming the exact file and the
       exact ``chmod`` command for anything else (root-owned files, read-only
@@ -1105,7 +1105,7 @@ def preflight_db_writability(
         )
         raise sqlite3.OperationalError(
             f"{db_label} is not writable: {kind} {p} is read-only for this "
-            f"user. Hermes needs read-write access to open the database. "
+            f"user. XHermes needs read-write access to open the database. "
             f"Fix with: chmod u+rw{'x' if is_dir else ''} '{p}'"
             f" (files owned by another user may need sudo/chown).{wal_note}"
         )
@@ -1439,10 +1439,10 @@ def repair_state_db_schema(db_path: Path, *, backup: bool = True) -> Dict[str, A
 # complete ``messages_fts`` index's triggers.
 #
 # The table exists ONLY when the loadable tokenizer is available
-# (``~/.hermes/lib/libfts5_cjk.so``, built by ``native/fts5_cjk/build.sh``).
+# (``~/.xhermes/lib/libfts5_cjk.so``, built by ``native/fts5_cjk/build.sh``).
 # A process that cannot load it self-heals by dropping the cjk triggers
 # (message writes keep working; the index goes stale and is rebuilt by the
-# next ``hermes sessions optimize-storage`` on a capable host).
+# next ``xhermes sessions optimize-storage`` on a capable host).
 #
 # Split DDL: the table/view part is safe to ensure any time; the triggers
 # are created ONLY while the index is complete-or-marker-gated. A stale
@@ -1700,8 +1700,8 @@ def quarantine_zeroed_state_db(path: Path) -> Optional[Path]:
                 "quarantine lock for %s not acquired within 5s — refusing to "
                 "quarantine without the cross-process lock. The zeroed file "
                 "is left in place. If sessions fail to load, restore from "
-                "state-snapshots via `hermes snapshot list` / "
-                "`hermes snapshot restore <id>`.",
+                "state-snapshots via `xhermes snapshot list` / "
+                "`xhermes snapshot restore <id>`.",
                 path,
             )
             return None
@@ -1776,7 +1776,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
     """
 
     # ── Write-contention tuning ──
-    # With multiple hermes processes (gateway + CLI sessions + worktree agents)
+    # With multiple xhermes processes (gateway + CLI sessions + worktree agents)
     # all sharing one state.db, WAL write-lock contention causes visible TUI
     # freezes.  SQLite's built-in busy handler uses a deterministic sleep
     # schedule that causes convoy effects under high concurrency.
@@ -1786,11 +1786,11 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
     # writers and avoids the convoy.
     #
     # Patience is TIME-based, not attempt-based.  A shared state.db is
-    # legitimately held for multi-second stretches by sibling Hermes
+    # legitimately held for multi-second stretches by sibling XHermes
     # processes: a TRUNCATE checkpoint at close on a large WAL, VACUUM after
     # an auto-prune, offline recovery, or an older still-running process
     # whose FTS maintenance predates the bounded-merge protocol (every
-    # `hermes update` leaves mixed-version processes sharing the DB until
+    # `xhermes update` leaves mixed-version processes sharing the DB until
     # the old ones exit).  An attempt-counted budget (~15s incidental worst
     # case) silently loses that race and surfaces as
     # session_persistence_failed — a destroyed turn — even though the store
@@ -1977,8 +1977,8 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                 msg = (
                     f"state.db looks ZEROED ({zsize} bytes, no SQLite header). "
                     f"Preserved at {qpath or '(quarantine failed — file left in place)'}. "
-                    f"Restore from {snaps} via `hermes snapshot list` / "
-                    f"`hermes snapshot restore <id>` if available. "
+                    f"Restore from {snaps} via `xhermes snapshot list` / "
+                    f"`xhermes snapshot restore <id>` if available. "
                     "Opening a fresh empty database so the agent can start."
                 )
                 logger.error(msg)
@@ -2074,7 +2074,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                     raise
                 _connect_and_init_with_lock_patience()
 
-            # NOTE: the v23 FTS optimization is OPT-IN (`hermes db optimize`),
+            # NOTE: the v23 FTS optimization is OPT-IN (`xhermes db optimize`),
             # never auto-started on open. Legacy installs keep their working
             # v22 inline FTS untouched here; only the explicit foreground
             # command demotes + rebuilds. This avoids a background worker
@@ -2247,7 +2247,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         self._fts_unavailable_warned = True
         logger.warning(
             "SQLite FTS5 unavailable for %s; full-text session search "
-            "disabled. Run `hermes update` to rebuild the venv with a "
+            "disabled. Run `xhermes update` to rebuild the venv with a "
             "current Python (managed uv guarantees FTS5). "
             "(underlying error: %s)",
             self.db_path,
@@ -2301,7 +2301,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                         "cjk_unicode61 tokenizer is unavailable (%s) — "
                         "dropping the cjk triggers so message writes keep "
                         "working. CJK search falls back to trigram/LIKE; "
-                        "run `hermes sessions optimize-storage` on a host "
+                        "run `xhermes sessions optimize-storage` on a host "
                         "with the extension to rebuild.",
                         fts5_cjk_so_path(),
                     )
@@ -2502,7 +2502,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                     # Patience exhausted — say what actually happened so the
                     # surfaced error doesn't read as disk/permission damage.
                     raise sqlite3.OperationalError(
-                        f"database is locked (another Hermes process held the "
+                        f"database is locked (another XHermes process held the "
                         f"state.db write lock for over {patience_s:.0f}s — "
                         "likely a long maintenance operation such as VACUUM, "
                         "a large WAL checkpoint, or an older pre-update "
@@ -2707,7 +2707,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
 
     # ── Chunked FTS rebuild engine (v23 opt-in optimize) ──
     #
-    # `optimize_fts_storage()` (the `hermes sessions optimize-storage`
+    # `optimize_fts_storage()` (the `xhermes sessions optimize-storage`
     # command) drops the legacy inline FTS indexes and backfills the new
     # external-content ones. A single blocking rebuild measured ~16 minutes
     # of held write lock on a real 25 GB DB, so the backfill runs in small
@@ -2753,7 +2753,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
     # an already-optimized v23 DB gaining the cjk index) never gates the
     # complete ``messages_fts`` / trigram triggers.
 
-    # ── Opt-in v23 FTS storage optimization (`hermes sessions optimize-storage`) ──
+    # ── Opt-in v23 FTS storage optimization (`xhermes sessions optimize-storage`) ──
     #
     # This is the ONLY path that migrates an existing legacy (v22 inline) DB
     # to the v23 external-content schema. It is deliberately foreground and
@@ -4227,7 +4227,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         merge discipline as ``update_session_runtime_lock`` so lineage
         markers like ``_branched_from`` / ``_delegate_from`` survive). The
         CLI resume paths read this flag back so a ``/yolo ON`` toggle — or a
-        ``--yolo`` launch — survives ``hermes --resume`` into a fresh
+        ``--yolo`` launch — survives ``xhermes --resume`` into a fresh
         process. No-op when the session row doesn't exist yet; the
         creation-time ``model_config`` carries the flag for ``--yolo``
         launches.
@@ -7256,7 +7256,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
 
         Pass ``workspace_key`` to scope rows to one workspace - matching
         :func:`workspace_key` semantics (git repo root, else cwd). Used by
-        ``hermes -c``/``--resume`` so the "last" session is the last one in
+        ``xhermes -c``/``--resume`` so the "last" session is the last one in
         the *current* workspace, not the global MRU.
         """
         select_with_last_active = (
@@ -7628,7 +7628,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         A session is considered empty when it has no messages and no
         user-assigned title. Used by CLI exit / session-rotation paths so
         immediately-started-and-quit sessions don't pile up in ``/resume``
-        and ``hermes sessions list`` output. (Pattern ported from
+        and ``xhermes sessions list`` output. (Pattern ported from
         google-gemini/gemini-cli#27770.)
 
         The emptiness check and delete run in one transaction, so a message
@@ -8255,7 +8255,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         """Create Telegram DM topic-mode tables on explicit /topic opt-in.
 
         This migration is deliberately not part of automatic SessionDB startup
-        reconciliation. Operators must be able to upgrade Hermes, keep the old
+        reconciliation. Operators must be able to upgrade XHermes, keep the old
         Telegram bot behavior running, and only mutate topic-mode state when the
         user executes /topic to opt into the feature.
 
@@ -8603,9 +8603,9 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         session_id: str,
         managed_mode: str = "auto",
     ) -> None:
-        """Bind one Telegram DM topic thread to one Hermes session.
+        """Bind one Telegram DM topic thread to one XHermes session.
 
-        A Hermes session may only be linked to one Telegram topic in MVP.
+        A XHermes session may only be linked to one Telegram topic in MVP.
         Rebinding the same topic to the same session is idempotent; trying to
         link the same session to a different topic raises ValueError.
         """
@@ -8658,7 +8658,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         self._execute_write(_do)
 
     def is_telegram_session_linked_to_topic(self, *, session_id: str) -> bool:
-        """Return True if a Hermes session is already bound to any Telegram DM topic.
+        """Return True if a XHermes session is already bound to any Telegram DM topic.
 
         Read-only: does NOT trigger the telegram-topic migration. If the
         topic-mode tables have not been created yet (i.e. nobody has run

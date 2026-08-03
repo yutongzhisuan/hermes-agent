@@ -29,7 +29,7 @@ def test_session_store_default_db_uses_runtime_hermes_home(tmp_path, monkeypatch
 
     Regression for the import-time DEFAULT_DB_PATH freeze: importing
     hermes_state before a fixture redirected HERMES_HOME used to pin every
-    default SessionDB() at the developer's real ~/.hermes/state.db.
+    default SessionDB() at the developer's real ~/.xhermes/state.db.
     """
     config = GatewayConfig(default_reset_policy=SessionResetPolicy(mode="none"))
     fake_home = tmp_path / "alt_hermes_home"
@@ -257,5 +257,5 @@ class TestReadmeSentinel:
         assert next(iter(raw)) == "_README"
         # The note points users at the real store and command.
         assert "state.db" in raw["_README"]
-        assert "hermes sessions list" in raw["_README"]
+        assert "xhermes sessions list" in raw["_README"]
 

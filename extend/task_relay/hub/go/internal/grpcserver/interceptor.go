@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"

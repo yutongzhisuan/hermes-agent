@@ -1881,7 +1881,7 @@ def dump_api_request_debug(
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         # Sanitize the session ID into a traversal-free path segment — it can
-        # originate from untrusted input (X-Hermes-Session-Id header), and an
+        # originate from untrusted input (X-XHermes-Session-Id header), and an
         # unsanitized "../"-shaped ID would write the dump outside logs_dir.
         safe_sid = _ra()._safe_session_filename_component(agent.session_id)
         dump_file = agent.logs_dir / f"request_dump_{safe_sid}_{timestamp}.json"
@@ -2304,7 +2304,7 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
         )
         if keepalive_http is not None:
             client_kwargs["http_client"] = keepalive_http
-    # Delegate all rate-limit / 5xx retry to hermes's outer conversation loop,
+    # Delegate all rate-limit / 5xx retry to xhermes's outer conversation loop,
     # which honors Retry-After and applies adaptive/jittered backoff. The OpenAI
     # SDK default (max_retries=2) uses its own 1-2s backoff that ignores
     # Retry-After and double-retries inside our loop — the same deadlock the
@@ -3305,7 +3305,7 @@ def sanitize_api_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]
     # function_call_output, producing the gateway's HTTP 400
     # "No tool call found for function call output with call_id ...".
     #
-    # We do NOT drop the call: hermes' own dispatch loop intentionally keeps an
+    # We do NOT drop the call: xhermes' own dispatch loop intentionally keeps an
     # empty-name call paired with a synthesized anti-priming tool result
     # ("tool name was empty", see #47967) so weak models self-correct instead of
     # being fed the full tool catalog. Dropping the call here would (a) orphan
@@ -3639,7 +3639,7 @@ def reapply_reasoning_echo_for_provider(agent, api_messages: list) -> int:
 def _iter_httpx_pool_objects(http_client: Any):
     """Yield httpcore pool objects reachable from an httpx client.
 
-    Hermes' keepalive client (#10324 / ``_build_keepalive_http_client``) and
+    XHermes' keepalive client (#10324 / ``_build_keepalive_http_client``) and
     any ``HTTP(S)_PROXY`` configuration put live connections on *mounted*
     transports (``client._mounts``), not only on the default
     ``client._transport``. Walking the default transport alone makes

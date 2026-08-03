@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )

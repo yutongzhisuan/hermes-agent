@@ -108,7 +108,7 @@ def _resolved_home() -> str:
     hermes_home = os.environ.get("HERMES_HOME", "").strip()
     if hermes_home:
         return hermes_home
-    return os.path.join(os.path.expanduser("~"), ".hermes")
+    return os.path.join(os.path.expanduser("~"), ".xhermes")
 
 
 def container_mode_may_be_active() -> bool:
@@ -134,7 +134,7 @@ def container_mode_may_be_active() -> bool:
             hermes_home
         )
 
-    default_home = os.path.join(os.path.expanduser("~"), ".hermes")
+    default_home = os.path.join(os.path.expanduser("~"), ".xhermes")
     if active_profile_may_override_home(default_home):
         return True
     return os.path.exists(os.path.join(default_home, ".container-mode"))
@@ -195,11 +195,11 @@ def print_fast_version_info() -> None:
         if openai_version
         else "OpenAI SDK: Not installed"
     )
-    print("Run 'hermes version' for update status.")
+    print("Run 'xhermes version' for update status.")
 
 
 def try_fast_version(argv: list[str] | None = None) -> bool:
-    """Handle ``hermes --version`` before the heavy import wall.
+    """Handle ``xhermes --version`` before the heavy import wall.
 
     Termux keeps its historical contract (also accepts the ``version``
     subcommand + the HERMES_TERMUX_DISABLE_FAST_CLI escape hatch). Everywhere

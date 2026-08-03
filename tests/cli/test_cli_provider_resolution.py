@@ -201,7 +201,7 @@ def test_cli_turn_routing_uses_primary_when_disabled(monkeypatch):
 def test_model_flow_nous_does_not_restore_stale_custom_api_key(tmp_path, monkeypatch):
     import yaml
 
-    config_home = tmp_path / "hermes"
+    config_home = tmp_path / "xhermes"
     config_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(config_home))
 
@@ -271,7 +271,7 @@ def test_model_flow_nous_does_not_restore_stale_custom_api_key(tmp_path, monkeyp
 def _seed_stale_custom_model(tmp_path, monkeypatch):
     import yaml
 
-    config_home = tmp_path / "hermes"
+    config_home = tmp_path / "xhermes"
     config_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(config_home))
     config_path = config_home / "config.yaml"
@@ -492,7 +492,7 @@ def test_cmd_model_forwards_nous_login_tls_options(monkeypatch):
         SimpleNamespace(
             portal_url="https://portal.nousresearch.com",
             inference_url="https://inference.nousresearch.com/v1",
-            client_id="hermes-local",
+            client_id="xhermes-local",
             scope="openid profile",
             no_browser=True,
             timeout=7.5,
@@ -504,7 +504,7 @@ def test_cmd_model_forwards_nous_login_tls_options(monkeypatch):
     assert captured == {
         "portal_url": "https://portal.nousresearch.com",
         "inference_url": "https://inference.nousresearch.com/v1",
-        "client_id": "hermes-local",
+        "client_id": "xhermes-local",
         "scope": "openid profile",
         "no_browser": True,
         "timeout": 7.5,

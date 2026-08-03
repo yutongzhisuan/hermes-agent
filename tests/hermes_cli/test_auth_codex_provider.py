@@ -1,4 +1,4 @@
-"""Tests for Codex auth — tokens stored in Hermes auth store (~/.hermes/auth.json)."""
+"""Tests for Codex auth — tokens stored in XHermes auth store (~/.xhermes/auth.json)."""
 
 import json
 import time
@@ -23,7 +23,7 @@ from hermes_cli.auth import (
 
 
 def _setup_hermes_auth(hermes_home: Path, *, access_token: str = "access", refresh_token: str = "refresh"):
-    """Write Codex tokens into the Hermes auth store."""
+    """Write Codex tokens into the XHermes auth store."""
     hermes_home.mkdir(parents=True, exist_ok=True)
     auth_store = {
         "version": 1,
@@ -55,7 +55,7 @@ def _jwt_with_exp(exp_epoch: int) -> str:
 
 
 def test_resolve_codex_runtime_credentials_missing_access_token(tmp_path, monkeypatch):
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     _setup_hermes_auth(hermes_home, access_token="")
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "missing-codex"))
@@ -76,7 +76,7 @@ def test_resolve_codex_runtime_credentials_falls_back_to_pool_when_singleton_emp
     re-auth, restore from backup) hit a bare HTTP 401 on chat but worked fine on
     auxiliary calls.  The fallback closes that divergence.
     """
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir(parents=True, exist_ok=True)
     # Singleton: empty tokens (would normally raise AuthError).
     # Pool: valid access_token.
@@ -114,7 +114,7 @@ def test_save_codex_tokens_syncs_credential_pool(tmp_path, monkeypatch):
     holding a consumed refresh token and stale error markers, causing an
     immediate 401 token_invalidated on the next request.
     """
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir(parents=True, exist_ok=True)
     (hermes_home / "auth.json").write_text(json.dumps({
         "version": 1,
@@ -178,7 +178,7 @@ def test_save_codex_tokens_syncs_manual_device_code_entries(tmp_path, monkeypatc
     aliases of the singleton, while leaving INDEPENDENT entries alone.
 
     Original regression for #33538: a user who hit #33000 before the #33164
-    fix landed would have run ``hermes auth add openai-codex`` as a
+    fix landed would have run ``xhermes auth add openai-codex`` as a
     workaround, leaving a pool entry with ``source="manual:device_code"``.
     On every subsequent re-auth via setup/model picker, the singleton-seeded
     ``device_code`` entry got refreshed but the ``manual:device_code`` entry
@@ -187,12 +187,12 @@ def test_save_codex_tokens_syncs_manual_device_code_entries(tmp_path, monkeypatc
 
     Narrowed for #39236: the original fix treated every ``manual:device_code``
     entry as a singleton-alias and refreshed them all, which silently
-    clobbered independent accounts added via ``hermes auth add openai-codex``.
+    clobbered independent accounts added via ``xhermes auth add openai-codex``.
     The current behavior refreshes only entries whose access_token matches
     the *previous* singleton access_token (true legacy aliases), and leaves
     distinct-token entries alone (independent accounts).
     """
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir(parents=True, exist_ok=True)
     (hermes_home / "auth.json").write_text(json.dumps({
         "version": 1,
@@ -225,7 +225,7 @@ def test_save_codex_tokens_syncs_manual_device_code_entries(tmp_path, monkeypatc
                     "last_error_code": 401,
                     "last_error_reason": "token_invalidated",
                 },
-                # Independent account from `hermes auth add openai-codex` —
+                # Independent account from `xhermes auth add openai-codex` —
                 # its tokens are distinct from the singleton.  Must NOT be
                 # overwritten by a re-auth that targeted a different account
                 # (#39236).
@@ -282,7 +282,7 @@ def test_save_codex_tokens_does_not_overwrite_independent_manual_entries(tmp_pat
     """Re-auth must NOT overwrite ``manual:device_code`` entries that hold
     independent token material (different OpenAI/ChatGPT accounts).
 
-    Regression for #39236: ``hermes auth add openai-codex`` for accounts B and C
+    Regression for #39236: ``xhermes auth add openai-codex`` for accounts B and C
     routes through ``_save_codex_tokens`` because the singleton path is the
     only Codex OAuth save flow.  The #33538 fix refreshed every
     ``manual:device_code`` entry on every re-auth, which works fine for the
@@ -295,7 +295,7 @@ def test_save_codex_tokens_does_not_overwrite_independent_manual_entries(tmp_pat
     entries whose tokens never matched the singleton are independent accounts
     and must be left alone.
     """
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir(parents=True, exist_ok=True)
     (hermes_home / "auth.json").write_text(json.dumps({
         "version": 1,
@@ -321,7 +321,7 @@ def test_save_codex_tokens_does_not_overwrite_independent_manual_entries(tmp_pat
                     "refresh_token": "acctA-rt",
                 },
                 # Two INDEPENDENT manual entries added later via
-                # ``hermes auth add openai-codex`` (account B and account C).
+                # ``xhermes auth add openai-codex`` (account B and account C).
                 # Each has its OWN distinct token material, unrelated to the
                 # singleton.
                 {
@@ -383,7 +383,7 @@ def test_save_codex_tokens_clears_error_markers_only_on_refreshed_entries(tmp_pa
     with their own stale-error markers must be left alone (their stale state
     is not the current re-auth's business).
     """
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir(parents=True, exist_ok=True)
     (hermes_home / "auth.json").write_text(json.dumps({
         "version": 1,
@@ -445,8 +445,8 @@ def test_save_codex_tokens_clears_error_markers_only_on_refreshed_entries(tmp_pa
 
 
 def test_codex_tokens_not_written_to_shared_file(tmp_path, monkeypatch):
-    """Verify _save_codex_tokens writes only to Hermes auth store, not ~/.codex/."""
-    hermes_home = tmp_path / "hermes"
+    """Verify _save_codex_tokens writes only to XHermes auth store, not ~/.codex/."""
+    hermes_home = tmp_path / "xhermes"
     codex_home = tmp_path / "codex-cli"
     hermes_home.mkdir(parents=True, exist_ok=True)
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -455,23 +455,23 @@ def test_codex_tokens_not_written_to_shared_file(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     monkeypatch.setenv("CODEX_HOME", str(codex_home))
 
-    _save_codex_tokens({"access_token": "hermes-at", "refresh_token": "hermes-rt"})
+    _save_codex_tokens({"access_token": "xhermes-at", "refresh_token": "xhermes-rt"})
 
-    # ~/.codex/auth.json should NOT exist — _save_codex_tokens only touches Hermes store
+    # ~/.codex/auth.json should NOT exist — _save_codex_tokens only touches XHermes store
     assert not (codex_home / "auth.json").exists()
 
-    # Hermes auth store should have the tokens
+    # XHermes auth store should have the tokens
     data = _read_codex_tokens()
-    assert data["tokens"]["access_token"] == "hermes-at"
+    assert data["tokens"]["access_token"] == "xhermes-at"
 
 
 def test_resolve_returns_hermes_auth_store_source(tmp_path, monkeypatch):
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     _setup_hermes_auth(hermes_home)
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
     creds = resolve_codex_runtime_credentials()
-    assert creds["source"] == "hermes-auth-store"
+    assert creds["source"] == "xhermes-auth-store"
     assert creds["provider"] == "openai-codex"
     assert creds["base_url"] == DEFAULT_CODEX_BASE_URL
 
@@ -517,7 +517,7 @@ def test_refresh_429_classified_as_quota_not_auth_failure(monkeypatch):
 
     Regression test for #32790: must NOT force relogin and must carry the
     dedicated rate-limit code so callers surface a "retry later" notice rather
-    than a misleading "run hermes auth".
+    than a misleading "run xhermes auth".
     """
     from hermes_cli.auth import (
         CODEX_RATE_LIMITED_CODE,
@@ -543,7 +543,7 @@ def test_refresh_429_classified_as_quota_not_auth_failure(monkeypatch):
     # User-facing copy must not tell the operator to re-authenticate.
     rendered = format_auth_error(err)
     assert "re-authenticate" not in rendered
-    assert "hermes auth" not in rendered
+    assert "xhermes auth" not in rendered
 
 
 def test_refresh_429_without_retry_after_header(monkeypatch):

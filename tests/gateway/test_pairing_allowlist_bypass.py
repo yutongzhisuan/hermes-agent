@@ -81,8 +81,8 @@ def test_unpaired_user_in_allowlist_still_authorized(monkeypatch):
 @pytest.fixture
 def store(tmp_path, monkeypatch):
     """A real PairingStore backed by a temp pairing dir."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
-    (tmp_path / ".hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+    (tmp_path / ".xhermes").mkdir(parents=True, exist_ok=True)
     import importlib
 
     import gateway.pairing as pairing_mod

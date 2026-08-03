@@ -79,8 +79,8 @@ SINGLE_HANDLER_CASES = [
 
 
 def test_config_get_unset_subcommands_parse():
-    """`hermes config get/unset` parse key args (and --json for get)."""
-    parser = argparse.ArgumentParser(prog="hermes")
+    """`xhermes config get/unset` parse key args (and --json for get)."""
+    parser = argparse.ArgumentParser(prog="xhermes")
     sub = parser.add_subparsers(dest="command")
     handler = _h("config")
     build_config_parser(sub, cmd_config=handler)
@@ -99,11 +99,11 @@ def test_config_get_unset_subcommands_parse():
 
 
 
-# ── deprecated `hermes login` fails gracefully, not with argparse error ────
+# ── deprecated `xhermes login` fails gracefully, not with argparse error ────
 #
-# `hermes login` is a removed command; its handler (`login_command` in
-# `hermes_cli/auth.py`) prints a deprecation notice pointing at `hermes auth` /
-# `hermes model` and exits 0.  Two behavior contracts guard the UX:
+# `xhermes login` is a removed command; its handler (`login_command` in
+# `hermes_cli/auth.py`) prints a deprecation notice pointing at `xhermes auth` /
+# `xhermes model` and exits 0.  Two behavior contracts guard the UX:
 #   1. ANY `--provider <value>` (including ones the user actually wants, like
 #      `anthropic`) must parse and reach the handler — never crash in argparse
 #      with `invalid choice` before the friendly redirect is printed (#24756).
@@ -111,7 +111,7 @@ def test_config_get_unset_subcommands_parse():
 
 
 def _login_parser():
-    parser = argparse.ArgumentParser(prog="hermes")
+    parser = argparse.ArgumentParser(prog="xhermes")
     sub = parser.add_subparsers(dest="command")
     build_login_parser(sub, cmd_login=_h("login"))
     return parser
@@ -120,13 +120,13 @@ def _login_parser():
 
 
 def test_login_subparser_help_is_suppressed():
-    """The deprecated `login` row must not appear in `hermes --help`.
+    """The deprecated `login` row must not appear in `xhermes --help`.
 
     Must hold without leaking argparse's literal `==SUPPRESS==` placeholder,
     which `help=argparse.SUPPRESS` emits for a top-level subparser on 3.12+.
     The fix omits the `help=` kwarg entirely instead.
     """
-    parser = argparse.ArgumentParser(prog="hermes")
+    parser = argparse.ArgumentParser(prog="xhermes")
     sub = parser.add_subparsers(dest="command")
     build_login_parser(sub, cmd_login=_h("login"))
     help_text = parser.format_help()

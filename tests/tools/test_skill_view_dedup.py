@@ -15,7 +15,7 @@ from tools.skills_tool import (
 
 @pytest.fixture
 def skills_home(tmp_path, monkeypatch):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".xhermes"
     skills = home / "skills"
     d = skills / "demo-dedup-skill"
     d.mkdir(parents=True)

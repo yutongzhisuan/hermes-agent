@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 )
 
 // WatchFilter selects the WatchTask subscription scope.

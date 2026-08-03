@@ -46,7 +46,7 @@ function stagedFileMtimeMs(candidate: string): number | null {
  * Decide which staged installer binary — if any — may be handed an update.
  *
  * The Tauri installer self-copies into HERMES_HOME on *every* platform
- * (`hermes-setup.exe` on Windows, `hermes-setup` elsewhere — see
+ * (`xhermes-setup.exe` on Windows, `xhermes-setup` elsewhere — see
  * apps/bootstrap-installer `paths::installer_dest` and
  * `bootstrap::copy_self_to_hermes_home`), so finding that binary on macOS or
  * Linux is expected, not leftover junk.
@@ -56,7 +56,7 @@ function stagedFileMtimeMs(candidate: string): number | null {
  * running desktop from rewriting its own bits; macOS and Linux have no such
  * lock and update in place through applyUpdatesPosixInApp(). Off Windows the
  * hand-off therefore buys nothing and costs a great deal: a staged binary older
- * than the hand-off protocol holds the update marker, spawns `hermes update`,
+ * than the hand-off protocol holds the update marker, spawns `xhermes update`,
  * and that child refuses its own parent — wedging the in-app Update button for
  * good, with no route (update, re-download, reinstall) to a newer binary
  * (#74836). Returning null off Windows is what routes those platforms to the
@@ -76,7 +76,7 @@ export function resolveStagedUpdaterBinary(
   }
 
   const fileExists = deps.fileExists ?? stagedFileExists
-  const candidate = path.join(hermesHome, 'hermes-setup.exe')
+  const candidate = path.join(hermesHome, 'xhermes-setup.exe')
 
   return fileExists(candidate) ? candidate : null
 }
@@ -90,9 +90,9 @@ export function resolveStagedUpdaterBinary(
  * predating #74782 have no self-PID exclusion in `UpdateMarkerGuard::acquire`,
  * so when the desktop pre-writes the marker naming that very updater, the
  * updater reads its own claim as a foreign live owner and aborts with
- * "Another Hermes update is already running (PID <itself>, started 1s ago)" —
+ * "Another XHermes update is already running (PID <itself>, started 1s ago)" —
  * the observed infinite "Install didn't finish" loop. Skipping the pre-write
- * for those binaries lets them acquire cleanly and run `hermes update`, which
+ * for those binaries lets them acquire cleanly and run `xhermes update`, which
  * pulls the permanent fixes. See shouldPrewriteUpdateMarker.
  *
  * We cannot ask the binary its version without executing it, so use its mtime:

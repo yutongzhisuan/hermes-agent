@@ -42,7 +42,7 @@ def test_show_status_termux_gateway_section_skips_systemctl(monkeypatch, capsys,
 
     output = capsys.readouterr().out
     assert "Manager:      Termux / manual process" in output
-    assert "Start with:   hermes gateway" in output
+    assert "Start with:   xhermes gateway" in output
     assert "systemd (user)" not in output
 def test_show_status_reports_vercel_backend_contract(monkeypatch, capsys, tmp_path):
     from hermes_cli import status as status_mod
@@ -100,7 +100,7 @@ def _base_xai_mocks(monkeypatch, tmp_path):
 
 
 class TestShowStatusXaiOAuth:
-    """xAI OAuth row in hermes status."""
+    """xAI OAuth row in xhermes status."""
 
     # ------------------------------------------------------------------
     # Logged-in branch
@@ -111,13 +111,13 @@ class TestShowStatusXaiOAuth:
         import hermes_cli.auth as auth_mod
         status_mod = _base_xai_mocks(monkeypatch, tmp_path)
         monkeypatch.setattr(auth_mod, "get_xai_oauth_auth_status",
-                            lambda: {"logged_in": True, "auth_store": "/home/u/.hermes/auth.json"},
+                            lambda: {"logged_in": True, "auth_store": "/home/u/.xhermes/auth.json"},
                             raising=False)
 
         status_mod.show_status(SimpleNamespace(all=False, deep=False))
         out = capsys.readouterr().out
 
-        assert "Auth file:  /home/u/.hermes/auth.json" in out
+        assert "Auth file:  /home/u/.xhermes/auth.json" in out
 
 
     def test_no_auth_store_line_when_field_absent(self, monkeypatch, capsys, tmp_path):
@@ -196,11 +196,11 @@ class TestShowStatusXaiOAuth:
         out = capsys.readouterr().out
 
         assert "xAI OAuth" in out
-        assert "not logged in (run: hermes auth add xai-oauth)" in out
+        assert "not logged in (run: xhermes auth add xai-oauth)" in out
 
 
 def test_show_status_reports_gateway_session_last_activity(monkeypatch, capsys, tmp_path):
-    """hermes status should surface freshest gateway last_active (#72016)."""
+    """xhermes status should surface freshest gateway last_active (#72016)."""
     from hermes_cli import status as status_mod
     import hermes_cli.auth as auth_mod
     import hermes_cli.gateway as gateway_mod

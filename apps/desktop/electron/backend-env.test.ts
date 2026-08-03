@@ -13,7 +13,7 @@ import {
   POSIX_SANE_PATH_ENTRIES
 } from './backend-env'
 
-test('desktop backend PATH adds Hermes-managed bins and missing POSIX sane entries', () => {
+test('desktop backend PATH adds XHermes-managed bins and missing POSIX sane entries', () => {
   const result = buildDesktopBackendPath({
     hermesHome: '/Users/test/.xhermes',
     venvRoot: '/Users/test/.xhermes/xhermes-agent/venv',
@@ -44,7 +44,7 @@ test('managed Node dirs lead with the platform-native layout but always offer bo
     pathModule: path.posix
   })
 
-  const windows = hermesManagedNodePathEntries('C:\\Users\\test\\AppData\\Local\\hermes', {
+  const windows = hermesManagedNodePathEntries('C:\\Users\\test\\AppData\\Local\\xhermes', {
     platform: 'win32',
     pathModule: path.win32
   })
@@ -53,12 +53,12 @@ test('managed Node dirs lead with the platform-native layout but always offer bo
   // Both shapes are always emitted so migrated installs keep resolving.
   assert.deepEqual(posix, ['/Users/test/.xhermes/node/bin', '/Users/test/.xhermes/node'])
   assert.deepEqual(windows, [
-    'C:\\Users\\test\\AppData\\Local\\hermes\\node',
-    'C:\\Users\\test\\AppData\\Local\\hermes\\node\\bin'
+    'C:\\Users\\test\\AppData\\Local\\xhermes\\node',
+    'C:\\Users\\test\\AppData\\Local\\xhermes\\node\\bin'
   ])
 })
 
-test('managed Node dirs are empty without a Hermes home', () => {
+test('managed Node dirs are empty without a XHermes home', () => {
   assert.deepEqual(hermesManagedNodePathEntries(undefined, { platform: 'darwin', pathModule: path.posix }), [])
   assert.deepEqual(hermesManagedNodePathEntries('', { platform: 'win32', pathModule: path.win32 }), [])
 })
@@ -66,7 +66,7 @@ test('managed Node dirs are empty without a Hermes home', () => {
 test('every managed Node dir outranks the inherited PATH on both platforms', () => {
   for (const [platform, pathModule, home, inherited, delimiter] of [
     ['darwin', path.posix, '/Users/test/.xhermes', '/usr/local/bin:/usr/bin', ':'],
-    ['win32', path.win32, 'C:\\hermes', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
+    ['win32', path.win32, 'C:\\xhermes', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
   ] as const) {
     const entries = buildDesktopBackendPath({
       hermesHome: home,
@@ -108,7 +108,7 @@ test('desktop backend PATH preserves first occurrence and avoids duplicates', ()
 test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () => {
   const env = buildDesktopBackendEnv({
     hermesHome: '/Users/test/.xhermes',
-    pythonPathEntries: ['/repo/hermes-agent'],
+    pythonPathEntries: ['/repo/xhermes-agent'],
     venvRoot: '/Users/test/.xhermes/xhermes-agent/venv',
     currentEnv: {
       PATH: '/usr/bin:/bin',
@@ -118,7 +118,7 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
     pathModule: path.posix
   })
 
-  assert.equal(env.PYTHONPATH, '/repo/hermes-agent:/existing/pythonpath')
+  assert.equal(env.PYTHONPATH, '/repo/xhermes-agent:/existing/pythonpath')
   assert.ok(
     env.PATH.startsWith(
       '/Users/test/.xhermes/node/bin:/Users/test/.xhermes/node:/Users/test/.xhermes/xhermes-agent/venv/bin:'
@@ -147,23 +147,23 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
   assert.equal(optedOut.PYTHONUTF8, '0')
 })
 
-test('normalizeHermesHomeRoot maps profile homes back to the global Hermes root', () => {
+test('normalizeHermesHomeRoot maps profile homes back to the global XHermes root', () => {
   assert.equal(
     normalizeHermesHomeRoot('/Users/test/.xhermes/profiles/oracle', { pathModule: path.posix }),
     '/Users/test/.xhermes'
   )
   assert.equal(
-    normalizeHermesHomeRoot('C:\\Users\\test\\AppData\\Local\\hermes\\profiles\\oracle', { pathModule: path.win32 }),
-    'C:\\Users\\test\\AppData\\Local\\hermes'
+    normalizeHermesHomeRoot('C:\\Users\\test\\AppData\\Local\\xhermes\\profiles\\oracle', { pathModule: path.win32 }),
+    'C:\\Users\\test\\AppData\\Local\\xhermes'
   )
   assert.equal(normalizeHermesHomeRoot('/Users/test/.xhermes', { pathModule: path.posix }), '/Users/test/.xhermes')
 })
 
 test('Windows PATH casing and delimiter are preserved without POSIX sane entries', () => {
   const env = buildDesktopBackendEnv({
-    hermesHome: 'C:\\Users\\test\\AppData\\Local\\hermes',
-    pythonPathEntries: ['C:\\repo\\hermes-agent'],
-    venvRoot: 'C:\\Users\\test\\AppData\\Local\\hermes\\hermes-agent\\venv',
+    hermesHome: 'C:\\Users\\test\\AppData\\Local\\xhermes',
+    pythonPathEntries: ['C:\\repo\\xhermes-agent'],
+    venvRoot: 'C:\\Users\\test\\AppData\\Local\\xhermes\\xhermes-agent\\venv',
     currentEnv: {
       Path: 'C:\\Windows\\System32;C:\\Windows',
       PYTHONPATH: 'C:\\existing\\pythonpath'
@@ -178,7 +178,7 @@ test('Windows PATH casing and delimiter are preserved without POSIX sane entries
   // straight into node\, no bin\), then the POSIX shape for migrated installs.
   assert.ok(
     env.Path.startsWith(
-      'C:\\Users\\test\\AppData\\Local\\hermes\\node;C:\\Users\\test\\AppData\\Local\\hermes\\node\\bin;'
+      'C:\\Users\\test\\AppData\\Local\\xhermes\\node;C:\\Users\\test\\AppData\\Local\\xhermes\\node\\bin;'
     )
   )
   assert.ok(env.Path.includes('\\venv\\Scripts;'))

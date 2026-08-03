@@ -21,7 +21,7 @@ Features:
 
 Cloud sandbox note:
 - Persistent filesystems preserve working state across sandbox recreation
-- Persistent filesystems do NOT guarantee the same live sandbox or long-running processes survive cleanup, idle reaping, or Hermes exit
+- Persistent filesystems do NOT guarantee the same live sandbox or long-running processes survive cleanup, idle reaping, or XHermes exit
 
 Usage:
     from terminal_tool import terminal_tool
@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 from tools.interrupt import is_interrupted, _interrupt_event  # noqa: F401 — re-exported
 from tools.registry import tool_error
-# display_hermes_home imported lazily at call site (stale-module safety during hermes update)
+# display_hermes_home imported lazily at call site (stale-module safety during xhermes update)
 
 
 
@@ -210,10 +210,10 @@ def _check_disk_usage_warning():
     try:
         scratch_dir = _get_scratch_dir()
 
-        # Get total size of hermes directories
+        # Get total size of xhermes directories
         total_bytes = 0
         import glob
-        for path in glob.glob(str(scratch_dir / "hermes-*")):
+        for path in glob.glob(str(scratch_dir / "xhermes-*")):
             for f in Path(path).rglob('*'):
                 if f.is_file():
                     try:
@@ -1028,11 +1028,11 @@ def _transform_sudo_command(command: str | None) -> tuple[str | None, str | None
     )
 
     # Local hosts with sudoers NOPASSWD should not be forced through the
-    # interactive Hermes password prompt or the sudo -S password-pipe path.
+    # interactive XHermes password prompt or the sudo -S password-pipe path.
     # Scoped to the local terminal backend so Docker/SSH/Modal/etc. can't
     # inherit host sudo state. Re-probes every call (no process-lifetime
     # cache) so an expired sudo timestamp doesn't make a later command block
-    # silently without Hermes prompting.
+    # silently without XHermes prompting.
     if not has_configured_password and not sudo_password and _sudo_nopasswd_works():
         return command, None
 
@@ -1072,7 +1072,7 @@ Do NOT use cat/head/tail (use read_file), grep/rg/find/ls (use search_files), se
 Environment state persists: activate a virtualenv or export variables once per session, not before every command.
 
 Foreground (default): returns INSTANTLY when the command finishes, even with a high timeout — set timeout generously for long builds.
-Background: set background=true (returns a session_id). Pair with notify_on_complete=true for bounded tasks; leave silent only for servers/daemons that never exit. Never use nohup/setsid/trailing '&' — use background=true so Hermes tracks the process. After starting a server, verify readiness with a health check, then act in a separate call; no blind sleep loops. Manage with process(action="poll"/"wait").
+Background: set background=true (returns a session_id). Pair with notify_on_complete=true for bounded tasks; leave silent only for servers/daemons that never exit. Never use nohup/setsid/trailing '&' — use background=true so XHermes tracks the process. After starting a server, verify readiness with a health check, then act in a separate call; no blind sleep loops. Manage with process(action="poll"/"wait").
 Working directory: use 'workdir' for per-command cwd. When a command changes the session cwd (cd, pushd), the result includes a "cwd" field — trust it instead of prefixing every command with 'cd'.
 PTY: set pty=true for interactive CLIs (they hang without it). Pipe git output to cat if it might page.
 """
@@ -1096,9 +1096,9 @@ _docker_orphan_reaper_lock = threading.Lock()
 def _maybe_reap_docker_orphans(container_config: Dict[str, Any]) -> None:
     """Run the docker orphan reaper once per process, if enabled.
 
-    Sweeps long-Exited containers labeled ``hermes-agent=1`` for the current
+    Sweeps long-Exited containers labeled ``xhermes-agent=1`` for the current
     profile that match the issue #20561 leak class — containers left behind
-    by Hermes processes that exited without firing ``atexit`` (SIGKILL,
+    by XHermes processes that exited without firing ``atexit`` (SIGKILL,
     OOM, terminal-window-close). The reaper is conservative by default:
     only Exited containers older than ``2 × lifetime_seconds`` and scoped to
     the current profile.
@@ -1107,7 +1107,7 @@ def _maybe_reap_docker_orphans(container_config: Dict[str, Any]) -> None:
 
     * ``terminal.docker_orphan_reaper: false`` disables it entirely (the
       operator opted out — usually because they're running multiple
-      Hermes processes in the same profile and don't trust the
+      XHermes processes in the same profile and don't trust the
       conservative defaults).
     * ``_docker_orphan_reaper_ran`` flag — sweep runs once per Python
       interpreter, not on every subagent / RL-rollout / parallel
@@ -1125,7 +1125,7 @@ def _maybe_reap_docker_orphans(container_config: Dict[str, Any]) -> None:
             return
         _docker_orphan_reaper_ran = True
 
-    # 2 × lifetime_seconds gives sibling Hermes processes a generous grace
+    # 2 × lifetime_seconds gives sibling XHermes processes a generous grace
     # window. Floor at 60s so an operator with TERMINAL_LIFETIME_SECONDS=0
     # doesn't get an instant-reap that races their own setup.
     # ``container_config`` only carries container_* keys, so read
@@ -1340,7 +1340,7 @@ def _parse_env_var(name: str, default: str, converter: Any = int, type_label: st
     except (ValueError, json.JSONDecodeError):
         raise ValueError(
             f"Invalid value for {name}: {raw!r} (expected {type_label}). "
-            f"Check ~/.hermes/.env or environment variables."
+            f"Check ~/.xhermes/.env or environment variables."
         )
 
 
@@ -1369,11 +1369,11 @@ _CONTAINER_BACKENDS = frozenset({"docker", "singularity", "modal", "daytona", "v
 
 def _is_ssh_remote_tilde_cwd(backend: str, cwd: str) -> bool:
     """Return True when *cwd* is a tilde path that the remote SSH shell must
-    expand itself, so the Hermes host/container must NOT ``expanduser`` it.
+    expand itself, so the XHermes host/container must NOT ``expanduser`` it.
 
     SSH ``cwd`` is interpreted by the *remote* shell (``cd ~`` / ``cd ~/x``
     over ``ssh ... bash -c``). Expanding ``~`` locally would rewrite it to the
-    Hermes host HOME (often ``/opt/data`` under Docker) and inject a
+    XHermes host HOME (often ``/opt/data`` under Docker) and inject a
     nonexistent path into the remote session. Only ``~`` / ``~/...`` on the
     ``ssh`` backend qualify; absolute remote paths still pass through
     unchanged, and every other backend keeps expanding locally.
@@ -1418,7 +1418,7 @@ def _ensure_terminal_env_bridged() -> None:
     The CLI (cli.py ``env_mappings``), the gateway (gateway/run.py
     ``_terminal_env_map``), and TUI/dashboard PTY launches
     (``apply_terminal_config_to_env``) bridge ``terminal.*`` config into env
-    vars at startup — but processes that skip all of those paths (``hermes
+    vars at startup — but processes that skip all of those paths (``xhermes
     serve`` / the Desktop app backend's in-process agents, the desktop cron
     ticker, ACP) used to silently fall back to the local backend even when
     config.yaml selects ``terminal.backend: docker``, running commands on the
@@ -1426,7 +1426,7 @@ def _ensure_terminal_env_bridged() -> None:
 
     Explicit terminal config keys win: when config.yaml has a ``terminal``
     section, each key present there overrides its matching env value (which may
-    be stale from ``hermes setup``). Environment values for omitted terminal
+    be stale from ``xhermes setup``). Environment values for omitted terminal
     keys are preserved. When no terminal section exists, exported/.env values
     keep working unchanged.
     """
@@ -1580,7 +1580,7 @@ def _get_env_config() -> Dict[str, Any]:
         "docker_persist_across_processes": os.getenv(
             "TERMINAL_DOCKER_PERSIST_ACROSS_PROCESSES", "true"
         ).lower() in {"true", "1", "yes"},
-        # Startup orphan reaper for hermes-tagged containers left behind by
+        # Startup orphan reaper for xhermes-tagged containers left behind by
         # crashed / SIGKILL'd previous processes that bypassed atexit.
         # Conservative: only sweeps Exited containers older than 2× the
         # idle-reap window AND scoped to the current profile. Issue #20561.
@@ -1637,7 +1637,7 @@ def _create_environment(env_type: str, image: str, cwd: str, timeout: int,
     
     elif env_type == "docker":
         # One-shot orphan reaper: clean up labeled containers left behind by
-        # prior Hermes processes that hit SIGKILL / OOM / a closed terminal
+        # prior XHermes processes that hit SIGKILL / OOM / a closed terminal
         # before the atexit cleanup hook could run.  Gated to once per
         # process so concurrent _create_environment calls (parallel
         # subagents, RL benchmarks) don't run the reaper N times.
@@ -1907,7 +1907,7 @@ def cleanup_all_environments():
     # Also clean any orphaned directories
     scratch_dir = _get_scratch_dir()
     import glob
-    for path in glob.glob(str(scratch_dir / "hermes-*")):
+    for path in glob.glob(str(scratch_dir / "xhermes-*")):
         try:
             shutil.rmtree(path, ignore_errors=True)
             logger.info("Removed orphaned: %s", path)
@@ -2164,7 +2164,7 @@ def _foreground_background_guidance(command: str) -> str | None:
         return (
             "Foreground command uses shell-level background wrappers (nohup/disown/setsid). "
             "Re-send WITHOUT the wrapper as terminal(command=\"<cmd>\", background=true, "
-            "notify_on_complete=true) so Hermes tracks the process, then run readiness "
+            "notify_on_complete=true) so XHermes tracks the process, then run readiness "
             "checks and tests in separate commands."
         )
 
@@ -2494,11 +2494,11 @@ def terminal_tool(
 
         session_key = get_current_session_key(default="") or (task_id or "")
 
-        # Hard-block: gateway lifecycle commands (systemctl/launchctl/hermes
+        # Hard-block: gateway lifecycle commands (systemctl/launchctl/xhermes
         # restart|stop targeting xhermes-gateway) must never run inside the
         # gateway process itself. The restart would SIGTERM the gateway, which
         # kills this very subprocess before it can complete — the service may
-        # never restart. This mirrors the `hermes gateway restart` guard in
+        # never restart. This mirrors the `xhermes gateway restart` guard in
         # hermes_cli/gateway.py and the cron-path guard in hermes_cli/cron.py,
         # but applies unconditionally (force=True cannot help here).
         if os.environ.get("_HERMES_GATEWAY") == "1":
@@ -2513,7 +2513,7 @@ def terminal_tool(
                     "error": (
                         "Blocked: launchctl submit/bootstrap registers a persistent "
                         "KeepAlive job and is unsafe from inside the gateway process. "
-                        "Use Hermes cron for one-shot delayed work, or install an "
+                        "Use XHermes cron for one-shot delayed work, or install an "
                         "explicit LaunchAgent from a separate shell."
                     ),
                     "status": "error",
@@ -2569,7 +2569,7 @@ def terminal_tool(
                         "Blocked: command or referenced script cannot restart or stop "
                         "the gateway from inside the gateway process. The gateway would "
                         "kill this command before it could complete (SIGTERM propagates "
-                        "to child processes). Run `hermes gateway restart` from a "
+                        "to child processes). Run `xhermes gateway restart` from a "
                         "separate shell outside the running gateway."
                     ),
                     "status": "error",
@@ -2724,7 +2724,7 @@ def terminal_tool(
                 # Nudge: homebrewed CI watcher built from `gh pr view`
                 # `--json statusCheckRollup` or `gh pr checks` piped through
                 # `jq` is the #1 cause of silent CI-watcher failures in
-                # hermes-agent dev work. May 2026 PRs that surfaced this
+                # xhermes-agent dev work. May 2026 PRs that surfaced this
                 # exact failure mode: #31329, #31448, #31695, #31709, #31745,
                 # #32264, #33131. Failure modes seen:
                 #   * `gh pr view --json statusCheckRollup --jq ...` with
@@ -2772,7 +2772,7 @@ def terminal_tool(
                             "This looks like a homebrewed CI poller built from "
                             "`gh pr view --json statusCheckRollup` and/or "
                             "`gh pr checks | jq`. That shape has burned us "
-                            "repeatedly in hermes-agent dev work (PRs #31329, "
+                            "repeatedly in xhermes-agent dev work (PRs #31329, "
                             "#31448, #31695, #31709, #31745, #32264, #33131) — "
                             "stdout buffering kills output capture, jq null-key "
                             "edge cases silently exit the loop, conclusion-vs-"
@@ -2786,7 +2786,7 @@ def terminal_tool(
                             "awk-on-tabs poller "
                             "(`awk -F\"\\t\" \"$2==\\\"pending\\\"\"`) for "
                             "sharded matrices. Load skill_view("
-                            "name='github/hermes-agent-dev', "
+                            "name='github/xhermes-agent-dev', "
                             "file_path='references/green-ci-policy.md') for "
                             "the verbatim snippets. If you must roll a custom "
                             "loop with rich structured output, write each tick "
@@ -2820,7 +2820,7 @@ def terminal_tool(
                         result_data["notify_unsupported"] = (
                             "notify_on_complete / watch_patterns are not available in "
                             "this session — it cannot receive an async completion after "
-                            "the turn ends (a one-shot runner such as `hermes -z`, a "
+                            "the turn ends (a one-shot runner such as `xhermes -z`, a "
                             "cron job, a Kanban worker, or a stateless HTTP endpoint). "
                             "The process is "
                             "running in the background; retrieve its result with "

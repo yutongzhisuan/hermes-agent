@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn()
 }))
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/xhermes', () => ({
   saveHermesConfig: (config: Record<string, unknown>) => mocks.save(config)
 }))
 
@@ -62,7 +62,7 @@ describe('TerminalFontSetting', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mocks.loadedConfig = {
-      display: { skin: 'hermes' },
+      display: { skin: 'xhermes' },
       terminal: { backend: 'local', cwd: '/workspace', font_family: '' }
     }
     mocks.save.mockResolvedValue({ ok: true })
@@ -88,7 +88,7 @@ describe('TerminalFontSetting', () => {
     await flushAutosave()
 
     expect(mocks.save).toHaveBeenCalledWith({
-      display: { skin: 'hermes' },
+      display: { skin: 'xhermes' },
       terminal: { backend: 'local', cwd: '/workspace', font_family: 'MesloLGS NF' }
     })
     expect(mocks.cache).toHaveBeenCalledWith(mocks.save.mock.calls[0][0])

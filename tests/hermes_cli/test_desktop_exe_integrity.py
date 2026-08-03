@@ -1,8 +1,8 @@
 """Behavior tests for the Windows desktop-exe integrity gate (#69179).
 
-The desktop self-update chain (Desktop → hermes-setup --update →
-``hermes update`` → ``hermes desktop --build-only`` → relaunch) rebuilds
-Hermes.exe on the end user's machine. Before this gate, "build succeeded" was
+The desktop self-update chain (Desktop → xhermes-setup --update →
+``xhermes update`` → ``xhermes desktop --build-only`` → relaunch) rebuilds
+XHermes.exe on the end user's machine. Before this gate, "build succeeded" was
 just "the file exists", so a truncated PE (corrupt cached Electron zip), a
 non-PE file, or a wrong-architecture tree shipped as the new app — Windows
 then refuses to launch it with "This app can't run on your computer"
@@ -194,14 +194,14 @@ def test_expected_machines_prefers_user_runnable_api_over_arch_name(monkeypatch)
 
 def _win_tree(tmp_path: Path) -> tuple[Path, Path]:
     desktop_dir = tmp_path / "apps" / "desktop"
-    exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+    exe = desktop_dir / "release" / "win-unpacked" / "XHermes.exe"
     return desktop_dir, exe
 
 
 def test_rollback_restores_backup_and_keeps_corrupt_copy(tmp_path):
     desktop_dir, exe = _win_tree(tmp_path)
     make_pe(exe, PE_AMD64, truncate_to=0x300)  # corrupt new build
-    backup_exe = desktop_dir / "release" / "win-unpacked.bak" / "Hermes.exe"
+    backup_exe = desktop_dir / "release" / "win-unpacked.bak" / "XHermes.exe"
     make_pe(backup_exe, PE_AMD64)  # valid old build
 
     with patch("hermes_cli.main._windows_native_machine", return_value="AMD64"):
@@ -212,7 +212,7 @@ def test_rollback_restores_backup_and_keeps_corrupt_copy(tmp_path):
     assert cli_main._parse_pe_machine(exe) == PE_AMD64
     assert exe.stat().st_size == 0x400
     # Corrupt tree preserved for diagnostics; backup consumed.
-    assert (desktop_dir / "release" / "win-unpacked.corrupt" / "Hermes.exe").exists()
+    assert (desktop_dir / "release" / "win-unpacked.corrupt" / "XHermes.exe").exists()
     assert not backup_exe.exists()
 
 
@@ -243,7 +243,7 @@ def test_gate_fails_clearly_without_backup(tmp_path, monkeypatch, capsys):
     assert "No usable backup" in out
 
 
-# ─── end-to-end: `hermes desktop --build-only` exits nonzero on corrupt exe ─
+# ─── end-to-end: `xhermes desktop --build-only` exits nonzero on corrupt exe ─
 
 
 def _ns(**kw):
@@ -262,19 +262,19 @@ def _ns(**kw):
 
 
 def test_build_only_fails_when_pack_produces_corrupt_exe(tmp_path, monkeypatch, capsys):
-    """The updater chain's contract: a rebuild whose Hermes.exe cannot launch
-    must exit nonzero (so hermes-setup's retry-once kicks in) and must restore
+    """The updater chain's contract: a rebuild whose XHermes.exe cannot launch
+    must exit nonzero (so xhermes-setup's retry-once kicks in) and must restore
     the previous working build instead of leaving the corrupt one."""
-    root = tmp_path / "hermes-agent"
+    root = tmp_path / "xhermes-agent"
     desktop_dir = root / "apps" / "desktop"
     desktop_dir.mkdir(parents=True)
     (desktop_dir / "package.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(cli_main, "PROJECT_ROOT", root)
     monkeypatch.setattr(cli_main.sys, "platform", "win32")
 
-    exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+    exe = desktop_dir / "release" / "win-unpacked" / "XHermes.exe"
     make_pe(exe, PE_AMD64, truncate_to=0x300)  # what the failed pack produced
-    make_pe(desktop_dir / "release" / "win-unpacked.bak" / "Hermes.exe", PE_AMD64)
+    make_pe(desktop_dir / "release" / "win-unpacked.bak" / "XHermes.exe", PE_AMD64)
 
     install_ok = subprocess.CompletedProcess(["npm", "ci"], 0)
     pack_ok = subprocess.CompletedProcess(["npm", "run", "pack"], 0)

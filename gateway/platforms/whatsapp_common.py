@@ -506,7 +506,7 @@ class WhatsAppBehaviorMixin:
 def resolve_whatsapp_bridge_dir() -> Path:
     """Resolve the WhatsApp bridge directory, mirroring to HERMES_HOME if needed.
 
-    When the install tree is read-only (e.g., Docker /opt/hermes), this function
+    When the install tree is read-only (e.g., Docker /opt/xhermes), this function
     mirrors the bridge source to a writable HERMES_HOME location and returns that
     path. This ensures npm install works in Docker environments.
 

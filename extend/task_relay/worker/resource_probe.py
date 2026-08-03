@@ -8,7 +8,7 @@ from typing import Any
 
 try:
     import psutil
-except ImportError:  # pragma: no cover - psutil is a core Hermes dependency
+except ImportError:  # pragma: no cover - psutil is a core XHermes dependency
     psutil = None  # type: ignore[assignment]
 
 

@@ -1,10 +1,10 @@
 """
-Backup and import commands for hermes CLI.
+Backup and import commands for xhermes CLI.
 
-`hermes backup` creates a zip archive of the entire ~/.hermes/ directory
-(excluding the hermes-agent repo and transient files).
+`xhermes backup` creates a zip archive of the entire ~/.xhermes/ directory
+(excluding the xhermes-agent repo and transient files).
 
-`hermes import` restores from a backup zip, overlaying onto the current
+`xhermes import` restores from a backup zip, overlaying onto the current
 HERMES_HOME root.
 """
 
@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Directory names to skip entirely (matched against each path component)
-# ``hermes-agent`` is special-cased to root level only in ``_should_exclude``
-# so that skill directories like ``skills/autonomous-ai-agents/hermes-agent/``
+# ``xhermes-agent`` is special-cased to root level only in ``_should_exclude``
+# so that skill directories like ``skills/autonomous-ai-agents/xhermes-agent/``
 # are not accidentally excluded.
 #
 # The dependency/cache entries below matter for more than tidiness: without
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 # exclude ``.archive`` here because the curator's ``skills/.archive/`` holds
 # restorable user skills that must survive a backup.
 _EXCLUDED_DIRS = {
-    "hermes-agent",     # the codebase repo — re-clone instead
+    "xhermes-agent",     # the codebase repo — re-clone instead
     "__pycache__",      # bytecode caches — regenerated on import
     ".git",             # nested git dirs (profiles shouldn't have these, but safety)
     "node_modules",     # js deps — reinstalled on demand
@@ -88,7 +88,7 @@ _EXCLUDED_NAMES = {
     "cron.pid",
 }
 
-# File names that ``hermes import`` must never overwrite, matched by basename so
+# File names that ``xhermes import`` must never overwrite, matched by basename so
 # they're caught for the root profile (``gateway_state.json``) and for named
 # profiles alike (``profiles/<name>/gateway_state.json``).
 #
@@ -209,16 +209,16 @@ def _iter_external_files(base: Path) -> List[Path]:
 
 
 def _should_exclude(rel_path: Path) -> bool:
-    """Return True if *rel_path* (relative to hermes root) should be skipped."""
+    """Return True if *rel_path* (relative to xhermes root) should be skipped."""
     parts = rel_path.parts
 
     for part in parts:
         if part not in _EXCLUDED_DIRS:
             continue
-        # ``hermes-agent`` only matches at the root level (first component).
+        # ``xhermes-agent`` only matches at the root level (first component).
         # Nested directories with the same name — e.g.
-        # ``skills/autonomous-ai-agents/hermes-agent/`` — must be preserved.
-        if part == "hermes-agent" and part != parts[0]:
+        # ``skills/autonomous-ai-agents/xhermes-agent/`` — must be preserved.
+        if part == "xhermes-agent" and part != parts[0]:
             continue
         return True
 
@@ -321,7 +321,7 @@ _SQLITE_HEADER = b"SQLite format 3\0"
 # of the (O(1)) header + structural probe. ``integrity_check`` walks every
 # b-tree page in the file, so its cost scales with database size: on a 30 GB
 # state.db it runs for many minutes of pegged CPU with no output, which reads
-# to the user as a hung `hermes update` (#70553 follow-up). Sessions databases
+# to the user as a hung `xhermes update` (#70553 follow-up). Sessions databases
 # in the tens of GB are normal for heavy users, so the size-unbounded check is
 # never an acceptable default on the update path.
 DEFAULT_INTEGRITY_CHECK_MAX_BYTES = 2 << 30  # 2 GiB
@@ -502,11 +502,11 @@ def _format_size(nbytes: int) -> str:
 
 
 def run_backup(args) -> None:
-    """Create a zip backup of the Hermes home directory."""
+    """Create a zip backup of the XHermes home directory."""
     hermes_root = get_default_hermes_root()
 
     if not hermes_root.is_dir():
-        print(f"Error: Hermes home directory not found at {hermes_root}")
+        print(f"Error: XHermes home directory not found at {hermes_root}")
         sys.exit(1)
 
     # Determine output path
@@ -515,10 +515,10 @@ def run_backup(args) -> None:
         # If user gave a directory, put the zip inside it
         if out_path.is_dir():
             stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            out_path = out_path / f"hermes-backup-{stamp}.zip"
+            out_path = out_path / f"xhermes-backup-{stamp}.zip"
     else:
         stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        out_path = Path.home() / f"hermes-backup-{stamp}.zip"
+        out_path = Path.home() / f"xhermes-backup-{stamp}.zip"
 
     # Ensure the suffix is .zip
     if out_path.suffix.lower() != ".zip":
@@ -537,13 +537,13 @@ def run_backup(args) -> None:
         rel_dir = dp.relative_to(hermes_root)
 
         # Prune excluded directories in-place so os.walk doesn't descend
-        # ``hermes-agent`` is only pruned at the root level; nested dirs
+        # ``xhermes-agent`` is only pruned at the root level; nested dirs
         # with the same name (e.g. in skills/) must be preserved.
         is_root = rel_dir == Path(".")
         orig_dirnames = dirnames[:]
         dirnames[:] = [
             d for d in dirnames
-            if d not in _EXCLUDED_DIRS or (d == "hermes-agent" and not is_root)
+            if d not in _EXCLUDED_DIRS or (d == "xhermes-agent" and not is_root)
         ]
         for removed in set(orig_dirnames) - set(dirnames):
             skipped_dirs.add(str(rel_dir / removed))
@@ -677,7 +677,7 @@ def run_backup(args) -> None:
             print(f"  ... and {len(errors) - 10} more")
 
     if not errors:
-        print(f"\nRestore with: hermes import {out_path.name}")
+        print(f"\nRestore with: xhermes import {out_path.name}")
 
 
 # ---------------------------------------------------------------------------
@@ -685,7 +685,7 @@ def run_backup(args) -> None:
 # ---------------------------------------------------------------------------
 
 def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
-    """Check that a zip looks like a Hermes backup.
+    """Check that a zip looks like a XHermes backup.
 
     Returns (ok, reason).
     """
@@ -693,7 +693,7 @@ def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
     if not names:
         return False, "zip archive is empty"
 
-    # Look for telltale files that a hermes home would have
+    # Look for telltale files that a xhermes home would have
     markers = {"config.yaml", ".env", "state.db"}
     found = set()
     for n in names:
@@ -704,7 +704,7 @@ def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
 
     if not found:
         return False, (
-            "zip does not appear to be a Hermes backup "
+            "zip does not appear to be a XHermes backup "
             "(no config.yaml, .env, or state databases found)"
         )
 
@@ -714,7 +714,7 @@ def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
 def _detect_prefix(zf: zipfile.ZipFile) -> str:
     """Detect if the zip has a common directory prefix wrapping all entries.
 
-    Some tools zip as `.hermes/config.yaml` instead of `config.yaml`.
+    Some tools zip as `.xhermes/config.yaml` instead of `config.yaml`.
     Returns the prefix to strip (empty string if none).
     """
     names = [n for n in zf.namelist() if not n.endswith("/")]
@@ -728,15 +728,15 @@ def _detect_prefix(zf: zipfile.ZipFile) -> str:
     first_parts = {p[0] for p in parts_list if len(p) > 1}
     if len(first_parts) == 1:
         prefix = first_parts.pop()
-        # Only strip if it looks like a hermes dir name
-        if prefix in {".hermes", "hermes"}:
+        # Only strip if it looks like a xhermes dir name
+        if prefix in {".xhermes", "xhermes"}:
             return prefix + "/"
 
     return ""
 
 
 def run_import(args) -> None:
-    """Restore a Hermes backup from a zip file."""
+    """Restore a XHermes backup from a zip file."""
     zip_path = Path(args.zipfile).expanduser().resolve()
 
     if not zip_path.is_file():
@@ -772,7 +772,7 @@ def run_import(args) -> None:
 
         if (has_config or has_env) and not args.force:
             print()
-            print("Warning: Target directory already has Hermes configuration.")
+            print("Warning: Target directory already has XHermes configuration.")
             print("Importing will overwrite existing files with backup contents.")
             print()
             try:
@@ -938,25 +938,25 @@ def run_import(args) -> None:
                 # hermes_cli.profiles might not be available (fresh install)
                 if any(profiles_dir.iterdir()):
                     print("\n  Profiles detected but aliases could not be created.")
-                    print("  Run: hermes profile list  (after installing hermes)")
+                    print("  Run: xhermes profile list  (after installing xhermes)")
 
         # Guidance
         print()
-        if not (hermes_root / "hermes-agent").is_dir():
-            print("Note: The hermes-agent codebase was not included in the backup.")
-            print("  If this is a fresh install, run: hermes update")
+        if not (hermes_root / "xhermes-agent").is_dir():
+            print("Note: The xhermes-agent codebase was not included in the backup.")
+            print("  If this is a fresh install, run: xhermes update")
 
         if restored_profiles:
             gw_profiles = [n for n, _ in restored_profiles]
             print("\nTo re-enable gateway services for profiles:")
             for pname in gw_profiles:
-                print(f"  hermes -p {pname} gateway install")
+                print(f"  xhermes -p {pname} gateway install")
 
-        print("Done. Your Hermes configuration has been restored.")
+        print("Done. Your XHermes configuration has been restored.")
 
 
 # ---------------------------------------------------------------------------
-# Quick state snapshots (used by /snapshot slash command and hermes backup --quick)
+# Quick state snapshots (used by /snapshot slash command and xhermes backup --quick)
 # ---------------------------------------------------------------------------
 
 # Critical state files to include in quick snapshots (relative to HERMES_HOME).
@@ -966,7 +966,7 @@ def run_import(args) -> None:
 # Entries may be individual files OR directories.  Directories are captured
 # recursively; missing entries are silently skipped.  Pairing data lives in
 # platform-specific JSON blobs outside state.db, so it's listed here explicitly
-# — `hermes update` snapshots this set before pulling so approved-user lists
+# — `xhermes update` snapshots this set before pulling so approved-user lists
 # are recoverable if anything goes wrong (issue #15733).
 _QUICK_STATE_FILES = (
     "state.db",
@@ -1023,10 +1023,10 @@ def create_quick_snapshot(
         max_file_size: When set, individual files larger than this many bytes
             are skipped (with a printed warning) instead of copied. Used by
             the pre-update safety snapshot so a multi-GB ``state.db`` can
-            never stall ``hermes update`` or silently eat disk — the small
+            never stall ``xhermes update`` or silently eat disk — the small
             pairing/cron/config files the snapshot exists to protect are
             always captured. ``None`` (default) copies everything, which
-            preserves manual ``/snapshot`` and ``hermes backup --quick``
+            preserves manual ``/snapshot`` and ``xhermes backup --quick``
             behavior.
 
     Returns:
@@ -1159,7 +1159,7 @@ def create_quick_snapshot(
         )
         print(
             "  ⚠ If sessions disappear after update, check "
-            f"{root} and run: hermes snapshot list"
+            f"{root} and run: xhermes snapshot list"
         )
         logger.error(
             "Quick snapshot failed to capture DB file(s): %s",
@@ -1362,7 +1362,7 @@ def restore_cron_jobs_if_emptied(
     snapshot_id: str,
     hermes_home: Optional[Path] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Safety net for silent cron-job loss across ``hermes update``.
+    """Safety net for silent cron-job loss across ``xhermes update``.
 
     Config-version migrations have been observed to leave ``cron/jobs.json``
     valid-but-empty after an update, silently dropping every scheduled job
@@ -1383,7 +1383,7 @@ def restore_cron_jobs_if_emptied(
     Args:
         snapshot_id: The pre-update quick-snapshot id (from
             :func:`create_quick_snapshot`).
-        hermes_home: Override for the Hermes home directory (tests).
+        hermes_home: Override for the XHermes home directory (tests).
 
     Returns:
         ``None`` when no action was taken (the common, healthy path). On a
@@ -1465,7 +1465,7 @@ def prune_quick_snapshots(
 
 
 def run_quick_backup(args) -> None:
-    """CLI entry point for hermes backup --quick."""
+    """CLI entry point for xhermes backup --quick."""
     label = getattr(args, "label", None)
     snap_id = create_quick_snapshot(label=label)
     if snap_id:
@@ -1625,7 +1625,7 @@ def create_pre_update_backup(
 
     Returns the path to the created zip, or ``None`` if no files were
     found or the backup could not be created.  Never raises — the caller
-    (``hermes update``) should continue even if the backup fails.
+    (``xhermes update``) should continue even if the backup fails.
     """
     hermes_root = hermes_home or get_default_hermes_root()
     if not hermes_root.is_dir():
@@ -1650,7 +1650,7 @@ def create_pre_update_backup(
 
 
 # ---------------------------------------------------------------------------
-# Pre-migration auto-backup (used by `hermes claw migrate`)
+# Pre-migration auto-backup (used by `xhermes claw migrate`)
 # ---------------------------------------------------------------------------
 
 _PRE_MIGRATION_PREFIX = "pre-migration-"
@@ -1690,11 +1690,11 @@ def create_pre_migration_backup(
     keep: int = _PRE_MIGRATION_DEFAULT_KEEP,
 ) -> Optional[Path]:
     """Create a full zip backup of HERMES_HOME under ``backups/`` before a
-    ``hermes claw migrate`` apply.
+    ``xhermes claw migrate`` apply.
 
     Shares implementation with :func:`create_pre_update_backup` via
     ``_write_full_zip_backup`` — same exclusions, same SQLite safe-copy,
-    restorable with ``hermes import <archive>``.  Writes to
+    restorable with ``xhermes import <archive>``.  Writes to
     ``<HERMES_HOME>/backups/pre-migration-<timestamp>.zip`` and auto-prunes
     old pre-migration backups.
 
@@ -1706,7 +1706,7 @@ def create_pre_migration_backup(
     if not hermes_root.is_dir():
         return None
 
-    # Reuses the shared backups/ directory so `hermes import` and the
+    # Reuses the shared backups/ directory so `xhermes import` and the
     # update-backup listing pick up pre-migration archives too.
     backup_dir = _pre_update_backup_dir(hermes_root)
     try:

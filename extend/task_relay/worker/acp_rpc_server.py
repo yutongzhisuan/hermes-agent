@@ -1,4 +1,4 @@
-"""HTTP JSON-RPC server exposing Hermes ACP execution to RemoteAcpTaskBackend."""
+"""HTTP JSON-RPC server exposing XHermes ACP execution to RemoteAcpTaskBackend."""
 
 from __future__ import annotations
 
@@ -174,7 +174,7 @@ async def serve_acp_rpc(
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Hermes ACP JSON-RPC server for Task Relay workers")
+    parser = argparse.ArgumentParser(description="XHermes ACP JSON-RPC server for Task Relay workers")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9105)
     parser.add_argument(

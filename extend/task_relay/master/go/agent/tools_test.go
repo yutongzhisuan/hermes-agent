@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/agent"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/agent"
 )
 
 func TestNewLocalPlannerSubAgentRequiresModel(t *testing.T) {

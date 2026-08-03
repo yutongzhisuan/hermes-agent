@@ -33,7 +33,7 @@ def _write_valid_auth_file(tmp_path, token="memo-token"):
                     "nous": {
                         "access_token": token,
                         "refresh_token": "r",
-                        "client_id": "hermes-cli-vps",
+                        "client_id": "xhermes-cli-vps",
                         "expires_at": time.strftime(
                             "%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3600)
                         ),

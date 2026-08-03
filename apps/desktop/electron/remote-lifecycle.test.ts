@@ -80,23 +80,23 @@ function fakeSsh(rules: any[] = []) {
 }
 
 test('locateHermes prefers the explicit profile path when executable', async () => {
-  const ssh = fakeSsh([[/\[ -x .*\/opt\/hermes/, 'OK']])
-  assert.equal(await locateHermes(ssh, '/opt/hermes'), '/opt/hermes')
+  const ssh = fakeSsh([[/\[ -x .*\/opt\/xhermes/, 'OK']])
+  assert.equal(await locateHermes(ssh, '/opt/xhermes'), '/opt/xhermes')
 })
 
 test('locateHermes throws (no silent fallback) when an EXPLICIT path is not executable', async () => {
   // command -v WOULD find a different install, but an explicit path must not
-  // silently fall back to it — that is the "connected to the wrong hermes" bug.
+  // silently fall back to it — that is the "connected to the wrong xhermes" bug.
   const ssh = fakeSsh([
-    [/command -v hermes/, '/home/u/.local/bin/xhermes\n'],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK']
+    [/command -v xhermes/, '/home/u/.local/bin/xhermes\n'],
+    [/\[ -x .*\.local\/bin\/xhermes/, 'OK']
   ])
 
   await assert.rejects(
-    () => locateHermes(ssh, '/bad/path/hermes'),
+    () => locateHermes(ssh, '/bad/path/xhermes'),
     (err: any) => {
-      assert.equal(err.kind, 'hermes-not-found')
-      assert.match(err.message, /\/bad\/path\/hermes/)
+      assert.equal(err.kind, 'xhermes-not-found')
+      assert.match(err.message, /\/bad\/path\/xhermes/)
 
       return true
     }
@@ -105,8 +105,8 @@ test('locateHermes throws (no silent fallback) when an EXPLICIT path is not exec
 
 test('locateHermes falls back to the login-shell command -v probe', async () => {
   const ssh = fakeSsh([
-    [/command -v hermes/, '/home/u/.local/bin/xhermes\n'],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK']
+    [/command -v xhermes/, '/home/u/.local/bin/xhermes\n'],
+    [/\[ -x .*\.local\/bin\/xhermes/, 'OK']
   ])
 
   assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/xhermes')
@@ -114,8 +114,8 @@ test('locateHermes falls back to the login-shell command -v probe', async () => 
 
 test('locateHermes canonicalizes an installer wrapper to its executable target', async () => {
   const ssh = fakeSsh([
-    [/command -v hermes/, '/home/u/.local/bin/xhermes\n'],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK'],
+    [/command -v xhermes/, '/home/u/.local/bin/xhermes\n'],
+    [/\[ -x .*\.local\/bin\/xhermes/, 'OK'],
     [/python3 -c/, '/home/u/.xhermes/xhermes-agent/venv/bin/xhermes\n']
   ])
 
@@ -125,24 +125,24 @@ test('locateHermes canonicalizes an installer wrapper to its executable target',
 test('locateHermes falls back to ~/.local/bin/xhermes when the login-shell probe misses', async () => {
   // ~/.local/bin is the non-root installer's command location (scripts/install.sh).
   const ssh = fakeSsh([
-    [/command -v hermes/, ''],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK']
+    [/command -v xhermes/, ''],
+    [/\[ -x .*\.local\/bin\/xhermes/, 'OK']
   ])
 
   assert.equal(await locateHermes(ssh, ''), '~/.local/bin/xhermes')
 })
 
 test('locateHermes tries the conventional venv path last', async () => {
-  const ssh = fakeSsh([[/\[ -x .*venv\/bin\/hermes/, 'OK']])
+  const ssh = fakeSsh([[/\[ -x .*venv\/bin\/xhermes/, 'OK']])
   assert.equal(await locateHermes(ssh, ''), '~/.xhermes/xhermes-agent/venv/bin/xhermes')
 })
 
-test('locateHermes throws a hermes-not-found error with an install hint', async () => {
+test('locateHermes throws a xhermes-not-found error with an install hint', async () => {
   const ssh = fakeSsh([]) // nothing is executable
   await assert.rejects(
     () => locateHermes(ssh, ''),
     (err: any) => {
-      assert.equal(err.kind, 'hermes-not-found')
+      assert.equal(err.kind, 'xhermes-not-found')
       assert.match(err.message, /install/i)
 
       return true
@@ -152,7 +152,7 @@ test('locateHermes throws a hermes-not-found error with an install hint', async 
 
 test('locateHermes uses a login shell for the command -v probe', async () => {
   const ssh = fakeSsh([
-    [/command -v hermes/, '/x/hermes'],
+    [/command -v xhermes/, '/x/xhermes'],
     [/\[ -x/, 'OK']
   ])
 
@@ -224,24 +224,24 @@ test('metadata and process proof transport failures remain indeterminate', async
     (error: any) => error.kind === 'transient-transport-error'
   )
   await assert.rejects(
-    () => pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, failure]]), 5, SPAWN_NONCE, '/x/hermes'),
+    () => pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, failure]]), 5, SPAWN_NONCE, '/x/xhermes'),
     (error: any) => error.kind === 'transient-transport-error'
   )
 })
 
 test('pidIsOurDashboard requires the exact serve ownership nonce', async () => {
-  const ours = `/x/hermes serve --isolated --ssh-owner-nonce ${SPAWN_NONCE}`
-  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'OWNED\n']]), 5, SPAWN_NONCE, '/x/hermes'), true)
+  const ours = `/x/xhermes serve --isolated --ssh-owner-nonce ${SPAWN_NONCE}`
+  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'OWNED\n']]), 5, SPAWN_NONCE, '/x/xhermes'), true)
   assert.equal(
     await pidIsOurDashboard(
       fakeSsh([[/print\("OWNED"/, command => (command.includes('fedcba9876543210') ? 'FOREIGN\n' : 'OWNED\n')]]),
       5,
       'fedcba9876543210',
-      '/x/hermes'
+      '/x/xhermes'
     ),
     false
   )
-  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'FOREIGN\n']]), 5, SPAWN_NONCE, '/x/hermes'), false)
+  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'FOREIGN\n']]), 5, SPAWN_NONCE, '/x/xhermes'), false)
 })
 
 test('cleanupStale kills ONLY a provably-ours pid, always drops the lockfile', async () => {
@@ -249,7 +249,7 @@ test('cleanupStale kills ONLY a provably-ours pid, always drops the lockfile', a
   await cleanupStale(notOurs, OWNERSHIP_ID, {
     pid: 5,
     spawnNonce: SPAWN_NONCE,
-    hermesPath: '/x/hermes',
+    hermesPath: '/x/xhermes',
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
   })
   assert.ok(!notOurs.calls.some(c => /kill 5\b/.test(c)), 'must not kill a pid that is not our dashboard')
@@ -259,7 +259,7 @@ test('cleanupStale kills ONLY a provably-ours pid, always drops the lockfile', a
   await cleanupStale(ours, OWNERSHIP_ID, {
     pid: 9,
     spawnNonce: SPAWN_NONCE,
-    hermesPath: '/x/hermes',
+    hermesPath: '/x/xhermes',
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
   })
   assert.ok(ours.calls.some(c => /kill 9\b/.test(c)))
@@ -267,7 +267,7 @@ test('cleanupStale kills ONLY a provably-ours pid, always drops the lockfile', a
 })
 
 test('buildSpawnCommand is headless serve, detached, token not in argv', () => {
-  const cmd = buildSpawnCommand('/x/hermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  const cmd = buildSpawnCommand('/x/xhermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
   assert.match(cmd, /serve --isolated/)
   assert.match(cmd, /--host 127\.0\.0\.1 --port 0/)
   assert.doesNotMatch(cmd, /--skip-build|--no-open/)
@@ -282,7 +282,7 @@ test('buildSpawnCommand is headless serve, detached, token not in argv', () => {
 })
 
 test('buildSpawnCommand always uses serve (legacy dashboard path removed)', () => {
-  const cmd = buildSpawnCommand('/x/hermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  const cmd = buildSpawnCommand('/x/xhermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
   assert.match(cmd, /serve --isolated/)
   assert.match(cmd, /--host 127\.0\.0\.1 --port 0/)
   assert.doesNotMatch(cmd, /dashboard/)
@@ -299,7 +299,7 @@ test('spawnRemoteDashboard returns exact ownership artifacts', async () => {
   ])
 
   const { pid, spawnNonce, logPath } = await spawnRemoteDashboard(ssh, {
-    hermesPath: '/x/hermes',
+    hermesPath: '/x/xhermes',
     profile: '',
     token: 'tk',
     ownershipId: OWNERSHIP_ID
@@ -318,7 +318,7 @@ test('spawnRemoteDashboard always spawns serve (legacy dashboard path removed)',
     [/setsid|nohup/, '4242\n']
   ])
 
-  await spawnRemoteDashboard(ssh, { hermesPath: '/x/hermes', profile: '', token: 'tk', ownershipId: OWNERSHIP_ID })
+  await spawnRemoteDashboard(ssh, { hermesPath: '/x/xhermes', profile: '', token: 'tk', ownershipId: OWNERSHIP_ID })
   const spawn = ssh.calls.find(c => /setsid|nohup/.test(c))
   assert.match(spawn, /serve --isolated/)
   assert.doesNotMatch(spawn, /\bdashboard\b/)
@@ -338,7 +338,7 @@ test('spawnRemoteDashboard rejects when no pid is returned', async () => {
   ])
 
   await assert.rejects(
-    () => spawnRemoteDashboard(ssh, { hermesPath: '/x/hermes', profile: '', token: 't', ownershipId: OWNERSHIP_ID }),
+    () => spawnRemoteDashboard(ssh, { hermesPath: '/x/xhermes', profile: '', token: 't', ownershipId: OWNERSHIP_ID }),
     (err: any) => {
       assert.equal(err.kind, 'spawn-failed')
 
@@ -462,7 +462,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
   assert.match(spawn, /--profile\b/)
   assert.ok(spawn.includes('writer_2'))
   assert.match(spawn, /serve\s+--isolated/)
-  assert.match(spawn, /\.hermes\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
+  assert.match(spawn, /\.xhermes\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
   assert.ok(!spawn.includes(' work'), 'the local Desktop scope must not become the remote profile')
 })
 
@@ -497,7 +497,7 @@ test('connect() respawns when the requested remote profile differs from the lock
     [/kill -0 333/, 'ALIVE'],
     [/print\("OWNED"/, 'OWNED\n'],
     [/kill 333/, ''],
-    [/--version/, 'Hermes Agent v0.18.2\n'],
+    [/--version/, 'XHermes Agent v0.18.2\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
@@ -518,7 +518,7 @@ test('connect() respawns when the requested remote profile differs from the lock
 
 test('connect() respawns when the lockfile hermesPath differs from the resolved path', async () => {
   const reuseToken = 'stored-token'
-  const lock = ownedLock({ hermesPath: '/old/stale/hermes', tokenFingerprint: fingerprintToken(reuseToken) })
+  const lock = ownedLock({ hermesPath: '/old/stale/xhermes', tokenFingerprint: fingerprintToken(reuseToken) })
 
   const ssh = fakeSsh([
     [/uname/, 'Linux\nx86_64'],
@@ -526,7 +526,7 @@ test('connect() respawns when the lockfile hermesPath differs from the resolved 
     [/cat .*lock\.json/, JSON.stringify(lock)],
     [/kill -0/, 'ALIVE'],
     [/print\("OWNED"/, 'FOREIGN\n'],
-    [/--version/, 'Hermes Agent v0.18.2\n'],
+    [/--version/, 'XHermes Agent v0.18.2\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
@@ -534,7 +534,7 @@ test('connect() respawns when the lockfile hermesPath differs from the resolved 
   ])
 
   const result = await connect(
-    connectDeps(ssh, { reuseToken, remoteHermesPath: '/new/hermes', adoptServedToken: async () => 'fresh' })
+    connectDeps(ssh, { reuseToken, remoteHermesPath: '/new/xhermes', adoptServedToken: async () => 'fresh' })
   )
 
   assert.equal(result.reused, false, 'must respawn, not reuse the old-path dashboard')
@@ -600,7 +600,7 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
   await connect(connectDeps(ssh, { adoptServedToken: async () => 'fresh' }))
   const lockWrite = writes.find(c => c.includes('schemaVersion')) || ''
   assert.match(lockWrite, new RegExp(`"protocolVersion":${PROTOCOL_VERSION}`))
-  assert.match(lockWrite, /"hermesHome":"\/home\/alice\/\.hermes"/)
+  assert.match(lockWrite, /"hermesHome":"\/home\/alice\/\.xhermes"/)
 })
 
 test('connect() respawns when the lockfile pid is dead (killed dashboard)', async () => {
@@ -741,13 +741,13 @@ test('validateRemotePath accepts ~/ prefix paths', () => {
 })
 
 test('validateRemotePath accepts paths with spaces and quotes', () => {
-  assert.doesNotThrow(() => validateRemotePath('/home/user/my project/hermes'))
+  assert.doesNotThrow(() => validateRemotePath('/home/user/my project/xhermes'))
   assert.doesNotThrow(() => validateRemotePath("~/path with 'quotes'/file"))
   assert.doesNotThrow(() => validateRemotePath('/path with "double quotes"/file'))
 })
 
 test('validateRemotePath rejects relative paths', () => {
-  assert.throws(() => validateRemotePath('hermes'), /absolute|relative/i)
+  assert.throws(() => validateRemotePath('xhermes'), /absolute|relative/i)
   assert.throws(() => validateRemotePath('./bin/xhermes'), /absolute|relative/i)
   assert.throws(() => validateRemotePath('../etc/passwd'), /absolute|relative/i)
 })
@@ -759,7 +759,7 @@ test('validateRemotePath rejects NUL and newline', () => {
 })
 
 test('validateRemotePath preserves shell metacharacters as path data', () => {
-  for (const p of ['/usr/$(whoami)/hermes', '/usr/`id`/hermes', '/usr/a;b|c&d<e>f']) {
+  for (const p of ['/usr/$(whoami)/xhermes', '/usr/`id`/xhermes', '/usr/a;b|c&d<e>f']) {
     assert.doesNotThrow(() => validateRemotePath(p))
     assert.match(expandRemotePath(p), /^'/)
   }
@@ -779,29 +779,29 @@ test('expandRemotePath returns quoted absolute paths unchanged', () => {
 })
 
 test('expandRemotePath preserves spaces as data', () => {
-  const result = expandRemotePath('/home/user/my project/hermes')
+  const result = expandRemotePath('/home/user/my project/xhermes')
   assert.ok(result.includes('my project'), 'spaces must be preserved, not split')
 })
 
 test('buildSpawnCommand does not embed the token in the command string', () => {
-  const cmd = buildSpawnCommand('/x/hermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  const cmd = buildSpawnCommand('/x/xhermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
   assert.ok(!cmd.includes('super_secret_token_value'), 'token must not appear in the spawn command')
   assert.ok(!cmd.includes('HERMES_DASHBOARD_SESSION_TOKEN'), 'env var name must not appear')
 })
 
 test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is provided', () => {
-  const cmd = buildSpawnCommand('/x/hermes', 'work', {
+  const cmd = buildSpawnCommand('/x/xhermes', 'work', {
     tokenFilePath: `~/.xhermes/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.token`,
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
     spawnNonce: SPAWN_NONCE
   })
 
   assert.match(cmd, /--ssh-session-token-file/)
-  assert.match(cmd, /\.hermes\/desktop-ssh\//)
+  assert.match(cmd, /\.xhermes\/desktop-ssh\//)
 })
 
 test('buildSpawnCommand always uses serve, never dashboard', () => {
-  const cmd = buildSpawnCommand('/x/hermes', '', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  const cmd = buildSpawnCommand('/x/xhermes', '', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
   assert.match(cmd, /serve --isolated/)
   assert.doesNotMatch(cmd, /\bdashboard\b/)
   assert.doesNotMatch(cmd, /--skip-build/)
@@ -818,7 +818,7 @@ test('spawnRemoteDashboard removes a token file when upload reporting fails', as
   ])
 
   await assert.rejects(
-    () => spawnRemoteDashboard(ssh, { hermesPath: '/x/hermes', profile: '', token: 'tok', ownershipId: OWNERSHIP_ID }),
+    () => spawnRemoteDashboard(ssh, { hermesPath: '/x/xhermes', profile: '', token: 'tok', ownershipId: OWNERSHIP_ID }),
     /channel closed/
   )
   assert.ok(ssh.calls.some(command => /rm -f .*\.token/.test(command)))
@@ -858,7 +858,7 @@ test('spawnRemoteDashboard streams the token over stdin, not argv/env', async ()
   }
 
   const { pid } = await spawnRemoteDashboard(ssh as any, {
-    hermesPath: '/x/hermes',
+    hermesPath: '/x/xhermes',
     profile: '',
     token: 'secret_token_val',
     ownershipId: OWNERSHIP_ID
@@ -905,7 +905,7 @@ test('spawnRemoteDashboard upload uses exclusive-create and O_NOFOLLOW', async (
   }
 
   await spawnRemoteDashboard(ssh as any, {
-    hermesPath: '/x/hermes',
+    hermesPath: '/x/xhermes',
     profile: '',
     token: 'tk',
     ownershipId: OWNERSHIP_ID
@@ -964,7 +964,7 @@ test('spawnRemoteDashboard fails with update-required when remote lacks --ssh-se
   const ssh = fakeSsh([[/--ssh-session-token-file/, 'NO\n']])
 
   await assert.rejects(
-    () => spawnRemoteDashboard(ssh, { hermesPath: '/x/hermes', profile: '', token: 'tk', ownershipId: OWNERSHIP_ID }),
+    () => spawnRemoteDashboard(ssh, { hermesPath: '/x/xhermes', profile: '', token: 'tk', ownershipId: OWNERSHIP_ID }),
     (err: any) => {
       assert.match(err.message, /update|upgrade/i)
       assert.equal(err.kind, 'update-required')
@@ -987,10 +987,10 @@ test('cleanupStale never deletes a lock-supplied unexpected log path', async () 
 })
 
 test('pidIsOurDashboard requires an exact nonce option value', async () => {
-  const prefix = `/x/hermes serve --isolated --ssh-owner-nonce ${SPAWN_NONCE}ff`
-  const suffix = `/x/hermes serve --isolated --ssh-owner-nonce xx${SPAWN_NONCE}`
-  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'FOREIGN\n']]), 5, SPAWN_NONCE, '/x/hermes'), false)
-  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'FOREIGN\n']]), 5, SPAWN_NONCE, '/x/hermes'), false)
+  const prefix = `/x/xhermes serve --isolated --ssh-owner-nonce ${SPAWN_NONCE}ff`
+  const suffix = `/x/xhermes serve --isolated --ssh-owner-nonce xx${SPAWN_NONCE}`
+  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'FOREIGN\n']]), 5, SPAWN_NONCE, '/x/xhermes'), false)
+  assert.equal(await pidIsOurDashboard(fakeSsh([[/print\("OWNED"/, 'FOREIGN\n']]), 5, SPAWN_NONCE, '/x/xhermes'), false)
 })
 
 test('connect removes the token file when a fresh backend fails after returning a pid', async () => {
@@ -1084,10 +1084,10 @@ test('remote SSH ownership capability requires both secure bootstrap flags', asy
     ]
   ])
 
-  assert.equal(await remoteSupportsSshOwnership(supported, '/x/hermes'), true)
+  assert.equal(await remoteSupportsSshOwnership(supported, '/x/xhermes'), true)
   assert.match(helpProbe, /ssh-session-token-file/)
   assert.match(helpProbe, /ssh-owner-nonce/)
 
   const unsupported = fakeSsh([[/serve --help/, 'NO\n']])
-  assert.equal(await remoteSupportsSshOwnership(unsupported, '/x/hermes'), false)
+  assert.equal(await remoteSupportsSshOwnership(unsupported, '/x/xhermes'), false)
 })

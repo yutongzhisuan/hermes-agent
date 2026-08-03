@@ -4,7 +4,7 @@ Design intent (Teknium, June 2026): a profile's cron jobs both LIVE in that
 profile's HERMES_HOME and EXECUTE under it.
 
 - Storage: a job created under profile ``coder`` writes to
-  ``~/.hermes/profiles/coder/cron/jobs.json`` — NOT the shared default root.
+  ``~/.xhermes/profiles/coder/cron/jobs.json`` — NOT the shared default root.
 - Execution: the profile-scoped gateway's in-process ticker resolves the
   active HERMES_HOME (profile home) at call time, so jobs run with that
   profile's ``.env`` / ``config.yaml`` / scripts / skills.

@@ -62,7 +62,7 @@ def _install_modal_test_modules(
     hermes_cli = types.ModuleType("hermes_cli")
     hermes_cli.__path__ = []  # type: ignore[attr-defined]
     sys.modules["hermes_cli"] = hermes_cli
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "xhermes-home"
     os.environ["HERMES_HOME"] = str(hermes_home)
     sys.modules["hermes_cli.config"] = types.SimpleNamespace(
         get_hermes_home=lambda: hermes_home,
@@ -144,7 +144,7 @@ def _install_modal_test_modules(
             return {"kind": "registry", "image": image}
 
     async def _lookup_aio(_name: str, create_if_missing: bool = False):
-        return types.SimpleNamespace(name="hermes-agent", create_if_missing=create_if_missing)
+        return types.SimpleNamespace(name="xhermes-agent", create_if_missing=create_if_missing)
 
     class _FakeSandboxInstance:
         def __init__(self, image):

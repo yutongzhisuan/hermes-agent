@@ -64,7 +64,7 @@ load_hermes_dotenv(
 # JSON-RPC pipe (TUI side parses it, doesn't log raw), the root logger
 # only catches handled warnings, and the subprocess exits before stderr
 # flushes through the stderr->gateway.stderr event pump. This hook
-# appends every unhandled exception to ~/.hermes/logs/tui_gateway_crash.log
+# appends every unhandled exception to ~/.xhermes/logs/tui_gateway_crash.log
 # AND re-emits a one-line summary to stderr so the TUI can surface it in
 # Activity — exactly what was missing when the voice-mode turns started
 # exiting the gateway mid-TTS.
@@ -342,7 +342,7 @@ class _SlashWorker:
         self._closed = False
         from hermes_cli._subprocess_compat import windows_hide_flags
 
-        # slash_worker runs the Hermes agent → needs provider credentials.
+        # slash_worker runs the XHermes agent → needs provider credentials.
         # Tier-1 secrets (gateway/GitHub/infra) are still stripped (#29157).
         # Global-remote / multi-profile sessions: the worker must resolve
         # config/skills/state against the session's profile home, not the
@@ -1089,7 +1089,7 @@ def _close_sessions_for_transport(
         else:
             # Point detached sessions at the drop sentinel (NOT real stdio) so
             # _ws_session_is_orphaned recognizes them and the grace-reap can
-            # actually fire; a standalone `hermes --tui` keeps real _stdio.
+            # actually fire; a standalone `xhermes --tui` keeps real _stdio.
             session["transport"] = _detached_ws_transport
             detached += 1
             try:
@@ -1124,7 +1124,7 @@ _REAPER_SCAN_S = 300.0
 def _transport_is_dead(transport) -> bool:
     # _detached_ws_transport is the post-WS-disconnect drop sentinel; a session
     # parked on it has no live client. _stdio_transport is the REAL transport
-    # for a standalone `hermes --tui`, so it must NOT count as dead here (doing
+    # for a standalone `xhermes --tui`, so it must NOT count as dead here (doing
     # so let the idle reaper evict healthy standalone TUI sessions).
     if transport is _detached_ws_transport:
         return True
@@ -1484,7 +1484,7 @@ def _launch_configured_cwd() -> str | None:
     process's in-memory TUI gateway. The Node PTY child receives a bridged
     ``TERMINAL_CWD`` env var, but this in-memory process does not — so reading
     the process env alone leaves a fresh chat starting in ``os.getcwd()``
-    (wherever ``hermes dashboard`` was launched) instead of the configured
+    (wherever ``xhermes dashboard`` was launched) instead of the configured
     ``terminal.cwd``. Read config directly so changing ``terminal.cwd`` affects
     new in-memory TUI sessions too.
     """
@@ -2067,7 +2067,7 @@ def _wait_agent_for_prompt(session: dict, rid: str, sid: str) -> dict | None:
 def _start_agent_build(sid: str, session: dict) -> None:
     """Start building the real AIAgent for a TUI session, once.
 
-    Classic `hermes` shows the prompt before constructing AIAgent; the TUI used
+    Classic `xhermes` shows the prompt before constructing AIAgent; the TUI used
     to eagerly build it during session.create, making startup feel blocked on
     tool discovery/model metadata even though the composer was visible.  Keep
     the shell responsive by deferring this work until the first prompt (or any
@@ -2611,7 +2611,7 @@ def _ensure_session_db_row(session: dict) -> None:
       or the user's home), so stamping that would file every unpicked chat under
       a folder the user never chose. Those stay null and group under "No
       workspace", which is the desired default.
-    * A terminal session (``hermes`` / ``hermes --tui`` / CLI) is started from a
+    * A terminal session (``xhermes`` / ``xhermes --tui`` / CLI) is started from a
       directory the user deliberately ``cd``'d into — that IS the workspace, and
       it is also where the agent's terminal actually runs. Dropping it stranded
       the session with no cwd AND no git_repo_root, so the sidebar could never
@@ -3220,7 +3220,7 @@ def _note_skin_broadcast() -> None:
 
 def _broadcast_skin_if_changed() -> None:
     """Emit ``skin.changed`` when the active skin moved — the agent switched it
-    (``hermes config set display.skin``) OR edited the active skin's colors in
+    (``xhermes config set display.skin``) OR edited the active skin's colors in
     place ("I don't like that coral" → tweak the YAML).
 
     Routes through the SAME live path as ``/skin`` so every surface (TUI + desktop)
@@ -3418,7 +3418,7 @@ _skin_watcher_started = False
 
 def _ensure_skin_watcher() -> None:
     """Watch cheap on-disk signatures and broadcast change events — so a skin
-    Hermes activates, a pet ``/pet`` adopts, a cron the scheduler fires, or a
+    XHermes activates, a pet ``/pet`` adopts, a cron the scheduler fires, or a
     messaging turn another process writes goes live on every surface within a
     couple seconds, on its own, with no client-side poll in the loop.
     Idempotent; started at gateway.ready. (Named for its original skin-only
@@ -3435,7 +3435,7 @@ def _ensure_skin_watcher() -> None:
             _broadcast_skin_if_changed()
             _broadcast_watched_changes()
 
-    threading.Thread(target=_loop, name="hermes-change-watcher", daemon=True).start()
+    threading.Thread(target=_loop, name="xhermes-change-watcher", daemon=True).start()
 
 
 def _resolve_model() -> str:
@@ -3474,11 +3474,11 @@ def _resolve_session_platform() -> str:
       * ``HERMES_DESKTOP=1`` and ``HERMES_DESKTOP_TERMINAL`` unset → "desktop"
         (the chat-panel backend — a graphical React surface, not a terminal).
       * ``HERMES_DESKTOP_TERMINAL=1`` → "tui"
-        (``hermes --tui`` running in the desktop's embedded terminal pane;
+        (``xhermes --tui`` running in the desktop's embedded terminal pane;
         it IS a TUI, just embedded. The clarifier attached to the tui hint
         in system_prompt.py tells the agent about the embedding.)
       * neither set → "tui"
-        (standalone ``hermes --tui``.)
+        (standalone ``xhermes --tui``.)
     """
     if is_truthy_value(os.environ.get("HERMES_DESKTOP")) and not is_truthy_value(
         os.environ.get("HERMES_DESKTOP_TERMINAL")
@@ -3509,7 +3509,7 @@ def _config_model_target() -> tuple[str, str]:
 
     Unlike `_resolve_model()`, this never reads HERMES_MODEL /
     HERMES_INFERENCE_MODEL. Those env vars are a launch-scoped seed
-    (`hermes --tui -m <model>`, hosted-instance provisioning); if they
+    (`xhermes --tui -m <model>`, hosted-instance provisioning); if they
     fed the per-turn sync, the seed would be replayed as a /model switch
     and persisted globally, or would pin the session so dashboard/CLI
     model changes never reach an open chat.
@@ -3525,7 +3525,7 @@ def _config_model_target() -> tuple[str, str]:
     elif isinstance(cfg_model, str):
         model = cfg_model.strip()
     # No fallback to _resolve_model() here: that reads HERMES_MODEL /
-    # HERMES_INFERENCE_MODEL, which `hermes --tui -m <model>` sets as a
+    # HERMES_INFERENCE_MODEL, which `xhermes --tui -m <model>` sets as a
     # session-scoped seed for THIS launch. When config.yaml has no
     # model.default (custom-provider-only setups), falling back to the env
     # seed made the per-turn sync treat the -m flag as "the configured
@@ -4050,9 +4050,9 @@ def _load_enabled_toolsets() -> list[str] | None:
     cfg = None
     fallback_notice = None
 
-    # Coding posture (base Hermes): with no explicit pin, collapse to the
+    # Coding posture (base XHermes): with no explicit pin, collapse to the
     # coding toolset (+ enabled MCP servers) when sitting in a code workspace.
-    # The desktop app and `hermes --tui` both land here. See
+    # The desktop app and `xhermes --tui` both land here. See
     # agent/coding_context.py. No config is loaded yet at this point, so we let
     # coding_selection() load it lazily (cli.py passes its already-resolved
     # CLI_CONFIG instead, purely to avoid a redundant read).
@@ -4179,7 +4179,7 @@ def _load_enabled_toolsets() -> list[str] | None:
             return None
         # The desktop Project tools are off _HERMES_CORE_TOOLS (every other
         # platform would carry their schema for nothing), so the platform
-        # recovery above — which keys off hermes-cli's tool universe — can't
+        # recovery above — which keys off xhermes-cli's tool universe — can't
         # surface them. This resolver runs ONLY in the desktop/TUI gateway, so
         # folding in the `project` toolset here is the gate that exposes them on
         # exactly the surface that can follow a project move.
@@ -4547,7 +4547,7 @@ def _sync_agent_model_with_config(sid: str, session: dict) -> None:
             # This sync ADOPTS a config.yaml change into the live session; it
             # must never write config back. Without this, the flag/config
             # default (persist_switch_by_default=True) re-persisted whatever
-            # target the sync computed — the path that leaked `hermes --tui -m`
+            # target the sync computed — the path that leaked `xhermes --tui -m`
             # into config.yaml as the permanent global model.
             persist_override=False,
         )
@@ -6327,7 +6327,7 @@ def _make_agent(
                 logger.warning(
                     "Unknown skill(s) requested, skipping: %s. "
                     "Continuing with: %s. "
-                    "List available skills with `hermes skills list`.",
+                    "List available skills with `xhermes skills list`.",
                     missing_display,
                     ", ".join(loaded_skills),
                 )
@@ -8137,7 +8137,7 @@ def _pet_active_selection():
 def _pet_state_rows(spritesheet) -> list[str]:
     """Row taxonomy for the concrete active pet sheet.
 
-    Hermes has to support both the legacy 8-row petdex atlas and the current
+    XHermes has to support both the legacy 8-row petdex atlas and the current
     Codex/petdex 9-row atlas. The desktop canvas gets this list and indexes it
     with the same `PetState` names the Python renderer uses.
     """
@@ -10310,7 +10310,7 @@ def _attachment_ref_path(session: dict, target: Path) -> str:
 
 
 def _desktop_attachment_dir(session: dict) -> Path:
-    root = Path(_session_cwd(session)).resolve() / ".hermes" / "desktop-attachments"
+    root = Path(_session_cwd(session)).resolve() / ".xhermes" / "desktop-attachments"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -10390,10 +10390,10 @@ def _stage_session_file_attachment(
       1. The path resolves to a file already INSIDE the session workspace — use
          it as-is (no copy, ``uploaded=False``).
       2. The path resolves to a gateway-visible file OUTSIDE the workspace — copy
-         it into ``.hermes/desktop-attachments/`` so the ``@file:`` ref resolves.
+         it into ``.xhermes/desktop-attachments/`` so the ``@file:`` ref resolves.
       3. The path doesn't exist on the gateway (the common remote case: it's a
          path on the CLIENT's disk) — decode the uploaded ``data_url`` bytes and
-         write them into ``.hermes/desktop-attachments/``.
+         write them into ``.xhermes/desktop-attachments/``.
 
     Returns ``(stored_path, uploaded)``.
     """
@@ -11295,7 +11295,7 @@ def _(rid, params, pdb, conn) -> dict:
 
 def _is_repo_junk(root: str) -> bool:
     """A git root we never auto-surface as a project: the bare home dir or
-    anything under HERMES_HOME (~/.hermes by default) — config/sessions/skills,
+    anything under HERMES_HOME (~/.xhermes by default) — config/sessions/skills,
     not a workspace. User-created projects pointing there are still honored."""
     if not root:
         return True
@@ -11392,8 +11392,8 @@ def _discover_repos_payload(
     """Merge filesystem-scanned repos (cached) with session-derived repo roots.
 
     Repo-first: the disk scan (persisted by `projects.record_repos`) surfaces
-    repos even with zero hermes sessions. Session-derived roots cover repos
-    outside the scan roots. Both are junk-filtered (hermes home subtree + bare
+    repos even with zero xhermes sessions. Session-derived roots cover repos
+    outside the scan roots. Both are junk-filtered (xhermes home subtree + bare
     home) and carry their session totals for the overview.
 
     ``conn`` reuses an already-open projects.db connection (the tree path holds
@@ -11458,7 +11458,7 @@ def _discover_repos_payload(
                 # NOTE: `last_seen` is when the disk scan last saw the directory,
                 # not when the user last worked in it. Folding it into
                 # `last_active` stamped every scanned repo with the scan time —
-                # i.e. "just now" — so a git checkout with zero Hermes sessions
+                # i.e. "just now" — so a git checkout with zero XHermes sessions
                 # outranked the repos the user actually works in. Activity stays
                 # session-derived; a repo with no sessions has no activity.
 
@@ -11799,7 +11799,7 @@ def _rank_slash_completions(
     ``usage``/``origin_of`` are the callables :func:`_skill_usage_lookup`
     returns. Registry commands keep their existing order — only the skill
     block is reordered, most-used first and A-Z within a tie, so the handful
-    of skills someone invokes daily lead the ones that shipped with Hermes
+    of skills someone invokes daily lead the ones that shipped with XHermes
     and were never opened.
 
     The limit is spent PER KIND rather than on one flat truncation. A flat
@@ -11836,16 +11836,16 @@ def _rank_slash_completions(
 def _cli_exec_blocked(argv: list[str]) -> str | None:
     """Return user hint if this argv must not run headless in the gateway process."""
     if not argv:
-        return "bare `hermes` is interactive — use `/hermes chat -q …` or run `hermes` in another terminal"
+        return "bare `xhermes` is interactive — use `/xhermes chat -q …` or run `xhermes` in another terminal"
     a0 = argv[0].lower()
     if a0 == "setup":
-        return "`hermes setup` needs a full terminal — run it outside the TUI"
+        return "`xhermes setup` needs a full terminal — run it outside the TUI"
     if a0 == "gateway":
-        return "`hermes gateway` is long-running — run it in another terminal"
+        return "`xhermes gateway` is long-running — run it in another terminal"
     if a0 == "sessions" and len(argv) > 1 and argv[1].lower() == "browse":
-        return "`hermes sessions browse` is interactive — use /resume here, or run browse in another terminal"
+        return "`xhermes sessions browse` is interactive — use /resume here, or run browse in another terminal"
     if a0 == "config" and len(argv) > 1 and argv[1].lower() == "edit":
-        return "`hermes config edit` needs $EDITOR in a real terminal"
+        return "`xhermes config edit` needs $EDITOR in a real terminal"
     return None
 
 
@@ -12962,7 +12962,7 @@ def _voice_record_key() -> str:
     return str(record_key) if isinstance(record_key, str) and record_key else "ctrl+b"
 
 
-# ── Wake word ("Hey Hermes") ──────────────────────────────────────────────
+# ── Wake word ("Hey XHermes") ──────────────────────────────────────────────
 # The detector is process-global (one mic), like voice. The first eligible
 # transport to call wake.start owns it until stop, disconnect, or stream failure.
 # On detection we emit wake.detected; the client opens a new session and starts

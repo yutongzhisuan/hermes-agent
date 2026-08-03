@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/hermes-agent/extend/task_relay/master/go/client"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 // Mode selects when a batch join stops reading the Watch stream.

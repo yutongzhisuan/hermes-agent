@@ -1,10 +1,10 @@
-# nix/desktop.nix — Hermes Desktop (Electron) app build + wrapper
+# nix/desktop.nix — XHermes Desktop (Electron) app build + wrapper
 #
 # `hermesAgent` is the fully-built `.#default` package — it ships the
-# `hermes` binary with the venv, runtime PATH, bundled skills/plugins, etc.
+# `xhermes` binary with the venv, runtime PATH, bundled skills/plugins, etc.
 # already wired up.  We point the desktop at it via the existing
 # `HERMES_DESKTOP_HERMES` override env var, so the desktop's resolver
-# uses our fully wrapped binary at step 4 ("existing Hermes CLI").
+# uses our fully wrapped binary at step 4 ("existing XHermes CLI").
 # No reimplementation of the agent resolution in this wrapper.
 {
   pkgs,
@@ -31,7 +31,7 @@ let
     else if stdenv.hostPlatform.isLinux then
       "linux"
     else
-      throw "hermes-desktop: unsupported host platform for node-pty staging";
+      throw "xhermes-desktop: unsupported host platform for node-pty staging";
 
   targetArch =
     if stdenv.hostPlatform.isAarch64 then
@@ -39,7 +39,7 @@ let
     else if stdenv.hostPlatform.isx86_64 then
       "x64"
     else
-      throw "hermes-desktop: unsupported host arch for node-pty staging";
+      throw "xhermes-desktop: unsupported host arch for node-pty staging";
 
   # Build the renderer (dist/ + electron/ + package.json).
   renderer = hermesNpmLib.buildNpmPackage {
@@ -47,7 +47,7 @@ let
       "apps/desktop"
       "apps/shared"
     ];
-    pname = "hermes-desktop-renderer";
+    pname = "xhermes-desktop-renderer";
 
     doCheck = true;
 
@@ -135,7 +135,7 @@ in
 
 # Electron wrapper: nixpkgs' electron binary pointed at the renderer dir.
 stdenv.mkDerivation {
-  pname = "hermes-desktop";
+  pname = "xhermes-desktop";
   inherit (renderer) version;
 
   dontUnpack = true;
@@ -146,23 +146,23 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/share/hermes-desktop $out/bin
-    cp -r ${renderer}/* $out/share/hermes-desktop/
+    mkdir -p $out/share/xhermes-desktop $out/bin
+    cp -r ${renderer}/* $out/share/xhermes-desktop/
 
     # Standard nixpkgs pattern for electron-builder apps: patch process.resourcesPath
     # to point to the app's directory. In Nix, unpackaged electron defaults this
     # to the electron distribution's resources path, breaking extraResources lookups.
-    substituteInPlace $out/share/hermes-desktop/dist/electron-main.mjs \
-      --replace-fail "process.resourcesPath" "'$out/share/hermes-desktop'"
+    substituteInPlace $out/share/xhermes-desktop/dist/electron-main.mjs \
+      --replace-fail "process.resourcesPath" "'$out/share/xhermes-desktop'"
 
     # Wrap the nixpkgs electron binary to launch our app.  Set
-    # HERMES_DESKTOP_HERMES to the absolute path of the nix-built `hermes`
-    # binary so the desktop's resolver step 4 ("existing Hermes CLI on
+    # HERMES_DESKTOP_HERMES to the absolute path of the nix-built `xhermes`
+    # binary so the desktop's resolver step 4 ("existing XHermes CLI on
     # PATH") uses our fully wrapped binary — venv with all deps,
     # bundled skills/plugins, runtime PATH (ripgrep/git/ffmpeg/etc).
     # No reimplementation of the agent resolver in the wrapper.
-    makeWrapper ${lib.getExe electron} $out/bin/hermes-desktop \
-      --add-flags "$out/share/hermes-desktop" \
+    makeWrapper ${lib.getExe electron} $out/bin/xhermes-desktop \
+      --add-flags "$out/share/xhermes-desktop" \
       --set HERMES_DESKTOP_HERMES "${lib.getExe hermesAgent}" \
       --set ELECTRON_IS_DEV 0
 
@@ -174,10 +174,10 @@ stdenv.mkDerivation {
   };
 
   meta = with lib; {
-    description = "Native Electron desktop shell for Hermes Agent";
-    homepage = "https://github.com/NousResearch/hermes-agent";
+    description = "Native Electron desktop shell for XHermes Agent";
+    homepage = "https://github.com/NousResearch/xhermes-agent";
     license = licenses.mit;
     platforms = platforms.unix;
-    mainProgram = "hermes-desktop";
+    mainProgram = "xhermes-desktop";
   };
 }

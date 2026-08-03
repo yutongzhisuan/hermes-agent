@@ -1,6 +1,6 @@
 package grpcserver
 
-import pb "github.com/infa/hermes-agent/extend/task_relay/gen/go"
+import pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 
 func aggregateToProto(payload map[string]any) *pb.AggregateResult {
 	result := &pb.AggregateResult{SchemaVersion: 1}

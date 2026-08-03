@@ -1,4 +1,4 @@
-"""Tests for ``hermes migrate xai`` — apply path with ruamel round-trip."""
+"""Tests for ``xhermes migrate xai`` — apply path with ruamel round-trip."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,7 +21,7 @@ def trap_config(tmp_path: Path) -> Path:
     """A config.yaml with retired models AND comments to verify round-trip."""
     p = tmp_path / "config.yaml"
     p.write_text(
-        "# Hermes config (sample)\n"
+        "# XHermes config (sample)\n"
         "principal:\n"
         "  provider: xai             # the main model\n"
         "  model: grok-4-1-fast-non-reasoning  # retiring May 15\n"

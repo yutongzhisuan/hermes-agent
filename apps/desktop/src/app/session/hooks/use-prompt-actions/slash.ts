@@ -1,7 +1,7 @@
 import { skillInvocationText } from '@xhermes/shared'
 import { type MutableRefObject, useCallback, useRef } from 'react'
 
-import { getProfiles } from '@/hermes'
+import { getProfiles } from '@/xhermes'
 import type { Translations } from '@/i18n'
 import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import { parseCommandDispatch, parseSlashCommand, sessionTitle } from '@/lib/chat-runtime'
@@ -86,7 +86,7 @@ const renderWakeStatus = (status: WakeStatusResponse): string => {
   const lines = [
     'Wake Word Status',
     `State: ${status.listening ? 'LISTENING' : 'OFF'}`,
-    `Phrase: "${status.phrase?.trim() || 'hey hermes'}"`,
+    `Phrase: "${status.phrase?.trim() || 'hey xhermes'}"`,
     `Provider: ${status.provider?.trim() || 'unknown'}`,
     `Surface: ${status.owner_surface?.trim() || status.configured_surface?.trim() || 'auto'}`,
     `Input: ${wakeDeviceLabel(status.input_device)}`

@@ -209,7 +209,7 @@ def test_auth_from_hub_config():
 def test_hub_config_jwt_defaults():
     cfg = HubConfig()
     assert cfg.jwt_secret == ""
-    assert cfg.jwt_issuer == "hermes-relay-hub"
+    assert cfg.jwt_issuer == "xhermes-relay-hub"
     assert cfg.jwt_audience == "task-relay-hub"
     assert cfg.jwt_ttl_seconds == 3600
     assert cfg.bootstrap_tokens == {}

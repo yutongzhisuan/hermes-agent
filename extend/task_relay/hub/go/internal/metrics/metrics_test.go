@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/metrics"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
 )
 
 func TestRenderPrometheusCounters(t *testing.T) {

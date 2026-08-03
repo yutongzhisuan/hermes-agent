@@ -1,6 +1,6 @@
 """Regression tests for issue #42130.
 
-A credential added via `hermes auth add openrouter` lives in the credential
+A credential added via `xhermes auth add openrouter` lives in the credential
 pool, NOT as an OPENROUTER_API_KEY env var. Before the fix, resolve_provider()
 auto-detection only checked env vars, so such a credential was invisible:
 the provider failed to resolve (AuthError) or resolved without a key, and
@@ -31,7 +31,7 @@ def _clean_inference_env(monkeypatch):
 
 
 def _seed_openrouter_pool(token: str = "sk-or-FAKEKEY123") -> None:
-    """Mimic `hermes auth add openrouter <token>` — a manual pool entry."""
+    """Mimic `xhermes auth add openrouter <token>` — a manual pool entry."""
     from agent.credential_pool import (
         AUTH_TYPE_API_KEY,
         SOURCE_MANUAL,
@@ -56,8 +56,8 @@ def _seed_openrouter_pool(token: str = "sk-or-FAKEKEY123") -> None:
 
 def test_auto_detects_openrouter_from_pool(tmp_path, monkeypatch):
     """With only a pool credential (no env var), auto-detection finds it."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "xhermes"))
+    (tmp_path / "xhermes").mkdir(parents=True, exist_ok=True)
     _seed_openrouter_pool()
 
     from hermes_cli.auth import resolve_provider

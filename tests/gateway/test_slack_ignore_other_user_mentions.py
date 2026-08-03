@@ -196,7 +196,7 @@ async def test_free_response_replies_when_bot_mentioned_in_pipe_form(adapter):
     await _run(
         adapter,
         _event(
-            f"<@{OTHER_USER_ID}|rasha> and <@{BOT_USER_ID}|hermes> please compare",
+            f"<@{OTHER_USER_ID}|rasha> and <@{BOT_USER_ID}|xhermes> please compare",
             ts="1700000000.000004",
         ),
     )
@@ -230,7 +230,7 @@ def test_config_bridges_slack_ignore_other_user_mentions(monkeypatch, tmp_path):
     apply_yaml_config_fn bridge, not the generic shared-key allowlist)."""
     from gateway.config import load_gateway_config
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         "slack:\n  ignore_other_user_mentions: true\n",
@@ -248,7 +248,7 @@ def test_config_bridges_slack_ignore_other_user_mentions(monkeypatch, tmp_path):
 def test_ignore_other_user_mentions_env_wins_over_yaml(monkeypatch, tmp_path):
     from gateway.config import load_gateway_config
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         "slack:\n  ignore_other_user_mentions: true\n",

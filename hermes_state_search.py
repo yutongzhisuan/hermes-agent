@@ -2034,7 +2034,7 @@ class SessionSearchMixin:
         """Search surfaced sessions by exact/prefix/substring session id.
 
         Desktop search uses this alongside FTS message search so users can paste
-        a session id from logs, CLI output, or another Hermes surface and jump
+        a session id from logs, CLI output, or another XHermes surface and jump
         straight to that conversation.  Matching also checks ``_lineage_root_id``
         for projected compression-chain tips, so an old root id still resolves to
         the live continuation row.

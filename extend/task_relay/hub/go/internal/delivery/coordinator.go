@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/resources"
-	"github.com/infa/hermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/resources"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 // RunBuilder builds task.run payloads for worker delivery.

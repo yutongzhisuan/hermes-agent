@@ -62,7 +62,7 @@ class TestIsWriteDenied:
 
     def test_mcp_tokens_dir_protected_in_profile_mode(self, tmp_path, monkeypatch):
         """mcp-tokens/ under profile AND under root must both be denied."""
-        root = tmp_path / "hermes"
+        root = tmp_path / "xhermes"
         profile = root / "profiles" / "coder"
         profile.mkdir(parents=True)
         monkeypatch.setenv("HERMES_HOME", str(profile))
@@ -75,13 +75,13 @@ class TestIsWriteDenied:
     def test_pairing_dir_denied(self, tmp_path, monkeypatch):
         """Regression: pairing/ must be write-denied under both profile and root.
 
-        PR #30383 introduced ~/.hermes/pairing/{platform}-approved.json as the
+        PR #30383 introduced ~/.xhermes/pairing/{platform}-approved.json as the
         gateway access-control list. Without this block, a prompt-injected agent
         can write arbitrary user IDs into an approved file, granting persistent
         gateway access without going through the pairing code flow — the same
         threat class that motivated protecting webhook_subscriptions.json.
         """
-        root = tmp_path / "hermes"
+        root = tmp_path / "xhermes"
         profile = root / "profiles" / "coder"
         profile.mkdir(parents=True)
         monkeypatch.setenv("HERMES_HOME", str(profile))
@@ -429,7 +429,7 @@ class TestSearchFilesFallbackHiddenPaths:
 
     def test_hidden_root_with_hidden_ancestor_includes_files(self, tmp_path, monkeypatch):
         """Fallback find should include visible files when path is inside hidden root."""
-        root = tmp_path / ".hermes" / "logs"
+        root = tmp_path / ".xhermes" / "logs"
         root.mkdir(parents=True)
         visible_file = root / "agent.log"
         hidden_dir_file = root / ".hidden" / "secret.log"

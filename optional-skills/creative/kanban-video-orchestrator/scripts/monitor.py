@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Monitor a running video-production kanban. Polls `hermes kanban list` and
+Monitor a running video-production kanban. Polls `xhermes kanban list` and
 `events` for a tenant and surfaces issues (stuck tasks, missing heartbeats,
 repeated retries, dependency deadlocks).
 
@@ -32,19 +32,19 @@ def hermes_available() -> bool:
 
 def kanban_list(tenant: str) -> list[dict]:
     """Returns parsed task rows. Falls back to plain stdout parsing if JSON
-    output isn't supported by the installed hermes CLI."""
+    output isn't supported by the installed xhermes CLI."""
     try:
         out = subprocess.run(
-            ["hermes", "kanban", "list", "--tenant", tenant, "--json"],
+            ["xhermes", "kanban", "list", "--tenant", tenant, "--json"],
             capture_output=True, text=True, encoding='utf-8', errors='replace', check=False,
         )
         if out.returncode == 0 and out.stdout.strip().startswith("["):
             return json.loads(out.stdout)
     except (FileNotFoundError, json.JSONDecodeError):
         pass
-    # Fallback: textual parse of `hermes kanban list`
+    # Fallback: textual parse of `xhermes kanban list`
     out = subprocess.run(
-        ["hermes", "kanban", "list", "--tenant", tenant],
+        ["xhermes", "kanban", "list", "--tenant", tenant],
         capture_output=True, text=True, encoding='utf-8', errors='replace', check=False,
     )
     rows = []
@@ -68,7 +68,7 @@ def kanban_list(tenant: str) -> list[dict]:
 
 def kanban_show(task_id: str) -> dict | None:
     out = subprocess.run(
-        ["hermes", "kanban", "show", task_id, "--json"],
+        ["xhermes", "kanban", "show", task_id, "--json"],
         capture_output=True, text=True, encoding='utf-8', errors='replace', check=False,
     )
     if out.returncode != 0:
@@ -172,7 +172,7 @@ def main():
     args = ap.parse_args()
 
     if not hermes_available():
-        print("ERROR: 'hermes' CLI not found in PATH", file=sys.stderr)
+        print("ERROR: 'xhermes' CLI not found in PATH", file=sys.stderr)
         sys.exit(1)
 
     if args.once:

@@ -6,8 +6,8 @@ module-import time into ``tools.approval._YOLO_MODE_FROZEN`` (security
 hardening: stops prompt-injected skills from flipping the bypass mid-run),
 so the post-startup toggle was a silent no-op. ``/yolo`` advertised "YOLO ON"
 in the status bar while every dangerous command still hit the approval
-prompt. Only ``hermes --yolo`` (process-start env), ``HERMES_YOLO_MODE=1``,
-and ``hermes config set approvals.mode off`` actually bypassed.
+prompt. Only ``xhermes --yolo`` (process-start env), ``HERMES_YOLO_MODE=1``,
+and ``xhermes config set approvals.mode off`` actually bypassed.
 
 The fix routes the CLI toggle through ``enable_session_yolo`` /
 ``disable_session_yolo`` (matching the gateway and TUI ``/yolo`` paths) and
@@ -41,7 +41,7 @@ def _clear_approval_state(monkeypatch):
     """Clear the YOLO bypass + env var around every test so cases are independent."""
     monkeypatch.delenv("HERMES_YOLO_MODE", raising=False)
     # The value is intentionally frozen at tools.approval import time. Local
-    # Hermes-driven test runs may inherit HERMES_YOLO_MODE=1 from the parent
+    # XHermes-driven test runs may inherit HERMES_YOLO_MODE=1 from the parent
     # agent process, so make the default test state hermetic; the one test that
     # covers startup-frozen YOLO explicitly patches it back to True.
     monkeypatch.setattr(approval_module, "_YOLO_MODE_FROZEN", False)
@@ -130,7 +130,7 @@ class TestIsSessionYoloActiveHelper:
         assert HermesCLI._is_session_yolo_active(stand_in) is False
 
     def test_helper_honors_frozen_yolo_mode(self):
-        """``hermes --yolo`` sets ``HERMES_YOLO_MODE`` before tool imports, so
+        """``xhermes --yolo`` sets ``HERMES_YOLO_MODE`` before tool imports, so
         ``_YOLO_MODE_FROZEN`` ends up True. The status bar should still
         reflect YOLO on in that case even when the session toggle is off."""
         stand_in = _make_stand_in()
