@@ -202,37 +202,39 @@ while [ -h "$PRG" ]; do
 done
 BASE="$(cd "$(dirname "$PRG")/.." && pwd)"
 export PYTHONPATH="$BASE/site-packages:$BASE/xhermes-agent"
-exec "$BASE/python/bin/python$PYTHON_VERSION" -m hermes_cli.main "$@"
+exec "$BASE/python/bin/python__PY_VERSION__" -m hermes_cli.main "$@"
 LAUNCHER_EOF
+sed -i '' "s/__PY_VERSION__/$PYTHON_VERSION/" "$STAGE_ROOT/bin/xhermes"
 chmod 755 "$STAGE_ROOT/bin/xhermes"
 
-cat > "$OUT_DIR/pkg-scripts/postinstall" <<POSTINSTALL
+cat > "$OUT_DIR/pkg-scripts/postinstall" <<'POSTINSTALL'
 #!/bin/sh
 # Resolve the installing user's home. Under `installer -target
 # CurrentUserHomeDirectory` postinstall runs as the invoking user; under the
 # GUI (root) fall back to the console user.
-HOME_DIR="\$HOME"
-if [ "\$(id -u)" = "0" ] && [ -z "\$HOME_DIR" ] || [ "\$HOME_DIR" = "/var/root" ]; then
-    CONSOLE_USER="\$(stat -f%Su /dev/console 2>/dev/null)"
-    if [ -n "\$CONSOLE_USER" ]; then
-        HOME_DIR="\$(dscl . -read "/Users/\$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print \$2}')"
+HOME_DIR="$HOME"
+if [ "$(id -u)" = "0" ] && [ -z "$HOME_DIR" ] || [ "$HOME_DIR" = "/var/root" ]; then
+    CONSOLE_USER="$(stat -f%Su /dev/console 2>/dev/null)"
+    if [ -n "$CONSOLE_USER" ]; then
+        HOME_DIR="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
     fi
 fi
-[ -n "\$HOME_DIR" ] || HOME_DIR="\$HOME"
-BASE="\$HOME_DIR/.xhermes/xhermes-agent"
+[ -n "$HOME_DIR" ] || HOME_DIR="$HOME"
+BASE="$HOME_DIR/.xhermes/xhermes-agent"
 
 # point console-script shebangs at the real interpreter path (home is
 # unknown at build time)
-PY="\$BASE/python/bin/python$PYTHON_VERSION"
-for f in "\$BASE/site-packages/bin/"*; do
-    [ -f "\$f" ] || continue
-    sed -i '' "1s|^#!.*|#!\$PY|" "\$f"
+PY="$BASE/python/bin/python__PY_VERSION__"
+for f in "$BASE/site-packages/bin/"*; do
+    [ -f "$f" ] || continue
+    sed -i '' "1s|^#!.*|#!$PY|" "$f"
 done
 
-mkdir -p "\$HOME_DIR/.local/bin"
-ln -sf "\$BASE/bin/xhermes" "\$HOME_DIR/.local/bin/xhermes"
+mkdir -p "$HOME_DIR/.local/bin"
+ln -sf "$BASE/bin/xhermes" "$HOME_DIR/.local/bin/xhermes"
 exit 0
 POSTINSTALL
+sed -i '' "s/__PY_VERSION__/$PYTHON_VERSION/" "$OUT_DIR/pkg-scripts/postinstall"
 chmod 755 "$OUT_DIR/pkg-scripts/postinstall"
 
 # 8. component pkg (relative install-location keeps payload under
