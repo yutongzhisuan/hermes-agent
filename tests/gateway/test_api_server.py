@@ -961,6 +961,7 @@ class TestToolsetsEndpoint:
             ("default", "Default Tools", "Core tools"),
             ("web", "Web Tools", "Search and extract"),
         ]
+        feature_snapshot = object()
         with (
             patch(
                 "hermes_cli.tools_config._get_effective_configurable_toolsets",
@@ -971,9 +972,13 @@ class TestToolsetsEndpoint:
                 return_value={"default"},
             ),
             patch(
+                "hermes_cli.tools_config.get_nous_subscription_features",
+                return_value=feature_snapshot,
+            ) as resolve_features,
+            patch(
                 "hermes_cli.tools_config._toolset_has_keys",
                 return_value=True,
-            ),
+            ) as has_keys,
             patch(
                 "toolsets.resolve_toolset",
                 side_effect=lambda name: {
@@ -995,6 +1000,13 @@ class TestToolsetsEndpoint:
                 assert by_name["web"]["enabled"] is False
                 assert by_name["web"]["tools"] == ["web_search"]
                 assert by_name["default"]["configured"] is True
+
+        resolve_features.assert_called_once()
+        assert has_keys.call_count == len(fake_toolsets)
+        assert all(
+            call.kwargs["features"] is feature_snapshot
+            for call in has_keys.call_args_list
+        )
 
 
 # ---------------------------------------------------------------------------
