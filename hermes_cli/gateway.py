@@ -114,7 +114,7 @@ def _get_service_pids() -> set:
                     scope_args
                     + [
                         "list-units",
-                        "hermes-gateway*",
+                        "xhermes-gateway*",
                         "--plain",
                         "--no-legend",
                         "--no-pager",
@@ -1669,7 +1669,7 @@ def is_linux() -> bool:
     return sys.platform.startswith("linux")
 
 
-from hermes_constants import is_container, is_termux, is_wsl
+from hermes_constants import SERVICE_BASE, is_container, is_termux, is_wsl
 
 
 def _wsl_systemd_operational() -> bool:
@@ -1764,7 +1764,7 @@ def _windows_gateway_should_absorb_console_controls() -> bool:
 # Service Configuration
 # =============================================================================
 
-_SERVICE_BASE = "xhermes-gateway"
+_SERVICE_BASE = SERVICE_BASE
 SERVICE_DESCRIPTION = "xHermes Agent Gateway - Messaging Platform Integration"
 
 
@@ -2741,6 +2741,7 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
 def _build_service_path_dirs(project_root: Path | None = None) -> list[str]:
     """Build PATH directory list for service units, excluding non-existent dirs."""
     from hermes_constants import get_hermes_home
+
     if project_root is None:
         project_root = PROJECT_ROOT
 

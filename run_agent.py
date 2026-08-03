@@ -300,7 +300,7 @@ def _routermint_headers() -> dict:
     from hermes_cli import __version__ as _HERMES_VERSION
 
     return {
-        "User-Agent": f"xxHermesAgent/{_HERMES_VERSION}",
+        "User-Agent": f"xHermesAgent/{_HERMES_VERSION}",
     }
 
 

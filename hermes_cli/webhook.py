@@ -30,6 +30,7 @@ _SUBSCRIPTIONS_FILE_MODE = 0o600
 
 def _hermes_home() -> Path:
     from hermes_constants import get_hermes_home
+
     return get_hermes_home()
 
 
@@ -84,6 +85,7 @@ def _get_webhook_config() -> dict:
     """Load webhook platform config. Returns {} if not configured."""
     try:
         from hermes_cli.config import load_config
+
         cfg = load_config()
         return cfg_get(cfg, "platforms", "webhook", default={})
     except Exception:
@@ -97,7 +99,7 @@ def _is_webhook_enabled() -> bool:
 def _get_webhook_base_url() -> str:
     wh = _get_webhook_config().get("extra", {})
     host = wh.get("host")
-    port = wh.get("port", 8644)
+    port = wh.get("port", 8744)
     display_host = "localhost" if not host or host in {"0.0.0.0", "::"} else host
     if ":" in display_host and not display_host.startswith("["):
         display_host = f"[{display_host}]"
@@ -117,12 +119,12 @@ def _setup_hint() -> str:
        webhook:
          enabled: true
          extra:
-           port: 8644
+           port: 8744
            secret: "your-global-hmac-secret"
 
   3. Or set environment variables in {_dhh}/.env:
      WEBHOOK_ENABLED=true
-     WEBHOOK_PORT=8644
+     WEBHOOK_PORT=8744
      WEBHOOK_SECRET=your-global-secret
 
   Then start the gateway: hermes gateway run
@@ -161,8 +163,10 @@ def webhook_command(args):
 
 def _cmd_subscribe(args):
     name = args.name.strip().lower().replace(" ", "-")
-    if not re.match(r'^[a-z0-9][a-z0-9_-]*$', name):
-        print(f"Error: Invalid name '{name}'. Use lowercase alphanumeric with hyphens/underscores.")
+    if not re.match(r"^[a-z0-9][a-z0-9_-]*$", name):
+        print(
+            f"Error: Invalid name '{name}'. Use lowercase alphanumeric with hyphens/underscores."
+        )
         return
 
     subs = _load_subscriptions()
@@ -214,7 +218,9 @@ def _cmd_subscribe(args):
     if route.get("deliver_only"):
         print("  Mode: direct delivery (no agent, zero LLM cost)")
     if route.get("prompt"):
-        prompt_preview = route["prompt"][:80] + ("..." if len(route["prompt"]) > 80 else "")
+        prompt_preview = route["prompt"][:80] + (
+            "..." if len(route["prompt"]) > 80 else ""
+        )
         label = "Message" if route.get("deliver_only") else "Prompt"
         print(f"  {label}: {prompt_preview}")
     if route.get("script"):
@@ -278,17 +284,23 @@ def _cmd_test(args):
     base_url = _get_webhook_base_url()
     url = f"{base_url}/webhooks/{name}"
 
-    payload = args.payload or '{"test": true, "event_type": "test", "message": "Hello from hermes webhook test"}'
+    payload = (
+        args.payload
+        or '{"test": true, "event_type": "test", "message": "Hello from hermes webhook test"}'
+    )
 
     import hmac
     import hashlib
-    sig = "sha256=" + hmac.new(
-        secret.encode(), payload.encode(), hashlib.sha256
-    ).hexdigest()
+
+    sig = (
+        "sha256="
+        + hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    )
 
     print(f"  Sending test POST to {url}")
     try:
         import urllib.request
+
         req = urllib.request.Request(
             url,
             data=payload.encode(),

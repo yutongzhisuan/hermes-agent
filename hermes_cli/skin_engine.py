@@ -94,7 +94,7 @@ All fields are optional. Missing values inherit from the ``default`` skin.
 
     # Branding: text strings used throughout the CLI
     branding:
-      agent_name: "xxHermes Agent"          # Banner title, status display
+      agent_name: "xHermes Agent"          # Banner title, status display
       welcome: "Welcome message"          # Shown at CLI startup
       goodbye: "Goodbye! ⚕"              # Shown on exit
       response_label: " ⚕ Hermes "       # Response box header label
@@ -119,7 +119,7 @@ USAGE
 
     skin = get_active_skin()
     print(skin.colors["banner_title"])    # "#FFD700"
-    print(skin.get_branding("agent_name"))  # "xxHermes Agent"
+    print(skin.get_branding("agent_name"))  # "xHermes Agent"
 
     set_active_skin("ares")               # Switch to built-in ares skin
     set_active_skin("mytheme")            # Switch to user skin from ~/.hermes/skins/
@@ -274,8 +274,8 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             # Empty = use hardcoded defaults in display.py
         },
         "branding": {
-            "agent_name": "xxHermes Agent",
-            "welcome": "Welcome to xxHermes Agent! Type your message or /help for commands.",
+            "agent_name": "xHermes Agent",
+            "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
             "response_label": " ⚕ Hermes ",
             "prompt_symbol": "❯",
@@ -395,8 +395,8 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
         },
         "spinner": {},
         "branding": {
-            "agent_name": "xxHermes Agent",
-            "welcome": "Welcome to xxHermes Agent! Type your message or /help for commands.",
+            "agent_name": "xHermes Agent",
+            "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
             "response_label": " ⚕ Hermes ",
             "prompt_symbol": "❯",
@@ -439,8 +439,8 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
         },
         "spinner": {},
         "branding": {
-            "agent_name": "xxHermes Agent",
-            "welcome": "Welcome to xxHermes Agent! Type your message or /help for commands.",
+            "agent_name": "xHermes Agent",
+            "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
             "response_label": " ⚕ Hermes ",
             "prompt_symbol": "❯",
@@ -485,8 +485,8 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
         },
         "spinner": {},
         "branding": {
-            "agent_name": "xxHermes Agent",
-            "welcome": "Welcome to xxHermes Agent! Type your message or /help for commands.",
+            "agent_name": "xHermes Agent",
+            "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
             "response_label": " ⚕ Hermes ",
             "prompt_symbol": "❯",
@@ -531,8 +531,8 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
         },
         "spinner": {},
         "branding": {
-            "agent_name": "xxHermes Agent",
-            "welcome": "Welcome to xxHermes Agent! Type your message or /help for commands.",
+            "agent_name": "xHermes Agent",
+            "welcome": "Welcome to xHermes Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! \u2695",
             "response_label": " \u2695 Hermes ",
             "prompt_symbol": "\u276f",
