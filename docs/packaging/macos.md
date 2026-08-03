@@ -312,16 +312,12 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
 
 - 未签名（Gatekeeper 限制对外分发）
 - 仅 arm64
-- 可选依赖（anthropic / telegram 等 extras）走运行时 lazy install
-  （`tools/lazy_deps.py` 的 uv→pip→ensurepip 阶梯），不预装
+ - 可选依赖（anthropic / telegram 等 extras）走运行时 lazy install
+   （`tools/lazy_deps.py` 的 uv→pip→ensurepip 阶梯），不预装
 - **lazy install 需写权限**：可选依赖装进 `~/.xhermes/xhermes-agent/
   site-packages/`，该目录归安装用户所有（用户级 pkg），单用户场景可写；
   多用户共享同一 home 时第二个用户会 PermissionError（与 install.sh 的
   用户级布局相同）
-- **真实安装尚未端到端验证**：stage 运行、payload 展开、launcher 自定位、
-  postinstall 逻辑均已验证（含符号链接模拟运行），但 `installer -pkg`
-  的完整安装路径（postinstall 实际执行、`~/.local/bin/xhermes` 符号链接
-  创建）尚未在本机跑通
 - 升级需重装（无自更新机制；`hermes update` 面向 install.sh 布局）
 
 **已验证并修复的构建事故（2026-08-03）：**
@@ -378,4 +374,10 @@ xhermes --version 输出:
 launcher 自定位（模拟安装 + 符号链接调用）:
   ~/.local/bin/xhermes → ~/.xhermes/xhermes-agent/bin/xhermes   ✓
   xhermes --version / --help 从链接运行                        ✓
+
+真实安装（2026-08-03 本机 installer -pkg -target CurrentUserHomeDirectory）:
+  postinstall 执行成功（符号链接 + shebang 重写）              ✓
+  任意 cwd 运行 xhermes --version                               ✓
+  Install directory 解析到 ~/.xhermes/xhermes-agent             ✓
+  数据目录（~/.xhermes/ 其余内容）不受扰                        ✓
 ```
