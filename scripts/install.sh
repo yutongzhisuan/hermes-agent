@@ -6,7 +6,7 @@
 # Uses uv for desktop/server installs and Python's stdlib venv + pip on Termux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash
 #
 # Or with options:
 #   curl -fsSL ... | bash -s -- --no-venv --skip-setup
@@ -43,8 +43,8 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Configuration
-REPO_URL_SSH="git@github.com:yutongzhisuan/hermes-agent.git"
-REPO_URL_HTTPS="https://github.com/yutongzhisuan/hermes-agent.git"
+REPO_URL_SSH="git@github.com:yutongzhisuan/xhermes-agent.git"
+REPO_URL_HTTPS="https://github.com/yutongzhisuan/xhermes-agent.git"
 HERMES_HOME="${HERMES_HOME:-$HOME/.xhermes}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
@@ -60,8 +60,8 @@ PYTHON_VERSION="3.11"
 NODE_VERSION="22"
 
 # FHS-style root install layout (set by resolve_install_layout when applicable):
-#   code at /usr/local/lib/hermes-agent, command at /usr/local/bin/hermes,
-#   data still at /root/.hermes (HERMES_HOME).  Matches Claude Code / Codex CLI
+#   code at /usr/local/lib/xhermes-agent, command at /usr/local/bin/xhermes,
+#   data still at /root/.xhermes (HERMES_HOME).  Matches Claude Code / Codex CLI
 #   and keeps Docker bind-mounted /root/ volumes lean.
 ROOT_FHS_LAYOUT=false
 DETECTED_BROWSER_EXECUTABLE=""
@@ -147,7 +147,7 @@ while [[ $# -gt 0 ]]; do
             INSTALL_DIR_EXPLICIT=true
             shift 2
             ;;
-        --hermes-home)
+        --xhermes-home)
             HERMES_HOME="$2"
             shift 2
             ;;
@@ -167,7 +167,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --skip-browser Skip Playwright/Chromium install (browser tools won't work)"
             echo "  --no-skills    Start with a blank slate — seed no bundled skills, and"
             echo "                   write \$HERMES_HOME/.no-bundled-skills so future"
-            echo "                   'hermes update' runs never inject bundled skills either"
+            echo "                   'xhermes update' runs never inject bundled skills either"
             echo "  --branch NAME  Git branch to install (default: xhermes-agent)"
             echo "  --commit SHA   Pin checkout to a specific commit after clone/update"
             echo "                   (ignored when it would roll an existing install back)"
@@ -179,18 +179,18 @@ while [[ $# -gt 0 ]]; do
             echo "  --include-desktop  Also build the desktop app (apps/desktop -> Hermes.app)"
             echo "  --dir PATH     Installation directory"
             echo "                   default (non-root):  ~/.xhermes/xhermes-agent"
-            echo "                   default (root, Linux): /usr/local/lib/hermes-agent"
-            echo "  --hermes-home PATH  Data directory (default: ~/.hermes, or \$HERMES_HOME)"
+            echo "                   default (root, Linux): /usr/local/lib/xhermes-agent"
+            echo "  --xhermes-home PATH  Data directory (default: ~/.xhermes, or \$HERMES_HOME)"
             echo "  -h, --help     Show this help"
             echo ""
             echo "Notes:"
             echo "  When running as root on Linux, Hermes installs the code under"
-            echo "  /usr/local/lib/hermes-agent and links the command into"
-            echo "  /usr/local/bin/hermes (FHS layout — matches Claude Code / Codex CLI)."
+            echo "  /usr/local/lib/xhermes-agent and links the command into"
+            echo "  /usr/local/bin/xhermes (FHS layout — matches Claude Code / Codex CLI)."
             echo "  Data, config, sessions, and logs still live in \$HERMES_HOME"
-            echo "  (default /root/.hermes).  This keeps Docker bind-mounted volumes"
+            echo "  (default /root/.xhermes).  This keeps Docker bind-mounted volumes"
             echo "  small and ensures the command is on PATH for all shells."
-            echo "  Existing installs at \$HERMES_HOME/hermes-agent are preserved in-place."
+            echo "  Existing installs at \$HERMES_HOME/xhermes-agent are preserved in-place."
             echo "  --ensure DEPS  Install only specified deps (comma-separated)"
             echo "                   Supported: node, browser, ripgrep, ffmpeg"
             echo "                   Does NOT clone repo or create venv"
@@ -245,7 +245,7 @@ json_escape() {
 
 # npm rewrites tracked package-lock.json files non-deterministically during
 # `npm install` / `npm run pack`. On a managed install those diffs are never
-# intentional, but they leave the checkout dirty — which forces `hermes update`
+# intentional, but they leave the checkout dirty — which forces `xhermes update`
 # to autostash on every run and makes branch switches fragile. Restore them so
 # a fresh install ends with a clean tree. Best-effort; only touches lockfiles.
 restore_dirty_lockfiles() {
@@ -322,7 +322,7 @@ emit_manifest() {
     if [ "$INCLUDE_DESKTOP" = true ]; then
         desktop_stage='{"name":"desktop","title":"Build desktop app","category":"runtime","needs_user_input":false},'
     fi
-    printf '%s' '{"protocol_version":1,"stages":[{"name":"prerequisites","title":"System prerequisites","category":"runtime","needs_user_input":false},{"name":"repository","title":"Download Hermes Agent","category":"runtime","needs_user_input":false},{"name":"venv","title":"Create Python virtual environment","category":"runtime","needs_user_input":false},{"name":"python-deps","title":"Install Python dependencies","category":"runtime","needs_user_input":false},{"name":"node-deps","title":"Install browser-tool dependencies","category":"runtime","needs_user_input":false},{"name":"path","title":"Install hermes command","category":"runtime","needs_user_input":false},{"name":"config","title":"Prepare config and skills","category":"configuration","needs_user_input":false},{"name":"setup","title":"Configure API keys and settings","category":"configuration","needs_user_input":true},{"name":"gateway","title":"Configure gateway service","category":"configuration","needs_user_input":true},'"$desktop_stage"'{"name":"complete","title":"Finish install","category":"runtime","needs_user_input":false}]}'
+    printf '%s' '{"protocol_version":1,"stages":[{"name":"prerequisites","title":"System prerequisites","category":"runtime","needs_user_input":false},{"name":"repository","title":"Download Hermes Agent","category":"runtime","needs_user_input":false},{"name":"venv","title":"Create Python virtual environment","category":"runtime","needs_user_input":false},{"name":"python-deps","title":"Install Python dependencies","category":"runtime","needs_user_input":false},{"name":"node-deps","title":"Install browser-tool dependencies","category":"runtime","needs_user_input":false},{"name":"path","title":"Install xhermes command","category":"runtime","needs_user_input":false},{"name":"config","title":"Prepare config and skills","category":"configuration","needs_user_input":false},{"name":"setup","title":"Configure API keys and settings","category":"configuration","needs_user_input":true},{"name":"gateway","title":"Configure gateway service","category":"configuration","needs_user_input":true},'"$desktop_stage"'{"name":"complete","title":"Finish install","category":"runtime","needs_user_input":false}]}'
     printf '\n'
 }
 
@@ -390,18 +390,18 @@ is_termux() {
     [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == *"com.termux/files/usr"* ]]
 }
 
-# Decide where the repo checkout + venv live, and where the `hermes` command
+# Decide where the repo checkout + venv live, and where the `xhermes` command
 # symlink goes.  Called after detect_os so $OS/$DISTRO are known.
 #
 # Defaults:
-#   - Non-root, any OS:       INSTALL_DIR = $HERMES_HOME/hermes-agent
+#   - Non-root, any OS:       INSTALL_DIR = $HERMES_HOME/xhermes-agent
 #                             command link in $HOME/.local/bin
-#   - Termux (any uid):       INSTALL_DIR = $HERMES_HOME/hermes-agent
+#   - Termux (any uid):       INSTALL_DIR = $HERMES_HOME/xhermes-agent
 #                             command link in $PREFIX/bin (already on PATH)
-#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/hermes-agent
+#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/xhermes-agent
 #                             command link in /usr/local/bin
 #                             (unless a legacy install already exists at
-#                              $HERMES_HOME/hermes-agent — then preserve it)
+#                              $HERMES_HOME/xhermes-agent — then preserve it)
 #
 # Always no-op when the user set --dir or $HERMES_INSTALL_DIR.
 resolve_install_layout() {
@@ -420,10 +420,10 @@ resolve_install_layout() {
     # macOS root installs keep the legacy layout because /usr/local/ on macOS
     # is Homebrew territory and we don't want to fight that.
     if [ "$OS" = "linux" ] && [ "$(id -u)" -eq 0 ]; then
-        if [ -d "$HERMES_HOME/hermes-agent/.git" ]; then
+        if [ -d "$HERMES_HOME/xhermes-agent/.git" ]; then
             INSTALL_DIR="$HERMES_HOME/xhermes-agent"
             log_info "Existing install detected at $INSTALL_DIR — keeping legacy layout"
-            log_info "  (new root installs use /usr/local/lib/hermes-agent)"
+            log_info "  (new root installs use /usr/local/lib/xhermes-agent)"
             return 0
         fi
         INSTALL_DIR="/usr/local/lib/xhermes-agent"
@@ -431,13 +431,13 @@ resolve_install_layout() {
         # Place uv-managed Python under /usr/local/share so the venv interpreter
         # is world-readable.  Default uv paths land in /root/.local/share/uv,
         # which non-root users can't traverse — leaving the shared
-        # /usr/local/bin/hermes wrapper unable to exec the bad-interpreter venv
+        # /usr/local/bin/xhermes wrapper unable to exec the bad-interpreter venv
         # python.  See #21457.
         export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-/usr/local/share/uv/python}"
         export UV_PYTHON_BIN_DIR="${UV_PYTHON_BIN_DIR:-/usr/local/share/uv/bin}"
         log_info "Root install on Linux — using FHS layout"
         log_info "  Code:    $INSTALL_DIR"
-        log_info "  Command: /usr/local/bin/hermes"
+        log_info "  Command: /usr/local/bin/xhermes"
         log_info "  Data:    $HERMES_HOME (unchanged)"
         log_info "  uv Python: $UV_PYTHON_INSTALL_DIR (world-readable)"
         return 0
@@ -489,10 +489,10 @@ configure_managed_node_npm_prefix() {
 get_hermes_command_path() {
     local link_dir
     link_dir="$(get_command_link_dir)"
-    if [ -x "$link_dir/hermes" ]; then
-        echo "$link_dir/hermes"
+    if [ -x "$link_dir/xhermes" ]; then
+        echo "$link_dir/xhermes"
     else
-        echo "hermes"
+        echo "xhermes"
     fi
 }
 
@@ -529,7 +529,7 @@ detect_os() {
             OS="windows"
             DISTRO="windows"
             log_error "Windows detected. Please use the PowerShell installer:"
-            log_info "  iex (irm https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.ps1)"
+            log_info "  iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.ps1)"
             exit 1
             ;;
         *)
@@ -556,7 +556,7 @@ install_uv() {
     # Hermes owns its own uv at $HERMES_HOME/bin/uv.  Always install there —
     # no PATH probing, no conda guards, no multi-location resolution chains.
     # The runtime update path (hermes_cli/managed_uv.py) looks in the same
-    # place, so install.sh and `hermes update` stay in sync.
+    # place, so install.sh and `xhermes update` stay in sync.
     local _managed_uv="$HERMES_HOME/bin/uv"
 
     if [ -x "$_managed_uv" ]; then
@@ -573,8 +573,8 @@ install_uv() {
     # `curl | sh` masks curl failures (sh exits 0 on empty stdin)
     # and conflates network errors with installer errors.
     local _uv_install_log _uv_installer
-    _uv_install_log="$(mktemp 2>/dev/null || echo "/tmp/hermes-uv-install.$$.log")"
-    _uv_installer="$(mktemp 2>/dev/null || echo "/tmp/hermes-uv-installer.$$.sh")"
+    _uv_install_log="$(mktemp 2>/dev/null || echo "/tmp/xhermes-uv-install.$$.log")"
+    _uv_installer="$(mktemp 2>/dev/null || echo "/tmp/xhermes-uv-installer.$$.sh")"
     if ! curl -LsSf https://astral.sh/uv/install.sh -o "$_uv_installer" 2>"$_uv_install_log"; then
         log_error "Failed to download uv installer from https://astral.sh/uv/install.sh"
         log_info "curl output:"
@@ -949,8 +949,8 @@ install_node() {
         return 0
     fi
 
-    # Place into ~/.hermes/node/ and symlink binaries into the same bin dir
-    # the hermes command uses (get_command_link_dir): /usr/local/bin for root
+    # Place into ~/.xhermes/node/ and symlink binaries into the same bin dir
+    # the xhermes command uses (get_command_link_dir): /usr/local/bin for root
     # FHS installs, $PREFIX/bin on Termux, ~/.local/bin otherwise.
     rm -rf "$HERMES_HOME/node"
     mkdir -p "$HERMES_HOME"
@@ -1255,14 +1255,14 @@ clone_repo() {
                 # the whole install at the repository stage. Clear the conflict
                 # markers with `git reset` first -- this keeps working-tree
                 # changes (they're still stashed just below) and only drops the
-                # index-level conflict state. Mirrors the `hermes update` path
+                # index-level conflict state. Mirrors the `xhermes update` path
                 # (#4735).
                 if [ -n "$(git ls-files --unmerged)" ]; then
                     log_info "Clearing unmerged index entries from a previous conflict..."
                     git reset -q
                 fi
                 local stash_name
-                stash_name="hermes-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
+                stash_name="xhermes-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
                 log_info "Local changes detected, stashing before update..."
                 git stash push --include-untracked -m "$stash_name"
                 autostash_ref="stash@{0}"
@@ -1277,7 +1277,7 @@ clone_repo() {
             git checkout "$BRANCH"
             # Managed installs should follow origin/$BRANCH exactly. If the
             # checkout has diverged (or has local-only commits), ff-only pull
-            # cannot succeed — mirror ``hermes update`` and reset to the
+            # cannot succeed — mirror ``xhermes update`` and reset to the
             # fetched remote so bootstrap/install can recover.
             if ! git pull --ff-only origin "$BRANCH"; then
                 log_warn "Fast-forward not possible; resetting managed install to origin/$BRANCH..."
@@ -1622,7 +1622,7 @@ try:
     specs = data["project"]["optional-dependencies"]["all"]
     extras = []
     for s in specs:
-        m = re.search(r"hermes-agent\[([\w-]+)\]", s)
+        m = re.search(r"xhermes-agent\[([\w-]+)\]", s)
         if m:
             extras.append(m.group(1))
     print(",".join(extras))
@@ -1695,15 +1695,15 @@ PY
 }
 
 setup_path() {
-    log_info "Setting up hermes command..."
+    log_info "Setting up xhermes command..."
 
     if [ "$USE_VENV" = true ]; then
         HERMES_BIN="$INSTALL_DIR/venv/bin/python"
-        HERMES_ENTRYPOINT="$INSTALL_DIR/hermes"
+        HERMES_ENTRYPOINT="$INSTALL_DIR/xhermes"
     else
-        HERMES_BIN="$(which hermes 2>/dev/null || echo "")"
+        HERMES_BIN="$(which xhermes 2>/dev/null || echo "")"
         if [ -z "$HERMES_BIN" ]; then
-            log_warn "hermes not found on PATH after install"
+            log_warn "xhermes not found on PATH after install"
             return 0
         fi
     fi
@@ -1725,37 +1725,37 @@ setup_path() {
     command_link_dir="$(get_command_link_dir)"
     command_link_display_dir="$(get_command_link_display_dir)"
 
-    # Create a user-facing shim for the hermes command.
+    # Create a user-facing shim for the xhermes command.
     # We intentionally clear PYTHONPATH/PYTHONHOME here so inherited env vars
     # can't make this launcher import modules from another checkout.
     mkdir -p "$command_link_dir"
     # Older installs created this path as a symlink to $HERMES_BIN. Without
     # the rm, `cat >` follows the symlink and overwrites the venv pip entry
     # point with this shim — making `exec "$HERMES_BIN"` self-recurse. (#21454)
-    rm -f "$command_link_dir/hermes"
+    rm -f "$command_link_dir/xhermes"
     if [ "$USE_VENV" = true ]; then
         # uv-generated console scripts resolve themselves through `realpath`,
         # which stock macOS does not provide. Run the checked-in entrypoint
         # with the venv interpreter instead, so the public launcher remains
         # independent of non-standard shell utilities.
-        cat > "$command_link_dir/hermes" <<EOF
+        cat > "$command_link_dir/xhermes" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 exec "$HERMES_BIN" "$HERMES_ENTRYPOINT" "\$@"
 EOF
     else
-        cat > "$command_link_dir/hermes" <<EOF
+        cat > "$command_link_dir/xhermes" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 exec "$HERMES_BIN" "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes"
+    chmod +x "$command_link_dir/xhermes"
     log_success "Installed xhermes launcher → $command_link_display_dir/xhermes"
 
-    # Also expose `hermes-agent`. The `hermes-agent` console script declared in
+    # Also expose `xhermes-agent`. The `xhermes-agent` console script declared in
     # pyproject.toml's [project.scripts] lives inside the venv, which is not on
     # the login-shell PATH. Without this launcher users can't invoke the agent
     # entrypoint directly from outside the venv. (#74819)
@@ -1778,35 +1778,35 @@ EOF
     chmod +x "$command_link_dir/xhermes-agent"
     log_success "Installed xhermes-agent launcher → $command_link_display_dir/xhermes-agent"
 
-    # Also expose `hermes-acp`. ACP hosts (Zed, JetBrains, Buzz) resolve the
-    # agent by command name on the login-shell PATH, and the `hermes-acp`
+    # Also expose `xhermes-acp`. ACP hosts (Zed, JetBrains, Buzz) resolve the
+    # agent by command name on the login-shell PATH, and the `xhermes-acp`
     # console script lives inside the venv, which is not on that PATH. Without
     # this launcher those hosts report Hermes as not installed. (#21454 applies
     # here too: clear the path first so `cat >` cannot follow an old symlink
     # into the venv and overwrite the console script.)
-    rm -f "$command_link_dir/hermes-acp"
+    rm -f "$command_link_dir/xhermes-acp"
     if [ "$USE_VENV" = true ]; then
-        cat > "$command_link_dir/hermes-acp" <<EOF
+        cat > "$command_link_dir/xhermes-acp" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 exec "$HERMES_BIN" "$HERMES_ENTRYPOINT" acp "\$@"
 EOF
     else
-        cat > "$command_link_dir/hermes-acp" <<EOF
+        cat > "$command_link_dir/xhermes-acp" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 exec "$HERMES_BIN" acp "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes-acp"
-    log_success "Installed hermes-acp launcher → $command_link_display_dir/hermes-acp"
+    chmod +x "$command_link_dir/xhermes-acp"
+    log_success "Installed xhermes-acp launcher → $command_link_display_dir/xhermes-acp"
 
     if [ "$DISTRO" = "termux" ]; then
         export PATH="$command_link_dir:$PATH"
         log_info "$command_link_display_dir is the native Termux command path"
-        log_success "hermes command ready"
+        log_success "xhermes command ready"
         return 0
     fi
 
@@ -1821,14 +1821,14 @@ EOF
         # Probe a fresh non-login interactive bash the way the user will use it.
         # `bash -i -c` sources ~/.bashrc but NOT ~/.bash_profile or /etc/profile,
         # which is the exact scenario where RHEL root loses /usr/local/bin.
-        if env -i HOME="$HOME" TERM="${TERM:-dumb}" bash -i -c 'command -v hermes' \
+        if env -i HOME="$HOME" TERM="${TERM:-dumb}" bash -i -c 'command -v xhermes' \
                 >/dev/null 2>&1; then
             log_info "/usr/local/bin is already on PATH for all shells"
-            log_success "hermes command ready"
+            log_success "xhermes command ready"
             return 0
         fi
 
-        log_info "hermes not on PATH in non-login shells (common on RHEL-family)"
+        log_info "xhermes not on PATH in non-login shells (common on RHEL-family)"
         PATH_LINE='export PATH="/usr/local/bin:$PATH"'
         PATH_COMMENT='# Hermes Agent — ensure /usr/local/bin is on PATH (RHEL non-login shells)'
         for SHELL_CONFIG in "$HOME/.bashrc" "$HOME/.bash_profile"; do
@@ -1841,7 +1841,7 @@ EOF
                 log_success "Added /usr/local/bin to PATH in $SHELL_CONFIG"
             fi
         done
-        log_success "hermes command ready"
+        log_success "xhermes command ready"
         return 0
     fi
 
@@ -1911,19 +1911,19 @@ EOF
         log_info "~/.local/bin already on PATH"
     fi
 
-    # Export for current session so hermes works immediately
+    # Export for current session so xhermes works immediately
     export PATH="$command_link_dir:$PATH"
 
-    log_success "hermes command ready"
+    log_success "xhermes command ready"
 }
 
 copy_config_templates() {
     log_info "Setting up configuration files..."
 
-    # Create ~/.hermes directory structure (config at top level, code in subdir)
+    # Create ~/.xhermes directory structure (config at top level, code in subdir)
     mkdir -p "$HERMES_HOME"/{cron,sessions,logs,pairing,hooks,image_cache,audio_cache,memories,skills}
 
-    # Create .env at ~/.hermes/.env (top level, easy to find)
+    # Create .env at ~/.xhermes/.env (top level, easy to find)
     if [ ! -f "$HERMES_HOME/.env" ]; then
         if [ -f "$INSTALL_DIR/.env.example" ]; then
             cp "$INSTALL_DIR/.env.example" "$HERMES_HOME/.env"
@@ -1941,7 +1941,7 @@ copy_config_templates() {
     chmod 600 "$HERMES_HOME/.env"
     configure_browser_env_from_system_browser
 
-    # Create config.yaml at ~/.hermes/config.yaml (top level, easy to find)
+    # Create config.yaml at ~/.xhermes/config.yaml (top level, easy to find)
     if [ ! -f "$HERMES_HOME/config.yaml" ]; then
         if [ -f "$INSTALL_DIR/cli-config.yaml.example" ]; then
             cp "$INSTALL_DIR/cli-config.yaml.example" "$HERMES_HOME/config.yaml"
@@ -1965,26 +1965,26 @@ SOUL_EOF
 
     log_success "Configuration directory ready: ~/.xhermes/"
 
-    # Seed bundled skills into ~/.hermes/skills/ (manifest-based, one-time per skill)
+    # Seed bundled skills into ~/.xhermes/skills/ (manifest-based, one-time per skill)
     if [ "$NO_SKILLS" = true ]; then
         # Blank-slate install: write the opt-out marker and skip seeding.
-        # skills_sync.py and `hermes update` both honor this marker, so the
+        # skills_sync.py and `xhermes update` both honor this marker, so the
         # default profile stays empty across future updates too.
         printf '%s\n' \
             "This profile opted out of bundled-skill seeding (installed with --no-skills)." \
-            "Delete this file to re-enable sync on the next 'hermes update'." \
+            "Delete this file to re-enable sync on the next 'xhermes update'." \
             > "$HERMES_HOME/.no-bundled-skills" 2>/dev/null || true
         log_info "Skipping bundled skills (--no-skills). Wrote $HERMES_HOME/.no-bundled-skills"
-        log_info "  Future 'hermes update' runs will not inject bundled skills. Delete the marker to opt back in."
+        log_info "  Future 'xhermes update' runs will not inject bundled skills. Delete the marker to opt back in."
     else
-        log_info "Syncing bundled skills to ~/.hermes/skills/ ..."
+        log_info "Syncing bundled skills to ~/.xhermes/skills/ ..."
         if "$INSTALL_DIR/venv/bin/python" "$INSTALL_DIR/tools/skills_sync.py" 2>/dev/null; then
-            log_success "Skills synced to ~/.hermes/skills/"
+            log_success "Skills synced to ~/.xhermes/skills/"
         else
             # Fallback: simple directory copy if Python sync fails
             if [ -d "$INSTALL_DIR/skills" ] && [ ! "$(ls -A "$HERMES_HOME/skills/" 2>/dev/null | grep -v '.bundled_manifest')" ]; then
                 cp -r "$INSTALL_DIR/skills/"* "$HERMES_HOME/skills/" 2>/dev/null || true
-                log_success "Skills copied to ~/.hermes/skills/"
+                log_success "Skills copied to ~/.xhermes/skills/"
             fi
         fi
     fi
@@ -2391,18 +2391,18 @@ install_node_deps() {
         cd "$INSTALL_DIR/ui-tui"
         # Time-boxed: a stalled registry fetch would otherwise hang here (#39219).
         run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --silent || {
-            log_warn "TUI npm install failed or timed out (hermes --tui may not work)"
+            log_warn "TUI npm install failed or timed out (xhermes --tui may not work)"
         }
         log_success "TUI dependencies installed"
     fi
 
-    # Keep the checkout clean so `hermes update` doesn't autostash every run.
+    # Keep the checkout clean so `xhermes update` doesn't autostash every run.
     restore_dirty_lockfiles "$INSTALL_DIR"
 }
 
 run_setup_wizard() {
     if [ "$RUN_SETUP" = false ]; then
-        log_info "Skipping setup wizard (disabled by default; run 'hermes setup' after install)"
+        log_info "Skipping setup wizard (disabled by default; run 'xhermes setup' after install)"
         return 0
     fi
 
@@ -2415,7 +2415,7 @@ run_setup_wizard() {
     # but opening fails with ENXIO, so the wizard would proceed and
     # then crash on `< /dev/tty` below.
     if ! (: </dev/tty) 2>/dev/null; then
-        log_info "Setup wizard skipped (no terminal available). Run 'hermes setup' after install."
+        log_info "Setup wizard skipped (no terminal available). Run 'xhermes setup' after install."
         return 0
     fi
 
@@ -2425,7 +2425,7 @@ run_setup_wizard() {
 
     cd "$INSTALL_DIR"
 
-    # Run hermes setup using the venv Python directly (no activation needed).
+    # Run xhermes setup using the venv Python directly (no activation needed).
     # Redirect stdin from /dev/tty so interactive prompts work when piped from curl.
     if [ "$USE_VENV" = true ]; then
         "$INSTALL_DIR/venv/bin/python" -m hermes_cli.main setup < /dev/tty
@@ -2465,14 +2465,14 @@ maybe_start_gateway() {
         if [ "$IS_INTERACTIVE" = true ]; then
             echo ""
             log_info "WhatsApp is enabled but not yet paired."
-            log_info "Running 'hermes whatsapp' to pair via QR code..."
+            log_info "Running 'xhermes whatsapp' to pair via QR code..."
             echo ""
             if prompt_yes_no "Pair WhatsApp now?" "yes"; then
                 HERMES_CMD="$(get_hermes_command_path)"
                 $HERMES_CMD whatsapp || true
             fi
         else
-            log_info "WhatsApp pairing skipped (non-interactive). Run 'hermes whatsapp' to pair."
+            log_info "WhatsApp pairing skipped (non-interactive). Run 'xhermes whatsapp' to pair."
         fi
     fi
 
@@ -2480,7 +2480,7 @@ maybe_start_gateway() {
     # in Docker builds where the device node is in the mount namespace
     # but opening fails with ENXIO. See #16746.
     if ! (: </dev/tty) 2>/dev/null; then
-        log_info "Gateway setup skipped (no terminal available). Run 'hermes gateway install' later."
+        log_info "Gateway setup skipped (no terminal available). Run 'xhermes gateway install' later."
         return 0
     fi
 
@@ -2506,10 +2506,10 @@ maybe_start_gateway() {
                 if $HERMES_CMD gateway start 2>/dev/null; then
                     log_success "Gateway started! Your bot is now online."
                 else
-                    log_warn "Service installed but failed to start. Try: hermes gateway start"
+                    log_warn "Service installed but failed to start. Try: xhermes gateway start"
                 fi
             else
-                log_warn "Systemd install failed. You can start manually: hermes gateway"
+                log_warn "Systemd install failed. You can start manually: xhermes gateway"
             fi
         else
             if [ "$DISTRO" = "termux" ]; then
@@ -2519,15 +2519,15 @@ maybe_start_gateway() {
             fi
             nohup $HERMES_CMD gateway > "$HERMES_HOME/logs/gateway.log" 2>&1 &
             GATEWAY_PID=$!
-            log_success "Gateway started (PID $GATEWAY_PID). Logs: ~/.hermes/logs/gateway.log"
+            log_success "Gateway started (PID $GATEWAY_PID). Logs: ~/.xhermes/logs/gateway.log"
             log_info "To stop: kill $GATEWAY_PID"
-            log_info "To restart later: hermes gateway"
+            log_info "To restart later: xhermes gateway"
             if [ "$DISTRO" = "termux" ]; then
                 log_warn "Android may stop background processes when Termux is suspended or the system reclaims resources."
             fi
         fi
     else
-        log_info "Skipped. Start the gateway later with: hermes gateway"
+        log_info "Skipped. Start the gateway later with: xhermes gateway"
     fi
 }
 
@@ -2595,24 +2595,24 @@ print_success() {
     echo ""
     echo -e "${CYAN}${BOLD}🚀 Commands:${NC}"
     echo ""
-    echo -e "   ${GREEN}hermes${NC}              Start chatting"
-    echo -e "   ${GREEN}hermes setup${NC}        Configure API keys & settings"
-    echo -e "   ${GREEN}hermes config${NC}       View/edit configuration"
-    echo -e "   ${GREEN}hermes config edit${NC}  Open config in editor"
-    echo -e "   ${GREEN}hermes gateway install${NC} Install gateway service (messaging + cron)"
-    echo -e "   ${GREEN}hermes update${NC}       Update to latest version"
+    echo -e "   ${GREEN}xhermes${NC}              Start chatting"
+    echo -e "   ${GREEN}xhermes setup${NC}        Configure API keys & settings"
+    echo -e "   ${GREEN}xhermes config${NC}       View/edit configuration"
+    echo -e "   ${GREEN}xhermes config edit${NC}  Open config in editor"
+    echo -e "   ${GREEN}xhermes gateway install${NC} Install gateway service (messaging + cron)"
+    echo -e "   ${GREEN}xhermes update${NC}       Update to latest version"
     echo ""
 
     echo -e "${CYAN}─────────────────────────────────────────────────────────${NC}"
     echo ""
     if [ "$DISTRO" = "termux" ]; then
-        echo -e "${YELLOW}⚡ 'hermes' was linked into $(get_command_link_display_dir), which is already on PATH in Termux.${NC}"
+        echo -e "${YELLOW}⚡ 'xhermes' was linked into $(get_command_link_display_dir), which is already on PATH in Termux.${NC}"
         echo ""
     elif [ "$ROOT_FHS_LAYOUT" = true ]; then
-        echo -e "${YELLOW}⚡ 'hermes' was linked into /usr/local/bin and is ready to use — no shell reload needed.${NC}"
+        echo -e "${YELLOW}⚡ 'xhermes' was linked into /usr/local/bin and is ready to use — no shell reload needed.${NC}"
         echo ""
     else
-        echo -e "${YELLOW}⚡ Reload your shell to use 'hermes' command:${NC}"
+        echo -e "${YELLOW}⚡ Reload your shell to use 'xhermes' command:${NC}"
         echo ""
         LOGIN_SHELL="$(basename "${SHELL:-/bin/bash}")"
         if [ "$LOGIN_SHELL" = "zsh" ]; then
@@ -2769,7 +2769,7 @@ ensure_mode() {
 # extract a tree MISSING the electron binary, so the `electron`->`Hermes` rename
 # dies with ENOENT and every re-run repeats the broken extraction forever. This
 # is the bash sibling of install.ps1's Clear-ElectronBuildCache and the Python
-# _purge_electron_build_cache() used by `hermes desktop`; install.sh was the only
+# _purge_electron_build_cache() used by `xhermes desktop`; install.sh was the only
 # build path lacking it. Echoes the removed paths (one per line); best-effort.
 clear_electron_build_cache() {
     local desktop_dir="$1"
@@ -3028,7 +3028,7 @@ install_desktop() {
     #    Electron download self-heals instead of failing the whole install:
     #      a) plain `npm run pack` (downloads Electron from GitHub),
     #      b) on failure, purge a corrupt cached zip + stale unpacked dir and
-    #         retry (matches install.ps1 / `hermes desktop`),
+    #         retry (matches install.ps1 / `xhermes desktop`),
     #      c) on still-failing, fall back to a public Electron mirror — this is
     #         the GitHub-blocked/throttled case (the repeating "retrying" log).
     log_info "Building desktop app (this takes 1-3 minutes)..."
@@ -3078,8 +3078,8 @@ install_desktop() {
     if [ "$OS" = "linux" ]; then
         if [ -x "$desktop_dir/release/linux-unpacked/Hermes" ]; then
             app="$desktop_dir/release/linux-unpacked/Hermes"
-        elif [ -x "$desktop_dir/release/linux-unpacked/hermes" ]; then
-            app="$desktop_dir/release/linux-unpacked/hermes"
+        elif [ -x "$desktop_dir/release/linux-unpacked/xhermes" ]; then
+            app="$desktop_dir/release/linux-unpacked/xhermes"
         fi
     else
         local cand
@@ -3123,7 +3123,7 @@ install_desktop() {
     fi
 
     # macOS: route through the same config-aware signing fixup as
-    # `hermes desktop`, so install/repair and self-update agree about the app's
+    # `xhermes desktop`, so install/repair and self-update agree about the app's
     # identity. The fixup preserves the Electron entitlement plists and signs
     # with a stable Designated Requirement (configured keychain identity, else
     # identifier-pinned ad-hoc), so macOS TCC grants — Full Disk Access,
@@ -3160,7 +3160,7 @@ PYEOF
     fi
 
     # `npm install` + `npm run pack` rewrite lockfiles; restore them so the
-    # checkout stays clean for the next `hermes update`.
+    # checkout stays clean for the next `xhermes update`.
     restore_dirty_lockfiles "$INSTALL_DIR"
 }
 
@@ -3268,7 +3268,7 @@ run_stage_body() {
             # $HERMES_HOME. $HERMES_HOME is a shared data dir (it can be
             # bind-mounted into a Docker gateway too), so a stamp there gets
             # clobbered by the container's 'docker' stamp and wrongly blocks
-            # 'hermes update' on this host install. See detect_install_method().
+            # 'xhermes update' on this host install. See detect_install_method().
             echo "git" > "$INSTALL_DIR/.install_method"
             ;;
         *)
@@ -3354,7 +3354,7 @@ main() {
     # Code-scoped stamp: write next to the install tree, not into $HERMES_HOME.
     # $HERMES_HOME is a shared data dir (it can be bind-mounted into a Docker
     # gateway too), so a stamp there gets clobbered by the container's 'docker'
-    # stamp and wrongly blocks 'hermes update' on this host install.
+    # stamp and wrongly blocks 'xhermes update' on this host install.
     # See detect_install_method().
     echo "git" > "$INSTALL_DIR/.install_method"
 }

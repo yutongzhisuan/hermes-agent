@@ -108,7 +108,7 @@ gateway:
     upload_failed:         "✗ Theip ar uaslódáil tuairisce dífhabhtaithe: {error}"
     header:                "**Tuairisc dhífhabhtaithe uaslódáilte:**"
     auto_delete:           "⏱ Scriosfar na pastes go huathoibríoch i 6 huaire."
-    full_logs_hint:        "Le haghaidh uaslódálacha logála iomlána, úsáid `hermes debug share` ón CLI."
+    full_logs_hint:        "Le haghaidh uaslódálacha logála iomlána, úsáid `xhermes debug share` ón CLI."
     share_hint:            "Roinn na naisc seo le foireann Hermes le haghaidh tacaíochta."
 
   deny:
@@ -162,7 +162,7 @@ gateway:
   kanban:
     error_prefix:          "⚠ earráid kanban: {error}"
     subscribed_suffix:     "(síntiúsaithe — cuirfear in iúl duit nuair a chríochnóidh nó a stopfaidh {task_id})"
-    truncated_suffix:      "… (giorraithe; úsáid `hermes kanban …` i do theirminéal le haghaidh aschur iomláin)"
+    truncated_suffix:      "… (giorraithe; úsáid `xhermes kanban …` i do theirminéal le haghaidh aschur iomláin)"
     no_output:             "(gan aschur)"
     wake:
       completed:           "completed"
@@ -244,7 +244,7 @@ gateway:
 
   restart:
     in_progress:           "⏳ Tá atosú gateway ar siúl cheana féin..."
-    restarting:            "♻ Ag atosú gateway. Mura gcuirfear in iúl duit laistigh de 60 soicind, atosaigh ón gconsól le `hermes gateway restart`."
+    restarting:            "♻ Ag atosú gateway. Mura gcuirfear in iúl duit laistigh de 60 soicind, atosaigh ón gconsól le `xhermes gateway restart`."
 
   resume:
     db_unavailable:        "Níl bunachar sonraí na seisiún ar fáil."
@@ -365,9 +365,9 @@ Future messages in this room will use that transcript until `/reset` or another 
     invalid_count:         "Líon neamhbhailí \"{arg}\" — úsáid /undo nó /undo N."
 
   update:
-    platform_not_messaging:  "✗ Tá /update ar fáil amháin ó ardáin teachtaireachtaí. Rith `hermes update` ón teirminéal."
+    platform_not_messaging:  "✗ Tá /update ar fáil amháin ó ardáin teachtaireachtaí. Rith `xhermes update` ón teirminéal."
     not_git_repo:            "✗ Ní stór git é seo — ní féidir nuashonrú."
-    hermes_cmd_not_found:    "✗ Níorbh fhéidir an t-ordú `hermes` a aimsiú. Tá Hermes ag rith, ach níorbh fhéidir leis an ordú nuashonraithe an inrite a aimsiú ar PATH ná tríd an léirmhínitheoir Python reatha. Bain triail as `hermes update` a rith de láimh i do theirminéal."
+    hermes_cmd_not_found:    "✗ Níorbh fhéidir an t-ordú `xhermes` a aimsiú. Tá Hermes ag rith, ach níorbh fhéidir leis an ordú nuashonraithe an inrite a aimsiú ar PATH ná tríd an léirmhínitheoir Python reatha. Bain triail as `xhermes update` a rith de láimh i do theirminéal."
     start_failed:            "✗ Theip ar nuashonrú a thosú: {error}"
     starting:                "⚕ Ag tosú nuashonrú Hermes… Cuirfidh mé an dul chun cinn ar shruth anseo."
 
@@ -412,7 +412,7 @@ Future messages in this room will use that transcript until `/reset` or another 
     mode_new:              "⚙️ Dul chun cinn uirlise: **NUA** — taispeánta nuair a athraíonn an uirlis (fad réamhamhairc: `display.tool_preview_length`, réamhshocrú 40)."
     mode_all:              "⚙️ Dul chun cinn uirlise: **GACH CEANN** — taispeántar gach glao uirlise (fad réamhamhairc: `display.tool_preview_length`, réamhshocrú 40)."
     mode_verbose:          "⚙️ Dul chun cinn uirlise: **BÉALSCAOILTE** — gach glao uirlise le hargóintí iomlána."
-    mode_log:              "⚙️ Dul chun cinn uirlise: **LOG** — ciúin sa chomhrá; scríobhtar glaonna uirlise chuig ~/.hermes/logs/tool_calls.log."
+    mode_log:              "⚙️ Dul chun cinn uirlise: **LOG** — ciúin sa chomhrá; scríobhtar glaonna uirlise chuig ~/.xhermes/logs/tool_calls.log."
     saved_suffix:          "_(sábháilte do **{platform}** — éifeachtach ón gcéad teachtaireacht eile)_"
     save_failed:           "_(níorbh fhéidir sábháil sa chumraíocht: {error})_"
 

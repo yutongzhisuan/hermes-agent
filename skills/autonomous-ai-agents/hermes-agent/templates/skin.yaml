@@ -1,5 +1,5 @@
 # Hermes skin template — themes the CLI, TUI, and desktop GUI from one file.
-# Copy to <hermes-home>/skins/<name>.yaml, edit the palette, then set
+# Copy to <xhermes-home>/skins/<name>.yaml, edit the palette, then set
 # `display.skin: <name>` in config.yaml. Missing keys inherit the default skin.
 
 name: synthwave

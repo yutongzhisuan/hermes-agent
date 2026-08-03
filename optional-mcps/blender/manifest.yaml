@@ -48,7 +48,7 @@ auth:
 # of them costs schema tokens on every API call. Default to the core surface:
 # scene/object inspection, viewport screenshots, and code execution, which is
 # the complete modeling/render capability. Users who enable an asset service
-# in the addon can opt into its tools with `hermes mcp configure blender`.
+# in the addon can opt into its tools with `xhermes mcp configure blender`.
 tools:
   default_enabled:
     - get_scene_info
@@ -80,7 +80,7 @@ post_install: |
 
   The 18 asset-service tools (PolyHaven/Sketchfab/Hyper3D/Hunyuan3D) are off
   by default. To use one: enable the service in the addon's BlenderMCP panel
-  (API key there if required), then `hermes mcp configure blender` and tick
+  (API key there if required), then `xhermes mcp configure blender` and tick
   its tools. PolyHaven is free and keyless; the others need accounts.
 
   If Hermes and Blender run on different machines, note that file paths in

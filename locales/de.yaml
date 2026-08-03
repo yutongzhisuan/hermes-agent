@@ -104,7 +104,7 @@ gateway:
     upload_failed:         "✗ Debug-Bericht konnte nicht hochgeladen werden: {error}"
     header:                "**Debug-Bericht hochgeladen:**"
     auto_delete:           "⏱ Pastes werden in 6 Stunden automatisch gelöscht."
-    full_logs_hint:        "Für vollständige Log-Uploads verwenden Sie `hermes debug share` aus der CLI."
+    full_logs_hint:        "Für vollständige Log-Uploads verwenden Sie `xhermes debug share` aus der CLI."
     share_hint:            "Teilen Sie diese Links mit dem Hermes-Team, um Unterstützung zu erhalten."
 
   deny:
@@ -158,7 +158,7 @@ gateway:
   kanban:
     error_prefix:          "⚠ Kanban-Fehler: {error}"
     subscribed_suffix:     "(abonniert — Sie werden benachrichtigt, wenn {task_id} abgeschlossen oder blockiert wird)"
-    truncated_suffix:      "… (gekürzt; verwenden Sie `hermes kanban …` im Terminal für die vollständige Ausgabe)"
+    truncated_suffix:      "… (gekürzt; verwenden Sie `xhermes kanban …` im Terminal für die vollständige Ausgabe)"
     no_output:             "(keine Ausgabe)"
     wake:
       completed:           "completed"
@@ -240,7 +240,7 @@ gateway:
 
   restart:
     in_progress:           "⏳ Gateway-Neustart läuft bereits..."
-    restarting:            "♻ Gateway wird neu gestartet. Falls Sie nicht innerhalb von 60 Sekunden benachrichtigt werden, starten Sie über die Konsole mit `hermes gateway restart` neu."
+    restarting:            "♻ Gateway wird neu gestartet. Falls Sie nicht innerhalb von 60 Sekunden benachrichtigt werden, starten Sie über die Konsole mit `xhermes gateway restart` neu."
 
   resume:
     db_unavailable:        "Sitzungsdatenbank nicht verfügbar."
@@ -361,9 +361,9 @@ Future messages in this room will use that transcript until `/reset` or another 
     invalid_count:         "Ungültige Anzahl \"{arg}\" — verwenden Sie /undo oder /undo N."
 
   update:
-    platform_not_messaging:  "✗ /update ist nur auf Messaging-Plattformen verfügbar. Führen Sie `hermes update` im Terminal aus."
+    platform_not_messaging:  "✗ /update ist nur auf Messaging-Plattformen verfügbar. Führen Sie `xhermes update` im Terminal aus."
     not_git_repo:            "✗ Kein Git-Repository — Update nicht möglich."
-    hermes_cmd_not_found:    "✗ Der Befehl `hermes` konnte nicht gefunden werden. Hermes läuft, aber der Update-Befehl konnte das ausführbare Programm weder im PATH noch über den aktuellen Python-Interpreter finden. Versuchen Sie, `hermes update` manuell im Terminal auszuführen."
+    hermes_cmd_not_found:    "✗ Der Befehl `xhermes` konnte nicht gefunden werden. Hermes läuft, aber der Update-Befehl konnte das ausführbare Programm weder im PATH noch über den aktuellen Python-Interpreter finden. Versuchen Sie, `xhermes update` manuell im Terminal auszuführen."
     start_failed:            "✗ Update konnte nicht gestartet werden: {error}"
     starting:                "⚕ Hermes-Update wird gestartet… Ich streame den Fortschritt hier."
 
@@ -408,7 +408,7 @@ Future messages in this room will use that transcript until `/reset` or another 
     mode_new:              "⚙️ Tool-Fortschritt: **NEW** — angezeigt bei Tool-Wechsel (Vorschaulänge: `display.tool_preview_length`, Standard 40)."
     mode_all:              "⚙️ Tool-Fortschritt: **ALL** — jeder Tool-Aufruf wird angezeigt (Vorschaulänge: `display.tool_preview_length`, Standard 40)."
     mode_verbose:          "⚙️ Tool-Fortschritt: **VERBOSE** — jeder Tool-Aufruf mit vollständigen Argumenten."
-    mode_log:              "⚙️ Tool-Fortschritt: **LOG** — still im Chat; Tool-Aufrufe werden in ~/.hermes/logs/tool_calls.log geschrieben."
+    mode_log:              "⚙️ Tool-Fortschritt: **LOG** — still im Chat; Tool-Aufrufe werden in ~/.xhermes/logs/tool_calls.log geschrieben."
     saved_suffix:          "_(für **{platform}** gespeichert — wird ab nächster Nachricht wirksam)_"
     save_failed:           "_(konnte nicht in der Konfiguration gespeichert werden: {error})_"
 

@@ -35,4 +35,4 @@ post_install: |
   After auth, restart your Hermes session so the Linear tools are loaded.
 
   You can re-run the tool checklist any time with:
-    hermes mcp configure linear
+    xhermes mcp configure linear

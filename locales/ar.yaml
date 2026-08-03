@@ -127,7 +127,7 @@ gateway:
     upload_failed:         "✗ فشل رفع تقرير التصحيح: {error}"
     header:                "**تم رفع تقرير التصحيح:**"
     auto_delete:           "⏱ ستُحذف اللصقات تلقائيًا خلال 6 ساعات."
-    full_logs_hint:        "لرفع السجلات الكاملة، استخدم `hermes debug share` من واجهة الأوامر."
+    full_logs_hint:        "لرفع السجلات الكاملة، استخدم `xhermes debug share` من واجهة الأوامر."
     share_hint:            "شارك هذه الروابط مع فريق Hermes للحصول على الدعم."
 
   deny:
@@ -181,7 +181,7 @@ gateway:
   kanban:
     error_prefix:          "⚠ خطأ kanban: {error}"
     subscribed_suffix:     "(مُشترك — ستُخطَر عند اكتمال {task_id} أو حجبها)"
-    truncated_suffix:      "… (مقتطع؛ استخدم `hermes kanban …` في الطرفية للخرج الكامل)"
+    truncated_suffix:      "… (مقتطع؛ استخدم `xhermes kanban …` في الطرفية للخرج الكامل)"
     no_output:             "(لا يوجد خرج)"
     wake:
       completed:           "اكتملت"
@@ -263,7 +263,7 @@ gateway:
 
   restart:
     in_progress:           "⏳ إعادة تشغيل البوابة قيد التنفيذ بالفعل..."
-    restarting:            "♻ جارٍ إعادة تشغيل البوابة. إن لم تُخطَر خلال 60 ثانية، أعِد التشغيل من وحدة التحكّم باستخدام `hermes gateway restart`."
+    restarting:            "♻ جارٍ إعادة تشغيل البوابة. إن لم تُخطَر خلال 60 ثانية، أعِد التشغيل من وحدة التحكّم باستخدام `xhermes gateway restart`."
 
   resume:
     db_unavailable:        "قاعدة بيانات الجلسات غير متاحة."
@@ -363,9 +363,9 @@ gateway:
     invalid_count:         "عدد غير صالح \"{arg}\" — استخدم /undo أو /undo N."
 
   update:
-    platform_not_messaging:  "✗ /update متاح فقط من منصّات المراسلة. شغّل `hermes update` من الطرفية."
+    platform_not_messaging:  "✗ /update متاح فقط من منصّات المراسلة. شغّل `xhermes update` من الطرفية."
     not_git_repo:            "✗ ليس مستودع git — لا يمكن التحديث."
-    hermes_cmd_not_found:    "✗ تعذّر تحديد موقع أمر `hermes`. Hermes يعمل، لكن أمر التحديث لم يجد الملف التنفيذي على PATH أو عبر مُفسّر Python الحالي. جرّب تشغيل `hermes update` يدويًا في طرفيتك."
+    hermes_cmd_not_found:    "✗ تعذّر تحديد موقع أمر `xhermes`. Hermes يعمل، لكن أمر التحديث لم يجد الملف التنفيذي على PATH أو عبر مُفسّر Python الحالي. جرّب تشغيل `xhermes update` يدويًا في طرفيتك."
     start_failed:            "✗ فشل بدء التحديث: {error}"
     starting:                "⚕ جارٍ بدء تحديث Hermes… سأبثّ التقدّم هنا."
 
@@ -410,7 +410,7 @@ gateway:
     mode_new:              "⚙️ تقدّم الأدوات: **NEW** — يُعرض عند تغيّر الأداة (طول المعاينة: `display.tool_preview_length`، افتراضي 40)."
     mode_all:              "⚙️ تقدّم الأدوات: **ALL** — يُعرض كل استدعاء أداة (طول المعاينة: `display.tool_preview_length`، افتراضي 40)."
     mode_verbose:          "⚙️ تقدّم الأدوات: **VERBOSE** — كل استدعاء أداة مع وسائطه الكاملة."
-    mode_log:              "⚙️ تقدّم الأدوات: **LOG** — صامت في المحادثة؛ تُكتب استدعاءات الأدوات إلى ~/.hermes/logs/tool_calls.log."
+    mode_log:              "⚙️ تقدّم الأدوات: **LOG** — صامت في المحادثة؛ تُكتب استدعاءات الأدوات إلى ~/.xhermes/logs/tool_calls.log."
     saved_suffix:          "_(حُفظ لـ **{platform}** — يسري على الرسالة التالية)_"
     save_failed:           "_(تعذّر الحفظ في الإعدادات: {error})_"
 

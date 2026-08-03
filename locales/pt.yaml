@@ -104,7 +104,7 @@ gateway:
     upload_failed:         "✗ Falha ao carregar relatório de depuração: {error}"
     header:                "**Relatório de depuração carregado:**"
     auto_delete:           "⏱ Os pastes serão eliminados automaticamente em 6 horas."
-    full_logs_hint:        "Para enviar logs completos, usa `hermes debug share` a partir da CLI."
+    full_logs_hint:        "Para enviar logs completos, usa `xhermes debug share` a partir da CLI."
     share_hint:            "Partilha estes links com a equipa do Hermes para obter suporte."
 
   deny:
@@ -158,7 +158,7 @@ gateway:
   kanban:
     error_prefix:          "⚠ erro do kanban: {error}"
     subscribed_suffix:     "(subscrito — receberás uma notificação quando {task_id} terminar ou bloquear)"
-    truncated_suffix:      "… (truncado; usa `hermes kanban …` no teu terminal para a saída completa)"
+    truncated_suffix:      "… (truncado; usa `xhermes kanban …` no teu terminal para a saída completa)"
     no_output:             "(sem saída)"
     wake:
       completed:           "completed"
@@ -240,7 +240,7 @@ gateway:
 
   restart:
     in_progress:           "⏳ O reinício do gateway já está em curso..."
-    restarting:            "♻ A reiniciar o gateway. Se não fores notificado em 60 segundos, reinicia a partir da consola com `hermes gateway restart`."
+    restarting:            "♻ A reiniciar o gateway. Se não fores notificado em 60 segundos, reinicia a partir da consola com `xhermes gateway restart`."
 
   resume:
     db_unavailable:        "Base de dados de sessões indisponível."
@@ -361,9 +361,9 @@ Future messages in this room will use that transcript until `/reset` or another 
     invalid_count:         "Contagem inválida \"{arg}\" — usa /undo ou /undo N."
 
   update:
-    platform_not_messaging:  "✗ /update só está disponível em plataformas de mensagens. Executa `hermes update` a partir do terminal."
+    platform_not_messaging:  "✗ /update só está disponível em plataformas de mensagens. Executa `xhermes update` a partir do terminal."
     not_git_repo:            "✗ Não é um repositório git — não é possível atualizar."
-    hermes_cmd_not_found:    "✗ Não foi possível localizar o comando `hermes`. O Hermes está em execução, mas o comando de atualização não conseguiu encontrar o executável no PATH nem através do interpretador Python atual. Tenta executar `hermes update` manualmente no teu terminal."
+    hermes_cmd_not_found:    "✗ Não foi possível localizar o comando `xhermes`. O Hermes está em execução, mas o comando de atualização não conseguiu encontrar o executável no PATH nem através do interpretador Python atual. Tenta executar `xhermes update` manualmente no teu terminal."
     start_failed:            "✗ Falha ao iniciar a atualização: {error}"
     starting:                "⚕ A iniciar a atualização do Hermes… Vou transmitir o progresso aqui."
 
@@ -408,7 +408,7 @@ Future messages in this room will use that transcript until `/reset` or another 
     mode_new:              "⚙️ Progresso de ferramentas: **NEW** — mostrado quando a ferramenta muda (comprimento da pré-visualização: `display.tool_preview_length`, predefinição 40)."
     mode_all:              "⚙️ Progresso de ferramentas: **ALL** — cada chamada de ferramenta é mostrada (comprimento da pré-visualização: `display.tool_preview_length`, predefinição 40)."
     mode_verbose:          "⚙️ Progresso de ferramentas: **VERBOSE** — cada chamada de ferramenta com os argumentos completos."
-    mode_log:              "⚙️ Progresso de ferramentas: **LOG** — silencioso no chat; as chamadas de ferramentas são gravadas em ~/.hermes/logs/tool_calls.log."
+    mode_log:              "⚙️ Progresso de ferramentas: **LOG** — silencioso no chat; as chamadas de ferramentas são gravadas em ~/.xhermes/logs/tool_calls.log."
     saved_suffix:          "_(guardado para **{platform}** — produz efeito na próxima mensagem)_"
     save_failed:           "_(não foi possível guardar na configuração: {error})_"
 

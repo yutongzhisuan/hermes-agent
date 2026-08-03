@@ -51,4 +51,4 @@ post_install: |
   on the engine game thread — avoid issuing overlapping calls.
 
   Re-run the tool checklist any time with:
-    hermes mcp configure unreal-engine
+    xhermes mcp configure unreal-engine

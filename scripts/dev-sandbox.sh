@@ -5,25 +5,25 @@
 #
 # By default the sandbox is throwaway: a temp dir is created and removed on
 # exit. Use --persistent to keep the sandbox across restarts (stored under
-# .hermes-sandbox/ in the worktree git root).
+# .xhermes-sandbox/ in the worktree git root).
 #
 # Usage:
 #   scripts/dev-sandbox.sh python -m hermes_cli.main
-#   scripts/dev-sandbox.sh hermes desktop
+#   scripts/dev-sandbox.sh xhermes desktop
 #   scripts/dev-sandbox.sh electron .
 #   scripts/dev-sandbox.sh -- npm run dev   # from apps/desktop/
-#   scripts/dev-sandbox.sh --persistent hermes desktop
+#   scripts/dev-sandbox.sh --persistent xhermes desktop
 #   scripts/dev-sandbox.sh --persistent -- npm run dev
 #
 # Seed the sandbox HERMES_HOME from an existing directory (e.g. your main
-# ~/.hermes) so config, sessions, skills, etc. are pre-populated:
-#   scripts/dev-sandbox.sh --from ~/.hermes hermes desktop
+# ~/.xhermes) so config, sessions, skills, etc. are pre-populated:
+#   scripts/dev-sandbox.sh --from ~/.xhermes xhermes desktop
 #
 # Override the app name (default: HermesSandbox):
-#   HERMES_DEV_SANDBOX_NAME=Staging scripts/dev-sandbox.sh hermes desktop
+#   HERMES_DEV_SANDBOX_NAME=Staging scripts/dev-sandbox.sh xhermes desktop
 #
-# Override the persistent sandbox dir name (default: .hermes-sandbox):
-#   HERMES_DEV_SANDBOX_DIR=.staging-sandbox scripts/dev-sandbox.sh --persistent hermes desktop
+# Override the persistent sandbox dir name (default: .xhermes-sandbox):
+#   HERMES_DEV_SANDBOX_DIR=.staging-sandbox scripts/dev-sandbox.sh --persistent xhermes desktop
 
 set -euo pipefail
 
@@ -37,23 +37,23 @@ Run a Hermes instance in an isolated sandbox.
 
 Options:
   --persistent    Keep the sandbox dir across restarts (under the worktree
-                  git root, in .hermes-sandbox/). Without this flag the
+                  git root, in .xhermes-sandbox/). Without this flag the
                   sandbox is a temp dir that is removed on exit.
   --from DIR      Copy DIR into the sandbox HERMES_HOME as the starting
                   point (config, sessions, skills, etc.).
                   Ignored if the sandbox HERMES_HOME already has content
                   (e.g. reusing a --persistent sandbox) to avoid clobbering.
-  --delete        Delete the existing persistent sandbox in .hermes-sandbox.
+  --delete        Delete the existing persistent sandbox in .xhermes-sandbox.
   -h, --help      Show this help message.
 
 Environment:
   HERMES_DEV_SANDBOX_NAME  Override the app name (default: HermesSandbox)
-  HERMES_DEV_SANDBOX_DIR   Override the persistent dir name (default: .hermes-sandbox)
+  HERMES_DEV_SANDBOX_DIR   Override the persistent dir name (default: .xhermes-sandbox)
 
 Examples:
-  dev-sandbox.sh hermes desktop
-  dev-sandbox.sh --persistent hermes desktop
-  dev-sandbox.sh --from ~/.hermes hermes desktop
+  dev-sandbox.sh xhermes desktop
+  dev-sandbox.sh --persistent xhermes desktop
+  dev-sandbox.sh --from ~/.xhermes xhermes desktop
   dev-sandbox.sh -- npm run dev
 EOF
 }
@@ -117,7 +117,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 
-SANDBOX_DIR_NAME="${HERMES_DEV_SANDBOX_DIR:-.hermes-sandbox}"
+SANDBOX_DIR_NAME="${HERMES_DEV_SANDBOX_DIR:-.xhermes-sandbox}"
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$SCRIPT_DIR/..")"
 GIT_ROOT="$(cd "$GIT_ROOT" && pwd)"
 PERSISTENT_SANDBOX_ROOT="$GIT_ROOT/$SANDBOX_DIR_NAME"
@@ -155,10 +155,10 @@ SANDBOX_NAME="${HERMES_DEV_SANDBOX_NAME:-$DEFAULT_SANDBOX_NAME}"
 if [ "$PERSISTENT" = true ]; then
   SANDBOX_ROOT="$PERSISTENT_SANDBOX_ROOT"
 else
-  SANDBOX_ROOT="$(mktemp -d -t hermes-sandbox.XXXXXX)"
+  SANDBOX_ROOT="$(mktemp -d -t xhermes-sandbox.XXXXXX)"
 fi
 
-export HERMES_HOME="$SANDBOX_ROOT/hermes-home"
+export HERMES_HOME="$SANDBOX_ROOT/xhermes-home"
 export HERMES_DESKTOP_USER_DATA_DIR="$SANDBOX_ROOT/user-data"
 export HERMES_DESKTOP_APP_NAME="$SANDBOX_NAME"
 

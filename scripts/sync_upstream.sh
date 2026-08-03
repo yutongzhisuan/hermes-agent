@@ -3,7 +3,7 @@
 # 日常更新请用 `xhermes update`（吃 fork）；本脚本用于定期人工同步上游修复。
 set -euo pipefail
 
-echo "→ sync_upstream: fetching NousResearch/hermes-agent"
+echo "→ sync_upstream: fetching NousResearch/xhermes-agent"
 git fetch upstream
 
 echo "→ merging upstream/main"

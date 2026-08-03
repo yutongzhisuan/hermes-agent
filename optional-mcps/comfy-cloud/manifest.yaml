@@ -28,7 +28,7 @@ auth:
 # agent needs to discover, generate, and fetch results (~9-12k tokens).
 #
 # Deliberately excluded from the default (opt back in any time with
-# `hermes mcp configure comfy-cloud`):
+# `xhermes mcp configure comfy-cloud`):
 #   - cql, get_server_info            — power-user / debug probes
 #   - submit_batch, get_batch_status, get_batch_output, wait_for_batch
 #                                     — batch variants of the job lifecycle
@@ -79,4 +79,4 @@ post_install: |
   A curated 20-tool subset is enabled by default (discovery, generation, job
   lifecycle, billing). Batch jobs, saved/shared workflow management, and App
   Mode tools are available but unchecked — enable them any time with:
-    hermes mcp configure comfy-cloud
+    xhermes mcp configure comfy-cloud

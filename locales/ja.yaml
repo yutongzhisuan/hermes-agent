@@ -104,7 +104,7 @@ gateway:
     upload_failed:         "✗ デバッグレポートのアップロードに失敗しました: {error}"
     header:                "**デバッグレポートをアップロードしました:**"
     auto_delete:           "⏱ ペーストは 6 時間後に自動削除されます。"
-    full_logs_hint:        "完全なログのアップロードには、CLI から `hermes debug share` を使用してください。"
+    full_logs_hint:        "完全なログのアップロードには、CLI から `xhermes debug share` を使用してください。"
     share_hint:            "サポートを受けるには、このリンクを Hermes チームに共有してください。"
 
   deny:
@@ -158,7 +158,7 @@ gateway:
   kanban:
     error_prefix:          "⚠ kanban エラー: {error}"
     subscribed_suffix:     "(購読しました — {task_id} が完了またはブロックされたときに通知されます)"
-    truncated_suffix:      "… (切り詰めました; 完全な出力にはターミナルで `hermes kanban …` を使用してください)"
+    truncated_suffix:      "… (切り詰めました; 完全な出力にはターミナルで `xhermes kanban …` を使用してください)"
     no_output:             "(出力なし)"
     wake:
       completed:           "completed"
@@ -240,7 +240,7 @@ gateway:
 
   restart:
     in_progress:           "⏳ ゲートウェイの再起動はすでに進行中です..."
-    restarting:            "♻ ゲートウェイを再起動しています。60 秒以内に通知が届かない場合は、コンソールで `hermes gateway restart` を実行してください。"
+    restarting:            "♻ ゲートウェイを再起動しています。60 秒以内に通知が届かない場合は、コンソールで `xhermes gateway restart` を実行してください。"
 
   resume:
     db_unavailable:        "セッションデータベースは利用できません。"
@@ -361,9 +361,9 @@ Future messages in this room will use that transcript until `/reset` or another 
     invalid_count:         "無効な数値「{arg}」— /undo または /undo N を使用してください。"
 
   update:
-    platform_not_messaging:  "✗ /update はメッセージングプラットフォームでのみ利用可能です。ターミナルで `hermes update` を実行してください。"
+    platform_not_messaging:  "✗ /update はメッセージングプラットフォームでのみ利用可能です。ターミナルで `xhermes update` を実行してください。"
     not_git_repo:            "✗ Git リポジトリではありません — 更新できません。"
-    hermes_cmd_not_found:    "✗ `hermes` コマンドが見つかりません。Hermes は実行中ですが、更新コマンドは PATH 上にも現在の Python インタープリタ経由でも実行可能ファイルを見つけられませんでした。ターミナルで `hermes update` を手動で実行してみてください。"
+    hermes_cmd_not_found:    "✗ `xhermes` コマンドが見つかりません。Hermes は実行中ですが、更新コマンドは PATH 上にも現在の Python インタープリタ経由でも実行可能ファイルを見つけられませんでした。ターミナルで `xhermes update` を手動で実行してみてください。"
     start_failed:            "✗ 更新の開始に失敗しました: {error}"
     starting:                "⚕ Hermes の更新を開始しています… 進捗をここにストリーミングします。"
 
@@ -408,7 +408,7 @@ Future messages in this room will use that transcript until `/reset` or another 
     mode_new:              "⚙️ ツール進捗: **NEW** — ツールが変わったときに表示 (プレビュー長: `display.tool_preview_length`、デフォルト 40)。"
     mode_all:              "⚙️ ツール進捗: **ALL** — すべてのツール呼び出しを表示 (プレビュー長: `display.tool_preview_length`、デフォルト 40)。"
     mode_verbose:          "⚙️ ツール進捗: **VERBOSE** — すべてのツール呼び出しを完全な引数とともに表示。"
-    mode_log:              "⚙️ ツール進捗: **LOG** — チャットには表示せず、ツール呼び出しを ~/.hermes/logs/tool_calls.log に記録します。"
+    mode_log:              "⚙️ ツール進捗: **LOG** — チャットには表示せず、ツール呼び出しを ~/.xhermes/logs/tool_calls.log に記録します。"
     saved_suffix:          "_(**{platform}** に保存しました — 次のメッセージから有効)_"
     save_failed:           "_(設定に保存できませんでした: {error})_"
 

@@ -104,7 +104,7 @@ gateway:
     upload_failed:         "✗ Kon nie ontfoutverslag oplaai nie: {error}"
     header:                "**Ontfoutverslag opgelaai:**"
     auto_delete:           "⏱ Plakke sal outomaties oor 6 uur uitgevee word."
-    full_logs_hint:        "Vir volledige loglae, gebruik `hermes debug share` vanaf die CLI."
+    full_logs_hint:        "Vir volledige loglae, gebruik `xhermes debug share` vanaf die CLI."
     share_hint:            "Deel hierdie skakels met die Hermes-span vir ondersteuning."
 
   deny:
@@ -158,7 +158,7 @@ gateway:
   kanban:
     error_prefix:          "⚠ kanban-fout: {error}"
     subscribed_suffix:     "(ingeteken — jy sal in kennis gestel word wanneer {task_id} voltooi of vasval)"
-    truncated_suffix:      "… (afgekap; gebruik `hermes kanban …` in jou terminale vir volle uitvoer)"
+    truncated_suffix:      "… (afgekap; gebruik `xhermes kanban …` in jou terminale vir volle uitvoer)"
     no_output:             "(geen uitvoer)"
     wake:
       completed:           "completed"
@@ -240,7 +240,7 @@ gateway:
 
   restart:
     in_progress:           "⏳ Gateway-herbegin reeds aan die gang..."
-    restarting:            "♻ Herbegin van gateway. As jy nie binne 60 sekondes in kennis gestel word nie, herbegin vanaf die konsole met `hermes gateway restart`."
+    restarting:            "♻ Herbegin van gateway. As jy nie binne 60 sekondes in kennis gestel word nie, herbegin vanaf die konsole met `xhermes gateway restart`."
 
   resume:
     db_unavailable:        "Sessie-databasis is nie beskikbaar nie."
@@ -361,9 +361,9 @@ Future messages in this room will use that transcript until `/reset` or another 
     invalid_count:         "Ongeldige getal \"{arg}\" — gebruik /undo of /undo N."
 
   update:
-    platform_not_messaging:  "✗ /update is slegs beskikbaar vanaf boodskapplatforms. Voer `hermes update` vanaf die terminale uit."
+    platform_not_messaging:  "✗ /update is slegs beskikbaar vanaf boodskapplatforms. Voer `xhermes update` vanaf die terminale uit."
     not_git_repo:            "✗ Nie 'n git-bewaarplek nie — kan nie opdateer nie."
-    hermes_cmd_not_found:    "✗ Kon nie die `hermes`-opdrag vind nie. Hermes loop, maar die opdateeropdrag kon nie die uitvoerbare lêer op PATH of via die huidige Python-vertolker vind nie. Probeer `hermes update` met die hand in jou terminale uitvoer."
+    hermes_cmd_not_found:    "✗ Kon nie die `xhermes`-opdrag vind nie. Hermes loop, maar die opdateeropdrag kon nie die uitvoerbare lêer op PATH of via die huidige Python-vertolker vind nie. Probeer `xhermes update` met die hand in jou terminale uitvoer."
     start_failed:            "✗ Kon nie opdatering begin nie: {error}"
     starting:                "⚕ Begin Hermes-opdatering… Ek sal vordering hier stroom."
 
@@ -408,7 +408,7 @@ Future messages in this room will use that transcript until `/reset` or another 
     mode_new:              "⚙️ Gereedskap-vordering: **NUUT** — vertoon wanneer gereedskap verander (voorskoulengte: `display.tool_preview_length`, verstek 40)."
     mode_all:              "⚙️ Gereedskap-vordering: **ALMAL** — elke gereedskaps-oproep vertoon (voorskoulengte: `display.tool_preview_length`, verstek 40)."
     mode_verbose:          "⚙️ Gereedskap-vordering: **OMSLAGTIG** — elke gereedskaps-oproep met volle argumente."
-    mode_log:              "⚙️ Gereedskap-vordering: **LOG** — stil in die klets; gereedskaps-oproepe word na ~/.hermes/logs/tool_calls.log geskryf."
+    mode_log:              "⚙️ Gereedskap-vordering: **LOG** — stil in die klets; gereedskaps-oproepe word na ~/.xhermes/logs/tool_calls.log geskryf."
     saved_suffix:          "_(gestoor vir **{platform}** — neem effek by die volgende boodskap)_"
     save_failed:           "_(kon nie in konfigurasie stoor nie: {error})_"
 

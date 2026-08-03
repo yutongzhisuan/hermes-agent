@@ -8,7 +8,7 @@ FIXTURE="$ROOT/scripts/e2e_go_master_tls_fixture.py"
 PYTHON="${REPO_ROOT}/.venv/bin/python"
 
 if [[ ! -x "$PYTHON" ]]; then
-  echo "hermes-agent .venv not found; run uv sync --extra task-relay first" >&2
+  echo "xhermes-agent .venv not found; run uv sync --extra task-relay first" >&2
   exit 1
 fi
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# hermes-agent/extend/task_relay/scripts/gen_proto.sh
+# xhermes-agent/extend/task_relay/scripts/gen_proto.sh
 #
 # Regenerates Python stubs for proto/task_relay_v1.proto into gen/py/.
 #

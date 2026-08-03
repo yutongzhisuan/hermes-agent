@@ -11,8 +11,8 @@
 #
 services:
   gateway:
-    image: yutongzhisuan/hermes-agent:latest
-    container_name: hermes
+    image: yutongzhisuan/xhermes-agent:latest
+    container_name: xhermes
     restart: unless-stopped
     volumes:
       - ${USERPROFILE}/.xhermes:/opt/data
@@ -22,8 +22,8 @@ services:
     command: ["gateway", "run"]
 
   dashboard:
-    image: yutongzhisuan/hermes-agent:latest
-    container_name: hermes-dashboard
+    image: yutongzhisuan/xhermes-agent:latest
+    container_name: xhermes-dashboard
     restart: unless-stopped
     depends_on:
       - gateway
