@@ -8,9 +8,9 @@ Usage::
 
     python -m acp_adapter.entry
     # or
-    hermes acp
+    xhermes acp
     # or
-    hermes-acp
+    xhermes-acp
 """
 
 # IMPORTANT: hermes_bootstrap must be the very first import — UTF-8 stdio
@@ -116,10 +116,12 @@ def _load_env() -> None:
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="hermes-acp",
+        prog="xhermes-acp",
         description="Run xHermes Agent as an ACP stdio server.",
     )
-    parser.add_argument("--version", action="store_true", help="Print Hermes version and exit")
+    parser.add_argument(
+        "--version", action="store_true", help="Print Hermes version and exit"
+    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -134,7 +136,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--setup-browser",
         action="store_true",
         help="Install agent-browser + Playwright Chromium into ~/.hermes/node/ "
-             "for browser tool support. Idempotent.",
+        "for browser tool support. Idempotent.",
     )
     parser.add_argument(
         "--yes",
@@ -142,7 +144,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         dest="assume_yes",
         help="Accept all prompts (currently used by --setup-browser to skip the "
-             "~400 MB Chromium download confirmation).",
+        "~400 MB Chromium download confirmation).",
     )
     return parser.parse_args(argv)
 
@@ -177,10 +179,14 @@ def _run_setup() -> None:
     if not sys.stdin.isatty():
         return
     try:
-        reply = input(
-            "\nInstall browser tools? Downloads agent-browser (npm) and "
-            "optionally Playwright Chromium (~400 MB). [y/N] "
-        ).strip().lower()
+        reply = (
+            input(
+                "\nInstall browser tools? Downloads agent-browser (npm) and "
+                "optionally Playwright Chromium (~400 MB). [y/N] "
+            )
+            .strip()
+            .lower()
+        )
     except (EOFError, KeyboardInterrupt):
         return
     if reply in {"y", "yes"}:
@@ -200,8 +206,10 @@ def _run_setup_browser(assume_yes: bool = False) -> int:
     try:
         node_ok = ensure_dependency("node", interactive=not assume_yes)
         if not node_ok:
-            print("Node.js installation failed — cannot proceed with browser tools.",
-                  file=sys.stderr)
+            print(
+                "Node.js installation failed — cannot proceed with browser tools.",
+                file=sys.stderr,
+            )
             return 1
 
         browser_ok = ensure_dependency("browser", interactive=not assume_yes)
