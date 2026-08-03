@@ -61,6 +61,7 @@ _UPDATE_RUNTIME_RELOAD_MODULES = (
     "tools.lazy_deps",
 )
 
+
 def _reload_updated_runtime_modules() -> None:
     """Reload update-sensitive modules after the checkout changes in-place.
 
@@ -85,6 +86,7 @@ def _reload_updated_runtime_modules() -> None:
     except Exception as exc:
         logger.debug("Could not refresh update runtime modules: %s", exc)
 
+
 # Critical files that Hermes must be able to import immediately after an
 # update/install. Most are imported on every CLI startup; ``web_server.py``
 # is the desktop/dashboard backend path that a fresh Windows install launches
@@ -103,6 +105,7 @@ _UPDATE_CRITICAL_FILES = (
     "hermes_constants.py",
 )
 
+
 def _capture_head_sha(git_cmd, cwd) -> str | None:
     """Return the current HEAD SHA, or None if it can't be resolved."""
     try:
@@ -110,12 +113,15 @@ def _capture_head_sha(git_cmd, cwd) -> str | None:
             git_cmd + ["rev-parse", "HEAD"],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
         )
         return result.stdout.strip() or None
     except (subprocess.CalledProcessError, OSError):
         return None
+
 
 def _validate_critical_files_syntax(root) -> tuple[bool, str | None, str | None]:
     """Compile each file in ``_UPDATE_CRITICAL_FILES`` to catch SyntaxErrors.
@@ -249,6 +255,7 @@ def _validate_critical_modules_import(root) -> tuple[bool, str | None, str | Non
         return False, module, detail
     return True, None, None
 
+
 def _gateway_prompt(prompt_text: str, default: str = "", timeout: float = 300.0) -> str:
     """File-based IPC prompt for gateway mode.
 
@@ -298,12 +305,14 @@ def _gateway_prompt(prompt_text: str, default: str = "", timeout: float = 300.0)
     print(f"  (no response after {int(timeout)}s, using default: {default!r})")
     return default
 
+
 def _npm_bin_exists(bin_dir: Path, name: str) -> bool:
     """True when an npm bin shim for *name* exists (POSIX or Windows)."""
     return any(
         (bin_dir / candidate).exists()
         for candidate in (name, f"{name}.cmd", f"{name}.ps1", f"{name}.exe")
     )
+
 
 def _web_build_toolchain_ready(*roots: Path) -> bool:
     """True when ``tsc`` and ``vite`` shims are reachable from any of *roots*.
@@ -321,6 +330,7 @@ def _web_build_toolchain_ready(*roots: Path) -> bool:
         for tool in ("tsc", "vite")
     )
 
+
 def _web_toolchain_roots(web_dir: Path) -> tuple[Path, ...]:
     """Roots whose ``node_modules/.bin`` can satisfy the web build.
 
@@ -329,6 +339,7 @@ def _web_toolchain_roots(web_dir: Path) -> tuple[Path, ...]:
     under a package that owns its lockfile (#42973) are equally valid.
     """
     return (web_dir, web_dir.parent)
+
 
 def _print_curator_first_run_notice() -> None:
     """Print a short heads-up about the skill curator after `hermes update`.
@@ -366,9 +377,8 @@ def _print_curator_first_run_notice() -> None:
     )
     print("  Preview now:  hermes curator run --dry-run")
     print("  Pause it:     hermes curator pause")
-    print(
-        "  Docs:         https://github.com/yutongzhisuan/xhermes-agent#curator"
-    )
+    print("  Docs:         https://github.com/yutongzhisuan/xhermes-agent#curator")
+
 
 def _print_fts_optimize_available_notice() -> None:
     """Advertise the opt-in v23 search-index optimization after `hermes update`.
@@ -384,11 +394,15 @@ def _print_fts_optimize_available_notice() -> None:
     try:
         from hermes_cli.config import load_config
 
-        mode = str(
-            ((load_config() or {}).get("sessions") or {}).get(
-                "fts_optimize_notice", "advise"
+        mode = (
+            str(
+                ((load_config() or {}).get("sessions") or {}).get(
+                    "fts_optimize_notice", "advise"
+                )
             )
-        ).strip().lower()
+            .strip()
+            .lower()
+        )
     except Exception:
         mode = "advise"
     if mode == "off":
@@ -403,7 +417,7 @@ def _print_fts_optimize_available_notice() -> None:
     if not db_path.exists():
         return
     try:
-        size_gb = db_path.stat().st_size / (1024 ** 3)
+        size_gb = db_path.stat().st_size / (1024**3)
     except OSError:
         return
     # Skip the notice for trivially small DBs — the win isn't worth the nag.
@@ -423,8 +437,7 @@ def _print_fts_optimize_available_notice() -> None:
         # Offer the command again — re-running resumes and finishes it.
         interrupted = bool(
             db._conn.execute(
-                "SELECT 1 FROM state_meta "
-                "WHERE key = 'fts_rebuild_high_water' LIMIT 1"
+                "SELECT 1 FROM state_meta WHERE key = 'fts_rebuild_high_water' LIMIT 1"
             ).fetchone()
             or db._conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' "
@@ -482,6 +495,7 @@ def _print_fts_optimize_available_notice() -> None:
         "  It runs in the foreground with a progress bar, is safe to "
         "interrupt/re-run, and never changes your conversations."
     )
+
 
 def _print_curator_recent_run_notice() -> None:
     """Print the most recent curator run summary, exactly once.
@@ -548,10 +562,12 @@ def _print_curator_recent_run_notice() -> None:
     except Exception:
         pass
 
+
 def _format_time_ago(iso_ts: str) -> str:
     """Render an ISO timestamp as `Xh ago` / `Xd ago` / `Xm ago`. Best effort."""
     try:
         from datetime import datetime, timezone
+
         ts = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
@@ -566,6 +582,7 @@ def _format_time_ago(iso_ts: str) -> str:
         return f"{secs // 86400}d ago"
     except Exception:
         return "recently"
+
 
 def _finish_dashboard_update_cleanup(node_failures: list[str]) -> None:
     """Refresh managed dashboards or stop stale manual ones after an update."""
@@ -586,6 +603,7 @@ def _finish_dashboard_update_cleanup(node_failures: list[str]) -> None:
     )
     print("  Re-launch it when you want the web UI back:")
     print("    hermes dashboard --port <port>")
+
 
 def _atomic_replace_dir(src: str, dst: str) -> None:
     """Replace directory *dst* with *src* without leaving *dst* half-deleted.
@@ -729,7 +747,7 @@ def _update_via_zip(args):
     # bug --branch was added to prevent. Refuse to proceed in that case
     # rather than lie.
     branch = _m()._resolve_update_branch(args)
-    if branch != "main":
+    if branch != "xhermes-agent":
         print(
             f"✗ --branch={branch} is not supported on the Windows ZIP-fallback "
             "update path."
@@ -738,12 +756,11 @@ def _update_via_zip(args):
             "  This path runs when git file I/O is broken on the system. "
             "Either resolve the git-side breakage (typically an antivirus "
             "or NTFS filter holding files open) and rerun `hermes update "
-            f"--branch {branch}`, or update against main with `hermes update`."
+            f"--branch {branch}`, or update against xhermes-agent with "
+            "`hermes update`."
         )
         _m().sys.exit(1)
-    zip_url = (
-        f"https://github.com/yutongzhisuan/xhermes-agent/archive/refs/heads/{branch}.zip"
-    )
+    zip_url = f"https://github.com/yutongzhisuan/xhermes-agent/archive/refs/heads/{branch}.zip"
 
     print("→ Downloading latest version...")
     tmp_dir = tempfile.mkdtemp(prefix="hermes-update-")
@@ -753,6 +770,7 @@ def _update_via_zip(args):
 
         print("→ Extracting...")
         import stat as _stat
+
         with zipfile.ZipFile(zip_path, "r") as zf:
             # Validate paths to prevent zip-slip (path traversal) AND reject
             # symlink members. A GitHub source ZIP for hermes-agent itself
@@ -900,7 +918,9 @@ def _update_via_zip(args):
         if _m()._is_termux_env(uv_env):
             uv_env.pop("PYTHONPATH", None)
             uv_env.pop("PYTHONHOME", None)
-        _m()._install_python_dependencies_with_optional_fallback([uv_bin, "pip"], env=uv_env)
+        _m()._install_python_dependencies_with_optional_fallback(
+            [uv_bin, "pip"], env=uv_env
+        )
     else:
         # Use sys.executable to explicitly call the venv's pip module,
         # avoiding PEP 668 'externally-managed-environment' errors on Debian/Ubuntu.
@@ -1041,14 +1061,10 @@ def _update_via_zip(args):
                                         )
                                     break
                                 except OSError as _exc:
-                                    print(
-                                        f"  ✗ Auto-restore file copy failed: {_exc}"
-                                    )
+                                    print(f"  ✗ Auto-restore file copy failed: {_exc}")
                                     break
     except Exception as exc:
-        logger.debug(
-            "Post-update state.db integrity check (zip path) failed: %s", exc
-        )
+        logger.debug("Post-update state.db integrity check (zip path) failed: %s", exc)
 
     print()
     if node_failures:
@@ -1072,12 +1088,15 @@ def _update_via_zip(args):
     # git-update path for rationale (#30271).
     _finish_dashboard_update_cleanup(node_failures)
 
+
 def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[str]:
     status = subprocess.run(
         git_cmd + ["status", "--porcelain"],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     if not status.stdout.strip():
@@ -1091,7 +1110,9 @@ def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[st
         git_cmd + ["ls-files", "--unmerged"],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if unmerged.stdout.strip():
         print("→ Clearing unmerged index entries from a previous conflict...")
@@ -1107,13 +1128,17 @@ def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[st
         git_cmd + ["rev-parse", "--verify", "refs/stash"],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout.strip()
     push = subprocess.run(
         git_cmd + ["stash", "push", "--include-untracked", "-m", stash_name],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if push.stdout.strip():
         print(push.stdout.strip())
@@ -1121,7 +1146,9 @@ def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[st
         git_cmd + ["rev-parse", "--verify", "refs/stash"],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     stash_ref = stash_probe.stdout.strip()
     stash_created = (
@@ -1171,6 +1198,7 @@ def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[st
 
     return stash_ref
 
+
 def _resolve_stash_selector(
     git_cmd: list[str], cwd: Path, stash_ref: str
 ) -> Optional[str]:
@@ -1178,7 +1206,9 @@ def _resolve_stash_selector(
         git_cmd + ["stash", "list", "--format=%gd %H"],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     for line in stash_list.stdout.splitlines():
@@ -1186,6 +1216,7 @@ def _resolve_stash_selector(
         if commit.strip() == stash_ref:
             return selector.strip()
     return None
+
 
 def _print_stash_cleanup_guidance(
     stash_ref: str, stash_selector: Optional[str] = None
@@ -1200,6 +1231,7 @@ def _print_stash_cleanup_guidance(
         print(
             f"  Look for commit {stash_ref}, then drop its selector with: git stash drop stash@{{N}}"
         )
+
 
 def _stash_apply_failed_only_on_existing_untracked(stderr: str) -> bool:
     """True when a ``git stash apply`` failure is ONLY about untracked files
@@ -1229,6 +1261,7 @@ def _stash_apply_failed_only_on_existing_untracked(stderr: str) -> bool:
         else:
             return False
     return saw_untracked_error
+
 
 def _restore_stashed_changes(
     git_cmd: list[str],
@@ -1260,7 +1293,9 @@ def _restore_stashed_changes(
         git_cmd + ["stash", "apply", stash_ref],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
     # Check for unmerged (conflicted) files — can happen even when returncode is 0
@@ -1268,12 +1303,16 @@ def _restore_stashed_changes(
         git_cmd + ["diff", "--name-only", "--diff-filter=U"],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     has_conflicts = bool(unmerged.stdout.strip())
 
-    if restore.returncode != 0 and not has_conflicts and (
-        _stash_apply_failed_only_on_existing_untracked(restore.stderr)
+    if (
+        restore.returncode != 0
+        and not has_conflicts
+        and (_stash_apply_failed_only_on_existing_untracked(restore.stderr))
     ):
         # Permission-denied autostash tail end: the tracked changes applied
         # cleanly; the only "failure" is untracked files that never left the
@@ -1330,7 +1369,9 @@ def _restore_stashed_changes(
             git_cmd + ["stash", "drop", stash_selector],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if drop.returncode != 0:
             print(
@@ -1348,6 +1389,7 @@ def _restore_stashed_changes(
     print("⚠ Local changes were restored on top of the updated codebase.")
     print("  Review `git diff` / `git status` if Hermes behaves unexpectedly.")
     return True
+
 
 def _discard_stashed_changes(
     git_cmd: list[str],
@@ -1381,7 +1423,9 @@ def _discard_stashed_changes(
         git_cmd + ["stash", "drop", stash_selector],
         cwd=cwd,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if drop.returncode != 0:
         print(
@@ -1393,8 +1437,11 @@ def _discard_stashed_changes(
         _print_stash_cleanup_guidance(stash_ref, stash_selector)
         return False
 
-    print("→ Discarded local source changes (updates.non_interactive_local_changes=discard).")
+    print(
+        "→ Discarded local source changes (updates.non_interactive_local_changes=discard)."
+    )
     return True
+
 
 OFFICIAL_REPO_URLS = {
     "https://github.com/yutongzhisuan/hermes-agent.git",
@@ -1407,6 +1454,7 @@ OFFICIAL_REPO_URL = "https://github.com/yutongzhisuan/hermes-agent.git"
 
 SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
+
 def _get_origin_url(git_cmd: list[str], cwd: Path) -> Optional[str]:
     """Get the URL of the origin remote, or None if not set."""
     try:
@@ -1414,13 +1462,16 @@ def _get_origin_url(git_cmd: list[str], cwd: Path) -> Optional[str]:
             git_cmd + ["remote", "get-url", "origin"],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode == 0:
             return result.stdout.strip()
     except Exception:
         pass
     return None
+
 
 def _is_fork(origin_url: Optional[str]) -> bool:
     """Check if the origin remote points to a fork (not the official repo)."""
@@ -1438,6 +1489,7 @@ def _is_fork(origin_url: Optional[str]) -> bool:
             return False
     return True
 
+
 def _has_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
     """Check if an 'upstream' remote already exists."""
     try:
@@ -1445,11 +1497,14 @@ def _has_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
             git_cmd + ["remote", "get-url", "upstream"],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         return result.returncode == 0
     except Exception:
         return False
+
 
 def _add_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
     """Add the official repo as the 'upstream' remote. Returns True on success."""
@@ -1458,11 +1513,14 @@ def _add_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
             git_cmd + ["remote", "add", "upstream", OFFICIAL_REPO_URL],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         return result.returncode == 0
     except Exception:
         return False
+
 
 def _count_commits_between(git_cmd: list[str], cwd: Path, base: str, head: str) -> int:
     """Count commits on `head` that are not on `base`. Returns -1 on error."""
@@ -1471,7 +1529,9 @@ def _count_commits_between(git_cmd: list[str], cwd: Path, base: str, head: str) 
             git_cmd + ["rev-list", "--count", f"{base}..{head}"],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode == 0:
             return int(result.stdout.strip())
@@ -1479,11 +1539,13 @@ def _count_commits_between(git_cmd: list[str], cwd: Path, base: str, head: str) 
         pass
     return -1
 
+
 def _should_skip_upstream_prompt() -> bool:
     """Check if user previously declined to add upstream."""
     from hermes_constants import get_hermes_home
 
     return (get_hermes_home() / SKIP_UPSTREAM_PROMPT_FILE).exists()
+
 
 def _mark_skip_upstream_prompt():
     """Create marker file to skip future upstream prompts."""
@@ -1493,6 +1555,7 @@ def _mark_skip_upstream_prompt():
         (get_hermes_home() / SKIP_UPSTREAM_PROMPT_FILE).touch()
     except Exception:
         pass
+
 
 def _sync_fork_with_upstream(git_cmd: list[str], cwd: Path) -> bool:
     """Attempt to push updated main to origin (sync fork).
@@ -1504,11 +1567,14 @@ def _sync_fork_with_upstream(git_cmd: list[str], cwd: Path) -> bool:
             git_cmd + ["push", "origin", "main", "--force-with-lease"],
             cwd=cwd,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         return result.returncode == 0
     except Exception:
         return False
+
 
 def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
     """Check if fork is behind upstream and sync if safe.
@@ -1625,6 +1691,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
         )
         print("    Your local repo is updated, but your fork on GitHub may be behind.")
 
+
 def _invalidate_update_cache():
     """Delete the update-check cache for ALL profiles so no banner
     reports a stale "commits behind" count after a successful update.
@@ -1652,6 +1719,7 @@ def _invalidate_update_cache():
         except Exception:
             pass
 
+
 def _write_marker_file(path: Path, *, label: str) -> None:
     """Drop an update-recovery breadcrumb. Never raises."""
     if _m()._pytest_owns_live_checkout(path.parent):
@@ -1664,13 +1732,18 @@ def _write_marker_file(path: Path, *, label: str) -> None:
     except OSError as exc:
         logger.debug("Could not write %s marker: %s", label, exc)
 
+
 def _write_update_incomplete_marker() -> None:
     """Drop the interrupted core-install breadcrumb. Never raises."""
     _write_marker_file(_m()._update_marker_path(), label="update-incomplete")
 
+
 def _write_lazy_refresh_incomplete_marker() -> None:
     """Drop the interrupted lazy-refresh breadcrumb. Never raises."""
-    _write_marker_file(_m()._lazy_refresh_marker_path(), label="lazy-refresh-incomplete")
+    _write_marker_file(
+        _m()._lazy_refresh_marker_path(), label="lazy-refresh-incomplete"
+    )
+
 
 def _format_concurrent_instances_message(
     matches: list[tuple[int, str]], scripts_dir: Path
@@ -1697,6 +1770,7 @@ def _format_concurrent_instances_message(
     lines.append("  confirmed those processes will not write to the venv.")
     return "\n".join(lines)
 
+
 def _upgrade_pip_before_lazy_refresh(
     install_cmd_prefix: list[str],
     *,
@@ -1715,6 +1789,7 @@ def _upgrade_pip_before_lazy_refresh(
         )
     except subprocess.CalledProcessError as exc:
         logger.debug("pip upgrade before lazy refresh failed: %s", exc)
+
 
 def _refresh_active_lazy_features(
     install_cmd_prefix: list[str] | None = None,
@@ -1804,9 +1879,7 @@ def _refresh_active_lazy_features(
     # Unavailable probes are indeterminate, not healthy — keep the lazy marker.
     status = _m()._repair_venv_via_import_probes(install_cmd_prefix, env=env)
     if status == "repaired":
-        print(
-            "  Lazy backend(s) keep their previous version until refresh succeeds."
-        )
+        print("  Lazy backend(s) keep their previous version until refresh succeeds.")
         return True
     if status == "healthy":
         print(
@@ -1819,6 +1892,7 @@ def _refresh_active_lazy_features(
             "  ⚠ Leaving `.lazy-refresh-incomplete` until import probes can confirm health."
         )
     return False
+
 
 def _refresh_active_memory_provider_dependencies() -> None:
     """Refresh pip dependencies for the configured external memory provider.
@@ -1868,8 +1942,10 @@ def _refresh_active_memory_provider_dependencies() -> None:
     except Exception as exc:
         print(f"  ⚠ {provider} dependencies failed to refresh: {exc}")
 
+
 def _is_android_python() -> bool:
     return _m().sys.platform == "android"
+
 
 def _install_psutil_android_compat(
     install_cmd_prefix: list[str],
@@ -1906,6 +1982,7 @@ def _install_psutil_android_compat(
             env=env,
         )
 
+
 def _ensure_uv_for_termux(pip_cmd: list[str]) -> str | None:
     """Best-effort uv bootstrap on Termux for faster update installs.
 
@@ -1929,7 +2006,9 @@ def _ensure_uv_for_termux(pip_cmd: list[str]) -> str | None:
     if system_uv:
         return system_uv
     try:
-        print("  → Termux detected: trying to install uv for faster dependency updates...")
+        print(
+            "  → Termux detected: trying to install uv for faster dependency updates..."
+        )
         result = subprocess.run(
             pip_cmd + ["install", "uv", "--only-binary", ":all:"],
             cwd=_m().PROJECT_ROOT,
@@ -1941,6 +2020,7 @@ def _ensure_uv_for_termux(pip_cmd: list[str]) -> str | None:
         pass
     # After pip install, check managed path first, then PATH
     return resolve_uv() or shutil.which("uv")
+
 
 def _npm_manifest_paths() -> tuple[Path, ...]:
     """Manifests whose changes must defeat the update-skip.
@@ -1977,6 +2057,7 @@ def _npm_manifest_paths() -> tuple[Path, ...]:
         pass
     return tuple(paths)
 
+
 def _npm_manifests_digest() -> str | None:
     """Combined sha256 over the lockfile + all workspace package.json files.
 
@@ -1992,6 +2073,7 @@ def _npm_manifests_digest() -> str | None:
         except OSError:
             h.update(b"<missing>")
     return h.hexdigest()
+
 
 def _npm_lockfile_changed(hermes_root: Path) -> bool:
     current = _npm_manifests_digest()
@@ -2020,6 +2102,7 @@ def _npm_lockfile_changed(hermes_root: Path) -> bool:
     except OSError:
         return True
 
+
 def _record_npm_lockfile_hash(hermes_root: Path) -> None:
     digest = _npm_manifests_digest()
     if digest is None:
@@ -2030,6 +2113,7 @@ def _record_npm_lockfile_hash(hermes_root: Path) -> None:
         cache_file.write_text(digest, encoding="utf-8")
     except OSError:
         logger.debug("Could not write npm lockfile hash cache")
+
 
 def _update_node_dependencies() -> list[str]:
     """Refresh Node deps in the repo root and update workspaces.
@@ -2137,6 +2221,7 @@ def _update_node_dependencies() -> list[str]:
         print(f"    {stderr.splitlines()[-1]}")
     return _partial_update_failure("ui-tui, web workspaces")
 
+
 def _log_only_write(text: str) -> None:
     """Write ``text`` to ``~/.hermes/logs/update.log`` only, never the terminal.
 
@@ -2159,6 +2244,7 @@ def _log_only_write(text: str) -> None:
     except Exception:
         pass
 
+
 def _run_logged_subprocess(cmd, *, cwd=None, env=None):
     """Run ``cmd`` capturing combined output into update.log (not the terminal).
 
@@ -2179,18 +2265,23 @@ def _run_logged_subprocess(cmd, *, cwd=None, env=None):
     _log_only_write(result.stdout or "")
     return result
 
-def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
+
+def _cmd_update_check(branch: str = "xhermes-agent", *, branch_explicit: bool = False):
     """Implement ``hermes update --check``: fetch and report without installing.
 
     ``branch`` selects which branch the check compares against. Default is
-    "main"; callers can pass another branch to ask "are there new commits
+    "xhermes-agent"; callers can pass another branch to ask "are there new commits
     on origin/<branch>?" without performing the update.
 
     ``branch_explicit`` is True iff the caller passed --branch on the CLI.
     Installs that can't honor non-default branches (e.g. Docker) surface a
     one-line notice instead of silently dropping the flag.
     """
-    from hermes_cli.config import detect_install_method, recommended_update_command_for_method
+    from hermes_cli.config import (
+        detect_install_method,
+        recommended_update_command_for_method,
+    )
+
     method = detect_install_method(_m().PROJECT_ROOT)
     if method == "docker":
         # Docker can't ``git fetch`` from within the container.  Surface the
@@ -2198,6 +2289,7 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         # path) uses — telling the user to "reinstall via curl" or that
         # ".git is missing" would point them at the wrong remediation.
         from hermes_cli.config import format_docker_update_message
+
         print(format_docker_update_message())
         sys.exit(1)
 
@@ -2230,7 +2322,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
             git_cmd + ["rev-parse", "--is-shallow-repository"],
             cwd=_m().PROJECT_ROOT,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         ).stdout.strip()
         == "true"
     )
@@ -2246,7 +2340,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
                 git_cmd + ["remote", "get-url", "upstream"],
                 cwd=_m().PROJECT_ROOT,
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             ).returncode
             == 0
         )
@@ -2257,7 +2353,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
                 git_cmd + ["fetch"] + depth_args + ["upstream", branch],
                 cwd=_m().PROJECT_ROOT,
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
         if fetch_result is not None and fetch_result.returncode == 0:
             upstream_exists = True
@@ -2269,7 +2367,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
                 git_cmd + ["fetch"] + depth_args + ["origin", branch],
                 cwd=_m().PROJECT_ROOT,
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             upstream_exists = False
             compare_branch = f"origin/{branch}"
@@ -2280,7 +2380,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
             git_cmd + ["fetch"] + depth_args + ["origin", branch],
             cwd=_m().PROJECT_ROOT,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         upstream_exists = False
         compare_branch = f"origin/{branch}"
@@ -2305,7 +2407,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         git_cmd + ["rev-parse", "--verify", "--quiet", compare_branch],
         cwd=_m().PROJECT_ROOT,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if verify_result.returncode != 0:
         print(f"✗ Branch '{branch}' not found on {compare_branch.split('/', 1)[0]}.")
@@ -2316,11 +2420,19 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         # report presence-only (mirrors the banner's _check_via_local_git).
         head_sha = subprocess.run(
             git_cmd + ["rev-parse", "HEAD"],
-            cwd=_m().PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=_m().PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         ).stdout.strip()
         target_sha = subprocess.run(
             git_cmd + ["rev-parse", compare_branch],
-            cwd=_m().PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=_m().PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         ).stdout.strip()
         if head_sha and target_sha and head_sha == target_sha:
             print("✓ Already up to date.")
@@ -2335,7 +2447,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         git_cmd + ["rev-list", f"HEAD..{compare_branch}", "--count"],
         cwd=_m().PROJECT_ROOT,
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         check=True,
     )
     behind = int(rev_result.stdout.strip())
@@ -2348,6 +2462,7 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         from hermes_cli.config import recommended_update_command
 
         print(f"  Run '{recommended_update_command()}' to install.")
+
 
 def _ensure_fhs_path_guard() -> None:
     """Ensure /usr/local/bin is on PATH for RHEL-family root non-login shells.
@@ -2368,7 +2483,9 @@ def _ensure_fhs_path_guard() -> None:
     if _m().sys.platform != "linux":
         return
     try:
-        if os.geteuid() != 0:  # windows-footgun: ok — Linux FHS helper, guarded by sys.platform == "linux" above + AttributeError catch
+        if (
+            os.geteuid() != 0
+        ):  # windows-footgun: ok — Linux FHS helper, guarded by sys.platform == "linux" above + AttributeError catch
             return
     except AttributeError:
         return
@@ -2395,7 +2512,9 @@ def _ensure_fhs_path_guard() -> None:
                 "command -v hermes",
             ],
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -2405,7 +2524,7 @@ def _ensure_fhs_path_guard() -> None:
 
     path_line = 'export PATH="/usr/local/bin:$PATH"'
     path_comment = (
-        "# xHermes Agent — ensure /usr/local/bin is on PATH " "(RHEL non-login shells)"
+        "# xHermes Agent — ensure /usr/local/bin is on PATH (RHEL non-login shells)"
     )
     wrote_any = False
     for candidate in (".bashrc", ".bash_profile"):
@@ -2436,6 +2555,7 @@ def _ensure_fhs_path_guard() -> None:
         wrote_any = True
     if wrote_any:
         print("    (reload your shell or run 'source ~/.bashrc' to pick it up)")
+
 
 def _ensure_acp_launcher() -> None:
     """Self-heal: install a ``hermes-acp`` launcher next to the ``hermes`` one.
@@ -2484,6 +2604,7 @@ def _ensure_acp_launcher() -> None:
             continue
         print(f"  ✓ Installed hermes-acp launcher → {acp_cmd}")
 
+
 _PRE_UPDATE_SNAPSHOT_KEEP = 1
 
 # Per-file size cap for the pre-update quick snapshot. Anything larger is
@@ -2492,6 +2613,7 @@ _PRE_UPDATE_SNAPSHOT_KEEP = 1
 # multi-GB state.db on every update (observed: a 24 GB state.db added ~60s
 # of wall time and silently ate 24 GB of disk per update).
 _PRE_UPDATE_SNAPSHOT_MAX_FILE_SIZE = 1 << 30  # 1 GiB
+
 
 def _resolve_pre_update_backup_mode(args) -> str:
     """Resolve the pre-update backup mode: ``"off"``, ``"quick"``, or ``"full"``.
@@ -2536,6 +2658,7 @@ def _resolve_pre_update_backup_mode(args) -> str:
         "Unknown updates.pre_update_backup value %r — using 'quick'", raw
     )
     return "quick"
+
 
 def _run_pre_update_backup(args) -> Optional[str]:
     """Run the pre-update safety backup and return the quick-snapshot id.
@@ -2605,9 +2728,7 @@ def _run_pre_update_backup(args) -> Optional[str]:
                 )
                 if not _integrity.get("valid"):
                     _msg = _integrity.get("message", "unknown error")
-                    print(
-                        f"  ⚠ state.db integrity check FAILED after snapshot: {_msg}"
-                    )
+                    print(f"  ⚠ state.db integrity check FAILED after snapshot: {_msg}")
                     # Check if the snapshot itself is valid.
                     _snap_root = _quick_snapshot_root(_get_home())
                     _snap_state = _snap_root / snapshot_id / "state.db"
@@ -2616,9 +2737,7 @@ def _run_pre_update_backup(args) -> Optional[str]:
                             _snap_state, check_header=True, run_pragma=True
                         )
                         if _snap_ok.get("valid"):
-                            print(
-                                "  ✓ Snapshot copy is valid — continuing update."
-                            )
+                            print("  ✓ Snapshot copy is valid — continuing update.")
                             print(
                                 "    If state.db is lost after update it will be auto-restored."
                             )
@@ -2707,6 +2826,7 @@ def _run_pre_update_backup(args) -> Optional[str]:
     print()
     return snapshot_id
 
+
 def _write_update_planned_stop_marker(profile_path: Path, pid: int) -> bool:
     """Write a planned-stop marker into a specific profile home."""
     try:
@@ -2730,6 +2850,7 @@ def _write_update_planned_stop_marker(profile_path: Path, pid: int) -> bool:
         return True
     except (OSError, PermissionError):
         return False
+
 
 def _wait_for_windows_update_gateway_exit(
     pids: list[int], *, timeout: float
@@ -2760,6 +2881,7 @@ def _wait_for_windows_update_gateway_exit(
         except Exception:
             pass
     return survivors
+
 
 def _venv_core_imports_healthy() -> tuple[bool, str]:
     """Probe the project venv for the core imports the backend needs to boot.
@@ -2812,7 +2934,9 @@ def _venv_core_imports_healthy() -> tuple[bool, str]:
         result = subprocess.run(
             [str(venv_python), "-c", check],
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=60,
             cwd=_m().PROJECT_ROOT,
         )
@@ -2820,7 +2944,9 @@ def _venv_core_imports_healthy() -> tuple[bool, str]:
         logger.debug("venv health probe failed to run: %s", exc)
         return True, ""
 
-    missing = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+    missing = [
+        line.strip() for line in (result.stdout or "").splitlines() if line.strip()
+    ]
     if result.returncode != 0 and not missing:
         # Interpreter itself is broken (e.g. deleted stdlib) — that IS unhealthy.
         detail = (result.stderr or "").strip().splitlines()
@@ -2828,6 +2954,7 @@ def _venv_core_imports_healthy() -> tuple[bool, str]:
     if missing:
         return False, "; ".join(missing[:4])
     return True, ""
+
 
 def _detect_venv_python_processes(
     *, exclude_pids: set[int] | None = None
@@ -2914,6 +3041,7 @@ def _detect_venv_python_processes(
         matches.append((int(pid), str(name), cmdline_raw[:120]))
     return matches
 
+
 def _format_venv_python_holders_message(matches: list[tuple[int, str, str]]) -> str:
     """Explain which venv processes block the update and how to clear them."""
     lines = [
@@ -2930,18 +3058,17 @@ def _format_venv_python_holders_message(matches: list[tuple[int, str, str]]) -> 
     if len(matches) > 6:
         lines.append(f"  ... and {len(matches) - 6} more")
     lines.append("")
-    lines.append(
-        "  On Windows these keep native extension files (.pyd) locked, so the"
-    )
-    lines.append(
-        "  dependency update would fail partway and leave a broken install."
-    )
+    lines.append("  On Windows these keep native extension files (.pyd) locked, so the")
+    lines.append("  dependency update would fail partway and leave a broken install.")
     lines.append(
         "  Close the Hermes desktop app / other Hermes terminals, then re-run:"
     )
     lines.append("    hermes update")
-    lines.append("  (or use `hermes update --force-venv` to proceed anyway at your own risk)")
+    lines.append(
+        "  (or use `hermes update --force-venv` to proceed anyway at your own risk)"
+    )
     return "\n".join(lines)
+
 
 def _venv_launcher_ancestors(pids: list[int]) -> list[int]:
     """Return venv-interpreter ancestors of *pids* that hold the install open.
@@ -3204,6 +3331,7 @@ def _pause_windows_gateways_for_update() -> dict | None:
         "unmapped": unmapped,
     }
 
+
 def _cold_start_windows_gateway_after_update() -> None:
     """Start a fresh detached gateway after update when one is installed but down.
 
@@ -3248,6 +3376,7 @@ def _cold_start_windows_gateway_after_update() -> None:
         print()
         print(f"  ✓ Starting Windows gateway after update (PID {pid})")
 
+
 def _for_each_systemd_gateway_unit(
     list_units_stdout: str,
     *,
@@ -3277,6 +3406,7 @@ def _for_each_systemd_gateway_unit(
         except subprocess.TimeoutExpired as exc:
             on_unit_timeout(svc_name, exc)
 
+
 def _warn_incomplete_gateway_fleet_restart(failed_units: list) -> None:
     """Print an explicit incomplete-update warning for unrestarted units."""
     if not failed_units:
@@ -3298,6 +3428,7 @@ def _warn_incomplete_gateway_fleet_restart(failed_units: list) -> None:
     print("    hermes gateway status")
     print("    systemctl --user restart <unit>   # user-scope")
     print("    sudo systemctl restart <unit>     # system-scope")
+
 
 def _refresh_windows_gateway_launchers() -> None:
     """Regenerate installed Windows gateway launcher scripts after update.
@@ -3326,7 +3457,10 @@ def _refresh_windows_gateway_launchers() -> None:
         gateway_windows._write_task_script()
         print("  ✓ Refreshed Windows gateway launcher scripts")
     except Exception as exc:
-        logger.debug("Could not refresh Windows gateway launchers after update: %s", exc)
+        logger.debug(
+            "Could not refresh Windows gateway launchers after update: %s", exc
+        )
+
 
 def _resume_windows_gateways_after_update(token: dict | None) -> None:
     """Restart Windows profile gateways previously paused for update."""
@@ -3398,6 +3532,7 @@ def _resume_windows_gateways_after_update(token: dict | None) -> None:
             f"  ✓ Restarting {unmapped_relaunched} unmapped Windows gateway process(es)"
         )
 
+
 def _discard_lockfile_churn(git_cmd, repo_root):
     """Restore tracked ``package-lock.json`` files that npm dirtied locally.
 
@@ -3411,7 +3546,9 @@ def _discard_lockfile_churn(git_cmd, repo_root):
             git_cmd + ["diff", "--name-only"],
             cwd=repo_root,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if diff.returncode != 0:
             return
@@ -3432,13 +3569,16 @@ def _discard_lockfile_churn(git_cmd, repo_root):
             git_cmd + ["checkout", "--", *dirty],
             cwd=repo_root,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         print(f"→ Discarded npm lockfile churn ({len(dirty)} file(s))")
     except Exception:
         # Never let lockfile cleanup block an update.
         pass
+
 
 def _normalize_managed_eol(git_cmd, repo_root):
     """Take a managed checkout off ``core.autocrlf=true`` without leaving it dirty.
@@ -3468,7 +3608,9 @@ def _normalize_managed_eol(git_cmd, repo_root):
             probe + ["diff", "-z", "--name-only", *extra],
             cwd=repo_root,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if out.returncode != 0:
             return None
@@ -3483,11 +3625,13 @@ def _normalize_managed_eol(git_cmd, repo_root):
         # no numstat record, while a genuinely-edited file does. Parse the
         # paths out of numstat instead.
         out = subprocess.run(
-            probe + ["-c", "core.quotepath=false",
-                     "diff", "--numstat", "--ignore-cr-at-eol"],
+            probe
+            + ["-c", "core.quotepath=false", "diff", "--numstat", "--ignore-cr-at-eol"],
             cwd=repo_root,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if out.returncode != 0:
             return None
@@ -3513,7 +3657,9 @@ def _normalize_managed_eol(git_cmd, repo_root):
             git_cmd + ["config", "--get", "core.autocrlf"],
             cwd=repo_root,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         # Only "true" rewrites LF to CRLF on checkout. Unset, false, and input
         # all leave the working tree alone, so there is nothing to repair.
@@ -3532,7 +3678,9 @@ def _normalize_managed_eol(git_cmd, repo_root):
                 cwd=repo_root,
                 input="\0".join(sorted(eol_only)),
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
             )
             if _eol_only():
@@ -3551,6 +3699,7 @@ def _normalize_managed_eol(git_cmd, repo_root):
         # Never let line-ending cleanup block an update.
         pass
 
+
 def _cmd_update_impl(args, gateway_mode: bool):
     """Body of ``cmd_update`` — kept separate so the wrapper can always
     restore stdio even on ``sys.exit``."""
@@ -3568,9 +3717,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
     # the `updates.non_interactive_local_changes` config setting to decide
     # whether to auto-restore stashed local source changes or throw them away.
     _non_interactive_update = (
-        gateway_mode
-        or assume_yes
-        or not (sys.stdin.isatty() and sys.stdout.isatty())
+        gateway_mode or assume_yes or not (sys.stdin.isatty() and sys.stdout.isatty())
     )
     discard_local_changes = False
     if _non_interactive_update:
@@ -3579,11 +3726,15 @@ def _cmd_update_impl(args, gateway_mode: bool):
 
             _update_cfg = (load_config() or {}).get("updates", {})
             if isinstance(_update_cfg, dict):
-                _mode = str(_update_cfg.get("non_interactive_local_changes", "stash")).lower()
+                _mode = str(
+                    _update_cfg.get("non_interactive_local_changes", "stash")
+                ).lower()
                 discard_local_changes = _mode == "discard"
         except Exception as exc:
             # Never let a config read failure change the safe default.
-            logger.debug("Could not read updates.non_interactive_local_changes: %s", exc)
+            logger.debug(
+                "Could not read updates.non_interactive_local_changes: %s", exc
+            )
             discard_local_changes = False
 
     print("⚕ Updating xHermes Agent...")
@@ -3726,7 +3877,6 @@ def _cmd_update_impl(args, gateway_mode: bool):
 
     # Fetch and pull
     try:
-
         # Resolve the target branch up front so the fetch can be scoped to it.
         # A bare `git fetch origin` pulls every ref, and this repo carries
         # thousands of auto-generated branches — an unscoped fetch can stall for
@@ -3739,7 +3889,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
             git_cmd + ["fetch", "origin", branch],
             cwd=_m().PROJECT_ROOT,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if fetch_result.returncode != 0:
             stderr = fetch_result.stderr.strip()
@@ -3763,7 +3915,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
             git_cmd + ["rev-parse", "--abbrev-ref", "HEAD"],
             cwd=_m().PROJECT_ROOT,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
         )
         current_branch = result.stdout.strip()
@@ -3781,12 +3935,16 @@ def _cmd_update_impl(args, gateway_mode: bool):
             )
             print(f"  ⚠ Currently on {label} — switching to {branch} for update...")
             # Stash before checkout so uncommitted work isn't lost
-            auto_stash_ref = _m()._stash_local_changes_if_needed(git_cmd, _m().PROJECT_ROOT)
+            auto_stash_ref = _m()._stash_local_changes_if_needed(
+                git_cmd, _m().PROJECT_ROOT
+            )
             checkout_result = subprocess.run(
                 git_cmd + ["checkout", branch],
                 cwd=_m().PROJECT_ROOT,
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if checkout_result.returncode != 0:
                 # Local checkout doesn't have this branch yet. Try to set
@@ -3797,7 +3955,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     git_cmd + ["checkout", "-B", branch, f"origin/{branch}"],
                     cwd=_m().PROJECT_ROOT,
                     capture_output=True,
-                    text=True, encoding="utf-8", errors="replace",
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if track_result.returncode != 0:
                     # Restore the user's prior branch + stash before bailing
@@ -3815,7 +3975,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         print(f"  {track_result.stderr.strip().splitlines()[0]}")
                     sys.exit(1)
         else:
-            auto_stash_ref = _m()._stash_local_changes_if_needed(git_cmd, _m().PROJECT_ROOT)
+            auto_stash_ref = _m()._stash_local_changes_if_needed(
+                git_cmd, _m().PROJECT_ROOT
+            )
 
         prompt_for_restore = (
             auto_stash_ref is not None
@@ -3828,7 +3990,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
             git_cmd + ["rev-list", f"HEAD..origin/{branch}", "--count"],
             cwd=_m().PROJECT_ROOT,
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
         )
         commit_count = int(result.stdout.strip())
@@ -3854,7 +4018,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     git_cmd + ["checkout", current_branch],
                     cwd=_m().PROJECT_ROOT,
                     capture_output=True,
-                    text=True, encoding="utf-8", errors="replace",
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                 )
 
@@ -3904,7 +4070,10 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         check=False,
                     )
                 if repair_uv:
-                    repair_env = {**os.environ, "VIRTUAL_ENV": str(_m().PROJECT_ROOT / "venv")}
+                    repair_env = {
+                        **os.environ,
+                        "VIRTUAL_ENV": str(_m().PROJECT_ROOT / "venv"),
+                    }
                     _m()._install_python_dependencies_with_optional_fallback(
                         [repair_uv, "pip"], env=repair_env, group="all"
                     )
@@ -3918,14 +4087,14 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     print("✓ Dependencies repaired!")
                 else:
                     print(f"⚠ Venv still unhealthy after repair: {detail_after}")
-                    print("  Close all Hermes windows/gateways and re-run: hermes update")
+                    print(
+                        "  Close all Hermes windows/gateways and re-run: hermes update"
+                    )
             else:
                 print("✓ Already up to date!")
             if runtime_repaired is not None and not _m()._is_windows():
                 print()
-                print(
-                    "⚠ Restart required to finish the managed Python runtime repair."
-                )
+                print("⚠ Restart required to finish the managed Python runtime repair.")
                 print(
                     "  Any running Hermes gateways, Desktop backends, or other "
                     "long-lived processes still use the previous runtime."
@@ -3955,7 +4124,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 git_cmd + ["merge", "--ff-only", f"origin/{branch}"],
                 cwd=_m().PROJECT_ROOT,
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if pull_result.returncode != 0:
                 # ff-only failed — local and remote have diverged (e.g. upstream
@@ -3968,7 +4139,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     git_cmd + ["reset", "--hard", f"origin/{branch}"],
                     cwd=_m().PROJECT_ROOT,
                     capture_output=True,
-                    text=True, encoding="utf-8", errors="replace",
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if reset_result.returncode != 0:
                     print(f"✗ Failed to reset to origin/{branch}.")
@@ -4004,20 +4177,28 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         git_cmd + ["reset", "--hard", pre_pull_sha],
                         cwd=_m().PROJECT_ROOT,
                         capture_output=True,
-                        text=True, encoding="utf-8", errors="replace",
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
                     )
                     if rollback_result.returncode == 0:
                         print("  ✓ Rollback complete — your install is unchanged.")
                         print("  Try ``hermes update`` again later once a fix lands.")
                     else:
                         print("  ✗ Rollback failed. Recover manually with:")
-                        print(f"    cd {_m().PROJECT_ROOT} && git reset --hard {pre_pull_sha}")
+                        print(
+                            f"    cd {_m().PROJECT_ROOT} && git reset --hard {pre_pull_sha}"
+                        )
                         if rollback_result.stderr.strip():
-                            print(f"    ({rollback_result.stderr.strip().splitlines()[0]})")
+                            print(
+                                f"    ({rollback_result.stderr.strip().splitlines()[0]})"
+                            )
                 else:
                     print()
                     print("  Could not capture pre-pull SHA — recover manually with:")
-                    print(f"    cd {_m().PROJECT_ROOT} && git reflog && git reset --hard <prev-sha>")
+                    print(
+                        f"    cd {_m().PROJECT_ROOT} && git reflog && git reset --hard <prev-sha>"
+                    )
                 sys.exit(1)
 
             update_succeeded = True
@@ -4093,9 +4274,13 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 uv_env.pop("PYTHONPATH", None)
                 uv_env.pop("PYTHONHOME", None)
                 install_group = "termux-all"
-                print("  → Termux detected: using uv + curated termux-all optional profile...")
+                print(
+                    "  → Termux detected: using uv + curated termux-all optional profile..."
+                )
             if _m()._is_termux_env(uv_env) and _is_android_python():
-                print("  → Termux/Android detected: prebuilding psutil with Linux source path compatibility...")
+                print(
+                    "  → Termux/Android detected: prebuilding psutil with Linux source path compatibility..."
+                )
                 _install_psutil_android_compat([uv_bin, "pip"], env=uv_env)
             _m()._install_python_dependencies_with_optional_fallback(
                 [uv_bin, "pip"], env=uv_env, group=install_group
@@ -4121,11 +4306,17 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 )
             if _m()._is_termux_env():
                 install_group = "termux-all"
-                print("  → Termux detected: using curated termux-all optional profile...")
+                print(
+                    "  → Termux detected: using curated termux-all optional profile..."
+                )
             if _m()._is_termux_env() and _is_android_python():
-                print("  → Termux/Android detected: prebuilding psutil with Linux source path compatibility...")
+                print(
+                    "  → Termux/Android detected: prebuilding psutil with Linux source path compatibility..."
+                )
                 _install_psutil_android_compat(pip_cmd)
-            _m()._install_python_dependencies_with_optional_fallback(pip_cmd, group=install_group)
+            _m()._install_python_dependencies_with_optional_fallback(
+                pip_cmd, group=install_group
+            )
 
         install_prefix = [uv_bin, "pip"] if uv_bin else pip_cmd
         lazy_env = uv_env if uv_bin else None
@@ -4200,8 +4391,14 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # never run ``hermes desktop`` shouldn't be forced into a full
         # Electron build by ``hermes update``.
         desktop_dir = _m().PROJECT_ROOT / "apps" / "desktop"
-        has_desktop_app = _m()._desktop_packaged_executable(desktop_dir) is not None or _m()._desktop_dist_exists(desktop_dir)
-        if (desktop_dir / "package.json").exists() and _m()._resolve_node_runtime_npm() and has_desktop_app:
+        has_desktop_app = _m()._desktop_packaged_executable(
+            desktop_dir
+        ) is not None or _m()._desktop_dist_exists(desktop_dir)
+        if (
+            (desktop_dir / "package.json").exists()
+            and _m()._resolve_node_runtime_npm()
+            and has_desktop_app
+        ):
             print("→ Checking if desktop app needs rebuilding...")
             # Consult the content-hash stamp IN-PROCESS first. The spawned
             # `hermes desktop --build-only` subprocess re-imports the whole
@@ -4220,7 +4417,13 @@ def _cmd_update_impl(args, gateway_mode: bool):
             if _skip_desktop_build:
                 print("  ✓ Desktop app up to date")
             else:
-                _desktop_build_cmd = [sys.executable, "-m", "hermes_cli.main", "desktop", "--build-only"]
+                _desktop_build_cmd = [
+                    sys.executable,
+                    "-m",
+                    "hermes_cli.main",
+                    "desktop",
+                    "--build-only",
+                ]
                 # Capture the (very loud) Electron/vite build output into
                 # update.log instead of streaming it to the terminal. On the rare
                 # nonzero exit, retry once after waiting again for the venv — this
@@ -4236,15 +4439,24 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 from hermes_constants import with_hermes_node_path
 
                 _build_env = with_hermes_node_path()
-                build_result = _m()._run_logged_subprocess(_desktop_build_cmd, cwd=_m().PROJECT_ROOT, env=_build_env)
+                build_result = _m()._run_logged_subprocess(
+                    _desktop_build_cmd, cwd=_m().PROJECT_ROOT, env=_build_env
+                )
                 if build_result.returncode != 0:
-                    build_result = _m()._run_logged_subprocess(_desktop_build_cmd, cwd=_m().PROJECT_ROOT, env=_build_env)
+                    build_result = _m()._run_logged_subprocess(
+                        _desktop_build_cmd, cwd=_m().PROJECT_ROOT, env=_build_env
+                    )
                 if build_result.returncode != 0:
-                    print("  ⚠ Desktop build failed (non-fatal; run `hermes desktop` to retry)")
-                    tail = "\n".join((build_result.stdout or "").strip().splitlines()[-15:])
+                    print(
+                        "  ⚠ Desktop build failed (non-fatal; run `hermes desktop` to retry)"
+                    )
+                    tail = "\n".join(
+                        (build_result.stdout or "").strip().splitlines()[-15:]
+                    )
                     if tail:
                         print(tail)
                     from hermes_constants import display_hermes_home as _dhh
+
                     print(f"  Full build log: {_dhh()}/logs/update.log")
                 else:
                     print("  ✓ Desktop app up to date")
@@ -4310,17 +4522,11 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                             "copy also failed integrity"
                                         )
                                 except OSError as _exc:
-                                    print(
-                                        f"  ✗ Auto-restore file copy failed: {_exc}"
-                                    )
+                                    print(f"  ✗ Auto-restore file copy failed: {_exc}")
                             else:
-                                print(
-                                    "  ✗ Pre-update snapshot also failed integrity"
-                                )
+                                print("  ✗ Pre-update snapshot also failed integrity")
                         else:
-                            print(
-                                "  ⚠ Pre-update snapshot does not contain state.db"
-                            )
+                            print("  ⚠ Pre-update snapshot does not contain state.db")
                     else:
                         print("  ⚠ No pre-update snapshot was taken")
                     print()
@@ -4456,9 +4662,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
         current_ver, latest_ver = check_config_version()
 
         has_new_options = bool(missing_env or missing_config)
-        version_bump_only = (
-            not has_new_options and current_ver < latest_ver
-        )
+        version_bump_only = not has_new_options and current_ver < latest_ver
         needs_migration = has_new_options or current_ver < latest_ver
 
         if version_bump_only:
@@ -4468,9 +4672,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
             # bumps the version and looks like a no-op (issue: ScottFive /
             # Tt2021). Apply it silently and say what actually happened.
             print()
-            print(
-                f"  ℹ Updating config format (v{current_ver} → v{latest_ver})…"
-            )
+            print(f"  ℹ Updating config format (v{current_ver} → v{latest_ver})…")
             try:
                 migrate_config(interactive=False, quiet=True)
                 print("  ✓ Config format updated (no new settings to configure)")
@@ -4479,6 +4681,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 print("     Run 'hermes config migrate' to retry.")
         elif needs_migration:
             print()
+
             # Show WHAT changed, not just a count, so the user can make an
             # informed yes/no decision (previously the prompt named nothing).
             def _print_items(items, label, key, fallback_key=None):
@@ -4488,7 +4691,11 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 shown = items[:8]
                 for it in shown:
                     if isinstance(it, dict):
-                        name = it.get(key) or (fallback_key and it.get(fallback_key)) or "?"
+                        name = (
+                            it.get(key)
+                            or (fallback_key and it.get(fallback_key))
+                            or "?"
+                        )
                         desc = (it.get("description") or "").strip()
                     else:
                         # Defensive: some callers/mocks pass bare name strings.
@@ -4741,7 +4948,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         _verify = subprocess.run(
                             scope_cmd_ + ["is-active", svc_name_],
                             capture_output=True,
-                            text=True, encoding="utf-8", errors="replace",
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=5,
                         )
                         if _verify.stdout.strip() == "active":
@@ -4775,7 +4984,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                             "--value",
                         ],
                         capture_output=True,
-                        text=True, encoding="utf-8", errors="replace",
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
                         timeout=5,
                     )
                 except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -4836,7 +5047,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 if (
                     scope_ == "system"
                     and hasattr(os, "geteuid")
-                    and os.geteuid() != 0  # windows-footgun: ok — systemd path, Linux-only
+                    and os.geteuid()
+                    != 0  # windows-footgun: ok — systemd path, Linux-only
                 ):
                     sudo_cmd = ["sudo", "-n"] + scope_cmd_ + ["--no-ask-password"]
                     sudo_ok = False
@@ -4924,7 +5136,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                 "--no-pager",
                             ],
                             capture_output=True,
-                            text=True, encoding="utf-8", errors="replace",
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=10,
                         )
                     except FileNotFoundError:
@@ -4943,7 +5157,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         check = subprocess.run(
                             scope_cmd + ["is-active", svc_name],
                             capture_output=True,
-                            text=True, encoding="utf-8", errors="replace",
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=5,
                         )
                         if check.stdout.strip() != "active":
@@ -4956,9 +5172,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         # throw an interactive auth prompt inside our
                         # captured 10-15s subprocess (the user sees it
                         # flash and "exit directly" — reported June 2026).
-                        _manage_cmd = _resolve_manage_cmd(
-                            scope, scope_cmd, svc_name
-                        )
+                        _manage_cmd = _resolve_manage_cmd(scope, scope_cmd, svc_name)
 
                         # Prefer a graceful SIGUSR1 restart so in-flight
                         # agent runs drain instead of being SIGKILLed.
@@ -4976,7 +5190,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                     "--value",
                                 ],
                                 capture_output=True,
-                                text=True, encoding="utf-8", errors="replace",
+                                text=True,
+                                encoding="utf-8",
+                                errors="replace",
                                 timeout=5,
                             )
                             _main_pid = int((_show.stdout or "").strip() or 0)
@@ -5029,13 +5245,17 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                 subprocess.run(
                                     _manage_cmd + ["reset-failed", svc_name],
                                     capture_output=True,
-                                    text=True, encoding="utf-8", errors="replace",
+                                    text=True,
+                                    encoding="utf-8",
+                                    errors="replace",
                                     timeout=10,
                                 )
                                 subprocess.run(
                                     _manage_cmd + ["start", svc_name],
                                     capture_output=True,
-                                    text=True, encoding="utf-8", errors="replace",
+                                    text=True,
+                                    encoding="utf-8",
+                                    errors="replace",
                                     timeout=15,
                                 )
                                 # Short poll: the gateway should be up
@@ -5119,13 +5339,17 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         subprocess.run(
                             _manage_cmd + ["reset-failed", svc_name],
                             capture_output=True,
-                            text=True, encoding="utf-8", errors="replace",
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=10,
                         )
                         restart = subprocess.run(
                             _manage_cmd + ["restart", svc_name],
                             capture_output=True,
-                            text=True, encoding="utf-8", errors="replace",
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=15,
                         )
                         if restart.returncode == 0:
@@ -5145,19 +5369,21 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                 # clear any failed state first so the
                                 # retry isn't blocked by the previous
                                 # crash.
-                                print(
-                                    f"  ⚠ {svc_name} died after restart, retrying..."
-                                )
+                                print(f"  ⚠ {svc_name} died after restart, retrying...")
                                 subprocess.run(
                                     _manage_cmd + ["reset-failed", svc_name],
                                     capture_output=True,
-                                    text=True, encoding="utf-8", errors="replace",
+                                    text=True,
+                                    encoding="utf-8",
+                                    errors="replace",
                                     timeout=10,
                                 )
                                 subprocess.run(
                                     _manage_cmd + ["restart", svc_name],
                                     capture_output=True,
-                                    text=True, encoding="utf-8", errors="replace",
+                                    text=True,
+                                    encoding="utf-8",
+                                    errors="replace",
                                     timeout=15,
                                 )
                                 if _wait_for_service_active(
@@ -5184,7 +5410,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                 f"  ⚠ Failed to restart {svc_name}: {restart.stderr.strip()}"
                             )
 
-                    def _on_unit_timeout(svc_name: str, exc: subprocess.TimeoutExpired) -> None:
+                    def _on_unit_timeout(
+                        svc_name: str, exc: subprocess.TimeoutExpired
+                    ) -> None:
                         # Isolate the timeout to this unit and keep going
                         # (#68523). A scope-wide handler used to abort every
                         # later gateway and leave the fleet on mixed code.
@@ -5215,7 +5443,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         check = subprocess.run(
                             ["launchctl", "list", get_launchd_label()],
                             capture_output=True,
-                            text=True, encoding="utf-8", errors="replace",
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=5,
                         )
                         if check.returncode == 0:
@@ -5366,6 +5596,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
                         f"  ⚠ {len(_stuck)} gateway process(es) ignored SIGTERM — force-killing"
                     )
                     from gateway.status import terminate_pid as _terminate_pid
+
                     for pid in _stuck:
                         try:
                             # Routes through taskkill /T /F on Windows,
@@ -5442,7 +5673,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
             print(f"✗ Update failed: {e}")
             sys.exit(1)
 
+
 # --- Hoisted from the body of _cmd_update_impl (self-contained, no closure state) ---
+
 
 def _print_items(items, label, key, fallback_key=None):
     if not items:
@@ -5465,6 +5698,7 @@ def _print_items(items, label, key, fallback_key=None):
     if extra > 0:
         print(f"      … and {extra} more")
 
+
 def _wait_for_service_active(
     scope_cmd_: list,
     svc_name_: str,
@@ -5483,7 +5717,9 @@ def _wait_for_service_active(
             _verify = subprocess.run(
                 scope_cmd_ + ["is-active", svc_name_],
                 capture_output=True,
-                text=True, encoding="utf-8", errors="replace",
+                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=5,
             )
             if _verify.stdout.strip() == "active":
@@ -5493,6 +5729,7 @@ def _wait_for_service_active(
         if _time.monotonic() >= deadline:
             return False
         _time.sleep(0.5)
+
 
 def _service_restart_sec(
     scope_cmd_: list,
@@ -5517,7 +5754,9 @@ def _service_restart_sec(
                 "--value",
             ],
             capture_output=True,
-            text=True, encoding="utf-8", errors="replace",
+            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
