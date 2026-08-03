@@ -56,8 +56,7 @@ def ensure_project_root_on_path() -> None:
     sys.path[:] = [
         entry
         for entry in sys.path
-        if not entry
-        or os.path.normcase(os.path.realpath(entry)) != normalized_root
+        if not entry or os.path.normcase(os.path.realpath(entry)) != normalized_root
     ]
     sys.path.insert(0, project_root)
 
@@ -131,9 +130,8 @@ def container_mode_may_be_active() -> bool:
         if os.path.exists(os.path.join(hermes_home, ".container-mode")):
             return True
         parent_name = os.path.basename(os.path.dirname(os.path.normpath(hermes_home)))
-        return (
-            parent_name != "profiles"
-            and active_profile_may_override_home(hermes_home)
+        return parent_name != "profiles" and active_profile_may_override_home(
+            hermes_home
         )
 
     default_home = os.path.join(os.path.expanduser("~"), ".hermes")
@@ -183,7 +181,7 @@ def read_install_method() -> str | None:
 def print_fast_version_info() -> None:
     from hermes_cli import __release_date__, __version__
 
-    print(f"Hermes Agent v{__version__} ({__release_date__})")
+    print(f"xHermes Agent v{__version__} ({__release_date__})")
     print(f"Install directory: {project_root_str()}")
     install_method = read_install_method()
     if install_method:
@@ -192,7 +190,11 @@ def print_fast_version_info() -> None:
     print(f"Python: {sys.version.split()[0]}")
 
     openai_version = read_openai_version()
-    print(f"OpenAI SDK: {openai_version}" if openai_version else "OpenAI SDK: Not installed")
+    print(
+        f"OpenAI SDK: {openai_version}"
+        if openai_version
+        else "OpenAI SDK: Not installed"
+    )
     print("Run 'hermes version' for update status.")
 
 
