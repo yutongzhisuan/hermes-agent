@@ -377,7 +377,7 @@ def _print_curator_first_run_notice() -> None:
     )
     print("  Preview now:  hermes curator run --dry-run")
     print("  Pause it:     hermes curator pause")
-    print("  Docs:         https://github.com/yutongzhisuan/xhermes-agent#curator")
+    print("  Docs:         https://github.com/yutongzhisuan/hermes-agent#curator")
 
 
 def _print_fts_optimize_available_notice() -> None:
@@ -760,7 +760,7 @@ def _update_via_zip(args):
             "`hermes update`."
         )
         _m().sys.exit(1)
-    zip_url = f"https://github.com/yutongzhisuan/xhermes-agent/archive/refs/heads/{branch}.zip"
+    zip_url = f"https://github.com/yutongzhisuan/hermes-agent/archive/refs/heads/{branch}.zip"
 
     print("→ Downloading latest version...")
     tmp_dir = tempfile.mkdtemp(prefix="hermes-update-")
@@ -884,7 +884,7 @@ def _update_via_zip(args):
         print("  Your existing install was left in place.")
         print(
             "  Re-run `hermes update` to retry; if the agent won't start, "
-            "reinstall from https://github.com/yutongzhisuan/xhermes-agent"
+            "reinstall from https://github.com/yutongzhisuan/hermes-agent"
         )
         _m().sys.exit(1)
     finally:
@@ -1446,8 +1446,8 @@ def _discard_stashed_changes(
 OFFICIAL_REPO_URLS = {
     "https://github.com/yutongzhisuan/hermes-agent.git",
     "git@github.com:yutongzhisuan/hermes-agent.git",
-    "https://github.com/yutongzhisuan/xhermes-agent",
-    "git@github.com:yutongzhisuan/xhermes-agent",
+    "https://github.com/yutongzhisuan/hermes-agent",
+    "git@github.com:yutongzhisuan/hermes-agent",
 }
 
 OFFICIAL_REPO_URL = "https://github.com/yutongzhisuan/hermes-agent.git"
@@ -1595,7 +1595,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
         # Ask user if they want to add upstream
         print()
         print("ℹ Your fork is not tracking the official Hermes repository.")
-        print("  This means you may miss updates from yutongzhisuan/xhermes-agent.")
+        print("  This means you may miss updates from yutongzhisuan/hermes-agent.")
         print()
         try:
             response = (
@@ -3819,7 +3819,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
         else:
             print("✗ Not a git repository. Please reinstall:")
             print(
-                "  curl -fsSL https://github.com/yutongzhisuan/xhermes-agent/raw/main/scripts/install.sh | bash"
+                "  curl -fsSL https://github.com/yutongzhisuan/hermes-agent/raw/main/scripts/install.sh | bash"
             )
             sys.exit(1)
 
@@ -4378,7 +4378,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
             print(f"  ⚠ {failing_module} still fails to import after updating:")
             print(f"      {import_error}")
             print("    Run `hermes update` again — if it persists, reinstall:")
-            print("    https://github.com/yutongzhisuan/xhermes-agent")
+            print("    https://github.com/yutongzhisuan/hermes-agent")
 
         node_failures = _update_node_dependencies()
         _m()._build_web_ui(_m().PROJECT_ROOT / "web")

@@ -38,7 +38,7 @@
 <div dir="ltr">
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.sh | bash
 ```
 
 </div>
@@ -52,7 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes
 <div dir="ltr">
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.ps1)
+iex (irm https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.ps1)
 ```
 
 </div>

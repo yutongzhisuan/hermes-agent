@@ -5,7 +5,7 @@
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.ps1)
+#   iex (irm https://raw.githubusercontent.com/yutongzhisuan/hermes-agent/xhermes-agent/scripts/install.ps1)
 #
 # Or download and run with options:
 #   .\install.ps1 -NoVenv -SkipSetup
@@ -1831,13 +1831,13 @@ function Install-Repository {
                 # for.  GitHub supports archive URLs for commits, tags, and
                 # branches; we honour Commit > Tag > Branch.
                 if ($Commit) {
-                    $zipUrl = "https://github.com/yutongzhisuan/xhermes-agent/archive/$Commit.zip"
+                    $zipUrl = "https://github.com/yutongzhisuan/hermes-agent/archive/$Commit.zip"
                     $zipLabel = $Commit
                 } elseif ($Tag) {
-                    $zipUrl = "https://github.com/yutongzhisuan/xhermes-agent/archive/refs/tags/$Tag.zip"
+                    $zipUrl = "https://github.com/yutongzhisuan/hermes-agent/archive/refs/tags/$Tag.zip"
                     $zipLabel = $Tag
                 } else {
-                    $zipUrl = "https://github.com/yutongzhisuan/xhermes-agent/archive/refs/heads/$Branch.zip"
+                    $zipUrl = "https://github.com/yutongzhisuan/hermes-agent/archive/refs/heads/$Branch.zip"
                     $zipLabel = $Branch
                 }
                 $zipPath = "$env:TEMP\xhermes-agent-$zipLabel.zip"
@@ -4020,7 +4020,7 @@ try {
     Write-Err "Installation failed: $_"
     Write-Host ""
     Write-Info "If the error is unclear, try downloading and running the script directly:"
-    Write-Host "  Invoke-WebRequest -Uri 'https://github.com/yutongzhisuan/xhermes-agent/raw/main/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
+    Write-Host "  Invoke-WebRequest -Uri 'https://github.com/yutongzhisuan/hermes-agent/raw/main/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
     Write-Host "  .\install.ps1" -ForegroundColor Yellow
     Write-Host ""
 }
