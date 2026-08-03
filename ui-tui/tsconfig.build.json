@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@xhermes/ink": ["src/types/xhermes-ink.d.ts"]
+      "@xhermes/ink": ["src/types/hermes-ink.d.ts"]
     }
   }
 }
