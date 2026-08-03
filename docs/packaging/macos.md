@@ -55,7 +55,7 @@ xHermes Agent 的官方分发方式有四种，`pkg` 是其中针对 macOS 原�
 ```
 /usr/local/lib/xhermes-agent/
 ├── python/                 # 自包含 CPython 3.11（uv 托管版整体拷贝，可迁移）
-├── site-packages/          # 26 个核心依赖（openai/httpx/pydantic 等）
+├── site-packages/          # 28 个核心依赖（openai/httpx/pydantic 等）
 └── xhermes-agent/          # 精简源码树（72MB，含 skills/locales/web_dist）
 /usr/local/bin/xhermes      # postinstall 创建的 launcher（符号链接）
 ```
@@ -83,6 +83,35 @@ scripts/build_macos_pkg.sh --version 0.20.0
 
 产物：`dist/xHermes-CLI-<version>-arm64.pkg`。staging 目录
 `dist/pkg-stage/` 会保留，便于调试。
+
+### 3.5 安装足迹（装到用户机器的文件）
+
+pkg 安装只写两个位置（总计 ~253MB，约 1.05 万个文件）：
+
+| 位置 | 大小 | 内容 |
+|---|---|---|
+| `/usr/local/lib/xhermes-agent/xhermes-agent/` | 72MB | 精简源码树：全部 Python 包（`hermes_cli/`、`agent/`、`tools/`、`gateway/`、`cron/`、`plugins/`、`tui_gateway/`）+ 运行时资产（`skills/` 8MB、`optional-skills/` 7.8MB、`locales/`、`hermes_cli/web_dist/` 3.1MB、`scripts/lib/node-bootstrap.sh`）+ 配置（`pyproject.toml` 等） |
+| `/usr/local/lib/xhermes-agent/site-packages/` | 116MB | 28 个核心依赖及传递依赖（openai、httpx、pydantic、rich、prompt_toolkit、cryptography、fastapi、uvicorn、Pillow、ptyprocess、nemo-relay、psutil、websockets 等） |
+| `/usr/local/lib/xhermes-agent/python/` | 65MB | 自包含 CPython 3.11.15（bin/include/lib/share），含 pip + ensurepip |
+| `/usr/local/lib/xhermes-agent/bin/xhermes` | — | launcher 脚本（postinstall 生成） |
+| `/usr/local/bin/xhermes` | — | 指向上面 launcher 的符号链接（postinstall 创建） |
+
+**不安装到的地方（设计约束）：**
+
+- 不碰 `~/.xhermes/` —— 用户数据（config.yaml、.env、state.db、会话、
+  skills、日志）由运行时首次启动时在用户目录创建，与 install.sh 布局一致
+- 不碰 Homebrew 的 `/opt/homebrew`，不写 `~/.local/bin`
+- 不改系统级配置（无 launchd、无 /etc、无环境变量写入）
+
+**卸载 = 删两行：**
+
+```bash
+sudo rm -f /usr/local/bin/xhermes
+sudo rm -rf /usr/local/lib/xhermes-agent
+```
+
+> 注：`pkg` 构建时的临时文件（req.txt、scripts/、pkg-stage/）只存在于
+> 构建机，不进 pkg；安装器本体（`*.pkg`）装完可删。
 
 ### 3.3 手工步骤（脚本的等价说明）
 
