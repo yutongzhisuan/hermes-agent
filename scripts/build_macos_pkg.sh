@@ -140,6 +140,19 @@ echo "==> installing core dependencies"
 mkdir -p "$STAGE_ROOT/site-packages"
 uv pip install --target "$STAGE_ROOT/site-packages" -r "$REQ_FILE"
 
+# 3a. rewrite console-script shebangs: uv pip install writes the build
+# machine's interpreter path (project .venv) into site-packages/bin/*,
+# which does not exist on the target machine. Normalize to the payload's
+# final installed interpreter path (same one the xhermes launcher uses).
+PAYLOAD_PY="/usr/local/lib/xhermes-agent/python/bin/python${PYTHON_VERSION}"
+echo "==> normalizing console-script shebangs -> $PAYLOAD_PY"
+for f in "$STAGE_ROOT/site-packages/bin/"*; do
+    [ -f "$f" ] || continue
+    if head -1 "$f" | grep -q '^#!.*python'; then
+        sed -i '' "1s|^#!.*python[0-9.]*|#!$PAYLOAD_PY|" "$f"
+    fi
+done
+
 # 4. lean source tree
 echo "==> copying source tree (lean)"
 rsync -a \
