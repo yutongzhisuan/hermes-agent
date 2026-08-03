@@ -235,20 +235,54 @@ exit 0
 POSTINSTALL
 chmod 755 "$OUT_DIR/pkg-scripts/postinstall"
 
-# 8. pkgbuild — relative install-location keeps the payload under
-#    $HOME/.xhermes/xhermes-agent when installed with
-#    `installer -pkg ... -target CurrentUserHomeDirectory` (no system volume)
-echo "==> building pkg"
+# 8. component pkg (relative install-location keeps payload under
+#    $HOME/.xhermes/xhermes-agent) + distribution wrapper with
+#    enable_currentUserHome — the macOS-blessed user-level install path that
+#    both GUI Installer and `installer -pkg` accept without the
+#    "system volume" rejection (unsigned pkgs are blocked from system volumes
+#    on macOS 15+).
+echo "==> building component pkg"
 mkdir -p "$OUT_DIR"
+COMPONENT_PKG="$OUT_DIR/.xhermes-component.pkg"
 COPYFILE_DISABLE=1 pkgbuild \
     --root "$STAGE_DIR" \
     --identifier "$IDENTIFIER" \
     --version "$VERSION" \
     --scripts "$OUT_DIR/pkg-scripts" \
     --install-location ".xhermes/xhermes-agent" \
+    "$COMPONENT_PKG"
+
+echo "==> building user-level distribution pkg"
+cat > "$OUT_DIR/distribution.xml" <<DISTXML
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>xHermes Agent CLI</title>
+    <organization>$IDENTIFIER</organization>
+    <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="false"/>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64"/>
+    <pkg-ref id="$IDENTIFIER">
+        <bundle-version/>
+    </pkg-ref>
+    <choices-outline>
+        <line choice="default">
+            <line choice="$IDENTIFIER"/>
+        </line>
+    </choices-outline>
+    <choice id="default" visible="false">
+        <pkg-ref id="$IDENTIFIER"/>
+    </choice>
+    <choice id="$IDENTIFIER" visible="true" title="xHermes Agent CLI" description="xHermes Agent command-line interface">
+        <pkg-ref id="$IDENTIFIER"/>
+    </choice>
+    <pkg-ref id="$IDENTIFIER" version="$VERSION" onConclusion="none">.xhermes-component.pkg</pkg-ref>
+</installer-gui-script>
+DISTXML
+productbuild \
+    --distribution "$OUT_DIR/distribution.xml" \
+    --package-path "$OUT_DIR" \
     "$PKG_PATH"
 
 echo ""
 echo "==> done: $PKG_PATH"
 echo "    staging (debug): $STAGE_DIR"
-echo "    install with: installer -pkg $PKG_PATH -target CurrentUserHomeDirectory"
+echo "    install (GUI double-click or): installer -pkg $PKG_PATH -target CurrentUserHomeDirectory"
