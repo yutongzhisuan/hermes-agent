@@ -88,10 +88,17 @@ scripts/build_macos_pkg.sh --version 0.20.0
 
 脚本按以下顺序执行，任一步骤失败即退出非零：
 
-1. **定位 uv 托管 Python**：`uv python find 3.11`，缺失则 `uv python install 3.11`
+1. **定位 uv 托管 Python**：从 `uv python dir`（托管根）按版本 glob 定位，
+   缺失则 `uv python install 3.11`。**不能**用 `uv python find`——在 repo
+   内运行时会优先返回项目 `.venv` 的 python，其 site-packages 含 editable
+   安装和构建机绝对路径，会被整个拷进 pkg（见 §7 已知限制中的遗留事故）
 2. **拷贝 Python**：整体拷贝 uv 托管目录到 `python/`
-3. **提取核心依赖**：从 `pyproject.toml` 的 `dependencies` 数组提取
-   （正则过滤 `sys_platform` / `platform_machine` 平台标记），写入临时 req.txt
+3. **提取核心依赖**：从 `pyproject.toml` 的 `dependencies` 数组提取，
+   并**按构建机平台求值环境标记**（`sys_platform` / `platform_machine`
+   的 `==`/`!=` 比较 + `and`/`or`/括号）——不是一刀切丢弃带标记的依赖：
+   `ptyprocess`（`sys_platform != 'win32'`）和 `nemo-relay`（darwin/arm64
+   标记）在 macOS 上是必需的，必须保留；win32-only 的
+   `tzdata`/`pywinpty`/`pywin32`/`concurrent-log-handler` 则被正确排除
 4. **安装依赖**：`uv pip install --target site-packages -r req.txt`
    —— 必须用 `--target` 独立目录，因为 uv 拒绝修改其托管的 Python
 5. **拷贝源码树**：`rsync` 精简拷贝，排除 `.git`/`.venv`/`node_modules`/
@@ -247,7 +254,25 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
 - 仅 arm64
 - 可选依赖（anthropic / telegram 等 extras）走运行时 lazy install
   （`tools/lazy_deps.py` 的 uv→pip→ensurepip 阶梯），不预装
+- **非 root 用户的 lazy install 会失败**：`/usr/local/lib/xhermes-agent`
+  归 root 所有，普通用户触发可选依赖安装时 `pip install` 写
+  site-packages 会 PermissionError（与 install.sh 的用户级布局不同）
+- **真实 sudo 安装尚未端到端验证**：stage 运行、payload 展开、postinstall
+  生成均已验证，但 `sudo installer` 的完整安装路径（postinstall 实际执行、
+  `/usr/local/bin/xhermes` 符号链接创建）尚未在本机跑通
 - 升级需重装（无自更新机制；`hermes update` 面向 install.sh 布局）
+
+**已验证并修复的构建事故（2026-08-03）：**
+
+- **venv 污染**：`uv python find` 在 repo 内返回项目 `.venv`，导致 322M
+  editable 安装 + 构建机绝对路径被打进 pkg。已改为从 `uv python dir`
+  托管根定位
+- **依赖缺失**：一刀切过滤平台标记丢掉了 macOS 必需的 `ptyprocess` 和
+  `nemo-relay`。已改为按构建机平台求值标记
+- **launcher 版本写死**：postinstall 写死 `python3.11`，`--python-version`
+  传其他版本时会调用不存在的解释器。已改为变量注入
+- **`uv python find` 引号 bug**：`"uv python find"` 被当作单一命令名，
+  静默失败。已修复
 
 **后续路线：**
 
@@ -263,12 +288,19 @@ xcrun stapler staple dist/xHermes-CLI-0.19.1-arm64.pkg
 以下为构建脚本产出物的实际验证结果：
 
 ```
-xHermes-CLI-0.19.1-arm64.pkg    50MB
-BOM 实体 Payload               15388 个文件，0 个 ._* 文件
-payload 大小                   172MB（源码 72M + python 59M + deps 41M）
+xHermes-CLI-0.19.1-arm64.pkg    75MB（修复 venv 污染 + 依赖缺失后）
+BOM 实体 Payload               15388+ 个文件，0 个 ._* 文件
+核心依赖                       28 个（含 ptyprocess、nemo-relay）
+payload 大小                   172MB（源码 72M + python 63M + deps 41M）
 
 xhermes --version 输出:
   xHermes Agent v0.19.1 (2026.7.30)
   Python: 3.11.15
   OpenAI SDK: 2.24.0
+
+模块解析验证（任意 cwd）:
+  hermes_cli → payload/xhermes-agent/hermes_cli   ✓
+  openai     → payload/site-packages/openai       ✓
+  ptyprocess / nemo_relay 导入                     ✓
+  ensurepip / pip 26.0.1 在位                     ✓（lazy install pip 分支可用）
 ```

@@ -48,7 +48,7 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 if [ -z "$VERSION" ]; then
-    VERSION="$(cd "$REPO_ROOT" && uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+    VERSION="$(cd "$REPO_ROOT" && python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
 fi
 
 PKG_NAME="xHermes-CLI-${VERSION}-${ARCH}.pkg"
@@ -59,11 +59,15 @@ echo "==> xHermes CLI pkg build"
 echo "    version: $VERSION   arch: $ARCH   out: $PKG_PATH"
 
 # ---- locate a uv-managed CPython (install if missing) ---------------------
-UV_PY_BIN="$("uv python find" "$PYTHON_VERSION" 2>/dev/null || true)"
-if [ -z "$UV_PY_BIN" ] || [ ! -f "$UV_PY_BIN" ]; then
+# NOTE: must NOT use `uv python find` — inside a repo it prefers the project
+# .venv (whose site-packages carries editable installs + absolute paths that
+# would be bundled into the pkg). Anchor on the managed install dir instead.
+UV_PY_ROOT="$(uv python dir)"
+UV_PY_BIN="$(ls -d "$UV_PY_ROOT"/cpython-${PYTHON_VERSION}* 2>/dev/null | sort -V | tail -1)/bin/python${PYTHON_VERSION}"
+if [ ! -f "$UV_PY_BIN" ]; then
     echo "==> uv-managed Python $PYTHON_VERSION not found; installing..."
     uv python install "$PYTHON_VERSION"
-    UV_PY_BIN="$(uv python find "$PYTHON_VERSION")"
+    UV_PY_BIN="$(ls -d "$UV_PY_ROOT"/cpython-${PYTHON_VERSION}* 2>/dev/null | sort -V | tail -1)/bin/python${PYTHON_VERSION}"
 fi
 UV_PY_DIR="$(cd "$(dirname "$UV_PY_BIN")/.." && pwd)"
 echo "    bundled python: $UV_PY_DIR"
@@ -77,17 +81,58 @@ STAGE_ROOT="$STAGE_DIR/usr/local/lib/xhermes-agent"
 echo "==> copying CPython $PYTHON_VERSION"
 cp -R "$UV_PY_DIR" "$STAGE_ROOT/python"
 
-# 2. extract core deps from pyproject.toml (skip platform markers)
+# 2. extract core deps from pyproject.toml, evaluating platform markers
+#    against THIS build machine (e.g. ptyprocess on darwin, nemo-relay on
+#    darwin-arm64) instead of dropping every marked dep. Uses a minimal
+#    in-script evaluator (no third-party deps) covering the marker forms
+#    used in pyproject.toml: ==/!= on sys_platform & platform_machine,
+#    combined with and/or and parentheses.
 echo "==> extracting core dependencies"
 REQ_FILE="$STAGE_DIR/req.txt"
 python3 - "$REQ_FILE" <<'PYEOF'
 import re, sys
+
+def eval_marker(marker, env):
+    marker = marker.strip()
+    if not marker:
+        return True
+    # split top-level or / and (paren-aware)
+    depth = 0
+    for op in (" or ", " and "):
+        for i, ch in enumerate(marker):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            elif depth == 0 and marker.startswith(op, i):
+                left, right = marker[:i], marker[i + len(op):]
+                if op.strip() == "or":
+                    return eval_marker(left, env) or eval_marker(right, env)
+                return eval_marker(left, env) and eval_marker(right, env)
+    marker = marker.strip()
+    if marker.startswith("(") and marker.endswith(")"):
+        return eval_marker(marker[1:-1], env)
+    mt = re.match(r"([\w.]+)\s*(==|!=)\s*['\"]([^'\"]+)['\"]", marker)
+    if not mt:
+        return True  # unknown form: keep the dep (conservative)
+    var, op, val = mt.group(1), mt.group(2), mt.group(3)
+    actual = env.get(var, "")
+    return actual == val if op == "==" else actual != val
+
 s = open("pyproject.toml").read()
 m = re.search(r'^dependencies = \[(.*?)^\]', s, re.S | re.M)
 deps = re.findall(r'^\s*"([^"]+)"\s*,?\s*(?:#.*)?$', m.group(1), re.M)
-keep = [d for d in deps if "sys_platform" not in d and "platform_machine" not in d]
+env = {"sys_platform": "darwin", "platform_machine": "arm64"}
+keep = []
+for d in deps:
+    if ";" in d:
+        spec, _, marker = d.partition(";")
+        if eval_marker(marker, env):
+            keep.append(spec.strip())
+    else:
+        keep.append(d)
 open(sys.argv[1], "w").write("\n".join(keep) + "\n")
-print(f"    {len(keep)} core deps")
+print(f"    {len(keep)} core deps for darwin/arm64")
 PYEOF
 
 # 3. install deps into standalone site-packages (managed-python is read-only)
@@ -123,19 +168,19 @@ xattr -cr "$STAGE_DIR" 2>/dev/null || true
 # 7. postinstall: launcher at /usr/local/bin/xhermes
 echo "==> writing postinstall"
 mkdir -p "$STAGE_DIR/scripts"
-cat > "$STAGE_DIR/scripts/postinstall" <<'POSTINSTALL'
+cat > "$STAGE_DIR/scripts/postinstall" <<POSTINSTALL
 #!/bin/sh
 BASE=/usr/local/lib/xhermes-agent
-LAUNCHER="$BASE/bin/xhermes"
-mkdir -p "$BASE/bin" /usr/local/bin
-cat > "$LAUNCHER" <<'LAUNCHER_EOF'
+LAUNCHER="\$BASE/bin/xhermes"
+mkdir -p "\$BASE/bin" /usr/local/bin
+cat > "\$LAUNCHER" <<'LAUNCHER_EOF'
 #!/bin/sh
 BASE=/usr/local/lib/xhermes-agent
-export PYTHONPATH="$BASE/site-packages:$BASE/xhermes-agent"
-exec "$BASE/python/bin/python3.11" -m hermes_cli.main "$@"
+export PYTHONPATH="\$BASE/site-packages:\$BASE/xhermes-agent"
+exec "\$BASE/python/bin/python$PYTHON_VERSION" -m hermes_cli.main "\$@"
 LAUNCHER_EOF
-chmod 755 "$LAUNCHER"
-ln -sf "$LAUNCHER" /usr/local/bin/xhermes
+chmod 755 "\$LAUNCHER"
+ln -sf "\$LAUNCHER" /usr/local/bin/xhermes
 exit 0
 POSTINSTALL
 chmod 755 "$STAGE_DIR/scripts/postinstall"
