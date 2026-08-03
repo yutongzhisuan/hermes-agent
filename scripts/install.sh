@@ -1775,8 +1775,8 @@ unset PYTHONHOME
 exec "$HERMES_BIN" run_agent.py "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes-agent"
-    log_success "Installed hermes-agent launcher → $command_link_display_dir/hermes-agent"
+    chmod +x "$command_link_dir/xhermes-agent"
+    log_success "Installed xhermes-agent launcher → $command_link_display_dir/xhermes-agent"
 
     # Also expose `hermes-acp`. ACP hosts (Zed, JetBrains, Buzz) resolve the
     # agent by command name on the login-shell PATH, and the `hermes-acp`
