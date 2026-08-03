@@ -68,7 +68,7 @@ DETECTED_BROWSER_EXECUTABLE=""
 
 # Options
 USE_VENV=true
-RUN_SETUP=true
+RUN_SETUP=false
 SKIP_BROWSER=false
 NO_SKILLS=false
 BRANCH="xhermes-agent"
@@ -163,7 +163,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --no-venv      Don't create virtual environment"
-            echo "  --skip-setup   Skip interactive setup wizard"
+            echo "  --skip-setup   Skip interactive setup wizard (default: skipped)"
             echo "  --skip-browser Skip Playwright/Chromium install (browser tools won't work)"
             echo "  --no-skills    Start with a blank slate — seed no bundled skills, and"
             echo "                   write \$HERMES_HOME/.no-bundled-skills so future"
@@ -2402,7 +2402,7 @@ install_node_deps() {
 
 run_setup_wizard() {
     if [ "$RUN_SETUP" = false ]; then
-        log_info "Skipping setup wizard (--skip-setup)"
+        log_info "Skipping setup wizard (disabled by default; run 'hermes setup' after install)"
         return 0
     fi
 
