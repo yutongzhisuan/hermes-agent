@@ -1,5 +1,5 @@
 name: "🔧 Setup / Installation Help"
-description: Having trouble installing or configuring Hermes? Ask here.
+description: Having trouble installing or configuring XHermes? Ask here.
 title: "[Setup]: "
 labels: ["setup"]
 body:
@@ -70,7 +70,7 @@ body:
   - type: input
     id: xhermes-version
     attributes:
-      label: Hermes Version
+      label: XHermes Version
       description: Output of `xhermes version` (if install got that far)
       placeholder: "2.1.0"
 

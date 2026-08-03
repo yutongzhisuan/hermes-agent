@@ -244,7 +244,7 @@ if [ "$needs_chown" = true ]; then
         chown xhermes:xhermes "$HERMES_HOME" 2>/dev/null || \
             echo "[stage2] Warning: chown $HERMES_HOME failed (rootless container?) — continuing"
     fi
-    # Hermes-owned subdirs: recursive chown is safe here because these are
+    # XHermes-owned subdirs: recursive chown is safe here because these are
     # created and managed exclusively by xhermes (see the s6-setuidgid mkdir
     # -p block below for the canonical list).
     for sub in cron sessions logs hooks memories skills skins plans workspace home profiles pairing platforms/pairing lazy-packages; do
@@ -544,7 +544,7 @@ fi
 # The image's Dockerfile runs `npx playwright install chromium`, which
 # populates ``$PLAYWRIGHT_BROWSERS_PATH`` (=/opt/xhermes/.playwright) with
 # a ``chromium_headless_shell-<build>/chrome-headless-shell-linux64/``
-# directory. agent-browser (the runtime CLI Hermes spawns for the
+# directory. agent-browser (the runtime CLI XHermes spawns for the
 # browser tool) doesn't recognise this layout in its own cache scan and
 # fails with "Auto-launch failed: Chrome not found" — even though the
 # binary is right there (#15697).

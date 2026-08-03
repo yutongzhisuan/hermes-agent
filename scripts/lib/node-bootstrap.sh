@@ -7,7 +7,7 @@
 #
 # Strategy (first hit wins — respects the user's existing tooling):
 #   1. modern `node` already on PATH
-#   2. ~/.xhermes/node/ from a prior Hermes-managed install
+#   2. ~/.xhermes/node/ from a prior XHermes-managed install
 #   3. fnm, proto, nvm (in that order) if the user already uses a version manager
 #   4. Termux `pkg`, macOS Homebrew
 #   5. pinned nodejs.org tarball into ~/.xhermes/node/ (always works, zero shell rc edits)
@@ -57,7 +57,7 @@ _nb_get_link_dir() {
     fi
 }
 
-# Redirect a Hermes-managed Node's `npm install -g` to the command link dir
+# Redirect a XHermes-managed Node's `npm install -g` to the command link dir
 # (already on PATH) instead of the default $HERMES_HOME/node/bin, which is off
 # PATH and wiped on every Node upgrade. Scoped to the managed Node via its
 # prefix-local global npmrc; the user's other Node installs / ~/.npmrc are
@@ -326,7 +326,7 @@ _nb_install_bundled_node() {
 }
 
 # ---------------------------------------------------------------------------
-# Heal a broken Hermes-managed Node tree (partial upgrade / missing lib/)
+# Heal a broken XHermes-managed Node tree (partial upgrade / missing lib/)
 # ---------------------------------------------------------------------------
 
 _nb_managed_tool_broken() {
@@ -382,7 +382,7 @@ heal_managed_node() {
     if ! _nb_managed_node_needs_heal; then
         return 0
     fi
-    _nb_log "Hermes-managed Node is broken — redownloading to $HERMES_HOME/node/..."
+    _nb_log "XHermes-managed Node is broken — redownloading to $HERMES_HOME/node/..."
     _nb_install_bundled_node
 }
 
@@ -406,7 +406,7 @@ ensure_node() {
     if [ -x "$HERMES_HOME/node/bin/node" ]; then
         export PATH="$HERMES_HOME/node/bin:$PATH"
         if _nb_have_modern_node; then
-            _nb_ok "Node $(node --version) found (Hermes-managed)"
+            _nb_ok "Node $(node --version) found (XHermes-managed)"
             HERMES_NODE_AVAILABLE=true
             # A tree from an older install still carries that Node major's
             # bundled npm, and the upgrade in _nb_install_bundled_node is
