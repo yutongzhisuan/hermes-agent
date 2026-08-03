@@ -37,7 +37,7 @@ Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenR
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash
 ```
 
 ### Windows (native, PowerShell)
@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/sc
 Run this in PowerShell:
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.ps1)
+iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.ps1)
 ```
 
 The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit, unpacked to `%LOCALAPPDATA%\xhermes\git` — no admin required, completely isolated from any system Git install). Hermes uses this bundled Git Bash to run shell commands.
@@ -224,7 +224,7 @@ full git checkout it creates at `$HERMES_HOME/hermes-agent` (usually
 managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash
 cd "${HERMES_HOME:-$HOME/.hermes}/hermes-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh

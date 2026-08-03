@@ -1080,14 +1080,14 @@ def _perform_uninstall(
         if _is_windows():
             print(
                 color(
-                    "  iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.ps1)",
+                    "  iex (irm https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.ps1)",
                     Colors.DIM,
                 )
             )
         else:
             print(
                 color(
-                    "  curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/main/scripts/install.sh | bash",
+                    "  curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash",
                     Colors.DIM,
                 )
             )
