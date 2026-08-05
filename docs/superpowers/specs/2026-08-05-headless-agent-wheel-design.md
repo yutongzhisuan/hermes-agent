@@ -58,7 +58,7 @@
 │         │ spawn                            │
 │         ▼                                  │
 │    xhermes serve --host 127.0.0.1 --port 0 │
-│         │ HERMES_BACKEND_READY + token     │
+│         │ HERMES_BACKEND_READY port=<n>     │
 │         ▼                                  │
 │    JsonRpc client ──WS──► /api/ws          │
 │         prompt.submit / tool.* events …    │
@@ -75,7 +75,7 @@
 |----|------|
 | Runtime SDK | 新建 `hermes_runtime/`：spawn、ready 探测、连接信息、stop |
 | Serve 入口 | 现有 `xhermes serve`（`headless_backend=True`） |
-| 协议面 | 现有 `tui_gateway`（对外文档称 **Agent Gateway**；代码可保留包名或加别名） |
+| 协议面 | `web_server.py`（HTTP/WS 路由层，`@app.websocket("/api/ws")`）+ `tui_gateway.ws`（JSON-RPC dispatch 层，`handle_ws`）分层协作；两者都必需，**tui_gateway 不能删除**（见 §8） |
 | Agent 核心 | `run_agent` / `agent/` / `tools/` / session / memory / skills |
 | 重能力 | 消息网关、ACP、cron、browser、vision、TTS — 打进同一 wheel |
 
@@ -92,7 +92,7 @@
 | `agent/`、`run_agent.py`、`model_tools.py`、`toolsets.py` | Agent 循环与工具编排 |
 | `tools/`（含 environments） | terminal / file / web / browser / vision / TTS 等 |
 | `hermes_cli/` | CLI + `serve`；去掉仅服务前端的入口（见 4.3） |
-| `tui_gateway/` | WS/stdio JSON-RPC（必须保留） |
+| `tui_gateway/` | JSON-RPC dispatch 层；`/api/ws` 路由在 web_server.py，内部 `from tui_gateway.ws import handle_ws` 转发——**不能删除**（见 §8 与 prune 冲突） |
 | `gateway/` + `plugins/platforms/` | 消息平台网关 |
 | `acp_adapter/` | ACP |
 | `cron/` | 定时任务与守护 |
@@ -166,6 +166,7 @@ rt = HermesRuntime(
 
 info: RuntimeInfo = rt.start(timeout_s=60)
 # info.ws_url, info.base_url, info.token, info.port, info.pid
+# token = SDK 生成并经 HERMES_DASHBOARD_SESSION_TOKEN 注入（非 serve 输出，见 §5.3）
 
 rt.stop(grace_s=10)
 # also: with HermesRuntime(...) as rt: ...
@@ -183,9 +184,15 @@ rt.stop(grace_s=10)
 xhermes [--profile P] serve --host 127.0.0.1 --port 0
 ```
 
-环境：`HERMES_HOME` / profile；`HERMES_SERVE_HEADLESS=1`（与 `serve` 默认 headless 对齐，双保险）。
+环境：`HERMES_HOME` / profile；`HERMES_SERVE_HEADLESS=1`（serve 自动设置，SDK 双保险）；**`HERMES_DASHBOARD_SESSION_TOKEN=<sdk_token>`（SDK 生成，见下）**。
 
-Ready：解析子进程输出中的 `HERMES_BACKEND_READY`（端口 + token），拼 `ws_url`。超时 → 杀子进程并抛 `RuntimeStartError`（附最后 N 行日志）。
+Ready + token 机制（代码核查确认，修正初稿"端口 + token"表述）：
+- serve headless 输出 `HERMES_BACKEND_READY port=<n>`，**只含 port，不含 token**（`web_server.py:17536-17541` 注释明确 headless "不广播连接 URL，只 announce bind"）
+- WS `/api/ws` 在 loopback 下**仍需 `?token=<_SESSION_TOKEN>`**（`_ws_auth_reason` L14653-14658；HTTP 页面 loopback 免 auth，但 WS 不免——初稿"loopback 免 token"假设不成立）
+- `_SESSION_TOKEN` 优先读 `HERMES_DASHBOARD_SESSION_TOKEN` env，否则随机生成（L301）
+- **SDK 方案**：spawn 前 SDK 生成 `token = secrets.token_urlsafe(32)`，设 `HERMES_DASHBOARD_SESSION_TOKEN` env 传入 serve → 解析 ready 行拿 port → 拼 `ws://127.0.0.1:<port>/api/ws?token=<token>` 连接。token 由 SDK 主动注入，无需 serve 输出。
+
+超时 → 杀子进程并抛 `RuntimeStartError`（附最后 N 行日志）。
 
 进程管理：优先进程组 / `start_new_session`；文档要求宿主退出钩子调用 `stop`；可选 PID 文件便于回收。
 
@@ -258,7 +265,7 @@ Host exit: rt.stop()
 
 | 文档 | 关系 |
 |------|------|
-| `2026-08-03-cli-tui-prune-design.md` | **冲突点作废**：删除 `tui_gateway`、整删 `web_server` **不适用于本方案**。删除 `apps` / `ui-tui` / `web` / `website` 的方向可保留，但以本 spec 为准。该文档应加脚注指向本文。 |
+| `2026-08-03-cli-tui-prune-design.md` | **tui_gateway 与 web_server.py 不能删**：`/api/ws` 路由在 web_server.py、dispatch 在 tui_gateway.ws（`from tui_gateway.ws import handle_ws`），二者是本方案协议面的必需组件。prune v3 的"删 tui_gateway + 删 web_server.py"与本方案**直接对立**——二者是**互斥发行形态**：prune = 纯 CLI 裁剪（无 WS 协议面），本方案 = headless wheel（保留 WS 协议面），**不可叠加到同一发行版**。prune 文档应加脚注：若需 headless wheel 发行形态，其"删 tui_gateway/web_server"任务撤销。 |
 | `2026-08-03-pkg-wrap-installsh-design.md` | 正交（macOS pkg 薄壳 ≠ pip wheel）。 |
 | 现有 `xhermes-agent` 包 | 本方案是发行形态收敛，不是重写 agent。 |
 
@@ -271,7 +278,7 @@ Host exit: rt.stop()
 | 单包体积大、安装慢 | 文档如实说明；extras 减肥列为未来工作，不在本范围 |
 | 宿主未 stop 残留进程 | 进程组 + 退出钩子文档 + 可选 PID 文件 |
 | ready 行格式变更 | 与 Desktop 共用约定 + 单测锁格式 |
-| 与「删 tui_gateway」裁剪并行 | **本 spec 优先**；冲突时保留 gateway |
+| 与「删 tui_gateway」裁剪并行 | **tui_gateway 不能删**（`/api/ws` 依赖 `tui_gateway.ws` dispatch）；二者互斥发行形态，见 §8 |
 | 全量依赖供应链面大 | 继续遵守现有 pin 策略；不在本设计放宽 pin |
 
 ---
