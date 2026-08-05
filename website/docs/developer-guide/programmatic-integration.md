@@ -60,6 +60,8 @@ terminal.resize         clipboard.paste         image.attach
 
 `message.delta`, `message.complete`, `tool.start`, `tool.progress`, `tool.complete`, `approval.request`, `clarify.request`, `sudo.request`, `sudo.expire`, `secret.request`, `secret.expire`, `gateway.ready`, plus session lifecycle and error events. Expiry events carry the original `{ request_id }`; external hosts should clear only the matching pending prompt.
 
+**Desktop deep dive:** how Electron spawns `xhermes serve`, how the renderer maps the event stream into tool rows, and the full method/event walkthrough — see [Desktop ↔ Agent Gateway Protocol](./desktop-gateway-protocol.md).
+
 ### Pi-style RPC mapping
 
 Every command in the Pi-mono RPC spec ([issue #360](https://github.com/NousResearch/xhermes-agent/issues/360)) has a TUI-gateway equivalent:

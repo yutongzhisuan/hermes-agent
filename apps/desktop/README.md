@@ -127,6 +127,8 @@ Before changing the app, read:
   transport, performance, and testing rules.
 - [`DESIGN.md`](./DESIGN.md): visual system, information architecture, motion,
   direct manipulation, and keyboard behavior.
+- [Desktop ↔ Agent Gateway Protocol](../../website/docs/developer-guide/desktop-gateway-protocol.md):
+  WebSocket JSON-RPC, RPC/event catalogs, and how live tool progress reaches the UI.
 
 ### Connections, projects, and switching
 
