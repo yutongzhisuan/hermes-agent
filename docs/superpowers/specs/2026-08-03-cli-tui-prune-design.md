@@ -1,9 +1,15 @@
 # xhermes-agent CLI 目录裁剪设计文档
 
 - **日期**: 2026-08-03
-- **状态**: 待审核（v3：移除 TUI）
+- **状态**: 部分作废 / 需对照新 spec（v3：移除 TUI）
 - **基准**: xhermes-agent v0.19.x（xhermes fork 工作区）
 - **目标**: 裁剪 xhermes-agent 仓库，只保留 CLI（`xhermes` 交互命令），移除桌面端、Web Dashboard、TUI、文档站及其配套代码
+
+> **2026-08-05 冲突说明**：若目标是「pip wheel 供第三方桌面端经 WS JSON-RPC 调用」，见
+> [`2026-08-05-headless-agent-wheel-design.md`](./2026-08-05-headless-agent-wheel-design.md)。
+> 该方案 **必须保留** `tui_gateway/`（及 headless `serve` / `web_server` 挂载路径）。
+> 本文中「删除 `tui_gateway` / 整删 `web_server`」条款对该目标 **不适用**；
+> 删除 `apps/` / `ui-tui/` / `web/` / `website/` 的方向仍可与之对齐。
 
 ## 1. 背景与目标
 
