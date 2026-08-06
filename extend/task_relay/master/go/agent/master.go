@@ -286,14 +286,19 @@ func (m *Master) Close() error {
 }
 
 // Run executes one user goal and returns the final assistant text.
-// Pass WithVerbose(os.Stderr) to print the full agent interaction flow.
+// Pass WithVerbose(os.Stderr) for AgentEvent text traces and/or WithSlog for
+// ChatModel/Tool slog callbacks; both may be enabled together.
 func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (string, error) {
 	cfg := applyRunOptions(opts)
 	if cfg.verbose != nil {
 		fmt.Fprintf(cfg.verbose, "=== master run start local_only=%v goal=%q ===\n", m.LocalOnly, goal)
 	}
 
-	iter := m.Runner.Query(ctx, goal)
+	var queryOpts []adk.AgentRunOption
+	if len(cfg.callbacks) > 0 {
+		queryOpts = append(queryOpts, adk.WithCallbacks(cfg.callbacks...))
+	}
+	iter := m.Runner.Query(ctx, goal, queryOpts...)
 	var last string
 	step := 0
 	for {

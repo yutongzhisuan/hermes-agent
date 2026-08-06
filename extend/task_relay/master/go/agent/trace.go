@@ -3,9 +3,11 @@ package agent
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -13,7 +15,8 @@ import (
 type RunOption func(*runOptions)
 
 type runOptions struct {
-	verbose io.Writer
+	verbose   io.Writer
+	callbacks []callbacks.Handler
 }
 
 // WithVerbose prints every agent interaction event to w (typically os.Stderr).
@@ -21,6 +24,18 @@ func WithVerbose(w io.Writer) RunOption {
 	return func(o *runOptions) {
 		o.verbose = w
 	}
+}
+
+// WithCallbacks attaches Eino callback handlers to Runner.Query (ChatModel/Tool etc.).
+func WithCallbacks(handlers ...callbacks.Handler) RunOption {
+	return func(o *runOptions) {
+		o.callbacks = append(o.callbacks, handlers...)
+	}
+}
+
+// WithSlog logs ChatModel and Tool lifecycle via slog (coexists with WithVerbose).
+func WithSlog(logger *slog.Logger) RunOption {
+	return WithCallbacks(NewSlogCallbackHandler(logger))
 }
 
 func applyRunOptions(opts []RunOption) runOptions {

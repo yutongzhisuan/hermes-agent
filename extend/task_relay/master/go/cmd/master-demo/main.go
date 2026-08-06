@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/infa/task_relay/master/agent"
@@ -31,10 +32,12 @@ func main() {
 	otelEndpoint := flag.String("otel-endpoint", envOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""), "OTLP trace exporter endpoint")
 	timeout := flag.Duration("timeout", 2*time.Minute, "Overall execution timeout")
 	verbose := flag.Bool("verbose", false, "Print full agent interaction flow to stderr")
+	logLevel := flag.String("log-level", "info", "slog level: debug|info|warn|error|off")
+	logJSON := flag.Bool("log-json", false, "Emit JSON slog to stderr")
 	flag.Parse()
 
 	if *goal == "" {
-		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-hub-grpc addr] [-master-jwt token] [-verbose]")
+		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-hub-grpc addr] [-master-jwt token] [-verbose] [-log-level info] [-log-json]")
 		fmt.Fprintln(os.Stderr, "omit -hub-grpc/-master-jwt to handle the goal locally in this process")
 		os.Exit(2)
 	}
@@ -83,7 +86,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "mode: remote Relay via Hub")
 	}
 
-	answer, err := master.Run(ctx, *goal, runOpts(*verbose)...)
+	opts, err := runOpts(*verbose, *logLevel, *logJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "log config: %v\n", err)
+		os.Exit(2)
+	}
+	answer, err := master.Run(ctx, *goal, opts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "run master: %v\n", err)
 		os.Exit(1)
@@ -91,11 +99,20 @@ func main() {
 	fmt.Println(answer)
 }
 
-func runOpts(verbose bool) []agent.RunOption {
-	if !verbose {
-		return nil
+func runOpts(verbose bool, logLevel string, logJSON bool) ([]agent.RunOption, error) {
+	var opts []agent.RunOption
+	if verbose {
+		opts = append(opts, agent.WithVerbose(os.Stderr))
 	}
-	return []agent.RunOption{agent.WithVerbose(os.Stderr)}
+	if strings.EqualFold(strings.TrimSpace(logLevel), "off") {
+		return opts, nil
+	}
+	logger, err := agent.NewSlogLogger(os.Stderr, logLevel, logJSON)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, agent.WithSlog(logger))
+	return opts, nil
 }
 
 func envOr(key, fallback string) string {
