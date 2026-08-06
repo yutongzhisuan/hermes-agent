@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
@@ -13,9 +15,7 @@ import (
 func TestSQLiteRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "relay.db")
 	db, err := store.OpenSQLite(path)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
 	ctx := context.Background()
@@ -26,11 +26,10 @@ func TestSQLiteRoundTrip(t *testing.T) {
 		Status:        router.StatusPending,
 		CreatedAt:     time.Unix(100, 0),
 	}
-	if err := db.InsertTask(ctx, task); err != nil {
-		t.Fatalf("insert: %v", err)
-	}
+	require.NoError(t, db.InsertTask(ctx, task))
+
 	got, err := db.GetTask(ctx, "s1")
-	if err != nil || got == nil || got.Goal != "goal" {
-		t.Fatalf("get: %+v err=%v", got, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, "goal", got.Goal)
 }

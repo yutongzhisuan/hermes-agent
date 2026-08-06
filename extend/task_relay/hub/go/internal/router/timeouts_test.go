@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
@@ -19,17 +21,14 @@ func TestTickTimeoutsQueueTimeout(t *testing.T) {
 		TaskID: "q1", Goal: "wait", CallbackTopic: "topic-1",
 		Status: router.StatusPending, CreatedAt: past, QueueDeadlineAt: past,
 	}
-	if err := mem.InsertTask(ctx, task); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mem.InsertTask(ctx, task))
 
-	if err := r.TickTimeouts(ctx); err != nil {
-		t.Fatal(err)
-	}
-	stored, _ := mem.GetTask(ctx, "q1")
-	if stored.Status != router.StatusLost || stored.Summary != "queue timeout" {
-		t.Fatalf("unexpected task after queue timeout: %+v", stored)
-	}
+	require.NoError(t, r.TickTimeouts(ctx))
+
+	stored, err := mem.GetTask(ctx, "q1")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusLost, stored.Status)
+	require.Equal(t, "queue timeout", stored.Summary)
 }
 
 func TestTickTimeoutsFirstProgressTimeout(t *testing.T) {
@@ -43,17 +42,14 @@ func TestTickTimeoutsFirstProgressTimeout(t *testing.T) {
 		Status: router.StatusRunning, Attempt: 1, CreatedAt: past,
 		FirstProgressDeadlineAt: past,
 	}
-	if err := mem.InsertTask(ctx, task); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mem.InsertTask(ctx, task))
 
-	if err := r.TickTimeouts(ctx); err != nil {
-		t.Fatal(err)
-	}
-	stored, _ := mem.GetTask(ctx, "fp1")
-	if stored.Status != router.StatusLost || stored.Summary != "first progress timeout" {
-		t.Fatalf("unexpected task after first progress timeout: %+v", stored)
-	}
+	require.NoError(t, r.TickTimeouts(ctx))
+
+	stored, err := mem.GetTask(ctx, "fp1")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusLost, stored.Status)
+	require.Equal(t, "first progress timeout", stored.Summary)
 }
 
 func TestTickTimeoutsLeaseEntersCancelling(t *testing.T) {
@@ -69,15 +65,12 @@ func TestTickTimeoutsLeaseEntersCancelling(t *testing.T) {
 		Status: router.StatusRunning, Attempt: 1, CreatedAt: past,
 		ClaimExpiresAt: past,
 	}
-	if err := mem.InsertTask(ctx, task); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mem.InsertTask(ctx, task))
 
-	if err := r.TickTimeouts(ctx); err != nil {
-		t.Fatal(err)
-	}
-	stored, _ := mem.GetTask(ctx, "lease1")
-	if stored.Status != router.StatusCancelling || stored.CancelReason != "execution timeout" {
-		t.Fatalf("unexpected task after lease timeout: %+v", stored)
-	}
+	require.NoError(t, r.TickTimeouts(ctx))
+
+	stored, err := mem.GetTask(ctx, "lease1")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusCancelling, stored.Status)
+	require.Equal(t, "execution timeout", stored.CancelReason)
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
@@ -18,21 +20,19 @@ func TestDispatchTaskBatchIdempotent(t *testing.T) {
 	}
 
 	first, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs, false)
-	if err != nil || first.IdempotentHit || len(first.Tasks) != 2 {
-		t.Fatalf("first batch: %+v err=%v", first, err)
-	}
+	require.NoError(t, err)
+	require.False(t, first.IdempotentHit)
+	require.Len(t, first.Tasks, 2)
 
 	second, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", specs, false)
-	if err != nil || !second.IdempotentHit || len(second.Tasks) != 2 {
-		t.Fatalf("second batch: %+v err=%v", second, err)
-	}
+	require.NoError(t, err)
+	require.True(t, second.IdempotentHit)
+	require.Len(t, second.Tasks, 2)
 
-	conflict, err := r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", []router.TaskSpec{
+	_, err = r.DispatchTaskBatch(ctx, "batch-1", "batch-topic", "", "sess", []router.TaskSpec{
 		{TaskID: "b1-t1", Goal: "changed", CallbackTopic: "batch-topic"},
 	}, false)
-	if err == nil {
-		t.Fatalf("expected spec hash conflict, got %+v", conflict)
-	}
+	require.Error(t, err)
 }
 
 func TestDispatchTaskBatchSetsBatchIDOnTasks(t *testing.T) {
@@ -42,11 +42,9 @@ func TestDispatchTaskBatchSetsBatchIDOnTasks(t *testing.T) {
 	_, err := r.DispatchTaskBatch(ctx, "batch-2", "topic", "", "sess", []router.TaskSpec{
 		{TaskID: "b2-t1", Goal: "goal"},
 	}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	task, err := r.GetTask(ctx, "b2-t1")
-	if err != nil || task.BatchID != "batch-2" {
-		t.Fatalf("task batch_id: %+v err=%v", task, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "batch-2", task.BatchID)
 }

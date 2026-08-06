@@ -3,8 +3,10 @@ package client_test
 import (
 	"testing"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/require"
+
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 func TestNewMetricsRegistersCollectors(t *testing.T) {
@@ -14,19 +16,13 @@ func TestNewMetricsRegistersCollectors(t *testing.T) {
 	metrics.DispatchesTotal.WithLabelValues("TASK_STATUS_PENDING", "false").Inc()
 
 	families, err := reg.Gather()
-	if err != nil {
-		t.Fatalf("gather: %v", err)
-	}
-	if len(families) < 2 {
-		t.Fatalf("expected metrics families, got %d", len(families))
-	}
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(families), 2)
 }
 
 func TestTLSConfigValidation(t *testing.T) {
 	_, err := client.LoadTransportCredentials(client.TLSConfig{
 		CertFile: "/tmp/cert.pem",
 	})
-	if err == nil {
-		t.Fatal("expected error when cert without key/ca")
-	}
+	require.Error(t, err)
 }

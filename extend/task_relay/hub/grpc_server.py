@@ -294,9 +294,7 @@ class TaskRelayService(TaskRelayBase):
                 await self._router.on_cancel(
                     task_id,
                     reason=request.reason or "cancelled by master",
-                    grace_seconds=request.grace_seconds
-                    if request.HasField("grace_seconds")
-                    else None,
+                    grace_seconds=request.grace_seconds if request.grace_seconds > 0 else None,
                 )
             except TaskRouterError as e:
                 raise GRPCError(Status.INVALID_ARGUMENT, str(e)) from e

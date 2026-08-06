@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
@@ -21,27 +23,18 @@ func TestOnCheckpointPersistsAndExtendsLease(t *testing.T) {
 		FirstProgressDeadlineAt: now.Add(time.Minute),
 		ClaimExpiresAt:          now.Add(time.Minute),
 	}
-	if err := mem.InsertTask(ctx, task); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mem.InsertTask(ctx, task))
 
-	if err := r.OnCheckpoint(ctx, "cp1", "ckpt-1", "half done", "", []byte("blob")); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, r.OnCheckpoint(ctx, "cp1", "ckpt-1", "half done", "", []byte("blob")))
 
-	stored, _ := mem.GetTask(ctx, "cp1")
-	if !stored.FirstProgressDeadlineAt.IsZero() {
-		t.Fatalf("expected first progress deadline cleared: %+v", stored)
-	}
-	if !stored.ClaimExpiresAt.After(now.Add(30 * time.Second)) {
-		t.Fatalf("expected lease extension: %+v", stored.ClaimExpiresAt)
-	}
+	stored, err := mem.GetTask(ctx, "cp1")
+	require.NoError(t, err)
+	require.True(t, stored.FirstProgressDeadlineAt.IsZero())
+	require.True(t, stored.ClaimExpiresAt.After(now.Add(30*time.Second)))
 
 	checkpoint, err := r.GetLatestCheckpoint(ctx, "cp1")
-	if err != nil || checkpoint == nil {
-		t.Fatalf("checkpoint: %+v err=%v", checkpoint, err)
-	}
-	if checkpoint.CheckpointID != "ckpt-1" || checkpoint.Summary != "half done" {
-		t.Fatalf("unexpected checkpoint: %+v", checkpoint)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, checkpoint)
+	require.Equal(t, "ckpt-1", checkpoint.CheckpointID)
+	require.Equal(t, "half done", checkpoint.Summary)
 }

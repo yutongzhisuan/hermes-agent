@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
@@ -16,13 +18,13 @@ func TestDispatchTaskIdempotent(t *testing.T) {
 	spec := router.TaskSpec{TaskID: "t1", Goal: "hello", CallbackTopic: "topic-1"}
 
 	first, err := r.DispatchTask(ctx, spec, "test-session", false)
-	if err != nil || first.IdempotentHit {
-		t.Fatalf("first dispatch: %+v err=%v", first, err)
-	}
+	require.NoError(t, err)
+	require.False(t, first.IdempotentHit)
+
 	second, err := r.DispatchTask(ctx, spec, "test-session", false)
-	if err != nil || !second.IdempotentHit || second.Status != router.StatusPending {
-		t.Fatalf("second dispatch: %+v err=%v", second, err)
-	}
+	require.NoError(t, err)
+	require.True(t, second.IdempotentHit)
+	require.Equal(t, router.StatusPending, second.Status)
 }
 
 func TestCompleteTerminalTransition(t *testing.T) {
@@ -33,22 +35,19 @@ func TestCompleteTerminalTransition(t *testing.T) {
 		TaskID: "t2", Goal: "run", CallbackTopic: "topic-1",
 		Status: router.StatusRunning, Attempt: 1, CreatedAt: time.Unix(1_700_000_000, 0),
 	}
-	if err := mem.InsertTask(ctx, task); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mem.InsertTask(ctx, task))
 
 	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Complete(ctx, "t2", router.StatusCompleted, "done", router.CompleteInput{})
-	if err != nil || resp.IdempotentHit || resp.Status != router.StatusCompleted {
-		t.Fatalf("complete: %+v err=%v", resp, err)
-	}
-	stored, _ := mem.GetTask(ctx, "t2")
-	if stored.Summary != "done" || stored.Status != router.StatusCompleted {
-		t.Fatalf("stored task: %+v", stored)
-	}
+	require.NoError(t, err)
+	require.False(t, resp.IdempotentHit)
+	require.Equal(t, router.StatusCompleted, resp.Status)
+
+	stored, err := mem.GetTask(ctx, "t2")
+	require.NoError(t, err)
+	require.Equal(t, "done", stored.Summary)
+	require.Equal(t, router.StatusCompleted, stored.Status)
 }
 
 func TestValidateTransitionRejectsIllegal(t *testing.T) {
-	if err := router.ValidateTransition(router.StatusPending, router.StatusCompleted); err == nil {
-		t.Fatal("expected illegal pending->completed transition")
-	}
+	require.Error(t, router.ValidateTransition(router.StatusPending, router.StatusCompleted))
 }

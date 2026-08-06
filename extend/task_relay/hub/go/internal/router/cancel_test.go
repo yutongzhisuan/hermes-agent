@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
 )
@@ -18,19 +20,17 @@ func TestCancelPendingTask(t *testing.T) {
 		TaskID: "cancel-1",
 		Goal:   "cancel me",
 	}, "test-session", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	resp, err := r.Cancel(ctx, "cancel-1", "test cancel", 0)
-	if err != nil || resp.IdempotentHit || resp.Status != router.StatusCancelled {
-		t.Fatalf("cancel: %+v err=%v", resp, err)
-	}
+	require.NoError(t, err)
+	require.False(t, resp.IdempotentHit)
+	require.Equal(t, router.StatusCancelled, resp.Status)
 
-	stored, _ := mem.GetTask(ctx, "cancel-1")
-	if stored.Status != router.StatusCancelled || stored.Summary != "test cancel" {
-		t.Fatalf("stored: %+v", stored)
-	}
+	stored, err := mem.GetTask(ctx, "cancel-1")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusCancelled, stored.Status)
+	require.Equal(t, "test cancel", stored.Summary)
 }
 
 func TestCancelRunningTaskEntersCancelling(t *testing.T) {
@@ -40,12 +40,9 @@ func TestCancelRunningTaskEntersCancelling(t *testing.T) {
 		TaskID: "cancel-2", Goal: "run", CallbackTopic: "topic",
 		Status: router.StatusRunning, Attempt: 1, CreatedAt: time.Unix(1_700_000_000, 0),
 	}
-	if err := mem.InsertTask(ctx, task); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, mem.InsertTask(ctx, task))
 
 	resp, err := router.NewRouter(mem, nil, router.DefaultRouterConfig()).Cancel(ctx, "cancel-2", "stop", 0)
-	if err != nil || resp.Status != router.StatusCancelling {
-		t.Fatalf("cancel running: %+v err=%v", resp, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, router.StatusCancelling, resp.Status)
 }

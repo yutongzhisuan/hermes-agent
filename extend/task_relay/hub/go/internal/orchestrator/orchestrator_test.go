@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/orchestrator"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
@@ -33,22 +35,21 @@ func TestDAGBlocksClaimUntilDependencyCompletes(t *testing.T) {
 		{TaskID: "a1", Goal: "first"},
 		{TaskID: "a2", Goal: "second", DependsOn: []string{"a1"}},
 	}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	reg.Announce(ctx, registry.AnnounceInput{WorkerID: "w1", SessionModes: []string{"A"}, MaxConcurrent: 2})
 
 	claimed, err := rt.ClaimForPoll(ctx, "w1", 2, nil)
-	if err != nil || len(claimed) != 1 || claimed[0].TaskID != "a1" {
-		t.Fatalf("expected only a1 claimed: %+v err=%v", claimed, err)
-	}
-	if _, err := rt.Complete(ctx, "a1", router.StatusCompleted, "done", router.CompleteInput{}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+	require.Equal(t, "a1", claimed[0].TaskID)
+
+	_, err = rt.Complete(ctx, "a1", router.StatusCompleted, "done", router.CompleteInput{})
+	require.NoError(t, err)
+
 	claimed2, err := rt.ClaimForPoll(ctx, "w1", 1, nil)
-	if err != nil || len(claimed2) != 1 || claimed2[0].TaskID != "a2" {
-		t.Fatalf("expected a2 claimed: %+v err=%v", claimed2, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, claimed2, 1)
+	require.Equal(t, "a2", claimed2[0].TaskID)
 }
 
 func TestFailFastCancelsBatchSibling(t *testing.T) {
@@ -64,18 +65,15 @@ func TestFailFastCancelsBatchSibling(t *testing.T) {
 		{TaskID: "f1", Goal: "one"},
 		{TaskID: "f2", Goal: "two"},
 	}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	reg.Announce(ctx, registry.AnnounceInput{WorkerID: "w1", SessionModes: []string{"A"}, MaxConcurrent: 1})
-	if _, err := rt.ClaimForPoll(ctx, "w1", 1, nil); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := rt.Complete(ctx, "f1", router.StatusFailed, "fail", router.CompleteInput{}); err != nil {
-		t.Fatal(err)
-	}
-	sibling, _ := mem.GetTask(ctx, "f2")
-	if sibling.Status != router.StatusCancelled {
-		t.Fatalf("expected cancelled sibling: %+v", sibling)
-	}
+
+	_, err = rt.ClaimForPoll(ctx, "w1", 1, nil)
+	require.NoError(t, err)
+	_, err = rt.Complete(ctx, "f1", router.StatusFailed, "fail", router.CompleteInput{})
+	require.NoError(t, err)
+
+	sibling, err := mem.GetTask(ctx, "f2")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusCancelled, sibling.Status)
 }

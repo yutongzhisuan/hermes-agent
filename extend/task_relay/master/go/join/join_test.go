@@ -5,9 +5,11 @@ import (
 	"io"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/metadata"
+
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 	"github.com/infa/xhermes-agent/extend/task_relay/master/go/join"
-	"google.golang.org/grpc/metadata"
 )
 
 type fakeWatchStream struct {
@@ -48,12 +50,9 @@ func TestCollectModeAllWaitsForEveryTerminal(t *testing.T) {
 		},
 	}
 	out, err := join.Collect(context.Background(), stream, []string{"t1", "t2"}, join.Policy{Mode: join.ModeAll})
-	if err != nil {
-		t.Fatalf("collect: %v", err)
-	}
-	if !out.Satisfied || len(out.Results) != 2 {
-		t.Fatalf("expected both terminals, got %+v", out)
-	}
+	require.NoError(t, err)
+	require.True(t, out.Satisfied)
+	require.Len(t, out.Results, 2)
 }
 
 func TestCollectModeAnyStopsOnFirstSuccess(t *testing.T) {
@@ -64,20 +63,16 @@ func TestCollectModeAnyStopsOnFirstSuccess(t *testing.T) {
 		},
 	}
 	out, err := join.Collect(context.Background(), stream, []string{"t1", "t2"}, join.Policy{Mode: join.ModeAny})
-	if err != nil {
-		t.Fatalf("collect: %v", err)
-	}
-	if !out.Satisfied || len(out.Results) != 1 {
-		t.Fatalf("expected early exit after one success, got %+v", out)
-	}
+	require.NoError(t, err)
+	require.True(t, out.Satisfied)
+	require.Len(t, out.Results, 1)
 }
 
 func TestFromBatchPolicyThreshold(t *testing.T) {
 	policy := join.FromBatchPolicy(&pb.BatchPolicy{
-		CompletionMode:  pb.BatchPolicy_COMPLETION_MODE_THRESHOLD,
+		CompletionMode:   pb.BatchPolicy_COMPLETION_MODE_THRESHOLD,
 		SuccessThreshold: 2,
 	})
-	if policy.Mode != join.ModeThreshold || policy.SuccessThreshold != 2 {
-		t.Fatalf("unexpected policy: %+v", policy)
-	}
+	require.Equal(t, join.ModeThreshold, policy.Mode)
+	require.Equal(t, 2, policy.SuccessThreshold)
 }

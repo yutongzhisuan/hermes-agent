@@ -2,370 +2,167 @@ package hub_test
 
 import (
 	"context"
-	"net"
-	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/config"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/grpcserver"
-	gohub "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/hub"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/testutil"
 	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/test/bufconn"
 )
 
-const bufSize = 1024 * 1024
-
-func startTestHubGRPC(t *testing.T) (*gohub.Hub, func(context.Context, string) (net.Conn, error), func()) {
-	t.Helper()
-	cfg := config.Config{
-		Host:        "127.0.0.1",
-		GRPCPort:    0,
-		DBPath:      filepath.Join(t.TempDir(), "relay.db"),
-		JWTSecret:   "secret",
-		JWTIssuer:   "xhermes-relay-hub",
-		JWTAudience: "task-relay-hub",
-	}
-	h, err := gohub.New(cfg)
-	if err != nil {
-		t.Fatalf("new hub: %v", err)
-	}
-	t.Cleanup(func() { _ = h.Close() })
-
-	lis := bufconn.Listen(bufSize)
-	srv := grpc.NewServer(
-		grpc.UnaryInterceptor(grpcserver.MasterAuthUnaryInterceptor(h.Auth())),
-		grpc.StreamInterceptor(grpcserver.MasterAuthStreamInterceptor(h.Auth())),
-	)
-	pb.RegisterTaskRelayServer(srv, grpcserver.New(h.Router(), h.EventBus(), h.Registry(), h.Delivery(), h.Router().Config()))
-	go srv.Serve(lis)
-	t.Cleanup(srv.Stop)
-
-	dialer := func(context.Context, string) (net.Conn, error) {
-		return lis.Dial()
-	}
-	return h, dialer, func() {}
-}
-
 func TestGoHubGRPCDispatchTask(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
 	resp, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId:        "go-hub-1",
 		Goal:          "dispatch via go hub",
 		CallbackTopic: "topic-go-hub",
 	}, "sess", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
-	if resp.IdempotentHit || resp.Status != pb.TaskStatus_TASK_STATUS_PENDING {
-		t.Fatalf("unexpected dispatch response: %+v", resp)
-	}
+	require.NoError(t, err)
+	require.False(t, resp.IdempotentHit)
+	require.Equal(t, pb.TaskStatus_TASK_STATUS_PENDING, resp.Status)
 
 	again, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId: "go-hub-1",
 		Goal:   "dispatch via go hub",
 	}, "sess", false)
-	if err != nil || !again.IdempotentHit {
-		t.Fatalf("idempotent dispatch: %+v err=%v", again, err)
-	}
+	require.NoError(t, err)
+	require.True(t, again.IdempotentHit)
 }
 
 func TestGoHubGRPCGetTaskResult(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
-	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+	_, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId: "go-hub-result-1",
 		Goal:   "get result",
 	}, "sess", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
+	require.NoError(t, err)
 
 	pending, err := master.GetTaskResult(ctx, "go-hub-result-1", false)
-	if err != nil {
-		t.Fatalf("get pending result: %v", err)
-	}
-	if pending.Status != pb.TaskStatus_TASK_STATUS_PENDING || pending.TaskId != "go-hub-result-1" {
-		t.Fatalf("unexpected pending result: %+v", pending)
-	}
+	require.NoError(t, err)
+	require.Equal(t, pb.TaskStatus_TASK_STATUS_PENDING, pending.Status)
+	require.Equal(t, "go-hub-result-1", pending.TaskId)
 
 	_, err = h.Router().Complete(ctx, "go-hub-result-1", router.StatusLost, "worker timeout", router.CompleteInput{})
-	if err != nil {
-		t.Fatalf("complete: %v", err)
-	}
+	require.NoError(t, err)
 
 	completed, err := master.GetTaskResult(ctx, "go-hub-result-1", false)
-	if err != nil {
-		t.Fatalf("get completed result: %v", err)
-	}
-	if completed.Status != pb.TaskStatus_TASK_STATUS_LOST || completed.Summary != "worker timeout" {
-		t.Fatalf("unexpected terminal result: %+v", completed)
-	}
+	require.NoError(t, err)
+	require.Equal(t, pb.TaskStatus_TASK_STATUS_LOST, completed.Status)
+	require.Equal(t, "worker timeout", completed.Summary)
 }
 
 func TestGoHubGRPCRequiresMasterJWT(t *testing.T) {
-	_, dialer, _ := startTestHubGRPC(t)
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
-
-	_, err = master.DispatchTask(ctx, &pb.TaskSpec{TaskId: "no-jwt"}, "sess", false)
-	if err == nil {
-		t.Fatal("expected unauthenticated dispatch without jwt")
-	}
+	master := testutil.NewMasterClient(t, ctx, dialer, "")
+	_, err := master.DispatchTask(ctx, &pb.TaskSpec{TaskId: "no-jwt"}, "sess", false)
+	require.Error(t, err)
 }
 
 func TestGoHubGRPCCancelTask(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
-	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+	_, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId: "go-hub-cancel-1",
 		Goal:   "cancel me",
 	}, "sess", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
+	require.NoError(t, err)
 
 	resp, err := master.CancelTask(ctx, &pb.CancelTaskRequest{
 		TaskId: "go-hub-cancel-1",
 		Reason: "test cancel",
 	})
-	if err != nil {
-		t.Fatalf("cancel: %v", err)
-	}
-	if len(resp.CancelledTaskIds) != 1 || resp.CancelledTaskIds[0] != "go-hub-cancel-1" {
-		t.Fatalf("unexpected cancel response: %+v", resp)
-	}
+	require.NoError(t, err)
+	require.Equal(t, []string{"go-hub-cancel-1"}, resp.CancelledTaskIds)
 
 	result, err := master.GetTaskResult(ctx, "go-hub-cancel-1", false)
-	if err != nil {
-		t.Fatalf("get result: %v", err)
-	}
-	if result.Status != pb.TaskStatus_TASK_STATUS_CANCELLED {
-		t.Fatalf("unexpected status: %+v", result)
-	}
+	require.NoError(t, err)
+	require.Equal(t, pb.TaskStatus_TASK_STATUS_CANCELLED, result.Status)
 }
 
 func TestGoHubGRPCWatchTask(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
 	taskID := "go-hub-watch-1"
-	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+	_, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId:        taskID,
 		Goal:          "watch me",
 		CallbackTopic: "watch-topic",
 	}, "sess", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
+	require.NoError(t, err)
 
 	stream, err := master.Watch(ctx, client.WatchFilter{TaskID: taskID})
-	if err != nil {
-		t.Fatalf("watch: %v", err)
-	}
+	require.NoError(t, err)
 
 	first, err := stream.Recv()
-	if err != nil {
-		t.Fatalf("recv status: %v", err)
-	}
-	if first.Kind != pb.TaskEventKind_TASK_EVENT_KIND_STATUS || first.TaskId != taskID {
-		t.Fatalf("unexpected first event: %+v", first)
-	}
+	require.NoError(t, err)
+	require.Equal(t, pb.TaskEventKind_TASK_EVENT_KIND_STATUS, first.Kind)
+	require.Equal(t, taskID, first.TaskId)
 
 	_, err = master.CancelTask(ctx, &pb.CancelTaskRequest{
 		TaskId: taskID,
 		Reason: "done watching",
 	})
-	if err != nil {
-		t.Fatalf("cancel: %v", err)
-	}
+	require.NoError(t, err)
 
 	second, err := stream.Recv()
-	if err != nil {
-		t.Fatalf("recv terminal: %v", err)
-	}
-	if second.Kind != pb.TaskEventKind_TASK_EVENT_KIND_TERMINAL {
-		t.Fatalf("unexpected terminal event: %+v", second)
-	}
+	require.NoError(t, err)
+	require.Equal(t, pb.TaskEventKind_TASK_EVENT_KIND_TERMINAL, second.Kind)
 }
 
 func TestGoHubGRPCListTasks(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
-	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+	_, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId:        "list-task-1",
 		Goal:          "listed",
 		CallbackTopic: "list-topic",
 	}, "sess", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
+	require.NoError(t, err)
 
 	list, err := master.ListTasks(ctx, &pb.ListTasksRequest{
 		CallbackTopic: "list-topic",
 		Limit:         10,
 	})
-	if err != nil {
-		t.Fatalf("list tasks: %v", err)
-	}
-	if len(list.Tasks) != 1 || list.Tasks[0].TaskId != "list-task-1" {
-		t.Fatalf("unexpected list: %+v", list)
-	}
+	require.NoError(t, err)
+	require.Len(t, list.Tasks, 1)
+	require.Equal(t, "list-task-1", list.Tasks[0].TaskId)
 }
 
 func TestGoHubGRPCDispatchTaskBatch(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
 	batch, err := master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
 		BatchId:       "go-batch-1",
@@ -375,9 +172,9 @@ func TestGoHubGRPCDispatchTaskBatch(t *testing.T) {
 			{TaskId: "go-batch-1-t2", Goal: "second"},
 		},
 	})
-	if err != nil || batch.IdempotentHit || len(batch.Tasks) != 2 {
-		t.Fatalf("dispatch batch: %+v err=%v", batch, err)
-	}
+	require.NoError(t, err)
+	require.False(t, batch.IdempotentHit)
+	require.Len(t, batch.Tasks, 2)
 
 	again, err := master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
 		BatchId:       "go-batch-1",
@@ -387,37 +184,19 @@ func TestGoHubGRPCDispatchTaskBatch(t *testing.T) {
 			{TaskId: "go-batch-1-t2", Goal: "second"},
 		},
 	})
-	if err != nil || !again.IdempotentHit || len(again.Tasks) != 2 {
-		t.Fatalf("idempotent batch: %+v err=%v", again, err)
-	}
+	require.NoError(t, err)
+	require.True(t, again.IdempotentHit)
+	require.Len(t, again.Tasks, 2)
 }
 
 func TestGoHubGRPCCancelBatch(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
-	_, err = master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
+	_, err := master.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
 		BatchId:       "go-batch-cancel",
 		CallbackTopic: "cancel-topic",
 		Specs: []*pb.TaskSpec{
@@ -425,21 +204,18 @@ func TestGoHubGRPCCancelBatch(t *testing.T) {
 			{TaskId: "go-batch-cancel-t2", Goal: "two"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("dispatch batch: %v", err)
-	}
+	require.NoError(t, err)
 
 	resp, err := master.CancelTask(ctx, &pb.CancelTaskRequest{
 		BatchId: "go-batch-cancel",
 		Reason:  "batch cancel",
 	})
-	if err != nil || len(resp.CancelledTaskIds) != 2 {
-		t.Fatalf("cancel batch: %+v err=%v", resp, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, resp.CancelledTaskIds, 2)
 }
 
 func TestGoHubGRPCListWorkers(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
+	h, dialer := testutil.StartTestHubGRPC(t)
 	h.Registry().Announce(context.Background(), registry.AnnounceInput{
 		WorkerID:      "worker-a",
 		SessionModes:  []string{"A", "C"},
@@ -448,76 +224,33 @@ func TestGoHubGRPCListWorkers(t *testing.T) {
 		Capabilities:  map[string]any{"os": "linux", "region": "ap-southeast-1"},
 	})
 
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
 	list, err := master.ListWorkers(ctx, &pb.ListWorkersRequest{
 		RequireToolsets: []string{"terminal"},
 	})
-	if err != nil {
-		t.Fatalf("list workers: %v", err)
-	}
-	if len(list.Workers) != 1 || list.Workers[0].WorkerId != "worker-a" {
-		t.Fatalf("unexpected workers: %+v", list)
-	}
-	if list.Workers[0].Region != "ap-southeast-1" {
-		t.Fatalf("unexpected region: %+v", list.Workers[0])
-	}
+	require.NoError(t, err)
+	require.Len(t, list.Workers, 1)
+	require.Equal(t, "worker-a", list.Workers[0].WorkerId)
+	require.Equal(t, "ap-southeast-1", list.Workers[0].Region)
 }
 
 func TestGoHubGRPCGetTaskResultWithCheckpoint(t *testing.T) {
-	h, dialer, _ := startTestHubGRPC(t)
-	token, err := h.Auth().IssueMasterJWT("master-1", time.Hour)
-	if err != nil {
-		t.Fatalf("issue jwt: %v", err)
-	}
-
-	dialOpts := []grpc.DialOption{
-		grpc.WithContextDialer(dialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	h, dialer := testutil.StartTestHubGRPC(t)
+	ctx, cancel := testutil.TestContext(t, 5*time.Second)
 	defer cancel()
 
-	master, err := client.New(ctx, client.Config{
-		Addr:      "passthrough:///bufnet",
-		MasterJWT: token,
-		ExtraDial: dialOpts,
-	})
-	if err != nil {
-		t.Fatalf("master client: %v", err)
-	}
-	t.Cleanup(func() { _ = master.Close() })
+	master := testutil.NewMasterClient(t, ctx, dialer, testutil.IssueMasterJWT(t, h, "master-1"))
 
 	taskID := "go-hub-checkpoint-1"
-	_, err = master.DispatchTask(ctx, &pb.TaskSpec{
+	_, err := master.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId: taskID,
 		Goal:   "checkpoint task",
 	}, "sess", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
+	require.NoError(t, err)
 
 	h.Registry().Announce(ctx, registry.AnnounceInput{
 		WorkerID:      "worker-cp",
@@ -525,21 +258,13 @@ func TestGoHubGRPCGetTaskResultWithCheckpoint(t *testing.T) {
 		MaxConcurrent: 1,
 	})
 	claimed, err := h.Router().ClaimForWorker(ctx, taskID, "worker-cp", nil)
-	if err != nil || claimed == nil {
-		t.Fatalf("claim: %+v err=%v", claimed, err)
-	}
-	if err := h.Router().OnCheckpoint(ctx, taskID, "ckpt-go-1", "saved", "", []byte("blob")); err != nil {
-		t.Fatalf("checkpoint: %v", err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+
+	require.NoError(t, h.Router().OnCheckpoint(ctx, taskID, "ckpt-go-1", "saved", "", []byte("blob")))
 
 	result, err := master.GetTaskResult(ctx, taskID, true)
-	if err != nil {
-		t.Fatalf("get result: %v", err)
-	}
-	if result.LatestCheckpointId != "ckpt-go-1" {
-		t.Fatalf("unexpected checkpoint id: %+v", result)
-	}
-	if result.Status != pb.TaskStatus_TASK_STATUS_RUNNING {
-		t.Fatalf("expected running status: %+v", result)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "ckpt-go-1", result.LatestCheckpointId)
+	require.Equal(t, pb.TaskStatus_TASK_STATUS_RUNNING, result.Status)
 }

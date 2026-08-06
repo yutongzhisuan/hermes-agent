@@ -15,12 +15,11 @@
 package taskrelayv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -2761,7 +2760,7 @@ type CancelTaskRequest struct {
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	BatchId       string                 `protobuf:"bytes,2,opt,name=batch_id,json=batchId,proto3" json:"batch_id,omitempty"` // optional: cancel every non-terminal task in batch
 	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
-	GraceSeconds  *int32                 `protobuf:"varint,4,opt,name=grace_seconds,json=graceSeconds,proto3,oneof" json:"grace_seconds,omitempty"` // overrides Hub cancel_grace_seconds (default 60)
+	GraceSeconds  int32                  `protobuf:"varint,4,opt,name=grace_seconds,json=graceSeconds,proto3" json:"grace_seconds,omitempty"` // 0 = use Hub cancel_grace_seconds default
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2818,8 +2817,8 @@ func (x *CancelTaskRequest) GetReason() string {
 }
 
 func (x *CancelTaskRequest) GetGraceSeconds() int32 {
-	if x != nil && x.GraceSeconds != nil {
-		return *x.GraceSeconds
+	if x != nil {
+		return x.GraceSeconds
 	}
 	return 0
 }
@@ -3221,13 +3220,12 @@ const file_task_relay_v1_proto_rawDesc = "" +
 	"\rrunning_tasks\x18\x01 \x01(\x05R\frunningTasks\x12\x1f\n" +
 	"\vcpu_percent\x18\x02 \x01(\x01R\n" +
 	"cpuPercent\x12%\n" +
-	"\x0ememory_percent\x18\x03 \x01(\x01R\rmemoryPercent\"\x9b\x01\n" +
+	"\x0ememory_percent\x18\x03 \x01(\x01R\rmemoryPercent\"\x84\x01\n" +
 	"\x11CancelTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bbatch_id\x18\x02 \x01(\tR\abatchId\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason\x12(\n" +
-	"\rgrace_seconds\x18\x04 \x01(\x05H\x00R\fgraceSeconds\x88\x01\x01B\x10\n" +
-	"\x0e_grace_seconds\"}\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\x12#\n" +
+	"\rgrace_seconds\x18\x04 \x01(\x05R\fgraceSeconds\"}\n" +
 	"\x12CancelTaskResponse\x12,\n" +
 	"\x12cancelled_task_ids\x18\x01 \x03(\tR\x10cancelledTaskIds\x129\n" +
 	"\x19already_terminal_task_ids\x18\x02 \x03(\tR\x16alreadyTerminalTaskIds\"_\n" +
@@ -3268,7 +3266,7 @@ const file_task_relay_v1_proto_rawDesc = "" +
 	"\vListWorkers\x12!.task_relay.v1.ListWorkersRequest\x1a\".task_relay.v1.ListWorkersResponse\x12N\n" +
 	"\tListTasks\x12\x1f.task_relay.v1.ListTasksRequest\x1a .task_relay.v1.ListTasksResponse\x12Q\n" +
 	"\n" +
-	"CancelTask\x12 .task_relay.v1.CancelTaskRequest\x1a!.task_relay.v1.CancelTaskResponseBCZAgithub.com/infa/xhermes-agent/extend/task_relay/gen/go;taskrelayv1b\x06proto3"
+	"CancelTask\x12 .task_relay.v1.CancelTaskRequest\x1a!.task_relay.v1.CancelTaskResponseBDZBgithub.com/infa/xhermes-agent/extend/task_relay/gen/go;taskrelayv1b\x06proto3"
 
 var (
 	file_task_relay_v1_proto_rawDescOnce sync.Once
@@ -3398,7 +3396,6 @@ func file_task_relay_v1_proto_init() {
 		(*WatchTaskRequest_BatchId)(nil),
 		(*WatchTaskRequest_TaskId)(nil),
 	}
-	file_task_relay_v1_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

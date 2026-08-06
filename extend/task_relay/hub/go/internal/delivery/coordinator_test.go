@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/delivery"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
@@ -39,25 +41,21 @@ func TestCoordinatorPushesPendingTaskOnCredit(t *testing.T) {
 		InitialCredit: &credit, OnlineSessionID: "sess-1", Pusher: pusher,
 	})
 
-	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
+	_, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-c-1", Goal: "push me", CallbackTopic: "topic-1",
-	}, "sess", false); err != nil {
-		t.Fatal(err)
-	}
+	}, "sess", false)
+	require.NoError(t, err)
 
 	coord.OnTaskPending(ctx, "mode-c-1")
-	if len(pusher.payloads) != 1 {
-		t.Fatalf("expected one push, got %d", len(pusher.payloads))
-	}
-	run, _ := pusher.payloads[0]["run"].(map[string]any)
-	if run["task_id"] != "mode-c-1" {
-		t.Fatalf("unexpected payload: %+v", pusher.payloads[0])
-	}
+	require.Len(t, pusher.payloads, 1)
+	run, ok := pusher.payloads[0]["run"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "mode-c-1", run["task_id"])
 
-	task, _ := mem.GetTask(ctx, "mode-c-1")
-	if task.Status != router.StatusRunning || task.WorkerID != "wc1" {
-		t.Fatalf("expected claimed running task: %+v", task)
-	}
+	task, err := mem.GetTask(ctx, "mode-c-1")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusRunning, task.Status)
+	require.Equal(t, "wc1", task.WorkerID)
 }
 
 func TestCoordinatorSkipsDrainingWorker(t *testing.T) {
@@ -75,18 +73,15 @@ func TestCoordinatorSkipsDrainingWorker(t *testing.T) {
 	})
 	reg.Drain(ctx, "wc2")
 
-	if _, err := rt.DispatchTask(ctx, router.TaskSpec{
+	_, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "mode-c-2", Goal: "skip me", CallbackTopic: "topic-1",
-	}, "sess", false); err != nil {
-		t.Fatal(err)
-	}
+	}, "sess", false)
+	require.NoError(t, err)
 
 	coord.OnTaskPending(ctx, "mode-c-2")
-	if len(pusher.payloads) != 0 {
-		t.Fatalf("expected no push to draining worker, got %+v", pusher.payloads)
-	}
-	task, _ := mem.GetTask(ctx, "mode-c-2")
-	if task.Status != router.StatusPending {
-		t.Fatalf("expected pending task: %+v", task)
-	}
+	require.Empty(t, pusher.payloads)
+
+	task, err := mem.GetTask(ctx, "mode-c-2")
+	require.NoError(t, err)
+	require.Equal(t, router.StatusPending, task.Status)
 }

@@ -4,33 +4,25 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextcrypto"
 )
 
 func TestShouldEncryptInlineOnly(t *testing.T) {
-	if !contextcrypto.ShouldEncrypt(`{"inline":"hello"}`) {
-		t.Fatal("expected inline to require encryption")
-	}
-	if contextcrypto.ShouldEncrypt(`{"ref":{"uri":"https://x"}}`) {
-		t.Fatal("expected ref to skip encryption")
-	}
+	require.True(t, contextcrypto.ShouldEncrypt(`{"inline":"hello"}`))
+	require.False(t, contextcrypto.ShouldEncrypt(`{"ref":{"uri":"https://x"}}`))
 }
 
 func TestEncryptDecryptRoundtrip(t *testing.T) {
 	original := `{"inline":"secret prompt"}`
 	stored, err := contextcrypto.EncryptContextJSON(original, "secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored == original {
-		t.Fatal("expected encrypted envelope")
-	}
+	require.NoError(t, err)
+	require.NotEqual(t, original, stored)
+
 	restored, err := contextcrypto.DecryptContextJSON(stored, "secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := json.Marshal(restored)
-	if string(raw) != original {
-		t.Fatalf("roundtrip mismatch: %s", string(raw))
-	}
+	require.NoError(t, err)
+	raw, err := json.Marshal(restored)
+	require.NoError(t, err)
+	require.JSONEq(t, original, string(raw))
 }

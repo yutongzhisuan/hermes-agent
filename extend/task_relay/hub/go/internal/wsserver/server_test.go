@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/require"
+
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/delivery"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
@@ -28,13 +30,10 @@ func TestHubPingJSONRPC(t *testing.T) {
 	writeRPC(t, conn, `{"jsonrpc":"2.0","id":1,"method":"hub.ping","params":{}}`)
 	payload := readRPC(t, conn)
 	var resp map[string]any
-	if err := json.Unmarshal(payload, &resp); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(payload, &resp))
 	result, ok := resp["result"].(map[string]any)
-	if !ok || result["ok"] != true {
-		t.Fatalf("unexpected response: %s", string(payload))
-	}
+	require.True(t, ok)
+	require.Equal(t, true, result["ok"])
 }
 
 func TestModeAPollComplete(t *testing.T) {
@@ -47,9 +46,7 @@ func TestModeAPollComplete(t *testing.T) {
 		TaskID: "mode-a-1",
 		Goal:   "execute via poll",
 	}, "test-session", false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	conn := dialWS(t, ts.URL, token)
 	defer conn.Close()
@@ -60,32 +57,22 @@ func TestModeAPollComplete(t *testing.T) {
 	writeRPC(t, conn, `{"jsonrpc":"2.0","id":2,"method":"worker.poll","params":{"max_tasks":1}}`)
 	payload := readRPC(t, conn)
 	var poll map[string]any
-	if err := json.Unmarshal(payload, &poll); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, json.Unmarshal(payload, &poll))
 	result := poll["result"].(map[string]any)
-	if result["offered"] != true {
-		t.Fatalf("expected offered task: %s", string(payload))
-	}
+	require.Equal(t, true, result["offered"])
 
 	writeRPC(t, conn, `{"jsonrpc":"2.0","id":3,"method":"task.complete","params":{"task_id":"mode-a-1","status":"completed","summary":"done"}}`)
 	payload = readRPC(t, conn)
 	var complete map[string]any
-	if err := json.Unmarshal(payload, &complete); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, json.Unmarshal(payload, &complete))
 	completeResult := complete["result"].(map[string]any)
-	if completeResult["status"] != router.StatusCompleted {
-		t.Fatalf("unexpected complete: %s", string(payload))
-	}
+	require.Equal(t, router.StatusCompleted, completeResult["status"])
 }
 
 func setupWS(t *testing.T) (*wsserver.Server, *router.Router, string) {
 	t.Helper()
 	verifier, err := auth.New("secret", "xhermes-relay-hub", "task-relay-hub", time.Hour, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	rt := router.NewRouter(store.NewMemory(), nil, router.DefaultRouterConfig())
 	reg := registry.New(nil)
 	buildRun := func(ctx context.Context, claimed router.ClaimedTask) (map[string]any, error) {
@@ -96,9 +83,7 @@ func setupWS(t *testing.T) (*wsserver.Server, *router.Router, string) {
 		Delivery: delivery.New(rt, reg, nil, buildRun),
 	})
 	token, err := verifier.IssueWorkerJWT("worker-1", []string{"terminal"}, 2, time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return srv, rt, token
 }
 
@@ -113,24 +98,18 @@ func dialWS(t *testing.T, baseURL, token string) *websocket.Conn {
 		strings.Replace(baseURL, "http", "ws", 1)+"/ws",
 		header,
 	)
-	if err != nil {
-		t.Fatalf("dial ws: %v", err)
-	}
+	require.NoError(t, err)
 	return conn
 }
 
 func writeRPC(t *testing.T, conn *websocket.Conn, payload string) {
 	t.Helper()
-	if err := conn.WriteMessage(websocket.TextMessage, []byte(payload)); err != nil {
-		t.Fatalf("write: %v", err)
-	}
+	require.NoError(t, conn.WriteMessage(websocket.TextMessage, []byte(payload)))
 }
 
 func readRPC(t *testing.T, conn *websocket.Conn) []byte {
 	t.Helper()
 	_, payload, err := conn.ReadMessage()
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
+	require.NoError(t, err)
 	return payload
 }

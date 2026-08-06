@@ -3,77 +3,50 @@
 package client_test
 
 import (
-	"context"
-	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/internal/testutil"
 	"github.com/infa/xhermes-agent/extend/task_relay/master/go/join"
 )
 
 func TestGoMasterDispatchWatchTerminal(t *testing.T) {
-	addr := os.Getenv("HUB_GRPC_ADDR")
-	jwt := os.Getenv("MASTER_JWT")
-	if addr == "" || jwt == "" {
-		t.Skip("HUB_GRPC_ADDR and MASTER_JWT must be set (run scripts/run_go_master_e2e.sh)")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	env := testutil.RequireHubEnv(t)
+	ctx, cancel := testutil.TestContext(t, 30*time.Second)
 	defer cancel()
 
-	hub, err := client.New(ctx, client.Config{Addr: addr, MasterJWT: jwt})
-	if err != nil {
-		t.Fatalf("dial hub: %v", err)
-	}
-	defer hub.Close()
+	hub := testutil.NewHubClient(t, ctx, env)
 
 	taskID := "go-e2e-1"
 	topic := "go-e2e-topic"
-	_, err = hub.DispatchTask(ctx, &pb.TaskSpec{
+	_, err := hub.DispatchTask(ctx, &pb.TaskSpec{
 		TaskId:        taskID,
 		Goal:          "go master sdk e2e",
 		CallbackTopic: topic,
 	}, "go-e2e-session", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
+	require.NoError(t, err)
 
 	stream, err := hub.Watch(ctx, client.WatchFilter{Topic: topic})
-	if err != nil {
-		t.Fatalf("watch: %v", err)
-	}
+	require.NoError(t, err)
 
 	snap, err := client.CollectTerminals(ctx, stream, []string{taskID})
-	if err != nil {
-		t.Fatalf("collect terminals: %v", err)
-	}
+	require.NoError(t, err)
 
 	result, ok := snap.Results[taskID]
-	if !ok {
-		t.Fatalf("missing terminal result for %s", taskID)
-	}
-	if result.Status != pb.TaskStatus_TASK_STATUS_COMPLETED {
-		t.Fatalf("expected completed, got %v", result.Status)
-	}
+	require.True(t, ok, "missing terminal result for %s", taskID)
+	require.Equal(t, pb.TaskStatus_TASK_STATUS_COMPLETED, result.Status)
 }
 
 func TestGoMasterBatchJoinAll(t *testing.T) {
-	addr := os.Getenv("HUB_GRPC_ADDR")
-	jwt := os.Getenv("MASTER_JWT")
-	if addr == "" || jwt == "" {
-		t.Skip("HUB_GRPC_ADDR and MASTER_JWT must be set (run scripts/run_go_master_e2e.sh)")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	env := testutil.RequireHubEnv(t)
+	ctx, cancel := testutil.TestContext(t, 30*time.Second)
 	defer cancel()
 
-	hub, err := client.New(ctx, client.Config{Addr: addr, MasterJWT: jwt})
-	if err != nil {
-		t.Fatalf("dial hub: %v", err)
-	}
-	defer hub.Close()
+	hub := testutil.NewHubClient(t, ctx, env)
 
 	topic := "go-e2e-batch"
 	batchID := "go-batch-1"
@@ -87,15 +60,13 @@ func TestGoMasterBatchJoinAll(t *testing.T) {
 		})
 	}
 
-	_, err = hub.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
+	_, err := hub.DispatchTaskBatch(ctx, &pb.DispatchTaskBatchRequest{
 		BatchId:         batchID,
 		Specs:           specs,
 		MasterSessionId: "go-e2e-session",
 		CallbackTopic:   topic,
 	})
-	if err != nil {
-		t.Fatalf("dispatch batch: %v", err)
-	}
+	require.NoError(t, err)
 
 	outcome, err := join.JoinBatch(
 		ctx,
@@ -104,19 +75,13 @@ func TestGoMasterBatchJoinAll(t *testing.T) {
 		taskIDs,
 		join.Policy{Mode: join.ModeAll},
 	)
-	if err != nil {
-		t.Fatalf("join batch: %v", err)
-	}
-	if !outcome.Satisfied || len(outcome.Results) != len(taskIDs) {
-		t.Fatalf("expected all terminals, got %+v", outcome)
-	}
+	require.NoError(t, err)
+	require.True(t, outcome.Satisfied)
+	require.Len(t, outcome.Results, len(taskIDs))
+
 	for _, taskID := range taskIDs {
 		result, ok := outcome.Results[taskID]
-		if !ok {
-			t.Fatalf("missing result for %s", taskID)
-		}
-		if result.Status != pb.TaskStatus_TASK_STATUS_COMPLETED {
-			t.Fatalf("task %s expected completed, got %v", taskID, result.Status)
-		}
+		require.True(t, ok, "missing result for %s", taskID)
+		require.Equal(t, pb.TaskStatus_TASK_STATUS_COMPLETED, result.Status)
 	}
 }

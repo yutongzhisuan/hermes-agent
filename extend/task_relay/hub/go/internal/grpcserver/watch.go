@@ -145,7 +145,7 @@ func (s *Server) CancelTask(ctx context.Context, req *pb.CancelTaskRequest) (*pb
 		reason = "cancelled by master"
 	}
 	resp := &pb.CancelTaskResponse{}
-	grace := graceSeconds(req.GraceSeconds)
+	grace := graceSeconds(req.GetGraceSeconds())
 	for _, taskID := range taskIDs {
 		task, err := s.router.GetTask(ctx, taskID)
 		if err != nil {
@@ -167,11 +167,11 @@ func (s *Server) CancelTask(ctx context.Context, req *pb.CancelTaskRequest) (*pb
 	return resp, nil
 }
 
-func graceSeconds(value *int32) int {
-	if value == nil {
+func graceSeconds(value int32) int {
+	if value <= 0 {
 		return 0
 	}
-	return int(*value)
+	return int(value)
 }
 
 func containsString(values []string, target string) bool {

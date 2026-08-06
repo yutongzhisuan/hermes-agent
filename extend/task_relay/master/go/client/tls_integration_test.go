@@ -3,13 +3,15 @@
 package client_test
 
 import (
-	"context"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/xhermes-agent/extend/task_relay/master/go/internal/testutil"
 )
 
 func TestGoMasterMTLSDispatch(t *testing.T) {
@@ -22,7 +24,7 @@ func TestGoMasterMTLSDispatch(t *testing.T) {
 		t.Skip("HUB_GRPC_ADDR, MASTER_JWT, HUB_TLS_* must be set (run scripts/run_go_master_mtls_e2e.sh)")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := testutil.TestContext(t, 30*time.Second)
 	defer cancel()
 
 	hub, err := client.New(ctx, client.Config{
@@ -35,9 +37,7 @@ func TestGoMasterMTLSDispatch(t *testing.T) {
 			SkipHostnameVerify: true,
 		},
 	})
-	if err != nil {
-		t.Fatalf("dial hub: %v", err)
-	}
+	require.NoError(t, err)
 	defer hub.Close()
 
 	resp, err := hub.DispatchTask(ctx, &pb.TaskSpec{
@@ -45,10 +45,6 @@ func TestGoMasterMTLSDispatch(t *testing.T) {
 		Goal:          "mtls dispatch",
 		CallbackTopic: "go-mtls-topic",
 	}, "go-mtls-session", false)
-	if err != nil {
-		t.Fatalf("dispatch: %v", err)
-	}
-	if resp.GetTaskId() != "go-mtls-1" {
-		t.Fatalf("unexpected task id: %s", resp.GetTaskId())
-	}
+	require.NoError(t, err)
+	require.Equal(t, "go-mtls-1", resp.GetTaskId())
 }

@@ -4,51 +4,35 @@ package store_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
+	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/testutil"
 )
 
-func openTestPostgres(t *testing.T) router.Store {
-	t.Helper()
-	url := os.Getenv("TASK_RELAY_TEST_PG")
-	if url == "" {
-		t.Skip("TASK_RELAY_TEST_PG not set")
-	}
-	pg, err := store.OpenPostgres(url)
-	if err != nil {
-		t.Fatalf("open postgres: %v", err)
-	}
-	t.Cleanup(func() { _ = pg.Close() })
-	if err := store.TruncatePostgresTables(context.Background(), pg); err != nil {
-		t.Fatalf("truncate: %v", err)
-	}
-	return pg
-}
-
 func TestPostgresInsertAndGetTask(t *testing.T) {
-	st := openTestPostgres(t)
+	st := testutil.OpenTestPostgres(t)
 	ctx := context.Background()
 	now := time.Unix(100, 0).UTC()
 	task := &router.Task{
 		TaskID: "pg-task-1", Goal: "goal", CallbackTopic: "topic", Status: router.StatusPending,
 		CreatedAt: now, Attempt: 1, MaxAttempts: 3,
 	}
-	if err := st.InsertTask(ctx, task); err != nil {
-		t.Fatalf("insert: %v", err)
-	}
+	require.NoError(t, st.InsertTask(ctx, task))
+
 	loaded, err := st.GetTask(ctx, "pg-task-1")
-	if err != nil || loaded == nil || loaded.Goal != "goal" {
-		t.Fatalf("get task: %+v err=%v", loaded, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+	require.Equal(t, "goal", loaded.Goal)
 }
 
 func TestPostgresDispatchClaimComplete(t *testing.T) {
-	st := openTestPostgres(t)
+	st := testutil.OpenTestPostgres(t)
 	ctx := context.Background()
 	reg := registry.New(nil)
 	rt := router.NewRouter(st, registry.NewRouterAdapter(reg), router.DefaultRouterConfig())
@@ -56,42 +40,40 @@ func TestPostgresDispatchClaimComplete(t *testing.T) {
 		WorkerID: "pg-w1", SessionModes: []string{"A"}, MaxConcurrent: 1,
 		OnlineSessionID: "sess-1",
 	})
+
 	resp, err := rt.DispatchTask(ctx, router.TaskSpec{
 		TaskID: "pg-dispatch-1", Goal: "execute", CallbackTopic: "pg-topic",
 	}, "m1", false)
-	if err != nil || resp.TaskID != "pg-dispatch-1" {
-		t.Fatalf("dispatch: %+v err=%v", resp, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "pg-dispatch-1", resp.TaskID)
+
 	claimed, err := rt.ClaimForPoll(ctx, "pg-w1", 1, &router.WorkerClaims{MaxConcurrent: 1})
-	if err != nil || len(claimed) != 1 {
-		t.Fatalf("claim: %+v err=%v", claimed, err)
-	}
-	if err := rt.OnProgress(ctx, "pg-dispatch-1", "started"); err != nil {
-		t.Fatalf("progress: %v", err)
-	}
-	if _, err := rt.Complete(ctx, "pg-dispatch-1", router.StatusCompleted, "ok", router.CompleteInput{}); err != nil {
-		t.Fatalf("complete: %v", err)
-	}
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+
+	require.NoError(t, rt.OnProgress(ctx, "pg-dispatch-1", "started"))
+	_, err = rt.Complete(ctx, "pg-dispatch-1", router.StatusCompleted, "ok", router.CompleteInput{})
+	require.NoError(t, err)
+
 	task, err := st.GetTask(ctx, "pg-dispatch-1")
-	if err != nil || task.Status != router.StatusCompleted || task.Summary != "ok" {
-		t.Fatalf("terminal task: %+v err=%v", task, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, router.StatusCompleted, task.Status)
+	require.Equal(t, "ok", task.Summary)
 }
 
 func TestPostgresListTasksByWorkerAndStatus(t *testing.T) {
-	st := openTestPostgres(t)
+	st := testutil.OpenTestPostgres(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
-	if err := st.InsertTask(ctx, &router.Task{
+	require.NoError(t, st.InsertTask(ctx, &router.Task{
 		TaskID: "pg-cancel-1", Goal: "g", CallbackTopic: "t", Status: router.StatusCancelling,
 		WorkerID: "pg-w1", CancelReason: "stop", ClaimExpiresAt: now.Add(time.Minute), CreatedAt: now,
-	}); err != nil {
-		t.Fatalf("insert: %v", err)
-	}
+	}))
+
 	tasks, err := st.ListTasks(ctx, router.ListTasksQuery{
 		WorkerID: "pg-w1", Statuses: []string{router.StatusCancelling}, Limit: 10,
 	})
-	if err != nil || len(tasks) != 1 || tasks[0].TaskID != "pg-cancel-1" {
-		t.Fatalf("list: %+v err=%v", tasks, err)
-	}
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+	require.Equal(t, "pg-cancel-1", tasks[0].TaskID)
 }
