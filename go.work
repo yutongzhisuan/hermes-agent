@@ -1,0 +1,7 @@
+go 1.26.0
+
+use (
+	./extend/task_relay/gen/go
+	./extend/task_relay/hub/go
+	./extend/task_relay/master/go
+)

@@ -1,13 +1,13 @@
 module github.com/infa/task_relay/hub
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/infa/xhermes-agent/extend/task_relay/gen/go v0.0.0
 	github.com/infa/task_relay/master v0.0.0
+	github.com/infa/xhermes-agent/extend/task_relay/gen/go v0.0.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.81.1
@@ -19,7 +19,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -30,7 +30,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
@@ -60,6 +60,6 @@ require (
 )
 
 replace (
-	github.com/infa/xhermes-agent/extend/task_relay/gen/go => ../../gen/go
 	github.com/infa/task_relay/master => ../../master/go
+	github.com/infa/xhermes-agent/extend/task_relay/gen/go => ../../gen/go
 )

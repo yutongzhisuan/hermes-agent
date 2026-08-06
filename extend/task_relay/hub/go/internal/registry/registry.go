@@ -218,10 +218,7 @@ func (r *Registry) SetCredit(workerID string, credit int) int {
 	if !ok {
 		return 0
 	}
-	free := worker.MaxConcurrent - worker.RunningTasks
-	if free < 0 {
-		free = 0
-	}
+	free := max(worker.MaxConcurrent-worker.RunningTasks, 0)
 	worker.CreditAvailable = max(0, min(credit, free))
 	return worker.CreditAvailable
 }
