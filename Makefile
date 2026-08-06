@@ -1,17 +1,11 @@
-.PHONY: help install install-py install-js sync lock \
-        test test-py test-js test-e2e test-docker test-desktop-e2e \
-        lint lint-py lint-js fix \
-        build build-web build-tui build-website build-desktop \
-        run run-tui run-gateway run-dashboard run-serve \
-        run-desktop-dev run-tui-dev run-website-dev \
-        pack-docker release release-publish \
-        dist-desktop dist-desktop-mac dist-desktop-win dist-desktop-linux pack-desktop \
-        clean
+.PHONY: help install sync lock \
+        test test-unit test-integration test-file \
+        lint build dist-wheel clean run-serve
 
-# ── Config ──────────────────────────────────────────────────────────
+# Headless wheel workflow only (no desktop / web / TUI / npm targets).
+
 PYTHON ?= 3.11
 UV     ?= uv
-NPM    ?= npm
 
 # ── Help ────────────────────────────────────────────────────────────
 help: ## Show available targets
@@ -19,121 +13,53 @@ help: ## Show available targets
 		awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}'
 
 # ── Install ─────────────────────────────────────────────────────────
-install: install-py install-js ## Install Python + Node deps (dev)
+install: ## Python dev deps for wheel build/test
+	$(UV) sync --locked --python $(PYTHON) --extra dev
 
-install-py: ## Python editable install (CI-parity: locked sync)
-	$(UV) sync --locked --python $(PYTHON) --extra all --extra dev
-
-install-js: ## npm workspaces (CI uses npm ci)
-	$(NPM) ci
-
-sync: install-py ## Alias for install-py
+sync: install ## Alias for install
 
 lock: ## Regenerate uv.lock after pyproject.toml changes
 	$(UV) lock
 
 # ── Test ────────────────────────────────────────────────────────────
-test: test-py test-js ## Run all tests (Python + JS)
+test: test-unit test-integration ## All headless wheel tests
 
-test-py: ## Python suite (CI-parity; prefer over bare pytest)
-	scripts/run_tests.sh
+test-unit: install ## Wheel unit tests (runtime, packaging, guards)
+	scripts/run_tests.sh \
+		tests/hermes_runtime/test_runtime.py \
+		tests/hermes_runtime/test_rpc.py \
+		tests/hermes_cli/test_headless_ui_guards.py \
+		tests/test_packaging_build_guard.py \
+		tests/test_project_metadata.py -q
 
-test-py-file: ## Run one test file: make test-py-file FILE=tests/foo.py
-	@test -n "$(FILE)" || (echo "Usage: make test-py-file FILE=tests/foo.py" && exit 1)
+test-integration: install ## Wheel integration tests (build + install + smoke)
+	scripts/run_tests.sh \
+		tests/test_headless_wheel_assets.py \
+		tests/hermes_runtime/test_wheel_smoke.py \
+		-m integration -q
+
+test-file: install ## Run one test file: make test-file FILE=tests/foo.py
+	@test -n "$(FILE)" || (echo "Usage: make test-file FILE=tests/foo.py" && exit 1)
 	scripts/run_tests.sh $(FILE)
 
-test-js: ## All npm workspace check scripts
-	$(NPM) run check
-
-test-e2e: install-py ## Python E2E tests
-	$(UV) run python -m pytest tests/e2e/ -v --tb=short
-
-test-docker: install-py ## Docker integration tests (requires local image)
-	scripts/run_tests.sh tests/docker/ --file-timeout 600
-
-test-desktop-e2e: build-desktop ## Desktop Playwright E2E
-	cd apps/desktop && $(NPM) run test:e2e
-
 # ── Lint ────────────────────────────────────────────────────────────
-lint: lint-py lint-js ## Lint Python + JS
-
-lint-py: ## ruff (blocking) + ty (advisory)
+lint: ## ruff (blocking) + ty (advisory) on Python sources
 	ruff check .
 	ty check
 
-lint-js: ## ESLint/typecheck via workspace checks
-	$(NPM) run check
+# ── Build / Package ─────────────────────────────────────────────────
+build: dist-wheel ## Alias: build headless pip wheel
 
-fix: ## Auto-fix JS formatting/lint
-	$(NPM) run fix
+dist-wheel: ## Headless pip wheel -> dist/xhermes_agent-*.whl
+	HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 
-# ── Build ─────────────────────────────────────────────────────────
-build: build-web build-tui ## Build dashboard + TUI frontend artifacts
-
-build-web: install-js ## Dashboard SPA -> web/dist/
-	cd web && $(NPM) run build
-
-build-tui: install-js ## Ink TUI bundle
-	cd ui-tui && $(NPM) run build
-
-build-website: install-js ## Docusaurus docs site
-	cd website && $(NPM) run build
-
-build-desktop: install-js ## Electron renderer + main
-	cd apps/desktop && $(NPM) run build
-
-# ── Run ─────────────────────────────────────────────────────────────
-run: ## Interactive CLI
-	$(UV) run xhermes
-
-run-tui: build-tui ## TUI mode
-	$(UV) run xhermes --tui
-
-run-gateway: ## Messaging gateway (foreground)
-	$(UV) run xhermes gateway
-
-run-dashboard: build-web ## Web dashboard
-	$(UV) run xhermes dashboard
-
-run-serve: build-web ## Headless backend (desktop/dashboard API)
+# ── Run (dev from source tree) ──────────────────────────────────────
+run-serve: ## Headless JSON-RPC backend (dev; same protocol as wheel)
 	$(UV) run xhermes serve
 
-run-desktop-dev: ## Desktop dev (Vite + Electron)
-	cd apps/desktop && $(NPM) run dev
-
-run-tui-dev: ## TUI watch mode
-	cd ui-tui && $(NPM) run dev
-
-run-website-dev: ## Docs site dev server
-	cd website && $(NPM) start
-
-# ── Package / Release ───────────────────────────────────────────────
-pack-docker: ## Build Docker image locally
-	docker build -t xhermes-agent:local .
-
-release: ## Preview release changelog (dry run)
-	$(UV) run python scripts/release.py
-
-release-publish: ## Publish release: make release-publish BUMP=minor
-	@test -n "$(BUMP)" || (echo "Usage: make release-publish BUMP=minor|patch|major" && exit 1)
-	$(UV) run python scripts/release.py --bump $(BUMP) --publish
-
-dist-desktop: build-desktop ## Desktop installers (platform-specific)
-	cd apps/desktop && $(NPM) run dist
-
-dist-desktop-mac: build-desktop ## macOS desktop installers
-	cd apps/desktop && $(NPM) run dist:mac
-
-dist-desktop-win: build-desktop ## Windows desktop installers
-	cd apps/desktop && $(NPM) run dist:win
-
-dist-desktop-linux: build-desktop ## Linux desktop installers
-	cd apps/desktop && $(NPM) run dist:linux
-
-pack-desktop: build-desktop ## Unpacked desktop app (--dir)
-	cd apps/desktop && $(NPM) run pack
-
 # ── Clean ───────────────────────────────────────────────────────────
-clean: ## Remove common build artifacts
-	rm -rf web/dist ui-tui/dist apps/desktop/dist website/build \
-	       apps/desktop/out .pytest_cache .ruff_cache
+clean: ## Remove wheel output and local build staging
+	rm -rf dist .pytest_cache .ruff_cache \
+	       xhermes_agent_data/skills xhermes_agent_data/optional-skills \
+	       xhermes_agent_data/locales xhermes_agent_data/optional-mcps \
+	       xhermes_agent_data/.headless_wheel_dist
