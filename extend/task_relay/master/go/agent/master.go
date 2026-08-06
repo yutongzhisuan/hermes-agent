@@ -34,11 +34,24 @@ Workflow:
 
 Never invent remote task results; always wait for watch_and_join before claiming remote completion.`
 
+const localOnlyInstruction = `You are a local Master agent running inside this process.
+
+You have NO remote Relay Hub and NO remote workers.
+Do not call or invent dispatch_task, dispatch_batch, watch_and_join, get_task_result, or cancel_task.
+
+How to work:
+1. Reason about the user goal directly.
+2. Use write_todos to plan when the goal spans multiple steps.
+3. Use the "task" tool with local-planner or the general-purpose local subagent for decomposition, analysis, or drafting.
+4. Produce the final answer yourself from local reasoning and local subagent outputs.
+
+Stay entirely local to this process.`
+
 // Mode selects the Eino ADK agent implementation.
 type Mode string
 
 const (
-	// ModeDeep uses DeepAgent: write_todos + local subagents (task tool) + Relay tools.
+	// ModeDeep uses DeepAgent: write_todos + local subagents (task tool) + optional Relay tools.
 	ModeDeep Mode = "deep"
 	// ModeReAct uses ChatModelAgent with ToolsConfig (ReAct loop, no DeepAgent helpers).
 	ModeReAct Mode = "react"
@@ -46,6 +59,8 @@ const (
 
 // Config holds Hub, auth, LLM, and agent-mode settings.
 type Config struct {
+	// HubAddr is the Relay Hub gRPC address. Empty enables local-only mode
+	// (no remote workers; requests are handled in this process).
 	HubAddr       string
 	MasterJWT     string
 	MasterSession string
@@ -75,26 +90,36 @@ type Config struct {
 	OTelEndpoint  string
 }
 
-// Master wraps an Eino ADK Runner backed by Task Relay tools.
+// Master wraps an Eino ADK Runner backed by local subagents and optional Relay tools.
 type Master struct {
 	Runner          *adk.Runner
 	Hub             *client.Client
+	LocalOnly       bool
 	shutdownTracing func(context.Context) error
 }
 
-// New dials the Hub, builds Relay tools, and returns a DeepAgent or ReAct agent runner.
+// New builds a Master agent.
+// When HubAddr and MasterJWT are both empty, the agent runs in local-only mode:
+// no Hub connection and no remote Relay tools; user goals are handled by the
+// local LLM and local subagents in this process.
 // ChatModel / Tools may be injected for tests to skip OpenAI and Hub construction.
 func New(ctx context.Context, cfg Config) (*Master, error) {
 	useInjectedTools := len(cfg.Tools) > 0
 	useInjectedModel := cfg.ChatModel != nil
+	localOnly := cfg.HubAddr == "" && cfg.MasterJWT == ""
 
-	if !useInjectedTools && cfg.HubAddr == "" {
-		return nil, fmt.Errorf("hub address is required")
+	if !localOnly {
+		if cfg.HubAddr == "" {
+			return nil, fmt.Errorf("hub address is required when master JWT is set")
+		}
+		if cfg.MasterJWT == "" {
+			return nil, fmt.Errorf("master JWT is required when hub address is set")
+		}
 	}
 	if !useInjectedModel && cfg.OpenAIAPIKey == "" {
 		return nil, fmt.Errorf("openai api key is required")
 	}
-	cfg = applyConfigDefaults(cfg)
+	cfg = applyConfigDefaults(cfg, localOnly && !useInjectedTools)
 
 	var err error
 	shutdownTracing := func(context.Context) error { return nil }
@@ -111,7 +136,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	}
 
 	var hub *client.Client
-	if !useInjectedTools {
+	if !useInjectedTools && !localOnly {
 		hub, err = client.New(ctx, client.Config{
 			Addr:          cfg.HubAddr,
 			MasterJWT:     cfg.MasterJWT,
@@ -143,7 +168,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	}
 
 	tools := cfg.Tools
-	if !useInjectedTools {
+	if !useInjectedTools && !localOnly {
 		tools, err = (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
 		if err != nil {
 			_ = closeHub(hub)
@@ -155,7 +180,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
 	}
 
-	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig)
+	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig, localOnly && !useInjectedTools)
 	if err != nil {
 		_ = closeHub(hub)
 		_ = shutdownTracing(context.Background())
@@ -165,11 +190,12 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	return &Master{
 		Runner:          adk.NewRunner(ctx, adk.RunnerConfig{Agent: agentImpl}),
 		Hub:             hub,
+		LocalOnly:       localOnly && !useInjectedTools,
 		shutdownTracing: shutdownTracing,
 	}, nil
 }
 
-func applyConfigDefaults(cfg Config) Config {
+func applyConfigDefaults(cfg Config, localOnly bool) Config {
 	if cfg.OpenAIModel == "" {
 		cfg.OpenAIModel = "gpt-4o-mini"
 	}
@@ -177,7 +203,11 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.MasterSession = "master-session"
 	}
 	if cfg.Instruction == "" {
-		cfg.Instruction = defaultInstruction
+		if localOnly {
+			cfg.Instruction = localOnlyInstruction
+		} else {
+			cfg.Instruction = defaultInstruction
+		}
 	}
 	if cfg.MaxIterations <= 0 {
 		cfg.MaxIterations = 20
@@ -200,12 +230,17 @@ func buildAgent(
 	cfg Config,
 	chatModel model.BaseModel[*schema.Message],
 	toolsConfig adk.ToolsConfig,
+	localOnly bool,
 ) (adk.Agent, error) {
 	switch cfg.Mode {
 	case ModeReAct:
+		desc := "ReAct Master with local reasoning and remote Relay worker orchestration"
+		if localOnly {
+			desc = "ReAct Master handling requests locally in this process"
+		}
 		return adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 			Name:          "task-relay-master",
-			Description:   "ReAct Master with local reasoning and remote Relay worker orchestration",
+			Description:   desc,
 			Instruction:   cfg.Instruction,
 			Model:         chatModel,
 			ToolsConfig:   toolsConfig,
@@ -216,9 +251,13 @@ func buildAgent(
 		if err != nil {
 			return nil, err
 		}
+		desc := "Deep Master coordinating local subagents and remote XHermes workers via Task Relay"
+		if localOnly {
+			desc = "Deep Master handling requests with local subagents in this process"
+		}
 		return deep.New(ctx, &deep.Config{
 			Name:                   "task-relay-master",
-			Description:            "Deep Master coordinating local subagents and remote XHermes workers via Task Relay",
+			Description:            desc,
 			Instruction:            cfg.Instruction,
 			ChatModel:              chatModel,
 			ToolsConfig:            toolsConfig,
@@ -247,13 +286,24 @@ func (m *Master) Close() error {
 }
 
 // Run executes one user goal and returns the final assistant text.
-func (m *Master) Run(ctx context.Context, goal string) (string, error) {
+// Pass WithVerbose(os.Stderr) to print the full agent interaction flow.
+func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (string, error) {
+	cfg := applyRunOptions(opts)
+	if cfg.verbose != nil {
+		fmt.Fprintf(cfg.verbose, "=== master run start local_only=%v goal=%q ===\n", m.LocalOnly, goal)
+	}
+
 	iter := m.Runner.Query(ctx, goal)
 	var last string
+	step := 0
 	for {
 		event, ok := iter.Next()
 		if !ok {
 			break
+		}
+		step++
+		if cfg.verbose != nil {
+			logAgentEvent(cfg.verbose, step, event)
 		}
 		if event.Err != nil {
 			return last, event.Err
@@ -261,9 +311,16 @@ func (m *Master) Run(ctx context.Context, goal string) (string, error) {
 		if event.Output == nil || event.Output.MessageOutput == nil {
 			continue
 		}
-		if msg := event.Output.MessageOutput.Message; msg != nil && msg.Content != "" {
+		msg, err := event.Output.MessageOutput.GetMessage()
+		if err != nil || msg == nil {
+			continue
+		}
+		if msg.Content != "" && (event.Output.MessageOutput.Role == schema.Assistant || msg.Role == schema.Assistant) {
 			last = msg.Content
 		}
+	}
+	if cfg.verbose != nil {
+		fmt.Fprintf(cfg.verbose, "=== master run end steps=%d ===\n", step)
 	}
 	if last == "" {
 		return "", fmt.Errorf("agent produced no final message")

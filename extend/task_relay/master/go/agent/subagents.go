@@ -10,8 +10,8 @@ import (
 )
 
 const localPlannerInstruction = `You are a local planning subagent.
-Break down the assigned sub-goal into clear steps, constraints, and suggested task specs.
-Do not call remote workers yourself; return a structured plan the Master can execute via Relay tools.`
+Break down the assigned sub-goal into clear steps, constraints, and suggested next actions.
+Do not call remote workers yourself; return a structured plan the Master can execute locally or via Relay tools when available.`
 
 // NewLocalPlannerSubAgent creates a local-only subagent for decomposition and planning.
 func NewLocalPlannerSubAgent(ctx context.Context, chatModel model.BaseModel[*schema.Message]) (adk.Agent, error) {

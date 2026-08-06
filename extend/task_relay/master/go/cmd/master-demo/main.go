@@ -30,14 +30,16 @@ func main() {
 	enableTracing := flag.Bool("tracing", false, "Enable OpenTelemetry gRPC tracing")
 	otelEndpoint := flag.String("otel-endpoint", envOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""), "OTLP trace exporter endpoint")
 	timeout := flag.Duration("timeout", 2*time.Minute, "Overall execution timeout")
+	verbose := flag.Bool("verbose", false, "Print full agent interaction flow to stderr")
 	flag.Parse()
 
 	if *goal == "" {
-		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-hub-grpc addr] [-master-jwt token]")
+		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-hub-grpc addr] [-master-jwt token] [-verbose]")
+		fmt.Fprintln(os.Stderr, "omit -hub-grpc/-master-jwt to handle the goal locally in this process")
 		os.Exit(2)
 	}
-	if *hubAddr == "" || *masterJWT == "" {
-		fmt.Fprintln(os.Stderr, "HUB_GRPC_ADDR and MASTER_JWT are required")
+	if (*hubAddr == "") != (*masterJWT == "") {
+		fmt.Fprintln(os.Stderr, "HUB_GRPC_ADDR and MASTER_JWT must both be set for remote mode, or both omitted for local-only mode")
 		os.Exit(2)
 	}
 	apiKey := os.Getenv("OPENAI_API_KEY")
@@ -75,13 +77,25 @@ func main() {
 		os.Exit(1)
 	}
 	defer master.Close()
+	if master.LocalOnly {
+		fmt.Fprintln(os.Stderr, "mode: local-only (no Hub / remote workers)")
+	} else {
+		fmt.Fprintln(os.Stderr, "mode: remote Relay via Hub")
+	}
 
-	answer, err := master.Run(ctx, *goal)
+	answer, err := master.Run(ctx, *goal, runOpts(*verbose)...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "run master: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(answer)
+}
+
+func runOpts(verbose bool) []agent.RunOption {
+	if !verbose {
+		return nil
+	}
+	return []agent.RunOption{agent.WithVerbose(os.Stderr)}
 }
 
 func envOr(key, fallback string) string {

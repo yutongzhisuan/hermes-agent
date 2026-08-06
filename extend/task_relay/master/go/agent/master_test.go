@@ -1,6 +1,7 @@
 package agent_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"sync"
@@ -15,18 +16,51 @@ import (
 	"github.com/infa/task_relay/master/agent"
 )
 
-func TestMasterNewRequiresHubAddr(t *testing.T) {
+func TestMasterNewRequiresHubAddrWhenJWTSet(t *testing.T) {
 	_, err := agent.New(context.Background(), agent.Config{
+		MasterJWT:    "jwt",
 		OpenAIAPIKey: "test-key",
 	})
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "hub address")
+}
+
+func TestMasterNewRequiresJWTWhenHubSet(t *testing.T) {
+	_, err := agent.New(context.Background(), agent.Config{
+		HubAddr:      "127.0.0.1:1",
+		OpenAIAPIKey: "test-key",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "master JWT")
 }
 
 func TestMasterNewRequiresAPIKey(t *testing.T) {
-	_, err := agent.New(context.Background(), agent.Config{
-		HubAddr: "127.0.0.1:1",
-	})
+	_, err := agent.New(context.Background(), agent.Config{})
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "openai api key")
+}
+
+func TestMasterLocalOnlyWithoutHub(t *testing.T) {
+	cm := &scriptedChatModel{
+		responses: []*schema.Message{
+			schema.AssistantMessage("Local answer: priority queues favor urgency.", nil),
+		},
+	}
+	master, err := agent.New(context.Background(), agent.Config{
+		Mode:                  agent.ModeReAct,
+		ChatModel:             cm,
+		DisableLocalSubAgents: true,
+		DisableLocalPlanner:   true,
+	})
+	require.NoError(t, err)
+	defer master.Close()
+
+	require.True(t, master.LocalOnly)
+	require.Nil(t, master.Hub)
+
+	answer, err := master.Run(context.Background(), "Explain priority queue scheduling briefly.")
+	require.NoError(t, err)
+	require.Contains(t, answer, "Local answer")
 }
 
 func TestMasterCloseNilSafe(t *testing.T) {
@@ -171,6 +205,47 @@ func TestMasterRunRequiresFinalMessage(t *testing.T) {
 
 	_, err = master.Run(context.Background(), "anything")
 	require.Error(t, err)
+}
+
+func TestMasterRunVerboseLogsToolFlow(t *testing.T) {
+	recorder := &toolRecorder{}
+	tools := mustRecordingTools(t, recorder)
+
+	dispatchArgs, err := json.Marshal(agent.DispatchTaskInput{
+		TaskID: "v1", Goal: "verbose probe", CallbackTopic: "v-topic",
+	})
+	require.NoError(t, err)
+	watchArgs, err := json.Marshal(agent.WatchJoinInput{
+		CallbackTopic: "v-topic", TaskIDs: []string{"v1"}, JoinMode: "ALL",
+	})
+	require.NoError(t, err)
+
+	cm := &scriptedChatModel{
+		responses: []*schema.Message{
+			assistantToolCall("c1", "dispatch_task", string(dispatchArgs)),
+			assistantToolCall("c2", "watch_and_join", string(watchArgs)),
+			schema.AssistantMessage("verbose done", nil),
+		},
+	}
+	master, err := agent.New(context.Background(), agent.Config{
+		Mode: agent.ModeReAct, ChatModel: cm, Tools: tools, MaxIterations: 6,
+	})
+	require.NoError(t, err)
+	defer master.Close()
+
+	var buf bytes.Buffer
+	answer, err := master.Run(context.Background(), "run verbose", agent.WithVerbose(&buf))
+	require.NoError(t, err)
+	require.Equal(t, "verbose done", answer)
+
+	log := buf.String()
+	require.Contains(t, log, "master run start")
+	require.Contains(t, log, "tool_call")
+	require.Contains(t, log, "dispatch_task")
+	require.Contains(t, log, "watch_and_join")
+	require.Contains(t, log, "TOOL_RESULT")
+	require.Contains(t, log, "ASSISTANT")
+	require.Contains(t, log, "master run end")
 }
 
 type toolCallRecord struct {
