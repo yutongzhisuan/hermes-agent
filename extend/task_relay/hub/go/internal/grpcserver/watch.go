@@ -3,10 +3,11 @@ package grpcserver
 import (
 	"context"
 	"io"
+	"slices"
 
+	"github.com/infa/task_relay/hub/internal/eventbus"
+	"github.com/infa/task_relay/hub/internal/router"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/eventbus"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -175,10 +176,5 @@ func graceSeconds(value int32) int {
 }
 
 func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }

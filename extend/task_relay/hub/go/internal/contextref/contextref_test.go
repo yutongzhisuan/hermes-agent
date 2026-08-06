@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	hubref "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextref"
-	master "github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	hubref "github.com/infa/task_relay/hub/internal/contextref"
+	master "github.com/infa/task_relay/master/client"
 )
 
 func TestSignContextRefMatchesMasterSDK(t *testing.T) {

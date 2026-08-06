@@ -1,4 +1,4 @@
-module github.com/infa/xhermes-agent/extend/task_relay/hub/go
+module github.com/infa/task_relay/hub
 
 go 1.25.0
 
@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/infa/xhermes-agent/extend/task_relay/gen/go v0.0.0
-	github.com/infa/xhermes-agent/extend/task_relay/master/go v0.0.0
+	github.com/infa/task_relay/master v0.0.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.81.1
@@ -61,5 +61,5 @@ require (
 
 replace (
 	github.com/infa/xhermes-agent/extend/task_relay/gen/go => ../../gen/go
-	github.com/infa/xhermes-agent/extend/task_relay/master/go => ../../master/go
+	github.com/infa/task_relay/master => ../../master/go
 )

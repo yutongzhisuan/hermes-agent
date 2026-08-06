@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/config"
-	gohub "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/hub"
+	"github.com/infa/task_relay/hub/internal/config"
+	gohub "github.com/infa/task_relay/hub/internal/hub"
 )
 
 func main() {

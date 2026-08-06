@@ -12,21 +12,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/task_relay/hub/internal/registry"
 )
 
 const defaultWakeTTLSeconds = 60
 
 // Scheduler issues HMAC wake tokens and POSTs Mode B wake URLs.
 type Scheduler struct {
-	registry     *registry.Registry
-	secret       []byte
-	relayWSURL   string
-	wakeTTL      time.Duration
-	httpClient   *http.Client
-	consumed     map[string]struct{}
-	consumedMu   sync.Mutex
-	now          func() time.Time
+	registry   *registry.Registry
+	secret     []byte
+	relayWSURL string
+	wakeTTL    time.Duration
+	httpClient *http.Client
+	consumed   map[string]struct{}
+	consumedMu sync.Mutex
+	now        func() time.Time
 }
 
 // New constructs a wake scheduler.
@@ -91,10 +91,10 @@ func (s *Scheduler) ScheduleWake(ctx context.Context, taskID, workerID string) b
 	}
 	token, expiresAt := s.IssueWakeToken(taskID, workerID)
 	body := map[string]any{
-		"task_id":     taskID,
-		"relay_url":   s.relayWSURL,
-		"token":       token,
-		"expires_at":  expiresAt.Unix(),
+		"task_id":    taskID,
+		"relay_url":  s.relayWSURL,
+		"token":      token,
+		"expires_at": expiresAt.Unix(),
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {

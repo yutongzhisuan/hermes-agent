@@ -3,9 +3,9 @@ package grpcserver
 import (
 	"encoding/json"
 
+	"github.com/infa/task_relay/hub/internal/resources"
+	"github.com/infa/task_relay/hub/internal/router"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/resources"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 func taskToProto(task *router.Task) *pb.TaskResult {
@@ -13,17 +13,17 @@ func taskToProto(task *router.Task) *pb.TaskResult {
 		return &pb.TaskResult{}
 	}
 	result := &pb.TaskResult{
-		TaskId:               task.TaskID,
-		Status:               statusToProto(task.Status),
-		Summary:              task.Summary,
-		ResultText:           task.ResultJSON,
-		Error:                task.Error,
-		WorkerId:             task.WorkerID,
-		Attempt:              int32(task.Attempt),
-		MaxAttempts:          int32(task.MaxAttempts),
-		BatchId:              task.BatchID,
-		LatestCheckpointId:   task.ResumeFromCheckpoint,
-		SchemaVersion:        1,
+		TaskId:             task.TaskID,
+		Status:             statusToProto(task.Status),
+		Summary:            task.Summary,
+		ResultText:         task.ResultJSON,
+		Error:              task.Error,
+		WorkerId:           task.WorkerID,
+		Attempt:            int32(task.Attempt),
+		MaxAttempts:        int32(task.MaxAttempts),
+		BatchId:            task.BatchID,
+		LatestCheckpointId: task.ResumeFromCheckpoint,
+		SchemaVersion:      1,
 	}
 	if !task.StartedAt.IsZero() {
 		result.StartedAt = task.StartedAt.UnixMilli()
@@ -45,17 +45,17 @@ func existingResultToProto(result *router.ExistingResult) *pb.TaskResult {
 		return nil
 	}
 	proto := &pb.TaskResult{
-		TaskId:               result.TaskID,
-		Status:               statusToProto(result.Status),
-		Summary:              result.Summary,
-		ResultText:           result.ResultText,
-		Error:                result.Error,
-		WorkerId:             result.WorkerID,
-		Attempt:              int32(result.Attempt),
-		MaxAttempts:          int32(result.MaxAttempts),
-		BatchId:              result.BatchID,
-		LatestCheckpointId:   result.LatestCheckpointID,
-		SchemaVersion:        1,
+		TaskId:             result.TaskID,
+		Status:             statusToProto(result.Status),
+		Summary:            result.Summary,
+		ResultText:         result.ResultText,
+		Error:              result.Error,
+		WorkerId:           result.WorkerID,
+		Attempt:            int32(result.Attempt),
+		MaxAttempts:        int32(result.MaxAttempts),
+		BatchId:            result.BatchID,
+		LatestCheckpointId: result.LatestCheckpointID,
+		SchemaVersion:      1,
 	}
 	if !result.StartedAt.IsZero() {
 		proto.StartedAt = result.StartedAt.UnixMilli()

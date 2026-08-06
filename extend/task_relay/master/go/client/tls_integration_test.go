@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/infa/task_relay/master/client"
+	"github.com/infa/task_relay/master/internal/testutil"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/internal/testutil"
 )
 
 func TestGoMasterMTLSDispatch(t *testing.T) {

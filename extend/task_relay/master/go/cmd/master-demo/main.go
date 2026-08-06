@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/agent"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/task_relay/master/agent"
+	"github.com/infa/task_relay/master/client"
 )
 
 func main() {

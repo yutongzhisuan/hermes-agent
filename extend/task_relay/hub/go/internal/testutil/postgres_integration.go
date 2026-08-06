@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/store"
 )
 
 // OpenTestPostgres opens a Postgres store when TASK_RELAY_TEST_PG is set.

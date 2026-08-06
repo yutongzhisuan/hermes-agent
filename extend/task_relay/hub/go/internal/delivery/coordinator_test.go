@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/delivery"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
+	"github.com/infa/task_relay/hub/internal/delivery"
+	"github.com/infa/task_relay/hub/internal/registry"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/store"
 )
 
 type mockPusher struct {

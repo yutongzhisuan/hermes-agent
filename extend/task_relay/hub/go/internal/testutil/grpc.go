@@ -12,11 +12,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
+	"github.com/infa/task_relay/hub/internal/config"
+	"github.com/infa/task_relay/hub/internal/grpcserver"
+	gohub "github.com/infa/task_relay/hub/internal/hub"
+	"github.com/infa/task_relay/master/client"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/config"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/grpcserver"
-	gohub "github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/hub"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 const bufConnSize = 1024 * 1024

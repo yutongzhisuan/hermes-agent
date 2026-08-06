@@ -79,9 +79,9 @@ func (c *Client) DispatchTask(
 	start := time.Now()
 	AttachTraceToSpec(spec, ctx)
 	resp, err := c.rpc.DispatchTask(ctx, &pb.DispatchTaskRequest{
-		Spec:              spec,
-		MasterSessionId:   masterSessionID,
-		AllowRedispatch:   allowRedispatch,
+		Spec:            spec,
+		MasterSessionId: masterSessionID,
+		AllowRedispatch: allowRedispatch,
 	})
 	c.metrics.observeRPC("DispatchTask", err, time.Since(start))
 	if err == nil {

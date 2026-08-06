@@ -16,8 +16,8 @@ type WatchFilter struct {
 
 // TerminalSnapshot accumulates TERMINAL results keyed by task_id.
 type TerminalSnapshot struct {
-	Results       map[string]*pb.TaskResult
-	LastEventID   int64
+	Results     map[string]*pb.TaskResult
+	LastEventID int64
 }
 
 // CollectTerminals reads WatchTask until every taskID is terminal or ctx ends.

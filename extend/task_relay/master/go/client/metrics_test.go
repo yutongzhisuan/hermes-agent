@@ -6,7 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/task_relay/master/client"
 )
 
 func TestNewMetricsRegistersCollectors(t *testing.T) {

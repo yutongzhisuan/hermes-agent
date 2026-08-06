@@ -9,9 +9,9 @@ import (
 
 // WorkerClaims holds verified worker JWT fields.
 type WorkerClaims struct {
-	WorkerID         string
-	AllowedToolsets  []string
-	MaxConcurrent    int
+	WorkerID        string
+	AllowedToolsets []string
+	MaxConcurrent   int
 }
 
 // IssueWorkerJWT returns a short-lived worker token.
@@ -27,13 +27,13 @@ func (a *Auth) IssueWorkerJWT(workerID string, toolsets []string, maxConcurrent 
 	}
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"sub":                workerID,
-		"aud":                a.audience,
-		"iss":                a.issuer,
-		"allowed_toolsets":   toolsets,
-		"max_concurrent":     maxConcurrent,
-		"exp":                now.Add(ttl).Unix(),
-		"iat":                now.Unix(),
+		"sub":              workerID,
+		"aud":              a.audience,
+		"iss":              a.issuer,
+		"allowed_toolsets": toolsets,
+		"max_concurrent":   maxConcurrent,
+		"exp":              now.Add(ttl).Unix(),
+		"iat":              now.Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(a.secret)

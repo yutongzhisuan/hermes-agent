@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/runpayload"
+	"github.com/infa/task_relay/hub/internal/metrics"
+	"github.com/infa/task_relay/hub/internal/registry"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/runpayload"
 )
 
 type announceParams struct {
@@ -27,9 +27,9 @@ type announceParams struct {
 }
 
 type pollParams struct {
-	MaxTasks           int  `json:"max_tasks"`
-	MaxWaitMS          int  `json:"max_wait_ms"`
-	PreferAtomicClaim  bool `json:"prefer_atomic_claim"`
+	MaxTasks          int  `json:"max_tasks"`
+	MaxWaitMS         int  `json:"max_wait_ms"`
+	PreferAtomicClaim bool `json:"prefer_atomic_claim"`
 }
 
 type claimParams struct {
@@ -46,10 +46,10 @@ type nackParams struct {
 }
 
 type cancelAckParams struct {
-	TaskID        string `json:"task_id"`
-	Accepted      *bool  `json:"accepted"`
-	InFlightTool  bool   `json:"in_flight_tool"`
-	WillSettleBy  int64  `json:"will_settle_by"`
+	TaskID       string `json:"task_id"`
+	Accepted     *bool  `json:"accepted"`
+	InFlightTool bool   `json:"in_flight_tool"`
+	WillSettleBy int64  `json:"will_settle_by"`
 }
 
 type heartbeatParams struct {

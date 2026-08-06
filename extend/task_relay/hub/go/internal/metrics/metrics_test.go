@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
+	"github.com/infa/task_relay/hub/internal/metrics"
 )
 
 func TestRenderPrometheusCounters(t *testing.T) {

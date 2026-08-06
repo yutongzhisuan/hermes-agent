@@ -11,10 +11,10 @@ type WorkerView struct {
 
 // TaskRequirements carries parsed min_resources for a task.
 type TaskRequirements struct {
-	MinCPUCores              int
-	MinMemoryGB              int
-	RequiresGPU              bool
-	RequiredNetworkProfiles  []string
+	MinCPUCores             int
+	MinMemoryGB             int
+	RequiresGPU             bool
+	RequiredNetworkProfiles []string
 }
 
 // ParseMinResources decodes min_resources JSON or returns nil when unset.

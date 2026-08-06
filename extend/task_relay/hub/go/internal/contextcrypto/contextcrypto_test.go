@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextcrypto"
+	"github.com/infa/task_relay/hub/internal/contextcrypto"
 )
 
 func TestShouldEncryptInlineOnly(t *testing.T) {

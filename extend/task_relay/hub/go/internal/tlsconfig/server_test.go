@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
+	"github.com/infa/task_relay/hub/internal/tlsconfig"
 )
 
 func TestLoadServerTLSDisabled(t *testing.T) {

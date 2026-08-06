@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/infa/task_relay/master/client"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 func TestAttachTraceToSpecUsesExplicitContext(t *testing.T) {

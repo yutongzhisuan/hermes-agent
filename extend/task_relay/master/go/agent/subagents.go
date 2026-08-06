@@ -19,10 +19,10 @@ func NewLocalPlannerSubAgent(ctx context.Context, chatModel model.BaseModel[*sch
 		return nil, fmt.Errorf("chat model is required")
 	}
 	return adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
-		Name:        "local-planner",
-		Description: "Local subagent for goal decomposition and task-spec drafting without remote execution",
-		Instruction: localPlannerInstruction,
-		Model:       chatModel,
+		Name:          "local-planner",
+		Description:   "Local subagent for goal decomposition and task-spec drafting without remote execution",
+		Instruction:   localPlannerInstruction,
+		Model:         chatModel,
 		MaxIterations: 10,
 	})
 }

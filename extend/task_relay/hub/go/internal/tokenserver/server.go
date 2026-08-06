@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
+	"github.com/infa/task_relay/hub/internal/auth"
 )
 
 const tokenPath = "/v1/worker/token"
@@ -121,7 +121,7 @@ func ParseBootstrapTokens(raw string) (map[string]auth.BootstrapEntry, error) {
 		return parseBootstrapJSON(raw)
 	}
 	result := make(map[string]auth.BootstrapEntry)
-	for _, part := range strings.Split(raw, ",") {
+	for part := range strings.SplitSeq(raw, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue

@@ -3,8 +3,8 @@ package grpcserver
 import (
 	"context"
 
+	"github.com/infa/task_relay/hub/internal/router"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

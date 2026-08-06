@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 )
 
 const (
@@ -114,9 +115,7 @@ func encodeEventPayload(task *Task, payload map[string]any) string {
 
 func copyPayload(payload map[string]any) map[string]any {
 	out := make(map[string]any, len(payload))
-	for key, value := range payload {
-		out[key] = value
-	}
+	maps.Copy(out, payload)
 	return out
 }
 

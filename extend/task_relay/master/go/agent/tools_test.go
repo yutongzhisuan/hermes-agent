@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/agent"
+	"github.com/infa/task_relay/master/agent"
 )
 
 func TestNewLocalPlannerSubAgentRequiresModel(t *testing.T) {

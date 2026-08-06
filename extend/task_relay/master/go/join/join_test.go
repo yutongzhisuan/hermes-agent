@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/infa/task_relay/master/join"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/join"
 )
 
 type fakeWatchStream struct {

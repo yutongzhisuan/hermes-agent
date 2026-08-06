@@ -97,20 +97,20 @@ type CompleteInput struct {
 
 // ExistingResult mirrors a prior terminal task result for idempotent dispatch.
 type ExistingResult struct {
-	TaskID               string
-	Status               string
-	Summary              string
-	ResultText           string
-	Error                string
-	WorkerID             string
-	Attempt              int
-	MaxAttempts          int
-	BatchID              string
-	LatestCheckpointID   string
-	StartedAt            time.Time
-	CompletedAt          time.Time
-	FieldsJSON           string
-	UsageJSON            string
+	TaskID             string
+	Status             string
+	Summary            string
+	ResultText         string
+	Error              string
+	WorkerID           string
+	Attempt            int
+	MaxAttempts        int
+	BatchID            string
+	LatestCheckpointID string
+	StartedAt          time.Time
+	CompletedAt        time.Time
+	FieldsJSON         string
+	UsageJSON          string
 }
 
 // TaskEvent is a persisted row in the global event log.

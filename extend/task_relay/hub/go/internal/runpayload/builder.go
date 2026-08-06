@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextcrypto"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/resources"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/task_relay/hub/internal/contextcrypto"
+	"github.com/infa/task_relay/hub/internal/resources"
+	"github.com/infa/task_relay/hub/internal/router"
 )
 
 // Builder assembles worker-facing task.run payloads from Hub task state.
@@ -59,13 +59,13 @@ func BuildPreview(task *router.Task, offered router.OfferedTask) map[string]any 
 		excerpt = excerpt[:80]
 	}
 	preview := map[string]any{
-		"goal_excerpt":            excerpt,
-		"toolsets":                decodeStringList(task.ToolsetsJSON),
-		"priority":                task.Priority,
-		"attempt":                 offered.Attempt,
-		"timeout_seconds":         offered.TimeoutSeconds,
-		"context_bytes":           len(task.ContextJSON),
-		"has_resume_checkpoint":   task.ResumeFromCheckpoint != "",
+		"goal_excerpt":          excerpt,
+		"toolsets":              decodeStringList(task.ToolsetsJSON),
+		"priority":              task.Priority,
+		"attempt":               offered.Attempt,
+		"timeout_seconds":       offered.TimeoutSeconds,
+		"context_bytes":         len(task.ContextJSON),
+		"has_resume_checkpoint": task.ResumeFromCheckpoint != "",
 	}
 	if req := resources.ParseMinResources(task.MinResourcesJSON); req != nil {
 		preview["min_resources"] = req

@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/infa/task_relay/master/client"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
 )
 
 // Mode selects when a batch join stops reading the Watch stream.
@@ -43,10 +43,7 @@ func FromBatchPolicy(p *pb.BatchPolicy) Policy {
 	case pb.BatchPolicy_COMPLETION_MODE_MAJORITY:
 		return Policy{Mode: ModeMajority}
 	case pb.BatchPolicy_COMPLETION_MODE_THRESHOLD:
-		threshold := int(p.GetSuccessThreshold())
-		if threshold < 1 {
-			threshold = 1
-		}
+		threshold := max(int(p.GetSuccessThreshold()), 1)
 		return Policy{Mode: ModeThreshold, SuccessThreshold: threshold}
 	default:
 		return Policy{Mode: ModeAll}
@@ -123,10 +120,7 @@ func policySatisfied(results map[string]*pb.TaskResult, total int, policy Policy
 	case ModeMajority:
 		return countCompleted(results) > total/2
 	case ModeThreshold:
-		need := policy.SuccessThreshold
-		if need < 1 {
-			need = 1
-		}
+		need := max(policy.SuccessThreshold, 1)
 		return countCompleted(results) >= need
 	default:
 		return len(results) >= total

@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/infa/task_relay/hub/internal/contextref"
+	"github.com/infa/task_relay/hub/internal/router"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/contextref"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 func mapTaskSpec(spec *pb.TaskSpec) router.TaskSpec {

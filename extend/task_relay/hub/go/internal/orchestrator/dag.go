@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/batchpolicy"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/task_relay/hub/internal/batchpolicy"
+	"github.com/infa/task_relay/hub/internal/metrics"
+	"github.com/infa/task_relay/hub/internal/router"
 )
 
 func (o *Orchestrator) collectNewlyReady(ctx context.Context, completedTaskID string) ([]string, error) {
@@ -275,23 +277,19 @@ func (o *Orchestrator) maybeRecordBatchCompletion(ctx context.Context, batchID s
 }
 
 func contains(items []string, target string) bool {
-	for _, item := range items {
-		if item == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(items, target)
 }
 
 func joinSummaries(items []string) string {
 	if len(items) == 0 {
 		return ""
 	}
-	out := items[0]
+	var out strings.Builder
+	out.WriteString(items[0])
 	for i := 1; i < len(items); i++ {
-		out += " | " + items[i]
+		out.WriteString(" | " + items[i])
 	}
-	return out
+	return out.String()
 }
 
 func countCompleted(members []*router.Task) int {

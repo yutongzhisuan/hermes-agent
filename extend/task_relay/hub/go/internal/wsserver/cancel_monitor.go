@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/task_relay/hub/internal/router"
 )
 
 func (s *session) startCancelMonitor() {

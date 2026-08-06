@@ -3,8 +3,8 @@ package hub
 import (
 	"context"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/orchestrator"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/task_relay/hub/internal/orchestrator"
+	"github.com/infa/task_relay/hub/internal/router"
 )
 
 type eventPublisher struct {

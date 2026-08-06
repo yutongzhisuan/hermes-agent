@@ -32,19 +32,19 @@ type RouterConfig struct {
 // DefaultRouterConfig returns design-spec defaults for the Go Hub port.
 func DefaultRouterConfig() RouterConfig {
 	return RouterConfig{
-		QueueTimeoutSeconds:       900,
-		FirstProgressSeconds:      120,
-		TimeoutSeconds:            600,
-		CancelGraceSeconds:        60,
-		MaxAttempts:               1,
-		WorkerStaleSeconds:        90,
-		PollOfferSeconds:          30,
-		TickInterval:              time.Second,
-		RetentionDays:             7,
-		WatchStreamBufferEvents:   1024,
-		ResumeBlobMaxBytes:        1_048_576,
-		HTTPPort:                  9001,
-		BootstrapTokens:           map[string]BootstrapEntry{},
+		QueueTimeoutSeconds:     900,
+		FirstProgressSeconds:    120,
+		TimeoutSeconds:          600,
+		CancelGraceSeconds:      60,
+		MaxAttempts:             1,
+		WorkerStaleSeconds:      90,
+		PollOfferSeconds:        30,
+		TickInterval:            time.Second,
+		RetentionDays:           7,
+		WatchStreamBufferEvents: 1024,
+		ResumeBlobMaxBytes:      1_048_576,
+		HTTPPort:                9001,
+		BootstrapTokens:         map[string]BootstrapEntry{},
 	}
 }
 

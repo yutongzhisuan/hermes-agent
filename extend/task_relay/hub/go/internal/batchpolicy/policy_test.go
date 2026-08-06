@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/batchpolicy"
+	"github.com/infa/task_relay/hub/internal/batchpolicy"
 )
 
 func TestCompletionThresholdAny(t *testing.T) {

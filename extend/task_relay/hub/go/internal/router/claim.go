@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/resources"
+	"github.com/infa/task_relay/hub/internal/resources"
 )
 
 // ClaimedTask is returned to a worker after a successful poll claim.

@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/orchestrator"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
+	"github.com/infa/task_relay/hub/internal/orchestrator"
+	"github.com/infa/task_relay/hub/internal/registry"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/store"
 )
 
 type stubPublisher struct {

@@ -3,13 +3,14 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
+	"github.com/infa/task_relay/hub/internal/metrics"
+	"github.com/infa/task_relay/hub/internal/router"
 )
 
 // Pusher delivers task.run to an online Mode C session.
@@ -387,20 +388,12 @@ func IsEligibleForPoll(worker *Worker, task *routerTaskView, claims *WorkerClaim
 		return false
 	}
 	if denied := decodeStringList(task.DenyWorkerIDsJSON); len(denied) > 0 {
-		for _, id := range denied {
-			if id == worker.WorkerID {
-				return false
-			}
+		if slices.Contains(denied, worker.WorkerID) {
+			return false
 		}
 	}
 	if allowed := decodeStringList(task.AllowedWorkerIDsJSON); len(allowed) > 0 {
-		found := false
-		for _, id := range allowed {
-			if id == worker.WorkerID {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(allowed, worker.WorkerID)
 		if !found {
 			return false
 		}
@@ -507,20 +500,6 @@ func stringField(values map[string]any, key string) string {
 		return ""
 	}
 	return s
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func resourcesJSONFromCapabilities(caps map[string]any) string {

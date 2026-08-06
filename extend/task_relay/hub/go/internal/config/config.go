@@ -4,10 +4,10 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tokenserver"
+	"github.com/infa/task_relay/hub/internal/auth"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/tlsconfig"
+	"github.com/infa/task_relay/hub/internal/tokenserver"
 )
 
 // Config holds process-level Hub settings for the Go port.

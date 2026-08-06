@@ -3,9 +3,9 @@ package grpcserver
 import (
 	"context"
 
+	"github.com/infa/task_relay/hub/internal/registry"
+	"github.com/infa/task_relay/hub/internal/resources"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/resources"
 )
 
 // ListWorkers returns workers visible to the Master.

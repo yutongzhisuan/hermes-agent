@@ -10,12 +10,12 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/delivery"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/runpayload"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/wake"
+	"github.com/infa/task_relay/hub/internal/auth"
+	"github.com/infa/task_relay/hub/internal/delivery"
+	"github.com/infa/task_relay/hub/internal/registry"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/runpayload"
+	"github.com/infa/task_relay/hub/internal/wake"
 )
 
 const (

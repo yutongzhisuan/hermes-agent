@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -79,12 +80,8 @@ func Snapshot() map[string]float64 {
 	mu.Lock()
 	defer mu.Unlock()
 	out := make(map[string]float64, len(counters)+len(gauges)+len(histSum)*2)
-	for k, v := range counters {
-		out[k] = v
-	}
-	for k, v := range gauges {
-		out[k] = v
-	}
+	maps.Copy(out, counters)
+	maps.Copy(out, gauges)
 	for k, v := range histSum {
 		out[k+"_sum"] = v
 		out[k+"_count"] = histCount[k]

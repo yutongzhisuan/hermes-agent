@@ -10,7 +10,7 @@ import (
 	"github.com/cloudwego/eino/compose"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/master/go/client"
+	"github.com/infa/task_relay/master/client"
 )
 
 const defaultInstruction = `You are a Task Relay Master agent coordinating local and remote workers.
@@ -60,11 +60,11 @@ type Config struct {
 	// SubAgents registers additional local subagents available through the "task" tool.
 	SubAgents []adk.Agent
 
-	HubTLS         client.TLSConfig
-	EnableMetrics  bool
-	MetricsAddr    string
-	EnableTracing  bool
-	OTelEndpoint   string
+	HubTLS        client.TLSConfig
+	EnableMetrics bool
+	MetricsAddr   string
+	EnableTracing bool
+	OTelEndpoint  string
 }
 
 // Master wraps an Eino ADK Runner backed by Task Relay tools.

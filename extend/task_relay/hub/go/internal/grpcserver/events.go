@@ -3,9 +3,9 @@ package grpcserver
 import (
 	"encoding/json"
 
+	"github.com/infa/task_relay/hub/internal/eventbus"
+	"github.com/infa/task_relay/hub/internal/router"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/eventbus"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
 )
 
 func eventToProto(event *router.TaskEvent) *pb.TaskEvent {
@@ -84,10 +84,10 @@ func applyTraceContext(proto *pb.TaskEvent, payload map[string]any) {
 		return
 	}
 	proto.TraceContext = &pb.TraceContext{
-		TraceId:       stringValue(trace["trace_id"]),
-		SpanId:        stringValue(trace["span_id"]),
-		ParentSpanId:  stringValue(trace["parent_span_id"]),
-		Sampled:       boolValue(trace["sampled"]),
+		TraceId:      stringValue(trace["trace_id"]),
+		SpanId:       stringValue(trace["span_id"]),
+		ParentSpanId: stringValue(trace["parent_span_id"]),
+		Sampled:      boolValue(trace["sampled"]),
 	}
 }
 

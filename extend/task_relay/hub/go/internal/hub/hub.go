@@ -7,22 +7,22 @@ import (
 	"net"
 	"time"
 
+	"github.com/infa/task_relay/hub/internal/auth"
+	"github.com/infa/task_relay/hub/internal/config"
+	"github.com/infa/task_relay/hub/internal/delivery"
+	"github.com/infa/task_relay/hub/internal/eventbus"
+	"github.com/infa/task_relay/hub/internal/grpcserver"
+	"github.com/infa/task_relay/hub/internal/metrics"
+	"github.com/infa/task_relay/hub/internal/orchestrator"
+	"github.com/infa/task_relay/hub/internal/registry"
+	"github.com/infa/task_relay/hub/internal/router"
+	"github.com/infa/task_relay/hub/internal/runpayload"
+	"github.com/infa/task_relay/hub/internal/store"
+	"github.com/infa/task_relay/hub/internal/tlsconfig"
+	"github.com/infa/task_relay/hub/internal/tokenserver"
+	"github.com/infa/task_relay/hub/internal/wake"
+	"github.com/infa/task_relay/hub/internal/wsserver"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/auth"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/config"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/delivery"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/eventbus"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/grpcserver"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/metrics"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/orchestrator"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/router"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/runpayload"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/store"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tlsconfig"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/tokenserver"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/wake"
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/wsserver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -108,7 +108,7 @@ func (h *Hub) Auth() *auth.Auth                { return h.auth }
 func (h *Hub) Router() *router.Router          { return h.router }
 func (h *Hub) Registry() *registry.Registry    { return h.registry }
 func (h *Hub) Delivery() *delivery.Coordinator { return h.delivery }
-func (h *Hub) Config() config.Config          { return h.cfg }
+func (h *Hub) Config() config.Config           { return h.cfg }
 
 func (h *Hub) Close() error {
 	if h.closeStore == nil {

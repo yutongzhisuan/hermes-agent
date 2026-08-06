@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/infa/xhermes-agent/extend/task_relay/hub/go/internal/registry"
+	"github.com/infa/task_relay/hub/internal/registry"
 )
 
 func TestIsEligibleForPollRejectsDrainingWorker(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 
 // Metrics holds Master SDK Prometheus collectors.
 type Metrics struct {
-	RPCTotal       *prometheus.CounterVec
-	RPCDuration    *prometheus.HistogramVec
+	RPCTotal        *prometheus.CounterVec
+	RPCDuration     *prometheus.HistogramVec
 	DispatchesTotal *prometheus.CounterVec
 }
 
