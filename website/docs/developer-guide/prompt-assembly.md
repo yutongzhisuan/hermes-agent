@@ -194,7 +194,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
 
     # Priority: first match wins — only ONE project context loaded
     project_context = (
-        _load_hermes_md(cwd_path)       # 1. .xhermes.md / HERMES.md (walks to git root)
+        _load_hermes_md(cwd_path)       # 1. .xhermes.md / XHERMES.md (walks to git root)
         or _load_agents_md(cwd_path)    # 2. AGENTS.md (cwd only)
         or _load_claude_md(cwd_path)    # 3. CLAUDE.md (cwd only)
         or _load_cursorrules(cwd_path)  # 4. .cursorrules / .cursor/rules/*.mdc
@@ -204,7 +204,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
     if project_context:
         sections.append(project_context)
 
-    # SOUL.md from HERMES_HOME (independent of project context)
+    # SOUL.md from XHERMES_HOME (independent of project context)
     if not skip_soul:
         soul_content = load_soul_md()
         if soul_content:
@@ -225,7 +225,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
 
 | Priority | Files | Search scope | Notes |
 |----------|-------|-------------|-------|
-| 1 | `.xhermes.md`, `HERMES.md` | CWD up to git root | XHermes-native project config |
+| 1 | `.xhermes.md`, `XHERMES.md` | CWD up to git root | XHermes-native project config |
 | 2 | `AGENTS.md` | CWD only | Common agent instruction file |
 | 3 | `CLAUDE.md` | CWD only | Claude Code compatibility |
 | 4 | `.cursorrules`, `.cursor/rules/*.mdc` | CWD only | Cursor compatibility |
@@ -256,7 +256,7 @@ Local memory and user profile data are captured in the system prompt's **volatil
 
 `agent/prompt_builder.py` scans and sanitizes project context files using a **priority system** — only one type is loaded (first match wins):
 
-1. `.xhermes.md` / `HERMES.md` (walks to git root)
+1. `.xhermes.md` / `XHERMES.md` (walks to git root)
 2. `AGENTS.md` (CWD at startup; subdirectories discovered progressively during the session via `agent/subdirectory_hints.py`)
 3. `CLAUDE.md` (CWD only)
 4. `.cursorrules` / `.cursor/rules/*.mdc` (CWD only)
@@ -277,10 +277,10 @@ Most users should treat `agent/prompt_builder.py` as implementation code, not a 
 
 - `~/.xhermes/SOUL.md` — replace the built-in default identity block with your own agent persona and standing behavior.
 - `~/.xhermes/MEMORY.md` and `~/.xhermes/USER.md` — provide durable cross-session facts and user profile data that should be snapshotted into new sessions.
-- Project context files such as `.xhermes.md`, `HERMES.md`, `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` — inject repo-specific working rules.
+- Project context files such as `.xhermes.md`, `XHERMES.md`, `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` — inject repo-specific working rules.
 - Skills — package reusable workflows and references without editing core prompt code.
 - Optional system prompt config / API overrides — add deployment-specific instruction text without forking XHermes.
-- Ephemeral overlays such as `HERMES_EPHEMERAL_SYSTEM_PROMPT` or prefill messages — add turn-scoped guidance that should not become part of the cached prompt prefix.
+- Ephemeral overlays such as `XHERMES_EPHEMERAL_SYSTEM_PROMPT` or prefill messages — add turn-scoped guidance that should not become part of the cached prompt prefix.
 
 ### When to edit code instead
 

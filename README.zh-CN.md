@@ -169,12 +169,12 @@ xhermes claw migrate --overwrite  # 覆盖已有冲突
 欢迎贡献！请参阅 [贡献指南](https://xhermes-agent.nousresearch.com/docs/developer-guide/contributing) 了解开发设置、代码风格和 PR 流程。
 
 贡献者快速开始——使用标准安装器，然后在它创建的完整 git checkout 中开发：
-`$HERMES_HOME/xhermes-agent`（通常是 `~/.xhermes/xhermes-agent`）。这会匹配
+`$XHERMES_HOME/xhermes-agent`（通常是 `~/.xhermes/xhermes-agent`）。这会匹配
 `xhermes update`、托管 venv、lazy dependencies、gateway 和 docs tooling 使用的布局。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash
-cd "${HERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
+cd "${XHERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```

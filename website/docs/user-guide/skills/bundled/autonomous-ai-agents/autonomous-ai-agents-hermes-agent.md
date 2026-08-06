@@ -84,8 +84,8 @@ xhermes proxy                   # OpenAI-compatible local proxy backed by your O
 
 ```
 ~/.xhermes/config.yaml       Main configuration (settings — never secrets)
-~/.xhermes/.env              API keys and secrets ONLY (under $HERMES_HOME if set)
-$HERMES_HOME/skills/        Installed skills
+~/.xhermes/.env              API keys and secrets ONLY (under $XHERMES_HOME if set)
+$XHERMES_HOME/skills/        Installed skills
 ~/.xhermes/skins/            Custom themes (see references/themes.md)
 ~/.xhermes/desktop-plugins/  Desktop app UI plugins (see references/desktop-plugins.md)
 ~/.xhermes/tui-widgets/      TUI widget apps (see references/tui-widgets.md)
@@ -97,7 +97,7 @@ $HERMES_HOME/skills/        Installed skills
 ~/.xhermes/xhermes-agent/     Source code (if git-installed)
 ```
 
-Profiles use `~/.xhermes/profiles/<name>/` with the same layout. When a profile is active, resolve the real home from `$HERMES_HOME` — never hardcode `~/.xhermes`.
+Profiles use `~/.xhermes/profiles/<name>/` with the same layout. When a profile is active, resolve the real home from `$XHERMES_HOME` — never hardcode `~/.xhermes`.
 
 ## Routing Table — load the reference for the task
 
@@ -217,5 +217,5 @@ terminal(command="tmux new-session -d -s resumed 'xhermes --resume 20260225_1430
 - **Never break prompt caching** — don't change past context, toolsets, or the system prompt mid-conversation. The only exception is context compression.
 - **Message role alternation** — never two assistant or two user messages in a row; only `tool` results can repeat.
 - **Secrets in `.env`, settings in `config.yaml`** — never tell a user to put a non-credential setting in `.env`.
-- **Profile-safe paths** — `get_hermes_home()` in code, `$HERMES_HOME` when resolving paths in a session.
+- **Profile-safe paths** — `get_hermes_home()` in code, `$XHERMES_HOME` when resolving paths in a session.
 - **Never hand-edit `config.yaml` for the user** — use `xhermes config set KEY VAL`; a stray indent can corrupt the file and break the live gateway.

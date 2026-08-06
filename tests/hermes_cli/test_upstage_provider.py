@@ -37,10 +37,10 @@ class TestUpstageResolver:
 
 class TestUpstageOverlay:
     def test_overlay_exists(self):
-        from hermes_cli.providers import HERMES_OVERLAYS
+        from hermes_cli.providers import XHERMES_OVERLAYS
 
-        assert "upstage" in HERMES_OVERLAYS
-        overlay = HERMES_OVERLAYS["upstage"]
+        assert "upstage" in XHERMES_OVERLAYS
+        overlay = XHERMES_OVERLAYS["upstage"]
         assert overlay.transport == "openai_chat"
         assert overlay.extra_env_vars == ("UPSTAGE_API_KEY",)
         assert overlay.base_url_override == "https://api.upstage.ai/v1"

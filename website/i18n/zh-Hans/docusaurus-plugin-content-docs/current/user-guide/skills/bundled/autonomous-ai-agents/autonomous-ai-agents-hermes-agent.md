@@ -349,7 +349,7 @@ xhermes uninstall            Uninstall XHermes
 ```
 ~/.xhermes/config.yaml       Main configuration
 ~/.xhermes/.env              API keys and secrets
-$HERMES_HOME/skills/        Installed skills
+$XHERMES_HOME/skills/        Installed skills
 ~/.xhermes/sessions/         Session transcripts
 ~/.xhermes/logs/             Gateway and error logs
 ~/.xhermes/auth.json         OAuth tokens and credential pools
@@ -446,7 +446,7 @@ Profiles 使用 `~/.xhermes/profiles/<name>/`，布局相同。
 | `rl` | 强化学习工具（默认关闭） |
 | `moa` | Mixture of Agents（默认关闭） |
 
-完整枚举位于 `toolsets.py` 的 `TOOLSETS` 字典中；`_HERMES_CORE_TOOLS` 是大多数平台继承的默认工具包。
+完整枚举位于 `toolsets.py` 的 `TOOLSETS` 字典中；`_XHERMES_CORE_TOOLS` 是大多数平台继承的默认工具包。
 
 工具变更在 `/reset`（新会话）后生效。为保留 prompt 缓存，变更**不会**在对话中途生效。
 
@@ -464,7 +464,7 @@ Profiles 使用 `~/.xhermes/profiles/<name>/`，布局相同。
 xhermes config set security.redact_secrets true       # 全局启用
 ```
 
-**需要重启。** `security.redact_secrets` 在导入时快照 — 在会话中途切换（例如通过工具调用执行 `export HERMES_REDACT_SECRETS=true`）对正在运行的进程**不会**生效。告知用户在终端运行 `xhermes config set security.redact_secrets true`，然后启动新会话。这是有意为之——防止 LLM 在任务中途自行切换该开关。
+**需要重启。** `security.redact_secrets` 在导入时快照 — 在会话中途切换（例如通过工具调用执行 `export XHERMES_REDACT_SECRETS=true`）对正在运行的进程**不会**生效。告知用户在终端运行 `xhermes config set security.redact_secrets true`，然后启动新会话。这是有意为之——防止 LLM 在任务中途自行切换该开关。
 
 再次禁用：
 ```bash
@@ -495,7 +495,7 @@ xhermes config set approvals.mode off         # 绕过一切（不推荐）
 
 单次调用绕过（不更改配置）：
 - `xhermes --yolo …`
-- `export HERMES_YOLO_MODE=1`
+- `export XHERMES_YOLO_MODE=1`
 
 注意：YOLO / `approvals.mode: off` **不会**关闭密钥脱敏。两者相互独立。
 
@@ -665,12 +665,12 @@ agent 创建的 skill 的后台维护。跟踪使用情况，将闲置 skill 标
 
 ### Kanban（多 agent 工作队列）
 
-用于多 profile/多 worker 协作的持久化 SQLite 看板（kanban）。用户通过 `xhermes kanban <verb>` 驱动；调度器生成的 worker 看到由 `HERMES_KANBAN_TASK` 控制的专注 `kanban_*` toolset，orchestrator profile 可以选择加入更广泛的 `kanban` toolset。普通会话除非配置，否则没有任何 `kanban_*` schema 占用。
+用于多 profile/多 worker 协作的持久化 SQLite 看板（kanban）。用户通过 `xhermes kanban <verb>` 驱动；调度器生成的 worker 看到由 `XHERMES_KANBAN_TASK` 控制的专注 `kanban_*` toolset，orchestrator profile 可以选择加入更广泛的 `kanban` toolset。普通会话除非配置，否则没有任何 `kanban_*` schema 占用。
 
 - **CLI 动词（常用）：** `init`、`create`、`list`（别名 `ls`）、`show`、`assign`、`link`、`unlink`、`comment`、`complete`、`block`、`unblock`、`archive`、`tail`。不常用：`watch`、`stats`、`runs`、`log`、`dispatch`、`daemon`、`gc`。
 - **Worker/orchestrator toolset：** `kanban_show`、`kanban_complete`、`kanban_block`、`kanban_heartbeat`、`kanban_comment`、`kanban_create`、`kanban_link`；在调度器生成的任务之外显式启用 `kanban` toolset 的 profile 还可获得 `kanban_list` 和 `kanban_unblock` 用于看板路由。
 - **调度器** 默认在 gateway 内运行（`kanban.dispatch_in_gateway: true`）——回收过期认领、推进就绪任务、原子认领、生成已分配的 profile。在配置的 `kanban.failure_limit` 次连续非成功尝试后自动阻塞任务（默认：2）。
-- **隔离：** 看板是硬边界（worker 在环境中固定 `HERMES_KANBAN_BOARD`）；租户是看板内用于工作区路径和记忆键隔离的软命名空间。
+- **隔离：** 看板是硬边界（worker 在环境中固定 `XHERMES_KANBAN_BOARD`）；租户是看板内用于工作区路径和记忆键隔离的软命名空间。
 
 用户文档：https://xhermes-agent.nousresearch.com/docs/user-guide/features/kanban
 
@@ -854,7 +854,7 @@ registry.register(
 )
 ```
 
-**2. 添加到 `toolsets.py`** → `_HERMES_CORE_TOOLS` 列表。
+**2. 添加到 `toolsets.py`** → `_XHERMES_CORE_TOOLS` 列表。
 
 自动发现：任何包含顶层 `registry.register()` 调用的 `tools/*.py` 文件都会自动导入——无需手动列出。
 
@@ -887,7 +887,7 @@ python -m pytest tests/ -o 'addopts=' -q   # 完整套件
 python -m pytest tests/tools/ -q            # 特定区域
 ```
 
-- 测试自动将 `HERMES_HOME` 重定向到临时目录——永远不会触及真实的 `~/.xhermes/`
+- 测试自动将 `XHERMES_HOME` 重定向到临时目录——永远不会触及真实的 `~/.xhermes/`
 - 推送任何变更前运行完整套件
 - 使用 `-o 'addopts='` 清除任何内置的 pytest 标志
 

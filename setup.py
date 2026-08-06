@@ -2,7 +2,7 @@
 setup.py — wheel/sdist build guard.
 
 pip/PyPI distribution is gated: only Nix (uv2nix) or an explicit headless-wheel
-release build (``HERMES_HEADLESS_WHEEL_BUILD=1``) may produce artifacts.
+release build (``XHERMES_HEADLESS_WHEEL_BUILD=1``) may produce artifacts.
 
 Editable installs (``uv sync``, ``pip install -e .``) use ``build_editable`` and
 are unaffected.
@@ -18,8 +18,8 @@ from setuptools import setup
 from setuptools.command.sdist import sdist
 
 _REPO_ROOT = Path(__file__).resolve().parent
-_IN_NIX_BUILD = os.environ.get("HERMES_NIX_BUILD") == "1"
-_IN_HEADLESS_WHEEL_BUILD = os.environ.get("HERMES_HEADLESS_WHEEL_BUILD") == "1"
+_IN_NIX_BUILD = os.environ.get("XHERMES_NIX_BUILD") == "1"
+_IN_HEADLESS_WHEEL_BUILD = os.environ.get("XHERMES_HEADLESS_WHEEL_BUILD") == "1"
 _ALLOWED = _IN_NIX_BUILD or _IN_HEADLESS_WHEEL_BUILD
 
 _BLOCK_MESSAGE = (
@@ -30,8 +30,8 @@ _BLOCK_MESSAGE = (
     "If you are developing, use an editable install instead:\n"
     "  uv sync          # or: uv pip install -e .\n"
     "\n"
-    "If you are building with Nix (uv2nix), set HERMES_NIX_BUILD=1.\n"
-    "For the headless pip wheel release, set HERMES_HEADLESS_WHEEL_BUILD=1\n"
+    "If you are building with Nix (uv2nix), set XHERMES_NIX_BUILD=1.\n"
+    "For the headless pip wheel release, set XHERMES_HEADLESS_WHEEL_BUILD=1\n"
     "and run scripts/build_headless_wheel.sh."
 )
 

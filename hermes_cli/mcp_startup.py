@@ -58,7 +58,7 @@ def start_background_mcp_discovery(*, logger, thread_name: str) -> None:
         if not _has_configured_mcp_servers():
             return
 
-        # Capture the caller's context-local HERMES_HOME override (profile
+        # Capture the caller's context-local XHERMES_HOME override (profile
         # scoping in multi-profile processes like the dashboard/desktop
         # backend) and re-install it inside the discovery thread. ContextVars
         # do not propagate into bare threads, so without this a session

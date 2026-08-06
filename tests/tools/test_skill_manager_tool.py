@@ -592,7 +592,7 @@ class TestBackgroundOwnershipPolicyConsistency:
     def test_repeated_identical_write_gets_the_same_answer(self, tmp_path, monkeypatch):
         """The real #67140 shape: no stubbing of load_usage, so the first write's
         telemetry side effect is live. Both attempts must agree."""
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         (tmp_path / ".xhermes" / "skills").mkdir(parents=True, exist_ok=True)
         with _skill_dir(tmp_path):
             _create_skill("flip-skill", VALID_SKILL_CONTENT)
@@ -612,7 +612,7 @@ class TestBackgroundOwnershipPolicyConsistency:
     def test_foreground_write_to_unmanaged_skill_still_allowed(self, tmp_path, monkeypatch):
         """Fail-closed applies to AUTONOMOUS writes only. A user-directed
         foreground edit to their own skill must keep working."""
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         with _skill_dir(tmp_path):
             _create_skill("no-record", VALID_SKILL_CONTENT)
             with patch("tools.skill_usage.load_usage", return_value={}):
@@ -624,7 +624,7 @@ class TestBackgroundOwnershipPolicyConsistency:
 
     def test_adopted_skill_becomes_writable_by_autonomous_curation(self, tmp_path, monkeypatch):
         """Adoption is the documented path from refused to allowed."""
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         with _skill_dir(tmp_path):
             _create_skill("adopt-me", VALID_SKILL_CONTENT)
             with patch("tools.skill_usage.load_usage", return_value={}):
@@ -769,7 +769,7 @@ class TestDeleteSkillRmtreeGuard:
 def _curator_pass(tmp_path, *, monkeypatch):
     """Run the body as the curator/background-review fork.
 
-    Points HERMES_HOME at ``tmp_path/.xhermes`` so skill_usage's archive path
+    Points XHERMES_HOME at ``tmp_path/.xhermes`` so skill_usage's archive path
     (``get_hermes_home()``) resolves into the same tree the skill manager
     searches, and flips ``is_background_review()`` → True so the consolidation
     guard fires.
@@ -786,7 +786,7 @@ def _curator_pass(tmp_path, *, monkeypatch):
     hermes_home = tmp_path / ".xhermes"
     skills_root = hermes_home / "skills"
     skills_root.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
     with patch("tools.skill_manager_tool.SKILLS_DIR", skills_root), \
          patch("tools.skills_tool.SKILLS_DIR", skills_root), \
          patch("agent.skill_utils.get_all_skills_dirs", return_value=[skills_root]), \

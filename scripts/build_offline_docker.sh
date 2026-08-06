@@ -34,7 +34,7 @@ IMAGE="${OFFLINE_DOCKER_IMAGE:-ghcr.io/astral-sh/uv:python3.11-bookworm-slim}"
 echo "Building offline bundle (${MODE}) for linux-${ARCH} via Docker (${docker_platform})..."
 docker run --rm --platform "$docker_platform" \
   -v "${ROOT}:/work" -w /work \
-  -e HERMES_HEADLESS_WHEEL_BUILD=1 \
+  -e XHERMES_HEADLESS_WHEEL_BUILD=1 \
   "$IMAGE" \
   bash -lc "
     set -euo pipefail

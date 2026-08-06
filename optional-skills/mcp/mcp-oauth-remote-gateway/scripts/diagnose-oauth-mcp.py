@@ -19,7 +19,7 @@ Branches printed at the end:
 Usage:
   python3 diagnose-oauth-mcp.py <server_name> [--mcp-url URL] [--token-endpoint URL] [--write]
 
-  <server_name> matches the files in $HERMES_HOME/mcp-tokens/<server>.json etc.
+  <server_name> matches the files in $XHERMES_HOME/mcp-tokens/<server>.json etc.
   If --mcp-url / --token-endpoint are omitted, they're read from the token's
   `resource` field and the AS .well-known metadata respectively.
 
@@ -36,7 +36,7 @@ def _hermes_home():
         from hermes_constants import get_hermes_home
         return str(get_hermes_home())
     except Exception:
-        return os.environ.get("HERMES_HOME") or os.path.expanduser("~/.xhermes")
+        return os.environ.get("XHERMES_HOME") or os.path.expanduser("~/.xhermes")
 
 
 def _tokens_dir():

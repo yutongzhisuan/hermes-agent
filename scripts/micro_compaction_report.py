@@ -9,7 +9,7 @@ Usage:
   python scripts/micro_compaction_report.py [LOGFILE ...]
   python scripts/micro_compaction_report.py --per-session
 
-With no LOGFILE, reads ``$HERMES_HOME/logs/agent.log`` (default ~/.xhermes).
+With no LOGFILE, reads ``$XHERMES_HOME/logs/agent.log`` (default ~/.xhermes).
 
 What to look at
 ---------------
@@ -44,7 +44,7 @@ BATCH_MARKER = "context compression attempt telemetry: "
 
 
 def default_log() -> Path:
-    home = os.environ.get("HERMES_HOME") or str(Path.home() / ".xhermes")
+    home = os.environ.get("XHERMES_HOME") or str(Path.home() / ".xhermes")
     return Path(home) / "logs" / "agent.log"
 
 

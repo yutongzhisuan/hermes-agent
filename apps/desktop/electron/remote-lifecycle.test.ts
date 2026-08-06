@@ -278,7 +278,7 @@ test('buildSpawnCommand is headless serve, detached, token not in argv', () => {
   assert.match(cmd, /<\/dev\/null/)
   assert.match(cmd, /echo \$!/)
   assert.ok(!cmd.includes('tok_secret_value'), 'token must not appear in spawn command')
-  assert.ok(!cmd.includes('HERMES_DASHBOARD_SESSION_TOKEN'), 'token env var must not appear')
+  assert.ok(!cmd.includes('XHERMES_DASHBOARD_SESSION_TOKEN'), 'token env var must not appear')
 })
 
 test('buildSpawnCommand always uses serve (legacy dashboard path removed)', () => {
@@ -325,8 +325,8 @@ test('spawnRemoteDashboard always spawns serve (legacy dashboard path removed)',
 })
 
 test('READY_RE accepts both serve and dashboard sentinels', () => {
-  assert.equal(READY_RE.exec('HERMES_BACKEND_READY port=4321')?.[1], '4321')
-  assert.equal(READY_RE.exec('HERMES_DASHBOARD_READY port=8765')?.[1], '8765')
+  assert.equal(READY_RE.exec('XHERMES_BACKEND_READY port=4321')?.[1], '4321')
+  assert.equal(READY_RE.exec('XHERMES_DASHBOARD_READY port=8765')?.[1], '8765')
 })
 
 test('spawnRemoteDashboard rejects when no pid is returned', async () => {
@@ -349,7 +349,7 @@ test('spawnRemoteDashboard rejects when no pid is returned', async () => {
 
 test('scrapeReadyPort reads only the named spawn log', async () => {
   const logPath = spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
-  const ssh = fakeSsh([[/cat/, 'some noise\nHERMES_DASHBOARD_READY port=51234\n']])
+  const ssh = fakeSsh([[/cat/, 'some noise\nXHERMES_DASHBOARD_READY port=51234\n']])
   const port = await scrapeReadyPort(ssh, logPath, { timeoutMs: 1000 })
   assert.equal(port, 51234)
   assert.ok(ssh.calls.every(call => !call.includes('desktop-ssh.log')))
@@ -408,7 +408,7 @@ test('connect() spawns fresh when there is no lockfile, adopts the served token'
     [/printf '%s\\n'/, ''],
     [/setsid/, '777\n'],
     [/kill -0 777/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=51999\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=51999\n']
   ])
 
   const result = await connect(connectDeps(ssh, { adoptServedToken: async () => 'the-served-token' }))
@@ -448,7 +448,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
     [/printf '%s\\n'/, ''],
     [/setsid/, '778\n'],
     [/kill -0 778/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_BACKEND_READY port=52000\n']
+    [/cat .*\.log/, 'XHERMES_BACKEND_READY port=52000\n']
   ])
 
   await connect(
@@ -502,7 +502,7 @@ test('connect() respawns when the requested remote profile differs from the lock
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
     [/kill -0 890/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -530,7 +530,7 @@ test('connect() respawns when the lockfile hermesPath differs from the resolved 
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -565,7 +565,7 @@ test('connect() respawns when the lockfile protocolVersion is incompatible', asy
     [/python3 -c/, ''],
     [/setsid/, '901\n'],
     [/kill -0 901/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=44100\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=44100\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken, adoptServedToken: async () => 'fresh' }))
@@ -580,13 +580,13 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
     [/uname/, 'Linux\nx86_64'],
     [/\[ -x/, 'OK'],
     [/cat .*lock\.json/, ''], // no lockfile
-    [/HERMES_HOME/, '/home/alice/.xhermes\n'],
+    [/XHERMES_HOME/, '/home/alice/.xhermes\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/printf '%s\\n'/, ''],
     [/setsid/, '700\n'],
     [/kill -0 700/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=45500\n'],
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=45500\n'],
     [
       /printf '%s' '/,
       c => {
@@ -616,7 +616,7 @@ test('connect() respawns when the lockfile pid is dead (killed dashboard)', asyn
     [/python3 -c/, ''],
     [/setsid/, '888\n'],
     [/kill -0 888/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=42000\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=42000\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken: 't', adoptServedToken: async () => 'fresh' }))
@@ -650,7 +650,7 @@ test('connect() respawns when the dashboard is wedged (alive pid, probe fails)',
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(
@@ -786,7 +786,7 @@ test('expandRemotePath preserves spaces as data', () => {
 test('buildSpawnCommand does not embed the token in the command string', () => {
   const cmd = buildSpawnCommand('/x/xhermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
   assert.ok(!cmd.includes('super_secret_token_value'), 'token must not appear in the spawn command')
-  assert.ok(!cmd.includes('HERMES_DASHBOARD_SESSION_TOKEN'), 'env var name must not appear')
+  assert.ok(!cmd.includes('XHERMES_DASHBOARD_SESSION_TOKEN'), 'env var name must not appear')
 })
 
 test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is provided', () => {
@@ -1050,7 +1050,7 @@ test('connect replaces an exact-owned backend only after authenticated stale pro
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'XHERMES_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(

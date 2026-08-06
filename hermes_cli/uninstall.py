@@ -324,7 +324,7 @@ def uninstall_gateway_service():
 # The installer (``scripts/install.ps1``) does four Windows-only things that
 # ``remove_path_from_shell_configs`` / ``remove_wrapper_script`` don't cover:
 #
-#   1. Sets User-scope env vars ``HERMES_HOME`` and ``HERMES_GIT_BASH_PATH``
+#   1. Sets User-scope env vars ``XHERMES_HOME`` and ``XHERMES_GIT_BASH_PATH``
 #      via ``[Environment]::SetEnvironmentVariable(..., "User")``.  These
 #      don't live in ~/.bashrc — they're in the Windows registry at
 #      HKCU\Environment.
@@ -360,7 +360,7 @@ def _hermes_path_markers(hermes_home: Path) -> list[str]:
         root + "\\node",
         root + "\\venv",
     ]
-    # Also match if HERMES_HOME was customised to somewhere else — find-and-nuke
+    # Also match if XHERMES_HOME was customised to somewhere else — find-and-nuke
     # any entry whose path component contains "xhermes".  We don't want to catch
     # unrelated entries like "chermes-foo" or "ephermeral", so we look for
     # backslash-xhermes as a word-ish boundary.
@@ -408,7 +408,7 @@ def remove_path_from_windows_registry(hermes_home: Path) -> list[str]:
 
 
 def remove_hermes_env_vars_windows() -> list[str]:
-    """Delete HERMES_HOME and HERMES_GIT_BASH_PATH from User-scope env vars."""
+    """Delete XHERMES_HOME and XHERMES_GIT_BASH_PATH from User-scope env vars."""
     try:
         import winreg
     except ImportError:
@@ -422,7 +422,7 @@ def remove_hermes_env_vars_windows() -> list[str]:
             0,
             winreg.KEY_READ | winreg.KEY_WRITE,
         ) as key:
-            for name in ("HERMES_HOME", "HERMES_GIT_BASH_PATH"):
+            for name in ("XHERMES_HOME", "XHERMES_GIT_BASH_PATH"):
                 try:
                     winreg.QueryValueEx(key, name)
                 except FileNotFoundError:
@@ -486,11 +486,11 @@ def _discover_named_profiles():
 
 def _uninstall_profile(profile) -> None:
     """Fully uninstall a single named profile: stop its gateway service,
-    remove its alias wrapper, and wipe its HERMES_HOME directory.
+    remove its alias wrapper, and wipe its XHERMES_HOME directory.
 
     We shell out to ``xhermes -p <name> gateway stop|uninstall`` because
     service names, unit paths, and plist paths are all derived from the
-    current HERMES_HOME and can't be easily switched in-process.
+    current XHERMES_HOME and can't be easily switched in-process.
     """
     import sys as _sys
 
@@ -528,7 +528,7 @@ def _uninstall_profile(profile) -> None:
         except Exception as e:
             log_warn(f"  Could not remove alias {alias_path}: {e}")
 
-    # 3. Wipe the profile's HERMES_HOME directory.
+    # 3. Wipe the profile's XHERMES_HOME directory.
     try:
         if profile_home.exists():
             shutil.rmtree(profile_home)
@@ -542,7 +542,7 @@ def run_gui_uninstall(args):
 
     Mirrors ``xhermes uninstall --gui``. Removes the desktop app's built
     artifacts, the packaged app bundle (best-effort), and the Electron
-    userData dir — nothing under ``$HERMES_HOME`` config/sessions/.env, and
+    userData dir — nothing under ``$XHERMES_HOME`` config/sessions/.env, and
     never the Python agent or its venv.
     """
     from hermes_cli.gui_uninstall import (
@@ -674,7 +674,7 @@ def run_uninstall(args):
         return
 
     # Detect named profiles when uninstalling from the default root —
-    # offer to clean them up too instead of leaving zombie HERMES_HOMEs
+    # offer to clean them up too instead of leaving zombie XHERMES_HOMEs
     # and systemd units behind.
     is_default_profile = _is_default_hermes_home(hermes_home)
     named_profiles = _discover_named_profiles() if is_default_profile else []
@@ -776,7 +776,7 @@ def run_uninstall(args):
 
     # When doing a full uninstall from the default profile, also offer to
     # remove any named profiles — stopping their gateway services, unlinking
-    # their alias wrappers, and wiping their HERMES_HOME dirs. Otherwise
+    # their alias wrappers, and wiping their XHERMES_HOME dirs. Otherwise
     # those leave zombie services and data behind.
     remove_profiles = False
     if full_uninstall and named_profiles:
@@ -903,7 +903,7 @@ def _perform_uninstall(
     Steps: stop gateway → strip PATH (rc files + Windows registry) → remove the
     ``xhermes`` wrapper + node symlinks → remove the desktop Chat GUI artifacts →
     delete the code checkout → (Windows) remove PortableGit/Node → optionally
-    wipe ``$HERMES_HOME`` data and named profiles on full uninstall.
+    wipe ``$XHERMES_HOME`` data and named profiles on full uninstall.
     """
     print()
     print(color("Uninstalling...", Colors.CYAN, Colors.BOLD))
@@ -939,7 +939,7 @@ def _perform_uninstall(
         else:
             log_info("No XHermes-owned PATH entries in User environment")
 
-        log_info("Removing HERMES_HOME / HERMES_GIT_BASH_PATH User env vars...")
+        log_info("Removing XHERMES_HOME / XHERMES_GIT_BASH_PATH User env vars...")
         removed_env = remove_hermes_env_vars_windows()
         if removed_env:
             for name in removed_env:
@@ -974,7 +974,7 @@ def _perform_uninstall(
     #     checkout — should go with it. uninstall_gui() never touches config /
     #     sessions / .env, so it's safe in keep-data mode; on full uninstall the
     #     step-5 rmtree(hermes_home) would sweep the in-tree artifacts anyway,
-    #     but the packaged app + Electron userData live OUTSIDE HERMES_HOME and
+    #     but the packaged app + Electron userData live OUTSIDE XHERMES_HOME and
     #     must be cleaned explicitly here.
     log_info("Removing desktop Chat GUI artifacts...")
     try:
@@ -1010,7 +1010,7 @@ def _perform_uninstall(
 
     # 4b. Remove Windows-only installer artifacts that are NOT user data:
     #     PortableGit, bundled Node, gateway-service dir.  Installer put them
-    #     under HERMES_HOME but they're install tooling, not config — safe to
+    #     under XHERMES_HOME but they're install tooling, not config — safe to
     #     remove even in "keep data" mode.  If we're doing a full uninstall
     #     the step-5 rmtree(hermes_home) would sweep them anyway; calling
     #     this helper there is a no-op since they'll already be gone.
@@ -1028,7 +1028,7 @@ def _perform_uninstall(
     # 5. Optionally remove ~/.xhermes/ data directory (and named profiles)
     if full_uninstall:
         # 5a. Stop and remove each named profile's gateway service and
-        #     alias wrapper. The profile HERMES_HOME dirs live under
+        #     alias wrapper. The profile XHERMES_HOME dirs live under
         #     ``<default>/profiles/<name>/`` and will be swept away by the
         #     rmtree below, but services + alias scripts live OUTSIDE the
         #     default root and have to be cleaned up explicitly.

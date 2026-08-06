@@ -788,7 +788,7 @@ services:
       MATRIX_ACCESS_TOKEN: "syt_..."
       MATRIX_ALLOWED_USERS: "@you:matrix.example.org"
       MATRIX_ENCRYPTION: "true"
-      MATRIX_DEVICE_ID: "HERMES_BOT"
+      MATRIX_DEVICE_ID: "XHERMES_BOT"
 
       # Proxy mode — forward to host agent
       GATEWAY_PROXY_URL: "http://192.168.1.100:8642"

@@ -29,12 +29,12 @@ def _build_artifact(
     # nix develop exports this too, so it must not grant permission to build
     # a distributable artifact.
     env["NIX_BUILD_TOP"] = "/build/devshell"
-    env.pop("HERMES_NIX_BUILD", None)
-    env.pop("HERMES_HEADLESS_WHEEL_BUILD", None)
+    env.pop("XHERMES_NIX_BUILD", None)
+    env.pop("XHERMES_HEADLESS_WHEEL_BUILD", None)
     if nix_build:
-        env["HERMES_NIX_BUILD"] = "1"
+        env["XHERMES_NIX_BUILD"] = "1"
     if headless_wheel_build:
-        env["HERMES_HEADLESS_WHEEL_BUILD"] = "1"
+        env["XHERMES_HEADLESS_WHEEL_BUILD"] = "1"
     # Redirect setuptools' scratch dirs (build/, *.egg-info) into tmp_path so
     # the allowed-marker build doesn't litter the real worktree.
     scratch = tmp_path / "scratch"

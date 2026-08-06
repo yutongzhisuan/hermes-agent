@@ -5,7 +5,7 @@ Covers:
 - Reset individual stores (--target memory / --target user)
 - Skip confirmation with --yes
 - Graceful handling when no memory files exist
-- Profile-scoped reset (uses HERMES_HOME)
+- Profile-scoped reset (uses XHERMES_HOME)
 """
 
 import pytest
@@ -13,11 +13,11 @@ import pytest
 
 @pytest.fixture
 def memory_env(tmp_path, monkeypatch):
-    """Set up a fake HERMES_HOME with memory files."""
+    """Set up a fake XHERMES_HOME with memory files."""
     hermes_home = tmp_path / ".xhermes"
     memories = hermes_home / "memories"
     memories.mkdir(parents=True)
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
 
     # Create sample memory files
     (memories / "MEMORY.md").write_text(
@@ -78,7 +78,7 @@ class TestMemoryReset:
         """Should return 'nothing' when no memory files exist."""
         hermes_home = tmp_path / ".xhermes"
         (hermes_home / "memories").mkdir(parents=True)
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
 
         result = _run_memory_reset(target="all", yes=True)
         assert result == "nothing"

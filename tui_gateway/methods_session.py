@@ -38,7 +38,7 @@ def _(rid, params: dict) -> dict:
     # ``profile`` (app-global remote mode): a new chat started under a non-launch
     # profile must build its agent + persist against THAT profile's home/state.db,
     # not the dashboard's launch profile. Stored on the session so _start_agent_build
-    # and each turn re-bind HERMES_HOME. None/own profile → launch (unchanged).
+    # and each turn re-bind XHERMES_HOME. None/own profile → launch (unchanged).
     profile = (params.get("profile") or "").strip() or None
     profile_home = _profile_home(profile)
 
@@ -168,7 +168,7 @@ def _(rid, params: dict) -> dict:
             # Resume picker should surface human conversation sessions from every
             # user-facing surface — CLI, TUI, all gateway platforms (including new
             # ones not enumerated here), ACP adapter clients, webhook sessions,
-            # custom `HERMES_SESSION_SOURCE` values, and older installs with
+            # custom `XHERMES_SESSION_SOURCE` values, and older installs with
             # different source labels. We deny-list only the noisy internal
             # sources (``tool`` sub-agent runs and ``kanban`` dispatcher
             # workers) rather than allow-listing a fixed set of platform names
@@ -690,7 +690,7 @@ def _(rid, params: dict) -> dict:
                         "model_override"
                     ]
                 _sessions[sid]["display_history_prefix"] = display_history_prefix
-                # Remember the profile home so each turn re-binds HERMES_HOME (the
+                # Remember the profile home so each turn re-binds XHERMES_HOME (the
                 # agent persists to its own db, but mid-turn home reads — memory,
                 # skills — must resolve to the resumed profile too).
                 if profile_home is not None:

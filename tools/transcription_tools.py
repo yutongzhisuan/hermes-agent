@@ -113,8 +113,8 @@ DEFAULT_STT_MODEL = os.getenv("STT_OPENAI_MODEL", "whisper-1")
 DEFAULT_GROQ_STT_MODEL = os.getenv("STT_GROQ_MODEL", "whisper-large-v3-turbo")
 DEFAULT_MISTRAL_STT_MODEL = os.getenv("STT_MISTRAL_MODEL", "voxtral-mini-latest")
 DEFAULT_ELEVENLABS_STT_MODEL = os.getenv("STT_ELEVENLABS_MODEL", "scribe_v2")
-LOCAL_STT_COMMAND_ENV = "HERMES_LOCAL_STT_COMMAND"
-LOCAL_STT_LANGUAGE_ENV = "HERMES_LOCAL_STT_LANGUAGE"
+LOCAL_STT_COMMAND_ENV = "XHERMES_LOCAL_STT_COMMAND"
+LOCAL_STT_LANGUAGE_ENV = "XHERMES_LOCAL_STT_LANGUAGE"
 COMMON_LOCAL_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin")
 
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
@@ -174,7 +174,7 @@ def _resolve_stt_language(
       1. ``stt.<provider>.language`` (plus any *extra_keys* aliases, e.g.
          ElevenLabs' historical ``language_code``)
       2. ``stt.language``           — global default for every provider
-      3. ``HERMES_LOCAL_STT_LANGUAGE`` env var (legacy escape hatch)
+      3. ``XHERMES_LOCAL_STT_LANGUAGE`` env var (legacy escape hatch)
       4. ``None``                   — let the provider auto-detect
 
     Returns a stripped ISO-639-1-ish code or None. Never returns "".
@@ -366,7 +366,7 @@ BUILTIN_STT_PROVIDERS = frozenset({
 #   3. Plugin-registered TranscriptionProvider  → plugin dispatch.
 #   4. No match                                 → "No STT provider available".
 #
-# The single-env-var ``HERMES_LOCAL_STT_COMMAND`` escape hatch is preserved
+# The single-env-var ``XHERMES_LOCAL_STT_COMMAND`` escape hatch is preserved
 # untouched via the built-in ``local_command`` path. Use the command-provider
 # registry when you want MULTIPLE shell-driven STT engines, or you want a
 # named provider you can pick via ``stt.provider`` in config.yaml.
@@ -572,7 +572,7 @@ def _render_command_stt_template(
 
     def replace_match(match: "re.Match[str]") -> str:
         name = match.group("double") or match.group("single")
-        token = f"__HERMES_STT_PLACEHOLDER_{len(replacements)}__"
+        token = f"__XHERMES_STT_PLACEHOLDER_{len(replacements)}__"
         replacements.append((
             token,
             _quote_command_stt_placeholder(
@@ -991,7 +991,7 @@ def _get_provider(stt_config: dict) -> str:
                 return "local"
             logger.warning(
                 "STT provider 'local' configured but unavailable "
-                "(install faster-whisper or set HERMES_LOCAL_STT_COMMAND)"
+                "(install faster-whisper or set XHERMES_LOCAL_STT_COMMAND)"
             )
             return "none"
 
@@ -1829,7 +1829,7 @@ def _transcribe_groq(file_path: str, model_name: str) -> Dict[str, Any]:
 
     Honours an optional ISO-639-1 language hint resolved from
     ``stt.groq.language`` > ``stt.language`` (config.yaml) >
-    ``HERMES_LOCAL_STT_LANGUAGE`` (env). When none is set, Groq
+    ``XHERMES_LOCAL_STT_LANGUAGE`` (env). When none is set, Groq
     Whisper auto-detects.
     """
     api_key = _resolve_provider_key("GROQ_API_KEY", "groq")

@@ -131,11 +131,11 @@ model:
 # client rebuilds during credential rotation.  For OpenAI-wire chat
 # completions (streaming and non-streaming) the configured value is also
 # used as the per-request ``timeout=`` kwarg so it wins over the legacy
-# HERMES_API_TIMEOUT env var (which still applies when no config is set).
+# XHERMES_API_TIMEOUT env var (which still applies when no config is set).
 # ``stale_timeout_seconds`` controls the non-streaming stale-call detector and
-# wins over the legacy HERMES_API_CALL_STALE_TIMEOUT env var. Leaving these
-# unset keeps the legacy defaults (HERMES_API_TIMEOUT=1800s,
-# HERMES_API_CALL_STALE_TIMEOUT=90s, native Anthropic 900s). The
+# wins over the legacy XHERMES_API_CALL_STALE_TIMEOUT env var. Leaving these
+# unset keeps the legacy defaults (XHERMES_API_TIMEOUT=1800s,
+# XHERMES_API_CALL_STALE_TIMEOUT=90s, native Anthropic 900s). The
 # implicit non-stream stale detector is auto-disabled for local endpoints
 # and can scale upward for very large contexts.
 #
@@ -234,9 +234,9 @@ terminal:
   # font_family: "MesloLGS NF"  # Also accepts a CSS stack; blank uses bundled JetBrains Mono.
   timeout: 180
   # HOME policy for tool subprocesses:
-  #   auto    - default: host uses your real HOME; containers use HERMES_HOME/home
+  #   auto    - default: host uses your real HOME; containers use XHERMES_HOME/home
   #   real    - force your real OS-user HOME
-  #   profile - force HERMES_HOME/home for strict per-profile CLI config isolation
+  #   profile - force XHERMES_HOME/home for strict per-profile CLI config isolation
   home_mode: "auto"
   docker_mount_cwd_to_workspace: false  # SECURITY: off by default. Opt in to mount the launch cwd into Docker /workspace.
   lifetime_seconds: 300
@@ -853,7 +853,7 @@ agent:
   # coding surfaces (CLI, TUI, desktop) and programmatic callers, and disables
   # it on conversational messaging surfaces (Telegram, Discord, etc.) where the
   # verification summary would reach a human as chat noise. Set true or false to
-  # force it on or off; the HERMES_VERIFY_ON_STOP env var (1/0) takes precedence.
+  # force it on or off; the XHERMES_VERIFY_ON_STOP env var (1/0) takes precedence.
   # verify_on_stop: auto
 
   # Standing operator instructions for the coding posture (when XHermes is in a
@@ -1181,7 +1181,7 @@ stt:
   language: "en"               # GLOBAL language hint for every STT provider (per-provider language wins). Set "" for auto-detect.
   # groq:
   #   model: "whisper-large-v3-turbo"
-  #   language: ""             # blank = stt.language > HERMES_LOCAL_STT_LANGUAGE > auto-detect
+  #   language: ""             # blank = stt.language > XHERMES_LOCAL_STT_LANGUAGE > auto-detect
   openai:
     model: "whisper-1"         # whisper-1 | gpt-4o-mini-transcribe | gpt-4o-transcribe | gpt-transcribe
     language: ""               # auto-detect; set to "en", "es", "fr", etc. to force
@@ -1493,7 +1493,7 @@ display:
 #
 # First-use consent: each (event, command) pair prompts once on a TTY, then
 # is persisted to ~/.xhermes/shell-hooks-allowlist.json.  Non-interactive
-# runs (gateway, cron) need --accept-hooks, HERMES_ACCEPT_HOOKS=1, or the
+# runs (gateway, cron) need --accept-hooks, XHERMES_ACCEPT_HOOKS=1, or the
 # hooks_auto_accept key below.
 #
 # See website/docs/user-guide/features/hooks.md for the full JSON wire
@@ -1520,7 +1520,7 @@ display:
 # =============================================================================
 # Shared metrics are disabled by default. When enabled, XHermes writes only
 # allowlisted aggregate counters and immutable JSON
-# packages under $HERMES_HOME/telemetry/shared_metrics; it does not upload them.
+# packages under $XHERMES_HOME/telemetry/shared_metrics; it does not upload them.
 # Packages include a random profile-scoped ID that stays stable until this
 # directory is deleted. It is not derived from hardware, account, or host data.
 # Successfully exported local history is retained for 30 days; pending deltas
@@ -1535,7 +1535,7 @@ telemetry:
 # Update Behavior
 # =============================================================================
 updates:
-  # Create a full HERMES_HOME zip before every `xhermes update`.
+  # Create a full XHERMES_HOME zip before every `xhermes update`.
   # Backups land in ~/.xhermes/backups/ and can be restored with `xhermes import`.
   # Off by default because large homes can add minutes to every update.
   pre_update_backup: false
@@ -1559,9 +1559,9 @@ updates:
 # The bundled Nous Portal plugin reads these on startup; settings here are
 # the canonical surface. Each can be overridden by an environment variable:
 #
-#   dashboard.oauth.client_id   <-  HERMES_DASHBOARD_OAUTH_CLIENT_ID
-#   dashboard.oauth.portal_url  <-  HERMES_DASHBOARD_PORTAL_URL
-#   dashboard.public_url        <-  HERMES_DASHBOARD_PUBLIC_URL
+#   dashboard.oauth.client_id   <-  XHERMES_DASHBOARD_OAUTH_CLIENT_ID
+#   dashboard.oauth.portal_url  <-  XHERMES_DASHBOARD_PORTAL_URL
+#   dashboard.public_url        <-  XHERMES_DASHBOARD_PUBLIC_URL
 #
 # Env wins when set to a non-empty value. This is what Fly.io's platform-
 # secret injection uses to push per-deploy client_ids without needing to
@@ -1600,10 +1600,10 @@ updates:
 # nous block above when gating the dashboard with your own identity provider.
 # Each setting can be overridden by an environment variable:
 #
-#   dashboard.oauth.self_hosted.issuer         <-  HERMES_DASHBOARD_OIDC_ISSUER
-#   dashboard.oauth.self_hosted.client_id      <-  HERMES_DASHBOARD_OIDC_CLIENT_ID
-#   dashboard.oauth.self_hosted.scopes         <-  HERMES_DASHBOARD_OIDC_SCOPES
-#   dashboard.oauth.self_hosted.client_secret  <-  HERMES_DASHBOARD_OIDC_CLIENT_SECRET
+#   dashboard.oauth.self_hosted.issuer         <-  XHERMES_DASHBOARD_OIDC_ISSUER
+#   dashboard.oauth.self_hosted.client_id      <-  XHERMES_DASHBOARD_OIDC_CLIENT_ID
+#   dashboard.oauth.self_hosted.scopes         <-  XHERMES_DASHBOARD_OIDC_SCOPES
+#   dashboard.oauth.self_hosted.client_secret  <-  XHERMES_DASHBOARD_OIDC_CLIENT_SECRET
 #
 # dashboard:
 #   oauth:
@@ -1620,7 +1620,7 @@ updates:
 #       # IDP's discovery doc) IN ADDITION to PKCE. Leave unset for a public
 #       # (PKCE-only) client — the common case.
 #       #
-#       # This is a CREDENTIAL: prefer setting HERMES_DASHBOARD_OIDC_CLIENT_SECRET
+#       # This is a CREDENTIAL: prefer setting XHERMES_DASHBOARD_OIDC_CLIENT_SECRET
 #       # in ~/.xhermes/.env over putting it here in config.yaml.
 #       #   client_secret: ""
 

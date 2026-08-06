@@ -12,10 +12,10 @@ import pytest
 
 @pytest.fixture
 def hermes_home(tmp_path, monkeypatch):
-    """Set up an isolated HERMES_HOME with minimal logs."""
+    """Set up an isolated XHERMES_HOME with minimal logs."""
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
 
     # Create log files
     logs_dir = home / "logs"
@@ -149,7 +149,7 @@ class TestCaptureLogSnapshot:
 
 
 # ---------------------------------------------------------------------------
-# Capture log redaction (force=True applies regardless of HERMES_REDACT_SECRETS)
+# Capture log redaction (force=True applies regardless of XHERMES_REDACT_SECRETS)
 # ---------------------------------------------------------------------------
 
 # A vendor-prefixed token used across redaction tests. Long enough to clear
@@ -162,16 +162,16 @@ class TestCaptureLogSnapshotRedaction:
 
     @pytest.fixture
     def hermes_home_with_secret(self, tmp_path, monkeypatch):
-        """Isolated HERMES_HOME whose agent.log contains a vendor-prefixed token."""
+        """Isolated XHERMES_HOME whose agent.log contains a vendor-prefixed token."""
         home = tmp_path / ".xhermes"
         home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(home))
+        monkeypatch.setenv("XHERMES_HOME", str(home))
         # Baseline fixture: no explicit env-var opinion. With the post-#17691
         # default of ON, the default-path tests below exercise the
         # secure-default behaviour. The `force=True` regression test
         # setenvs to "false" inline to prove force=True works even when
         # the runtime flag is disabled.
-        monkeypatch.delenv("HERMES_REDACT_SECRETS", raising=False)
+        monkeypatch.delenv("XHERMES_REDACT_SECRETS", raising=False)
 
         logs_dir = home / "logs"
         logs_dir.mkdir()
@@ -208,18 +208,18 @@ class TestCaptureLogSnapshotRedaction:
 
         If a future refactor drops `force=True` from `_redact_log_text`, this
         test fails immediately. Without `force=True`, the redactor returns the
-        input unchanged when HERMES_REDACT_SECRETS=false, and the share-time
+        input unchanged when XHERMES_REDACT_SECRETS=false, and the share-time
         redaction feature ships silently broken for users who opted out of
         runtime redaction (e.g. developers working on the redactor itself).
         """
 
         # Force the runtime flag off so we're exercising the force=True path,
         # not the default-on path.
-        monkeypatch.setenv("HERMES_REDACT_SECRETS", "false")
+        monkeypatch.setenv("XHERMES_REDACT_SECRETS", "false")
 
         from hermes_cli.debug import _capture_log_snapshot
 
-        assert os.environ.get("HERMES_REDACT_SECRETS", "") == "false"
+        assert os.environ.get("XHERMES_REDACT_SECRETS", "") == "false"
 
         snap = _capture_log_snapshot("agent", tail_lines=10)
 
@@ -394,11 +394,11 @@ class TestRunDebugShareRedaction:
 
     @pytest.fixture
     def hermes_home_with_secret(self, tmp_path, monkeypatch):
-        """Isolated HERMES_HOME whose agent.log contains a vendor-prefixed token."""
+        """Isolated XHERMES_HOME whose agent.log contains a vendor-prefixed token."""
         home = tmp_path / ".xhermes"
         home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(home))
-        monkeypatch.delenv("HERMES_REDACT_SECRETS", raising=False)
+        monkeypatch.setenv("XHERMES_HOME", str(home))
+        monkeypatch.delenv("XHERMES_REDACT_SECRETS", raising=False)
 
         logs_dir = home / "logs"
         logs_dir.mkdir()

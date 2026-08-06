@@ -569,7 +569,7 @@ class ProfileCreate(BaseModel):
     keep_skills: List[str] = []
     # Skills-hub identifiers to install into the new profile. Installed async
     # via a subprocess scoped to the profile (`xhermes -p <name> skills install`)
-    # because skills_hub.SKILLS_DIR is import-time-bound and the HERMES_HOME
+    # because skills_hub.SKILLS_DIR is import-time-bound and the XHERMES_HOME
     # override can't redirect it. Returns spawned PIDs for the UI to poll.
     hub_skills: List[str] = []
 

@@ -319,7 +319,7 @@ class TestApiKeyHintRealPool:
                 }
             )
         )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
         from agent.credential_pool import load_pool
 
         return load_pool("openrouter")
@@ -370,7 +370,7 @@ class TestFailureAttribution:
     """
 
     def _make_pool(self, tmp_path, monkeypatch, entries):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "xhermes"))
         hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir(parents=True, exist_ok=True)
         (hermes_home / "auth.json").write_text(

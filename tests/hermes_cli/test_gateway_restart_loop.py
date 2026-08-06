@@ -1,7 +1,7 @@
 """Tests for gateway restart-loop defenses (#30719).
 
 Covers:
-- Defense 1: gateway stop/restart refuse when _HERMES_GATEWAY=1
+- Defense 1: gateway stop/restart refuse when _XHERMES_GATEWAY=1
 - Defense 2: cron create rejects prompts containing gateway lifecycle commands
 - _contains_gateway_lifecycle_command pattern matching
 """
@@ -30,7 +30,7 @@ class TestGatewayLifecyclePattern:
         "xhermes gateway stop",
         "xhermes  gateway  restart",         # double spaces
         "Hermez Gateway Restart".lower().replace("z", "s"),  # case handled
-        "HERMES GATEWAY RESTART",           # uppercase
+        "XHERMES GATEWAY RESTART",           # uppercase
     ])
     def test_hermes_gateway_commands(self, text):
         assert _contains_gateway_lifecycle_command(text), f"Should match: {text!r}"
@@ -141,8 +141,8 @@ class TestCronCreateLifecycleBlock:
     def test_block_script_with_lifecycle_command(self, tmp_path, capsys, monkeypatch):
         # A no_agent job whose script IS the job (the issue's real abuse path:
         # restart_hermes_gateway_once.sh). The script must live under
-        # HERMES_HOME/scripts so the scheduler — and the guard — resolve it.
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        # XHERMES_HOME/scripts so the scheduler — and the guard — resolve it.
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         scripts_dir = tmp_path / ".xhermes" / "scripts"
         scripts_dir.mkdir(parents=True)
         (scripts_dir / "restart.sh").write_text("#!/bin/bash\nhermes gateway restart\n")
@@ -197,10 +197,10 @@ class TestCronCreateLifecycleBlock:
 # ---------------------------------------------------------------------------
 
 class TestGatewaySelfTargetingGuard:
-    """Verify xhermes gateway stop/restart refuse when _HERMES_GATEWAY=1."""
+    """Verify xhermes gateway stop/restart refuse when _XHERMES_GATEWAY=1."""
 
     def test_stop_refuses_inside_gateway(self, monkeypatch):
-        monkeypatch.setenv("_HERMES_GATEWAY", "1")
+        monkeypatch.setenv("_XHERMES_GATEWAY", "1")
         from hermes_cli.gateway import gateway_command
         args = Namespace(gateway_command="stop", all=False, system=False)
         with pytest.raises(SystemExit) as exc_info:
@@ -213,7 +213,7 @@ class TestGatewaySelfTargetingGuard:
         # fire. Prove control reaches the real stop path (rather than driving
         # real signal delivery, which would trip the live-system guard) by
         # short-circuiting the first downstream call with a sentinel.
-        monkeypatch.delenv("_HERMES_GATEWAY", raising=False)
+        monkeypatch.delenv("_XHERMES_GATEWAY", raising=False)
         import hermes_cli.gateway as gw
 
         class _Reached(Exception):
@@ -234,7 +234,7 @@ class TestGatewaySelfTargetingGuard:
 # ---------------------------------------------------------------------------
 
 class TestTerminalToolGatewayLifecycleGuard:
-    """terminal_tool must refuse gateway lifecycle commands when _HERMES_GATEWAY=1.
+    """terminal_tool must refuse gateway lifecycle commands when _XHERMES_GATEWAY=1.
 
     Issue #37453: systemctl --user restart xhermes-gateway runs as a child of the
     gateway process.  When systemd delivers SIGTERM the gateway kills its own
@@ -260,9 +260,9 @@ class TestTerminalToolGatewayLifecycleGuard:
         monkeypatch.setattr(tt, "_task_env_overrides", {})
         monkeypatch.setattr(tt, "_get_env_config", self._minimal_config)
         if inside_gateway:
-            monkeypatch.setenv("_HERMES_GATEWAY", "1")
+            monkeypatch.setenv("_XHERMES_GATEWAY", "1")
         else:
-            monkeypatch.delenv("_HERMES_GATEWAY", raising=False)
+            monkeypatch.delenv("_XHERMES_GATEWAY", raising=False)
 
     @pytest.mark.parametrize("cmd", [
         "systemctl restart xhermes-gateway",
@@ -630,11 +630,11 @@ class TestLifecycleGuardModule:
 
 
     def test_relative_script_resolved_under_scripts_dir(self, tmp_path, monkeypatch):
-        """A bare/relative script name resolves under HERMES_HOME/scripts (the
+        """A bare/relative script name resolves under XHERMES_HOME/scripts (the
         same place the scheduler runs it from) — otherwise the guard would read
         a nonexistent relative path and scan prompt-only content."""
         from cron.lifecycle_guard import GatewayLifecycleBlocked, check_gateway_lifecycle
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         scripts_dir = tmp_path / ".xhermes" / "scripts"
         scripts_dir.mkdir(parents=True)
         (scripts_dir / "restart.sh").write_text(
@@ -736,7 +736,7 @@ class TestCreateJobBlocksLifecycleCommands:
     def test_cronjob_tool_surfaces_block_as_error(self, tmp_path, monkeypatch):
         """End-to-end through the model tool: the block comes back as
         result['error'] with the #30719 hint, not an unhandled exception."""
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         (tmp_path / ".xhermes").mkdir(parents=True)
         from tools.cronjob_tools import cronjob
         result = json.loads(cronjob(
@@ -758,7 +758,7 @@ class TestRestartLoopGuard:
 
     @pytest.fixture(autouse=True)
     def _isolate_state(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         (tmp_path / ".xhermes").mkdir(parents=True)
         import gateway.restart_loop_guard as rlg
         rlg.clear()
@@ -792,9 +792,9 @@ class TestTerminalToolGatewayLifecycleGuardRemote:
         monkeypatch.setattr(tt, "_task_env_overrides", {})
         monkeypatch.setattr(tt, "_get_env_config", lambda: {"env_type": "local", "cwd": "/tmp", "timeout": 60, "lifetime_seconds": 3600})
         if inside_gateway:
-            monkeypatch.setenv("_HERMES_GATEWAY", "1")
+            monkeypatch.setenv("_XHERMES_GATEWAY", "1")
         else:
-            monkeypatch.delenv("_HERMES_GATEWAY", raising=False)
+            monkeypatch.delenv("_XHERMES_GATEWAY", raising=False)
 
     def test_remote_backend_script_read_uses_env_execute(self, monkeypatch, tmp_path):
         import tools.terminal_tool as tt
@@ -834,7 +834,7 @@ class TestCronCreateLifecycleBlockExtra:
         monkeypatch.setattr("cron.jobs.OUTPUT_DIR", tmp_path / "cron" / "output")
 
     def test_cron_nested_wrapper_script_is_scanned(self, tmp_path, capsys, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         scripts_dir = tmp_path / ".xhermes" / "scripts"
         scripts_dir.mkdir(parents=True)
         (scripts_dir / "inner.sh").write_text("#!/bin/bash\nhermes gateway restart\n")

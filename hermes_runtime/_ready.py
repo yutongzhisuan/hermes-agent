@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 READY_LINE_RE = re.compile(
-    rb"^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)\s*$",
+    rb"^XHERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)\s*$",
 )
 
 

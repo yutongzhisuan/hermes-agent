@@ -119,7 +119,7 @@ services.xhermes-agent.environmentFiles = [ "/var/lib/xhermes/env" ];
 :::
 
 :::tip addToSystemPackages
-设置 `addToSystemPackages = true` 有两个作用：将 `xhermes` CLI 添加到系统 PATH，**并**在系统范围内设置 `HERMES_HOME`，使交互式 CLI 与 gateway 服务共享状态（会话、技能、cron）。不设置此项时，在 shell 中运行 `xhermes` 会创建独立的 `~/.xhermes/` 目录。
+设置 `addToSystemPackages = true` 有两个作用：将 `xhermes` CLI 添加到系统 PATH，**并**在系统范围内设置 `XHERMES_HOME`，使交互式 CLI 与 gateway 服务共享状态（会话、技能、cron）。不设置此项时，在 shell 中运行 `xhermes` 会创建独立的 `~/.xhermes/` 目录。
 :::
 
 ### 容器感知 CLI
@@ -130,7 +130,7 @@ services.xhermes-agent.environmentFiles = [ "/var/lib/xhermes/env" ];
 - 路由是透明的：`xhermes chat`、`xhermes sessions list`、`xhermes version` 等命令都会在底层 exec 进容器
 - 所有 CLI 参数原样转发
 - 如果容器未运行，CLI 会短暂重试（交互式使用时显示 5 秒 spinner，脚本中静默等待 10 秒），然后以明确的错误退出——不会静默回退
-- 对于在 xhermes 代码库上工作的开发者，设置 `HERMES_DEV=1` 可绕过容器路由，直接运行本地检出版本
+- 对于在 xhermes 代码库上工作的开发者，设置 `XHERMES_DEV=1` 可绕过容器路由，直接运行本地检出版本
 
 设置 `container.hostUsers` 可创建 `~/.xhermes` 到服务状态目录的符号链接，使主机 CLI 和容器共享会话、配置和记忆：
 
@@ -306,7 +306,7 @@ services.xhermes-agent.settings = {
 services.xhermes-agent.configFile = /etc/xhermes/config.yaml;
 ```
 
-这会完全绕过 `settings`——不合并，不生成。每次激活时，该文件会原样复制到 `$HERMES_HOME/config.yaml`。
+这会完全绕过 `settings`——不合并，不生成。每次激活时，该文件会原样复制到 `$XHERMES_HOME/config.yaml`。
 
 ### 自定义速查表
 
@@ -337,7 +337,7 @@ Nix 用户最常见自定义需求的快速参考：
 Nix 表达式中的值会进入 `/nix/store`，该目录是全局可读的。请始终使用带有密钥管理器的 `environmentFiles`。
 :::
 
-`environment`（非密钥变量）和 `environmentFiles`（密钥文件）在激活时（`nixos-rebuild switch`）都会合并到 `$HERMES_HOME/.env` 中。XHermes 在每次启动时读取此文件，因此更改在 `systemctl restart xhermes-agent` 后生效——无需重建容器。
+`environment`（非密钥变量）和 `environmentFiles`（密钥文件）在激活时（`nixos-rebuild switch`）都会合并到 `$XHERMES_HOME/.env` 中。XHermes 在每次启动时读取此文件，因此更改在 `systemctl restart xhermes-agent` 后生效——无需重建容器。
 
 ### sops-nix
 
@@ -401,7 +401,7 @@ xhermes-env: |
 - **`USER.md`** — 关于 Agent 正在交互的用户的上下文信息。
 - 你放置在此处的任何其他文件对 Agent 都可见，作为工作区文件。
 
-Agent 身份文件是独立的：XHermes 从 `$HERMES_HOME/SOUL.md` 加载其主要 `SOUL.md`，在 NixOS 模块中对应 `${services.xhermes-agent.stateDir}/.xhermes/SOUL.md`。将 `SOUL.md` 放入 `documents` 只会创建一个工作区文件，不会替换主角色文件。
+Agent 身份文件是独立的：XHermes 从 `$XHERMES_HOME/SOUL.md` 加载其主要 `SOUL.md`，在 NixOS 模块中对应 `${services.xhermes-agent.stateDir}/.xhermes/SOUL.md`。将 `SOUL.md` 放入 `documents` 只会创建一个工作区文件，不会替换主角色文件。
 
 ```nix
 {
@@ -438,7 +438,7 @@ Agent 身份文件是独立的：XHermes 从 `$HERMES_HOME/SOUL.md` 加载其主
 ```
 
 :::tip
-`env` 值中的环境变量在运行时从 `$HERMES_HOME/.env` 解析。使用 `environmentFiles` 注入密钥——切勿将 token 直接放入 Nix 配置。
+`env` 值中的环境变量在运行时从 `$XHERMES_HOME/.env` 解析。使用 `environmentFiles` 注入密钥——切勿将 token 直接放入 Nix 配置。
 :::
 
 ### HTTP 传输（远程服务器）
@@ -466,7 +466,7 @@ Agent 身份文件是独立的：XHermes 从 `$HERMES_HOME/SOUL.md` 加载其主
 }
 ```
 
-Token 存储在 `$HERMES_HOME/mcp-tokens/<server-name>.json` 中，在重启和重建后持久保留。
+Token 存储在 `$XHERMES_HOME/mcp-tokens/<server-name>.json` 中，在重启和重建后持久保留。
 
 <details>
 <summary><strong>无头服务器上的初始 OAuth 授权</strong></summary>
@@ -481,7 +481,7 @@ docker exec -it xhermes-agent \
   xhermes mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 
 # 原生模式
-sudo -u xhermes HERMES_HOME=/var/lib/xhermes/.xhermes \
+sudo -u xhermes XHERMES_HOME=/var/lib/xhermes/.xhermes \
   xhermes mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 ```
 
@@ -534,8 +534,8 @@ scp ~/.xhermes/mcp-tokens/my-oauth-server{,.client}.json \
 
 这可以防止 Nix 声明的内容与磁盘上实际内容之间产生漂移。检测使用两个信号：
 
-1. **`HERMES_MANAGED=true`** 环境变量——由 systemd 服务设置，对 gateway 进程可见
-2. **`.managed` 标记文件**，位于 `HERMES_HOME` 中——由激活脚本设置，对交互式 shell 可见（例如 `docker exec -it xhermes-agent xhermes config set ...` 也会被屏蔽）
+1. **`XHERMES_MANAGED=true`** 环境变量——由 systemd 服务设置，对 gateway 进程可见
+2. **`.managed` 标记文件**，位于 `XHERMES_HOME` 中——由激活脚本设置，对交互式 shell 可见（例如 `docker exec -it xhermes-agent xhermes config set ...` 也会被屏蔽）
 
 要更改配置，请编辑你的 Nix 配置并运行 `sudo nixos-rebuild switch`。
 
@@ -558,7 +558,7 @@ scp ~/.xhermes/mcp-tokens/my-oauth-server{,.client}.json \
   ├── current-package -> /nix/store/...    （符号链接，每次重建更新）
   ├── .gc-root -> /nix/store/...           （防止 nix-collect-garbage）
   ├── .container-identity                  （sha256 哈希，触发重建）
-  ├── .xhermes/                             （HERMES_HOME）
+  ├── .xhermes/                             （XHERMES_HOME）
   │   ├── .env                             （从 environment + environmentFiles 合并）
   │   ├── config.yaml                      （Nix 生成，激活时深度合并）
   │   ├── .managed                         （标记文件）
@@ -620,7 +620,7 @@ services.xhermes-agent.extraPlugins = [
 ];
 ```
 
-插件在激活时以符号链接方式安装到 `$HERMES_HOME/plugins/`。XHermes 通过其正常的目录扫描发现它们。从列表中移除插件并运行 `nixos-rebuild switch` 会删除符号链接。
+插件在激活时以符号链接方式安装到 `$XHERMES_HOME/plugins/`。XHermes 通过其正常的目录扫描发现它们。从列表中移除插件并运行 `nixos-rebuild switch` 会删除符号链接。
 
 ### 入口点插件（`extraPythonPackages`）
 
@@ -753,7 +753,7 @@ nix flake check
 nix build .#checks.x86_64-linux.package-contents   # 二进制文件存在 + 版本
 nix build .#checks.x86_64-linux.entry-points-sync  # pyproject.toml ↔ Nix 包同步
 nix build .#checks.x86_64-linux.cli-commands        # gateway/config 子命令
-nix build .#checks.x86_64-linux.managed-guard       # HERMES_MANAGED 屏蔽变更操作
+nix build .#checks.x86_64-linux.managed-guard       # XHERMES_MANAGED 屏蔽变更操作
 nix build .#checks.x86_64-linux.bundled-skills      # 包中存在 skills
 nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户键
 ```
@@ -766,8 +766,8 @@ nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户�
 | `package-contents` | `xhermes` 和 `xhermes-agent` 二进制文件存在且 `xhermes version` 可运行 |
 | `entry-points-sync` | `pyproject.toml` 中 `[project.scripts]` 的每个条目在 Nix 包中都有对应的封装二进制文件 |
 | `cli-commands` | `xhermes --help` 暴露 `gateway` 和 `config` 子命令 |
-| `managed-guard` | `HERMES_MANAGED=true xhermes config set ...` 打印 NixOS 错误 |
-| `bundled-skills` | skills 目录存在，包含 SKILL.md 文件，wrapper 中设置了 `HERMES_BUNDLED_SKILLS` |
+| `managed-guard` | `XHERMES_MANAGED=true xhermes config set ...` 打印 NixOS 错误 |
+| `bundled-skills` | skills 目录存在，包含 SKILL.md 文件，wrapper 中设置了 `XHERMES_BUNDLED_SKILLS` |
 | `config-roundtrip` | 7 种合并场景：全新安装、Nix 覆盖、用户键保留、混合合并、MCP 累加合并、嵌套深度合并、幂等性 |
 
 </details>
@@ -785,9 +785,9 @@ nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户�
 | `user` | `str` | `"xhermes"` | 系统用户 |
 | `group` | `str` | `"xhermes"` | 系统组 |
 | `createUser` | `bool` | `true` | 自动创建用户/组 |
-| `stateDir` | `str` | `"/var/lib/xhermes"` | 状态目录（`HERMES_HOME` 的父目录） |
+| `stateDir` | `str` | `"/var/lib/xhermes"` | 状态目录（`XHERMES_HOME` 的父目录） |
 | `workingDirectory` | `str` | `"${stateDir}/workspace"` | Agent 工作目录（`MESSAGING_CWD`） |
-| `addToSystemPackages` | `bool` | `false` | 将 `xhermes` CLI 添加到系统 PATH 并在系统范围内设置 `HERMES_HOME` |
+| `addToSystemPackages` | `bool` | `false` | 将 `xhermes` CLI 添加到系统 PATH 并在系统范围内设置 `XHERMES_HOME` |
 
 ### 配置
 
@@ -800,7 +800,7 @@ nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户�
 
 | 选项 | 类型 | 默认值 | 描述 |
 |---|---|---|---|
-| `environmentFiles` | `listOf str` | `[]` | 包含密钥的 env 文件路径。激活时合并到 `$HERMES_HOME/.env` |
+| `environmentFiles` | `listOf str` | `[]` | 包含密钥的 env 文件路径。激活时合并到 `$XHERMES_HOME/.env` |
 | `environment` | `attrsOf str` | `{}` | 非密钥环境变量。**在 Nix store 中可见**——请勿在此放置密钥 |
 | `authFile` | `null` 或 `path` | `null` | OAuth 凭据预置文件。仅在首次部署时复制 |
 | `authFileForceOverwrite` | `bool` | `false` | 每次激活时始终从 `authFile` 覆盖 `auth.json` |
@@ -834,7 +834,7 @@ nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户�
 |---|---|---|---|
 | `extraArgs` | `listOf str` | `[]` | `xhermes gateway` 的额外参数 |
 | `extraPackages` | `listOf package` | `[]` | Agent 可用的额外包。添加到 xhermes 用户的每用户 profile，终端命令、skills 和 cron 任务均可见 |
-| `extraPlugins` | `listOf package` | `[]` | 以符号链接方式安装到 `$HERMES_HOME/plugins/` 的目录插件包。每个包必须包含 `plugin.yaml` |
+| `extraPlugins` | `listOf package` | `[]` | 以符号链接方式安装到 `$XHERMES_HOME/plugins/` 的目录插件包。每个包必须包含 `plugin.yaml` |
 | `extraPythonPackages` | `listOf package` | `[]` | 添加到 PYTHONPATH 用于入口点插件发现的 Python 包。使用 `python312Packages` 构建 |
 | `extraDependencyGroups` | `listOf str` | `[]` | 包含到封闭 venv 中的 pyproject.toml 可选 extras（例如 `["hindsight"]`）。由 uv 解析——无冲突 |
 | `restart` | `str` | `"always"` | systemd `Restart=` 策略 |
@@ -859,7 +859,7 @@ nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户�
 
 ```
 /var/lib/xhermes/                     # stateDir（归 xhermes:xhermes 所有，权限 0750）
-├── .xhermes/                         # HERMES_HOME
+├── .xhermes/                         # XHERMES_HOME
 │   ├── config.yaml                  # Nix 生成（每次重建深度合并）
 │   ├── .managed                     # 标记：CLI 配置变更被屏蔽
 │   ├── .env                         # 从 environment + environmentFiles 合并

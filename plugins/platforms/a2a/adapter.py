@@ -106,7 +106,7 @@ def _active_profile_name() -> str:
         from hermes_cli.profiles import get_active_profile_name
         return get_active_profile_name() or "default"
     except Exception:
-        return os.getenv("HERMES_PROFILE", "default") or "default"
+        return os.getenv("XHERMES_PROFILE", "default") or "default"
 
 
 def _profile_home(profile: str) -> Optional[str]:
@@ -871,8 +871,8 @@ class A2AAdapter(BasePlatformAdapter):
             env = os.environ.copy()
             home = _profile_home(profile)
             if home:
-                env["HERMES_HOME"] = home
-            env["HERMES_A2A_PEER"] = peer
+                env["XHERMES_HOME"] = home
+            env["XHERMES_A2A_PEER"] = peer
             start = time.time()
             try:
                 proc = subprocess.run(

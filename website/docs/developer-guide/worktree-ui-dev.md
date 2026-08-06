@@ -29,8 +29,8 @@ Two env vars name the canonical checkout:
 
 | Variable | Meaning |
 |----------|---------|
-| `HERMES_MAIN_CHECKOUT` | The deps checkout — where `node_modules` really lives, and whose `.venv/bin/python` runs the backend. |
-| `HERMES_GUI_DEPS_CHECKOUT` | Where the desktop deps (`apps/desktop/node_modules`) live. Defaults to `HERMES_MAIN_CHECKOUT`; override only if you keep desktop deps elsewhere. |
+| `XHERMES_MAIN_CHECKOUT` | The deps checkout — where `node_modules` really lives, and whose `.venv/bin/python` runs the backend. |
+| `XHERMES_GUI_DEPS_CHECKOUT` | Where the desktop deps (`apps/desktop/node_modules`) live. Defaults to `XHERMES_MAIN_CHECKOUT`; override only if you keep desktop deps elsewhere. |
 
 Neither is read by XHermes itself — they're private to these helpers. The variables XHermes *does* read are covered in [Environment Variables](../reference/environment-variables.md).
 
@@ -43,14 +43,14 @@ htui() {
   local root
   root="$(_hermes_root)" || { echo "htui: not in a XHermes checkout" >&2; return 1; }
   ( cd "$root" && PYTHONPATH="$root" \
-      "$HERMES_MAIN_CHECKOUT/.venv/bin/python" -m hermes_cli.main --tui --dev "$@" )
+      "$XHERMES_MAIN_CHECKOUT/.venv/bin/python" -m hermes_cli.main --tui --dev "$@" )
 }
 ```
 
-`--dev` compiles from source, so it links `ui-tui/node_modules` from `HERMES_MAIN_CHECKOUT` when the root lockfile matches and installs locally otherwise (see [`_hermes_root` / linking helpers](#shared-helpers)).
+`--dev` compiles from source, so it links `ui-tui/node_modules` from `XHERMES_MAIN_CHECKOUT` when the root lockfile matches and installs locally otherwise (see [`_hermes_root` / linking helpers](#shared-helpers)).
 
-:::warning `--dev` and `HERMES_TUI_DIR` are mutually exclusive
-`HERMES_TUI_DIR` points XHermes at a *prebuilt* bundle (Nix, system packages), which has no source to hot-reload. If it's set in your shell, `xhermes --tui --dev` exits with an error. Run `unset HERMES_TUI_DIR` before `htui`.
+:::warning `--dev` and `XHERMES_TUI_DIR` are mutually exclusive
+`XHERMES_TUI_DIR` points XHermes at a *prebuilt* bundle (Nix, system packages), which has no source to hot-reload. If it's set in your shell, `xhermes --tui --dev` exits with an error. Run `unset XHERMES_TUI_DIR` before `htui`.
 :::
 
 ## `hgui` — desktop app from the worktree
@@ -61,7 +61,7 @@ The desktop app is heavier: it needs `node_modules` at both the repo root and `a
 hgui() {
   local root deps desktop
   root="$(_hermes_root)" || { echo "hgui: not in a XHermes checkout" >&2; return 1; }
-  deps="${HERMES_GUI_DEPS_CHECKOUT:-$HERMES_MAIN_CHECKOUT}"
+  deps="${XHERMES_GUI_DEPS_CHECKOUT:-$XHERMES_MAIN_CHECKOUT}"
   desktop="$root/apps/desktop"
 
   # Borrow deps when locks match; otherwise install locally in the worktree.
@@ -80,10 +80,10 @@ hgui() {
 
   ( cd "$desktop"
     export PATH="$root/node_modules/.bin:$PATH"
-    HERMES_DESKTOP_HERMES_ROOT="$root" \
-    HERMES_DESKTOP_PYTHON="$HERMES_MAIN_CHECKOUT/.venv/bin/python" \
-    HERMES_DESKTOP_IGNORE_EXISTING=1 \
-    HERMES_DESKTOP_CWD="$root" \
+    XHERMES_DESKTOP_XHERMES_ROOT="$root" \
+    XHERMES_DESKTOP_PYTHON="$XHERMES_MAIN_CHECKOUT/.venv/bin/python" \
+    XHERMES_DESKTOP_IGNORE_EXISTING=1 \
+    XHERMES_DESKTOP_CWD="$root" \
     npm run dev )
 }
 ```
@@ -92,10 +92,10 @@ The desktop env vars it sets are all real backend-resolution knobs:
 
 | Variable | Role in `hgui` |
 |----------|----------------|
-| `HERMES_DESKTOP_HERMES_ROOT` | Runs the backend from **this worktree**, not the packaged/PATH `xhermes`. |
-| `HERMES_DESKTOP_PYTHON` | Reuses the deps checkout's venv instead of re-resolving a Python. |
-| `HERMES_DESKTOP_IGNORE_EXISTING` | Ignores any `xhermes` on `PATH` so it can't shadow the worktree. |
-| `HERMES_DESKTOP_CWD` | Opens the desktop chat rooted at the worktree. |
+| `XHERMES_DESKTOP_XHERMES_ROOT` | Runs the backend from **this worktree**, not the packaged/PATH `xhermes`. |
+| `XHERMES_DESKTOP_PYTHON` | Reuses the deps checkout's venv instead of re-resolving a Python. |
+| `XHERMES_DESKTOP_IGNORE_EXISTING` | Ignores any `xhermes` on `PATH` so it can't shadow the worktree. |
+| `XHERMES_DESKTOP_CWD` | Opens the desktop chat rooted at the worktree. |
 
 Two footguns `hgui` handles that a bare `npm run dev` does not:
 
@@ -139,7 +139,7 @@ A symlink to a divergent `node_modules` is worse than no install — the worktre
 ## See also
 
 - [Git Worktrees](../user-guide/git-worktrees.md) — the isolation model these helpers build on
-- [TUI](../user-guide/tui.md) — `xhermes --tui --dev` and the `HERMES_TUI_DIR` prebuild path
+- [TUI](../user-guide/tui.md) — `xhermes --tui --dev` and the `XHERMES_TUI_DIR` prebuild path
 - [Desktop App](../user-guide/desktop.md) — building from source and the backend resolution ladder
 - [`apps/desktop/README.md`](https://github.com/NousResearch/xhermes-agent/blob/main/apps/desktop/README.md) — dev server, sandbox script, and packaging
-- [Environment Variables](../reference/environment-variables.md) — every `HERMES_*` variable XHermes reads
+- [Environment Variables](../reference/environment-variables.md) — every `XHERMES_*` variable XHermes reads

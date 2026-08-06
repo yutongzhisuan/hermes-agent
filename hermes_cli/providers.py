@@ -43,7 +43,7 @@ class HermesOverlay:
     base_url_env_var: str = ""            # env var for user-custom base URL
 
 
-HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
+XHERMES_OVERLAYS: Dict[str, HermesOverlay] = {
     "moa": HermesOverlay(
         transport="openai_chat",
         auth_type="virtual",
@@ -79,7 +79,7 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
         transport="openai_chat",
         auth_type="oauth_external",
         base_url_override="https://portal.qwen.ai/v1",
-        base_url_env_var="HERMES_QWEN_BASE_URL",
+        base_url_env_var="XHERMES_QWEN_BASE_URL",
     ),
     "lmstudio": HermesOverlay(
         transport="openai_chat",
@@ -469,7 +469,7 @@ def get_provider(name: str, *, allow_network: bool = True) -> Optional[ProviderD
     except Exception:
         mdev_info = None
 
-    overlay = HERMES_OVERLAYS.get(canonical)
+    overlay = XHERMES_OVERLAYS.get(canonical)
 
     if mdev_info is not None:
         # Merge models.dev + overlay
@@ -685,7 +685,7 @@ def determine_api_mode(provider: str, base_url: str = "", model: str = "") -> st
     if pdef is not None:
         return TRANSPORT_TO_API_MODE.get(pdef.transport, "chat_completions")
 
-    # Direct provider checks for providers not in HERMES_OVERLAYS
+    # Direct provider checks for providers not in XHERMES_OVERLAYS
     if provider == "bedrock":
         return "bedrock_converse"
 

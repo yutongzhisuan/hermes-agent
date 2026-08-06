@@ -113,15 +113,15 @@ test('verifyHermesCli swallows timeouts (does not throw)', () => {
 test('default probe timeout is 15s (not the old 5s death-loop value)', () => {
   assert.equal(DEFAULT_PROBE_TIMEOUT_MS, 15_000)
   // Module constant uses process.env at load time; with no override it
-  // matches the default (tests run without HERMES_PROBE_TIMEOUT_MS).
+  // matches the default (tests run without XHERMES_PROBE_TIMEOUT_MS).
   assert.equal(PROBE_TIMEOUT_MS, DEFAULT_PROBE_TIMEOUT_MS)
 })
 
-test('resolveProbeTimeoutMs honours HERMES_PROBE_TIMEOUT_MS', () => {
+test('resolveProbeTimeoutMs honours XHERMES_PROBE_TIMEOUT_MS', () => {
   assert.equal(resolveProbeTimeoutMs({}), DEFAULT_PROBE_TIMEOUT_MS)
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: '30000' }), 30_000)
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: '0' }), DEFAULT_PROBE_TIMEOUT_MS)
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: 'nope' }), DEFAULT_PROBE_TIMEOUT_MS)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: '30000' }), 30_000)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: '0' }), DEFAULT_PROBE_TIMEOUT_MS)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: 'nope' }), DEFAULT_PROBE_TIMEOUT_MS)
   // Cap runaway values
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: '999999' }), 120_000)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: '999999' }), 120_000)
 })

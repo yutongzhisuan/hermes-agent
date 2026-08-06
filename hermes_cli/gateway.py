@@ -379,7 +379,7 @@ def _scan_gateway_pids(
     )
 
     current_home = str(get_hermes_home().resolve())
-    # Forward slashes on both sides of the HERMES_HOME= match — see
+    # Forward slashes on both sides of the XHERMES_HOME= match — see
     # gateway.status._command_line_belongs_to_profile, which this mirrors.
     current_home_lc = current_home.lower().replace("\\", "/")
     current_profile_arg = _profile_arg(current_home)
@@ -398,10 +398,10 @@ def _scan_gateway_pids(
             )
 
         # Default-profile case: no profile flag in argv. Accept as long as
-        # the command doesn't advertise *some other* profile. HERMES_HOME
+        # the command doesn't advertise *some other* profile. XHERMES_HOME
         # may be passed via env (not visible in wmic/CIM command line) so
         # its absence is NOT disqualifying — only a non-matching explicit
-        # HERMES_HOME= in argv is.
+        # XHERMES_HOME= in argv is.
         if "--profile " in command_lc or " -p " in command_lc:
             return False
         if (
@@ -746,7 +746,7 @@ def launch_detached_gateway_restart_by_cmdline(
 
     Companion to ``launch_detached_profile_gateway_restart`` for gateways that
     have no profile→PID-file mapping (Scheduled-Task / manually-launched
-    ``gateway run`` whose HERMES_HOME or argv doesn't match a known profile).
+    ``gateway run`` whose XHERMES_HOME or argv doesn't match a known profile).
     Uses the identical detached-watcher mechanism; only the respawn argv
     differs (the process's own argv instead of a profile-derived one).
     """
@@ -796,7 +796,7 @@ def _spawn_gateway_restart_watcher(old_pid: int, run_argv: list[str]) -> bool:
     # want: the watcher respawns it under CREATE_NO_WINDOW detach flags, so
     # the gateway owns one hidden console that all descendants inherit —
     # nothing flashes (#54220/#56747).  The spec helper normalizes the
-    # interpreter and captures the stable cwd + env overlay (HERMES_HOME,
+    # interpreter and captures the stable cwd + env overlay (XHERMES_HOME,
     # VIRTUAL_ENV, PYTHONPATH) so the respawn doesn't depend on the watcher's
     # transient working directory.  No-op on POSIX.
     # See gateway_windows.windowless_gateway_restart_spec.
@@ -861,7 +861,7 @@ def _spawn_gateway_restart_watcher(old_pid: int, run_argv: list[str]) -> bool:
             "stderr": subprocess.DEVNULL,
         }}
         # Anchor the respawned gateway at the stable working dir and overlay
-        # the env (VIRTUAL_ENV / PYTHONPATH / HERMES_HOME) the windowless
+        # the env (VIRTUAL_ENV / PYTHONPATH / XHERMES_HOME) the windowless
         # base interpreter needs to import hermes_cli.  Empty on POSIX, where
         # the venv python resolves imports without help.
         if _respawn_cwd:
@@ -994,7 +994,7 @@ def _read_systemd_unit_environment(system: bool = False) -> dict[str, str]:
 
 
 def _hermes_home_from_systemd_unit_file(system: bool = False) -> str | None:
-    """Read ``HERMES_HOME`` from the on-disk unit file (not ``systemctl show``).
+    """Read ``XHERMES_HOME`` from the on-disk unit file (not ``systemctl show``).
 
     Prefer the file when refreshing/comparing: under ``sudo``, ``systemctl``
     may be slow/unavailable in tests, and the on-disk unit is what
@@ -1013,18 +1013,18 @@ def _hermes_home_from_systemd_unit_file(system: bool = False) -> str | None:
         if not stripped.startswith("Environment="):
             continue
         body = stripped[len("Environment=") :].strip().strip('"')
-        if body.startswith("HERMES_HOME="):
+        if body.startswith("XHERMES_HOME="):
             value = body.split("=", 1)[1].strip().strip('"')
             return value or None
     return None
 
 
 def _sync_hermes_home_from_systemd_unit(system: bool) -> None:
-    """When acting on a system-scope unit, adopt its ``HERMES_HOME``.
+    """When acting on a system-scope unit, adopt its ``XHERMES_HOME``.
 
-    Under ``sudo``, ``HERMES_HOME`` is stripped and ``HOME=/root``, so
+    Under ``sudo``, ``XHERMES_HOME`` is stripped and ``HOME=/root``, so
     :func:`get_hermes_home` falls back to ``/root/.xhermes`` — the wrong
-    profile. The unit file pins ``HERMES_HOME`` for the actual gateway
+    profile. The unit file pins ``XHERMES_HOME`` for the actual gateway
     process, so we mirror that into our own environment to make
     ``read_runtime_status`` / ``get_running_pid`` read the correct files.
     """
@@ -1035,14 +1035,14 @@ def _sync_hermes_home_from_systemd_unit(system: bool) -> None:
     unit_home = (_hermes_home_from_systemd_unit_file(system=True) or "").strip()
     if not unit_home:
         unit_home = (
-            _read_systemd_unit_environment(system=True).get("HERMES_HOME", "").strip()
+            _read_systemd_unit_environment(system=True).get("XHERMES_HOME", "").strip()
         )
     if not unit_home:
         return
-    current = os.environ.get("HERMES_HOME", "").strip()
+    current = os.environ.get("XHERMES_HOME", "").strip()
     if current == unit_home:
         return
-    os.environ["HERMES_HOME"] = unit_home
+    os.environ["XHERMES_HOME"] = unit_home
 
 
 def _read_systemd_unit_properties(
@@ -1624,7 +1624,7 @@ def _reap_unsupervised_gateway_orphans(extra_exclude: set | None = None) -> bool
 
 
 def stop_profile_gateway() -> bool:
-    """Stop only the gateway for the current profile (HERMES_HOME-scoped).
+    """Stop only the gateway for the current profile (XHERMES_HOME-scoped).
 
     Uses the PID file written by start_gateway(), so it only kills the
     gateway belonging to this profile — not gateways from other profiles.
@@ -1771,13 +1771,13 @@ def _windows_gateway_should_absorb_console_controls() -> bool:
 
     Foreground ``xhermes gateway run`` must remain interruptible from
     PowerShell/CMD. Detached service-style launches opt in via
-    ``HERMES_GATEWAY_DETACHED=1``; older wrappers without the env marker are
+    ``XHERMES_GATEWAY_DETACHED=1``; older wrappers without the env marker are
     treated as detached when no interactive stdin is attached.
     """
     if not is_windows():
         return False
 
-    detached = os.getenv("HERMES_GATEWAY_DETACHED", "").strip().lower()
+    detached = os.getenv("XHERMES_GATEWAY_DETACHED", "").strip().lower()
     if detached in {"1", "true", "yes", "on"}:
         return True
 
@@ -1796,11 +1796,11 @@ SERVICE_DESCRIPTION = "xHermes Agent Gateway - Messaging Platform Integration"
 
 
 def _profile_suffix() -> str:
-    """Derive a service-name suffix from the current HERMES_HOME.
+    """Derive a service-name suffix from the current XHERMES_HOME.
 
     Returns ``""`` for the default root, the profile name for
     ``<root>/profiles/<name>``, or a short hash for any other path.
-    Works correctly in Docker (HERMES_HOME=/opt/data) and standard deployments.
+    Works correctly in Docker (XHERMES_HOME=/opt/data) and standard deployments.
     """
     import hashlib
     import re
@@ -1819,20 +1819,20 @@ def _profile_suffix() -> str:
             return parts[0]
     except ValueError:
         pass
-    # Fallback: short hash for arbitrary HERMES_HOME paths
+    # Fallback: short hash for arbitrary XHERMES_HOME paths
     return hashlib.sha256(str(home).encode()).hexdigest()[:8]
 
 
 def _profile_arg(
     hermes_home: str | None = None, default_root: str | Path | None = None
 ) -> str:
-    """Return ``--profile <name>`` only when HERMES_HOME is a named profile.
+    """Return ``--profile <name>`` only when XHERMES_HOME is a named profile.
 
     For ``~/.xhermes/profiles/<name>``, returns ``"--profile <name>"``.
     For the default profile or hash-based custom paths, returns the empty string.
 
     Args:
-        hermes_home: Optional explicit HERMES_HOME path. Defaults to the current
+        hermes_home: Optional explicit XHERMES_HOME path. Defaults to the current
             ``get_hermes_home()`` value. Should be passed when generating a
             service definition for a different user (e.g. system service).
         default_root: Optional XHermes root to compare against. Used when
@@ -1873,11 +1873,11 @@ def _profile_arg_for_target_user(hermes_home: str, target_home_dir: str) -> str:
 
 
 def get_service_name() -> str:
-    """Derive a systemd service name scoped to this HERMES_HOME.
+    """Derive a systemd service name scoped to this XHERMES_HOME.
 
     Default ``~/.xhermes`` returns ``xhermes-gateway`` (backward compatible).
     Profile ``~/.xhermes/profiles/coder`` returns ``xhermes-gateway-coder``.
-    Any other HERMES_HOME appends a short hash for uniqueness.
+    Any other XHERMES_HOME appends a short hash for uniqueness.
     """
     suffix = _profile_suffix()
     if not suffix:
@@ -2730,7 +2730,7 @@ def _remap_path_for_user(path: str, target_home_dir: str) -> str:
 
 
 def _hermes_home_for_target_user(target_home_dir: str) -> str:
-    """Remap the current HERMES_HOME to the equivalent under a target user's home.
+    """Remap the current XHERMES_HOME to the equivalent under a target user's home.
 
     When installing a system service via sudo, get_hermes_home() resolves to
     root's home.  This translates it to the target user's equivalent path:
@@ -2740,7 +2740,7 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
     """
     from hermes_constants import get_hermes_home
 
-    current_hermes_raw = os.environ.get("HERMES_HOME", "").strip()
+    current_hermes_raw = os.environ.get("XHERMES_HOME", "").strip()
     current_hermes = (
         Path(current_hermes_raw).expanduser()
         if current_hermes_raw
@@ -2748,7 +2748,7 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
     )
     # Keep explicit custom paths lexical. Resolving a non-existent custom path
     # can rewrite it through host-specific path mappings, which would bake a
-    # different HERMES_HOME into the generated service unit.
+    # different XHERMES_HOME into the generated service unit.
     current_default = get_hermes_home()
     target_default = Path(target_home_dir) / ".xhermes"
 
@@ -2815,9 +2815,9 @@ def _stable_service_working_dir() -> str:
     loads, so the on-boot ``refresh_systemd_unit_if_needed()`` self-heal never
     runs and ``Restart=always`` crash-loops forever on a dead directory.
 
-    ``HERMES_HOME`` is the stable anchor: it is where config/state/logs live,
+    ``XHERMES_HOME`` is the stable anchor: it is where config/state/logs live,
     it never moves, and it is guaranteed to exist whenever the gateway is
-    meaningfully installed. Fall back to ``PROJECT_ROOT`` only if HERMES_HOME
+    meaningfully installed. Fall back to ``PROJECT_ROOT`` only if XHERMES_HOME
     cannot be resolved (it always can in practice).
     """
     try:
@@ -2872,7 +2872,7 @@ def _append_node_dir_for_service(
 ) -> None:
     """Add the Node directory a generated service unit should use to *path_entries*.
 
-    The XHermes-managed Node under ``$HERMES_HOME/node`` goes first when it
+    The XHermes-managed Node under ``$XHERMES_HOME/node`` goes first when it
     exists. A bare ``shutil.which("node")`` cannot be trusted on its own here:
     a service unit is written once and then survives reboots, so resolving a
     system Node that happens to be ahead on the installing shell's PATH bakes
@@ -2956,7 +2956,7 @@ def generate_systemd_unit(system: bool = False, run_as_user: str | None = None) 
         # (e.g. /root/) to the target user's home so the service can
         # actually access them.
         python_path = _remap_path_for_user(python_path, home_dir)
-        # Anchor cwd to the target user's HERMES_HOME (stable, always exists)
+        # Anchor cwd to the target user's XHERMES_HOME (stable, always exists)
         # rather than a remapped source-checkout path that can rot. See
         # _stable_service_working_dir() for the full rationale.
         working_dir = (
@@ -2998,7 +2998,7 @@ Environment="USER={username}"
 Environment="LOGNAME={username}"
 Environment="PATH={sane_path}"
 Environment="VIRTUAL_ENV={venv_dir}"
-Environment="HERMES_HOME={hermes_home}"
+Environment="XHERMES_HOME={hermes_home}"
 Restart=always
 RestartSec=5
 RestartForceExitStatus={GATEWAY_SERVICE_RESTART_EXIT_CODE}
@@ -3036,7 +3036,7 @@ Type={systemd_type}
 WorkingDirectory={working_dir}
 Environment="PATH={sane_path}"
 Environment="VIRTUAL_ENV={venv_dir}"
-Environment="HERMES_HOME={hermes_home}"
+Environment="XHERMES_HOME={hermes_home}"
 Restart=always
 RestartSec=5
 RestartForceExitStatus={GATEWAY_SERVICE_RESTART_EXIT_CODE}
@@ -3094,24 +3094,24 @@ def _normalize_launchd_plist_for_comparison(text: str) -> str:
     normalized = _normalize_service_definition(text)
     return re.sub(
         r"(<key>PATH</key>\s*<string>)(.*?)(</string>)",
-        r"\1__HERMES_PATH__\3",
+        r"\1__XHERMES_PATH__\3",
         normalized,
         flags=re.S,
     )
 
 
 def systemd_unit_is_current(system: bool = False) -> bool:
-    # ── HERMES_HOME sync chokepoint ──────────────────────────────────────
+    # ── XHERMES_HOME sync chokepoint ──────────────────────────────────────
     # Every path that compares OR regenerates the unit funnels through here:
     # ``refresh_systemd_unit_if_needed`` gates on this before rewriting, and
     # ``systemd_status`` / ``systemd_install`` call it directly. Doing the
     # sync here — and ONLY here — enforces the invariant "the operator's
-    # pinned HERMES_HOME is adopted before any compare/regenerate" at a single
+    # pinned XHERMES_HOME is adopted before any compare/regenerate" at a single
     # site, so a future callsite cannot regress it by forgetting to pre-sync.
     #
-    # Under ``sudo xhermes gateway … --system``, HERMES_HOME is often stripped
+    # Under ``sudo xhermes gateway … --system``, XHERMES_HOME is often stripped
     # and falls back to ``/root/.xhermes``. Adopting the unit's pinned home
-    # first makes TimeoutStopSec / WorkingDirectory / HERMES_HOME comparisons
+    # first makes TimeoutStopSec / WorkingDirectory / XHERMES_HOME comparisons
     # use the real operator config — otherwise start/restart "refresh" rewrites
     # a correct unit from root's defaults and ``status`` keeps warning forever.
     # ``_sync_...`` is idempotent (early-returns once os.environ matches), so
@@ -3139,29 +3139,29 @@ def systemd_unit_is_current(system: bool = False) -> bool:
 
 
 def _temp_home_in_service_definition(definition: str) -> str | None:
-    """Return the temp-dir HERMES_HOME baked into a service definition, or None.
+    """Return the temp-dir XHERMES_HOME baked into a service definition, or None.
 
-    A generated systemd unit / launchd plist carries the resolved HERMES_HOME
+    A generated systemd unit / launchd plist carries the resolved XHERMES_HOME
     in its environment block. If that path lives under the system temp dir,
     the definition was almost certainly generated by a test/E2E harness that
-    exported a throwaway ``HERMES_HOME=/tmp/...`` — writing it to the real
+    exported a throwaway ``XHERMES_HOME=/tmp/...`` — writing it to the real
     service file silently breaks the user's gateway on the next (re)start:
     the gateway comes back "active (running)" but pointed at an empty temp
     home ("No messaging platforms enabled"), deaf to every platform.
     Seen live 2026-06-11: an E2E guard probe ran ``xhermes gateway restart``
-    with ``HERMES_HOME=/tmp/xhermes-e2e-<pr>`` exported; the restart path's
+    with ``XHERMES_HOME=/tmp/xhermes-e2e-<pr>`` exported; the restart path's
     unit refresh baked the temp path into the production unit and the
     post-update restart produced a zombie gateway for 7+ hours.
 
-    Matches both systemd ``Environment="HERMES_HOME=..."`` lines and launchd
-    ``<key>HERMES_HOME</key><string>...</string>`` pairs.
+    Matches both systemd ``Environment="XHERMES_HOME=..."`` lines and launchd
+    ``<key>XHERMES_HOME</key><string>...</string>`` pairs.
     """
     import re
     import tempfile
 
-    candidates = re.findall(r'HERMES_HOME=([^"\n]+)', definition)
+    candidates = re.findall(r'XHERMES_HOME=([^"\n]+)', definition)
     candidates += re.findall(
-        r"<key>HERMES_HOME</key>\s*<string>(.*?)</string>", definition, flags=re.S
+        r"<key>XHERMES_HOME</key>\s*<string>(.*?)</string>", definition, flags=re.S
     )
     temp_roots = {
         Path(tempfile.gettempdir()).resolve(),
@@ -3182,16 +3182,16 @@ def _temp_home_in_service_definition(definition: str) -> str | None:
 
 
 def _refuse_temp_home_service_write(definition: str, kind: str) -> bool:
-    """Refuse (with guidance) when a service definition carries a temp HERMES_HOME."""
+    """Refuse (with guidance) when a service definition carries a temp XHERMES_HOME."""
     temp_home = _temp_home_in_service_definition(definition)
     if temp_home is None:
         return False
     print(
-        f"✗ Refusing to write the gateway {kind}: HERMES_HOME resolves to a "
+        f"✗ Refusing to write the gateway {kind}: XHERMES_HOME resolves to a "
         f"temporary directory ({temp_home})."
     )
     print(
-        "  This usually means a test/E2E environment exported HERMES_HOME. "
+        "  This usually means a test/E2E environment exported XHERMES_HOME. "
         "Unset it (or run from a clean shell) and retry."
     )
     return True
@@ -3204,7 +3204,7 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
         return False
 
     # The gate below funnels through ``systemd_unit_is_current``, which is the
-    # single HERMES_HOME-sync chokepoint (adopts the unit's pinned home before
+    # single XHERMES_HOME-sync chokepoint (adopts the unit's pinned home before
     # any compare/regenerate). No separate pre-sync needed here — and the env
     # mutation it performs persists for the regenerate path below.
     if systemd_unit_is_current(system=system):
@@ -3215,10 +3215,10 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
 
     # ── Test-environment safety belt ─────────────────────────────────────
     # The user-scope unit path resolves under ``Path.home()``, which is NOT
-    # sandboxed by the test conftest (only HERMES_HOME is). If a test
-    # exercises ``run_gateway()`` with a pytest-tmp HERMES_HOME, the freshly
+    # sandboxed by the test conftest (only XHERMES_HOME is). If a test
+    # exercises ``run_gateway()`` with a pytest-tmp XHERMES_HOME, the freshly
     # generated unit bakes that ``/tmp/pytest-of-.../hermes_test`` path into
-    # ``Environment="HERMES_HOME=..."``. Writing that to the developer's
+    # ``Environment="XHERMES_HOME=..."``. Writing that to the developer's
     # real user systemd unit file silently breaks their gateway on the next
     # reboot (systemd loads the polluted env, the gateway looks at an empty
     # tmp dir, and Telegram/Discord/etc. all show as "not configured").
@@ -3235,7 +3235,7 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
         return False
 
     # Structural variant of the same belt: refuse to bake ANY temp-dir
-    # HERMES_HOME into the unit (manual E2E homes like /tmp/xhermes-e2e-NNN
+    # XHERMES_HOME into the unit (manual E2E homes like /tmp/xhermes-e2e-NNN
     # don't carry the pytest markers above but poison the unit identically).
     if _refuse_temp_home_service_write(new_unit, "systemd unit"):
         return False
@@ -3360,7 +3360,7 @@ def _print_system_scope_remediation(action: str) -> None:
 
 def _get_restart_drain_timeout() -> float:
     """Return the configured gateway restart drain timeout in seconds."""
-    raw = os.getenv("HERMES_RESTART_DRAIN_TIMEOUT", "").strip()
+    raw = os.getenv("XHERMES_RESTART_DRAIN_TIMEOUT", "").strip()
     if not raw:
         cfg = read_raw_config()
         agent_cfg = cfg.get("agent", {}) if isinstance(cfg, dict) else {}
@@ -3374,7 +3374,7 @@ def _get_restart_drain_timeout() -> float:
 
 def _get_restart_after_turn_timeout() -> float:
     """Return the in-band restart wait-for-idle timeout in seconds (#77184)."""
-    env_raw = os.getenv("HERMES_RESTART_AFTER_TURN_TIMEOUT")
+    env_raw = os.getenv("XHERMES_RESTART_AFTER_TURN_TIMEOUT")
     if env_raw is not None and str(env_raw).strip() != "":
         return parse_restart_after_turn_timeout(env_raw)
     cfg = read_raw_config()
@@ -3420,7 +3420,7 @@ def systemd_install(
     unit_path = get_systemd_unit_path(system=system)
     scope_flag = " --system" if system else ""
 
-    # Existing system units already pin HERMES_HOME; adopt it before any
+    # Existing system units already pin XHERMES_HOME; adopt it before any
     # regenerate. This pre-sync is NOT redundant with the systemd_unit_is_current
     # chokepoint: the ``--force`` path below skips the is_current gate and calls
     # generate_systemd_unit() directly (line ~3172), so without this a
@@ -3528,7 +3528,7 @@ def systemd_start(system: bool = False):
         # Raises UserSystemdUnavailableError with a remediation message.
         _preflight_user_systemd()
     _require_service_installed("start", system=system)
-    # HERMES_HOME sync happens inside refresh_systemd_unit_if_needed's
+    # XHERMES_HOME sync happens inside refresh_systemd_unit_if_needed's
     # systemd_unit_is_current gate (the single chokepoint), and the unit is
     # guaranteed to exist here by _require_service_installed, so the gate runs.
     refresh_systemd_unit_if_needed(system=system)
@@ -3571,7 +3571,7 @@ def systemd_restart(system: bool = False):
     else:
         _preflight_user_systemd()
     _require_service_installed("restart", system=system)
-    # HERMES_HOME sync happens inside refresh_systemd_unit_if_needed's
+    # XHERMES_HOME sync happens inside refresh_systemd_unit_if_needed's
     # systemd_unit_is_current gate (the single chokepoint). The unit exists
     # here (_require_service_installed), so the gate runs and its os.environ
     # mutation persists for the get_running_pid / drain-timeout reads below —
@@ -4097,7 +4097,7 @@ def _launchd_unsupported_marker_exists() -> bool:
 def _gateway_run_command() -> list[str]:
     """Build the `python -m hermes_cli.main [--profile X] gateway run --replace` argv.
 
-    Profile-aware: honors the active HERMES_HOME via `_profile_arg()` so the
+    Profile-aware: honors the active XHERMES_HOME via `_profile_arg()` so the
     detached fallback launches into the same profile as the CLI invocation.
     """
     cmd = [get_python_path(), "-m", "hermes_cli.main"]
@@ -4234,7 +4234,7 @@ def generate_launchd_plist() -> str:
         <string>{sane_path}</string>
         <key>VIRTUAL_ENV</key>
         <string>{venv_dir}</string>
-        <key>HERMES_HOME</key>
+        <key>XHERMES_HOME</key>
         <string>{hermes_home}</string>
     </dict>
 
@@ -4609,7 +4609,7 @@ def _wait_for_gateway_exit(
 
     Uses the PID from the gateway.pid file — not launchd labels — so this
     works correctly when multiple gateway instances run under separate
-    HERMES_HOME directories.
+    XHERMES_HOME directories.
 
     Args:
         timeout: Total seconds to wait before giving up.
@@ -4848,7 +4848,7 @@ def _running_under_gateway_supervisor() -> bool:
         marker ``gateway/run.py`` already uses to pick the restart path).
       - launchd sets ``XPC_SERVICE_NAME`` to the job label for jobs it spawns;
         interactive shells inherit the sentinel ``"0"`` instead.
-      - the s6-overlay container longrun exports ``HERMES_S6_SUPERVISED_CHILD``.
+      - the s6-overlay container longrun exports ``XHERMES_S6_SUPERVISED_CHILD``.
       - wrapped services can opt in with ``--external-supervisor`` when their
         launcher strips the native systemd/launchd marker.
     """
@@ -5003,7 +5003,7 @@ def _guard_existing_gateway_process_conflict(replace: bool = False) -> None:
     ``xhermes gateway run`` can burn memory/CPU just to fail with "already
     running" after plugin discovery. This cheap PID-file preflight preserves the
     same user-facing contract while avoiding that startup work without scanning
-    unrelated gateway processes from other HERMES_HOME roots.
+    unrelated gateway processes from other XHERMES_HOME roots.
     """
     if replace or _running_under_gateway_supervisor():
         return
@@ -5028,7 +5028,7 @@ def _guard_official_docker_root_gateway() -> None:
     """Refuse gateway startup when the official Docker privilege drop was bypassed."""
     if not hasattr(os, "geteuid") or os.geteuid() != 0:
         return
-    if _truthy_env(os.getenv("HERMES_ALLOW_ROOT_GATEWAY")):
+    if _truthy_env(os.getenv("XHERMES_ALLOW_ROOT_GATEWAY")):
         return
     if not _is_official_docker_checkout():
         return
@@ -5043,10 +5043,10 @@ def _guard_official_docker_root_gateway() -> None:
     )
     print(
         "  Running the gateway as root can leave root-owned files in "
-        "$HERMES_HOME and break later non-root dashboard/gateway runs."
+        "$XHERMES_HOME and break later non-root dashboard/gateway runs."
     )
     print(
-        "  Set HERMES_ALLOW_ROOT_GATEWAY=1 only if you intentionally accept this risk."
+        "  Set XHERMES_ALLOW_ROOT_GATEWAY=1 only if you intentionally accept this risk."
     )
     sys.exit(1)
 
@@ -5074,7 +5074,7 @@ def run_gateway(
     # Detached Windows gateway runs must ignore console-control broadcasts
     # from sibling CLI processes, but foreground `xhermes gateway run` still
     # needs to obey the banner's "Press Ctrl+C to stop" contract.
-    # Service-style launchers set HERMES_GATEWAY_DETACHED=1; older wrappers
+    # Service-style launchers set XHERMES_GATEWAY_DETACHED=1; older wrappers
     # without the marker are handled by the non-TTY fallback.
     try:
         _stdin_is_tty = bool(sys.stdin and sys.stdin.isatty())
@@ -5147,14 +5147,14 @@ def run_gateway(
     # the next silent death yields evidence instead of a mystery. This
     # is diagnostic scaffolding; cheap to keep on, costs nothing during
     # normal operation, and the emitted lines are opt-in via the
-    # HERMES_GATEWAY_EXIT_DIAG env var (default: on while we're still
+    # XHERMES_GATEWAY_EXIT_DIAG env var (default: on while we're still
     # chasing the Windows lifecycle bug).
     import atexit as _atexit
     import traceback as _traceback
     from datetime import datetime as _dt, timezone as _tz
 
     def _exit_diag(tag: str, **extra: object) -> None:
-        if os.environ.get("HERMES_GATEWAY_EXIT_DIAG", "1") != "1":
+        if os.environ.get("XHERMES_GATEWAY_EXIT_DIAG", "1") != "1":
             return
         try:
             from hermes_constants import get_hermes_home as _ghh
@@ -5194,8 +5194,8 @@ def run_gateway(
     # their own throttles, but this backstop works on every platform (and covers
     # supervisors that lack a respawn floor). Configured via
     # ``gateway.respawn_storm`` in config.yaml (``max_starts`` / ``window_seconds``);
-    # the env vars ``HERMES_GATEWAY_MAX_STARTS`` /
-    # ``HERMES_GATEWAY_START_WINDOW_S`` override for escape-hatch use.
+    # the env vars ``XHERMES_GATEWAY_MAX_STARTS`` /
+    # ``XHERMES_GATEWAY_START_WINDOW_S`` override for escape-hatch use.
     # Set max_starts <= 0 to disable. Best-effort: a bookkeeping failure must
     # never block startup.
     try:
@@ -5221,13 +5221,13 @@ def run_gateway(
             pass
         # Env vars override config for escape-hatch use.
         try:
-            _env_starts = os.getenv("HERMES_GATEWAY_MAX_STARTS")
+            _env_starts = os.getenv("XHERMES_GATEWAY_MAX_STARTS")
             if _env_starts is not None:
                 _max_starts = int(_env_starts)
         except ValueError:
             pass
         try:
-            _env_win = os.getenv("HERMES_GATEWAY_START_WINDOW_S")
+            _env_win = os.getenv("XHERMES_GATEWAY_START_WINDOW_S")
             if _env_win is not None:
                 _win = float(_env_win)
         except ValueError:
@@ -6803,7 +6803,7 @@ def _dispatch_via_service_manager_if_s6(
         return False
     if profile is None:
         # _profile_suffix() returns the bare profile name for
-        # HERMES_HOME=<root>/profiles/<name>, "" for the default root,
+        # XHERMES_HOME=<root>/profiles/<name>, "" for the default root,
         # or a hash for unrelated paths. Map "" → "default" so the
         # default-profile gateway is reachable as gateway-default.
         profile = _profile_suffix() or "default"
@@ -6918,25 +6918,25 @@ def _maybe_redirect_run_to_s6_supervision(args) -> bool:
       1. ``_dispatch_via_service_manager_if_s6`` returns False unless
          we're in a container with s6 as PID 1. Host runs of
          ``xhermes gateway run`` are unaffected.
-      2. ``HERMES_S6_SUPERVISED_CHILD`` is exported by
+      2. ``XHERMES_S6_SUPERVISED_CHILD`` is exported by
          ``S6ServiceManager._render_run_script`` for the supervised
          process itself — i.e. when s6-supervise execs ``xhermes gateway
          run --replace`` as a longrun, this guard short-circuits the
          redirect so the supervised gateway actually runs in
          foreground (otherwise we'd recurse: run → start → run → start
          → ...).
-      3. ``--no-supervise`` (or ``HERMES_GATEWAY_NO_SUPERVISE=1``) opts
+      3. ``--no-supervise`` (or ``XHERMES_GATEWAY_NO_SUPERVISE=1``) opts
          out for users who genuinely want pre-s6 semantics — CI smoke
          tests, debugging the foreground startup path, etc.
 
     Returns True iff dispatched (caller should ``return``).
     """
     no_supervise = getattr(args, "no_supervise", False) or os.environ.get(
-        "HERMES_GATEWAY_NO_SUPERVISE", ""
+        "XHERMES_GATEWAY_NO_SUPERVISE", ""
     ).lower() in ("1", "true", "yes")
     if no_supervise:
         return False
-    if os.environ.get("HERMES_S6_SUPERVISED_CHILD"):
+    if os.environ.get("XHERMES_S6_SUPERVISED_CHILD"):
         # We ARE the supervised child s6-supervise is running. Fall
         # through to the foreground code path so the gateway actually
         # starts.
@@ -6946,15 +6946,15 @@ def _maybe_redirect_run_to_s6_supervision(args) -> bool:
     # Loud breadcrumb: explain the upgrade and how to opt out. Print to
     # stderr so it doesn't pollute stdout-parsing scripts. The
     # supervised gateway's own logs are routed by s6-log to both
-    # `docker logs` and ${HERMES_HOME}/logs/gateways/<profile>/current,
+    # `docker logs` and ${XHERMES_HOME}/logs/gateways/<profile>/current,
     # so the user sees a clear sequence: this banner first, then the
     # gateway's own stdout/stderr from the supervisor.
     print(
         "→ gateway is now running under s6 supervision (auto-restart on crash,\n"
-        "  dashboard supervised alongside if HERMES_DASHBOARD is set).\n"
+        "  dashboard supervised alongside if XHERMES_DASHBOARD is set).\n"
         "  This is the recommended setup for the s6 container image — the\n"
         "  gateway will keep running even if it crashes.\n"
-        "  Use `--no-supervise` (or HERMES_GATEWAY_NO_SUPERVISE=1) to opt out\n"
+        "  Use `--no-supervise` (or XHERMES_GATEWAY_NO_SUPERVISE=1) to opt out\n"
         "  and get the pre-s6 foreground behavior instead.",
         file=sys.stderr,
         flush=True,
@@ -7277,7 +7277,7 @@ def _gateway_command_inner(args):
     elif subcmd == "stop":
         # Defense: refuse self-targeting gateway stop from inside the gateway.
         # Prevents agent-initiated kill loops when combined with supervisor KeepAlive.
-        if os.getenv("_HERMES_GATEWAY") == "1":
+        if os.getenv("_XHERMES_GATEWAY") == "1":
             print_error(
                 "Refusing to stop the gateway from inside the gateway process.\n"
                 "This command was blocked to prevent restart loops.\n"
@@ -7370,7 +7370,7 @@ def _gateway_command_inner(args):
     elif subcmd == "restart":
         # Defense: refuse self-targeting gateway restart from inside the gateway.
         # Prevents agent-initiated kill loops when combined with supervisor KeepAlive.
-        if os.getenv("_HERMES_GATEWAY") == "1":
+        if os.getenv("_XHERMES_GATEWAY") == "1":
             print_error(
                 "Refusing to restart the gateway from inside the gateway process.\n"
                 "This command was blocked to prevent restart loops.\n"

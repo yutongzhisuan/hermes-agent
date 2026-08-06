@@ -12,9 +12,9 @@ import pytest
 
 
 def test_code_scoped_stamp_wins_over_home_stamp(tmp_path):
-    """The stamp next to the running code is authoritative over $HERMES_HOME.
+    """The stamp next to the running code is authoritative over $XHERMES_HOME.
 
-    Models a host git install whose $HERMES_HOME is shared with (and stamped
+    Models a host git install whose $XHERMES_HOME is shared with (and stamped
     'docker' by) a co-located container. The code-scoped stamp must win so the
     host install is correctly identified as 'git' and 'xhermes update' works.
     """
@@ -35,7 +35,7 @@ def test_code_scoped_stamp_wins_over_home_stamp(tmp_path):
 
 
 def test_stamp_install_method_writes_code_scoped(tmp_path):
-    """stamp_install_method writes next to the code, not into $HERMES_HOME."""
+    """stamp_install_method writes next to the code, not into $XHERMES_HOME."""
     code = tmp_path / "code"
     home = tmp_path / "home"
     code.mkdir()

@@ -7,7 +7,7 @@ finds what works, and locks it in by writing config.yaml + prefill.json.
 
 Usage in execute_code:
     exec(open(os.path.expanduser(
-        os.path.join(os.environ.get("HERMES_HOME", os.path.expanduser("~/.xhermes")), "skills/red-teaming/godmode/scripts/auto_jailbreak.py")
+        os.path.join(os.environ.get("XHERMES_HOME", os.path.expanduser("~/.xhermes")), "skills/red-teaming/godmode/scripts/auto_jailbreak.py")
     )).read())
     
     result = auto_jailbreak()  # Uses current model from config
@@ -35,7 +35,7 @@ try:
     _SKILL_DIR = Path(__file__).resolve().parent.parent
 except NameError:
     # __file__ not defined when loaded via exec() — search standard paths
-    _SKILL_DIR = Path(os.getenv("HERMES_HOME", Path.home() / ".xhermes")) / "skills" / "red-teaming" / "godmode"
+    _SKILL_DIR = Path(os.getenv("XHERMES_HOME", Path.home() / ".xhermes")) / "skills" / "red-teaming" / "godmode"
 
 _SCRIPTS_DIR = _SKILL_DIR / "scripts"
 _TEMPLATES_DIR = _SKILL_DIR / "templates"
@@ -57,9 +57,9 @@ if _race_path.exists():
 # XHermes config paths
 # ═══════════════════════════════════════════════════════════════════
 
-HERMES_HOME = Path(os.getenv("HERMES_HOME", Path.home() / ".xhermes"))
-CONFIG_PATH = HERMES_HOME / "config.yaml"
-PREFILL_PATH = HERMES_HOME / "prefill.json"
+XHERMES_HOME = Path(os.getenv("XHERMES_HOME", Path.home() / ".xhermes"))
+CONFIG_PATH = XHERMES_HOME / "config.yaml"
+PREFILL_PATH = XHERMES_HOME / "prefill.json"
 
 # ═══════════════════════════════════════════════════════════════════
 # Canary queries — questions that typically trigger safety filters

@@ -84,7 +84,7 @@ If you set a custom `num_ctx` in Ollama (e.g., `ollama run --num_ctx 64000`), ma
 :::
 
 :::tip Timeouts with local models
-XHermes auto-detects local endpoints and relaxes streaming timeouts (read timeout raised from 120s to 1800s, stale stream detection disabled). If you still hit timeouts on very large contexts, set `HERMES_STREAM_READ_TIMEOUT=1800` in your `.env`. See the [Local LLM guide](../guides/local-llm-on-mac.md#timeouts) for details.
+XHermes auto-detects local endpoints and relaxes streaming timeouts (read timeout raised from 120s to 1800s, stale stream detection disabled). If you still hit timeouts on very large contexts, set `XHERMES_STREAM_READ_TIMEOUT=1800` in your `.env`. See the [Local LLM guide](../guides/local-llm-on-mac.md#timeouts) for details.
 :::
 
 ### How much does it cost?
@@ -269,7 +269,7 @@ Make sure the key matches the provider. An OpenAI key won't work with OpenRouter
 xhermes model
 
 # Set a valid model
-xhermes config set HERMES_MODEL anthropic/claude-opus-4.7
+xhermes config set XHERMES_MODEL anthropic/claude-opus-4.7
 
 # Or specify per-session
 xhermes chat --model openrouter/meta-llama/llama-3.1-70b-instruct
@@ -599,9 +599,9 @@ If an MCP server crashes mid-request, XHermes will report a timeout. Check the s
 
 ## Profiles
 
-### How do profiles differ from just setting HERMES_HOME?
+### How do profiles differ from just setting XHERMES_HOME?
 
-Profiles are a managed layer on top of `HERMES_HOME`. You *could* manually set `HERMES_HOME=/some/path` before every command, but profiles handle all the plumbing for you: creating the directory structure, generating shell aliases (`xhermes-work`), tracking the active profile in `~/.xhermes/active_profile`, and syncing skill updates across all profiles automatically. They also integrate with tab completion so you don't have to remember paths.
+Profiles are a managed layer on top of `XHERMES_HOME`. You *could* manually set `XHERMES_HOME=/some/path` before every command, but profiles handle all the plumbing for you: creating the directory structure, generating shell aliases (`xhermes-work`), tracking the active profile in `~/.xhermes/active_profile`, and syncing skill updates across all profiles automatically. They also integrate with tab completion so you don't have to remember paths.
 
 ### Can two profiles share the same bot token?
 

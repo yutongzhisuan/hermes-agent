@@ -10,7 +10,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolate_config(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     import hermes_cli.config as config_mod
 
     config_mod._LOAD_CONFIG_CACHE.clear()

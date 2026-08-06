@@ -46,7 +46,7 @@ The full set of keys:
 | `timeout` | `300` | Seconds XHermes waits for an approval reply before timing out. |
 | `cron_mode` | `deny` | How [cron jobs](./features/cron.md) behave headlessly when they trigger a dangerous-command prompt. `deny` blocks the command (the agent must find another path); `approve` auto-approves everything in cron context. |
 | `mcp_reload_confirm` | `true` | When true, `/reload-mcp` asks before rebuilding the MCP tool set. Rebuilding invalidates the provider prompt cache (tool schemas live in the system prompt), so the next message re-sends full input tokens. Users who click **Always Approve** flip this key to `false`. |
-| `destructive_slash_confirm` | `true` | When true, destructive session slash commands (`/clear`, `/new`, `/reset`, `/undo`) prompt before discarding conversation state. Three-option dialog (Approve Once / Always Approve / Cancel) routed through native yes/no buttons on Telegram, Discord, and Slack; text fallback elsewhere. Users who click **Always Approve** flip this key to `false`. TUI uses its own modal overlay (set `HERMES_TUI_NO_CONFIRM=1` to opt out there). |
+| `destructive_slash_confirm` | `true` | When true, destructive session slash commands (`/clear`, `/new`, `/reset`, `/undo`) prompt before discarding conversation state. Three-option dialog (Approve Once / Always Approve / Cancel) routed through native yes/no buttons on Telegram, Discord, and Slack; text fallback elsewhere. Users who click **Always Approve** flip this key to `false`. TUI uses its own modal overlay (set `XHERMES_TUI_NO_CONFIRM=1` to opt out there). |
 
 | Mode | Behavior |
 |------|----------|
@@ -64,7 +64,7 @@ YOLO mode bypasses **all** dangerous command approval prompts for the current se
 
 1. **CLI flag**: Start a session with `xhermes --yolo` or `xhermes chat --yolo`
 2. **Slash command**: Type `/yolo` during a session to toggle it on/off
-3. **Environment variable**: Set `HERMES_YOLO_MODE=1`
+3. **Environment variable**: Set `XHERMES_YOLO_MODE=1`
 
 The `/yolo` command is a **toggle** — each use flips the mode on or off:
 
@@ -76,7 +76,7 @@ The `/yolo` command is a **toggle** — each use flips the mode on or off:
   ⚠ YOLO mode OFF — dangerous commands will require approval.
 ```
 
-YOLO mode is available in both CLI and gateway sessions. Internally, it sets the `HERMES_YOLO_MODE` environment variable which is checked before every command execution.
+YOLO mode is available in both CLI and gateway sessions. Internally, it sets the `XHERMES_YOLO_MODE` environment variable which is checked before every command execution.
 
 When YOLO is active, XHermes shows two persistent visual reminders so it's hard to forget that approval prompts are bypassed:
 
@@ -218,7 +218,7 @@ On messaging platforms, the agent sends the dangerous command details to the cha
 - Reply **yes**, **y**, **approve**, **ok**, or **go** to approve
 - Reply **no**, **n**, **deny**, or **cancel** to deny
 
-The `HERMES_EXEC_ASK=1` environment variable is automatically set when running the gateway.
+The `XHERMES_EXEC_ASK=1` environment variable is automatically set when running the gateway.
 
 ### Permanent Allowlist
 
@@ -280,33 +280,33 @@ Before `write_file` or `patch` touches disk, XHermes checks the target path agai
 
 ### Protected paths (always blocked)
 
-These categories are always denied, even when `HERMES_WRITE_SAFE_ROOT` is unset:
+These categories are always denied, even when `XHERMES_WRITE_SAFE_ROOT` is unset:
 
 | Category | Examples |
 |----------|----------|
 | OS credential stores | `~/.ssh/`, `~/.aws/`, `~/.kube/`, `/etc/sudoers`, `~/.netrc` |
-| XHermes credential stores | `auth.json`, `.env`, `.anthropic_oauth.json`, `mcp-tokens/`, `pairing/` under HERMES_HOME (active profile and global root) |
+| XHermes credential stores | `auth.json`, `.env`, `.anthropic_oauth.json`, `mcp-tokens/`, `pairing/` under XHERMES_HOME (active profile and global root) |
 | Project secret files | `.env`, `.env.local`, `.env.production`, `.envrc` anywhere on disk |
 
-Sensitive paths inside the safe root are still blocked — pointing `HERMES_WRITE_SAFE_ROOT` at `$HOME` does not allow writing `~/.ssh/id_rsa`.
+Sensitive paths inside the safe root are still blocked — pointing `XHERMES_WRITE_SAFE_ROOT` at `$HOME` does not allow writing `~/.ssh/id_rsa`.
 
-Safe-root violations return `Write denied: '…' is outside HERMES_WRITE_SAFE_ROOT (…)`. Credential-path blocks use `Write denied: '…' is a protected system/credential file.`
+Safe-root violations return `Write denied: '…' is outside XHERMES_WRITE_SAFE_ROOT (…)`. Credential-path blocks use `Write denied: '…' is a protected system/credential file.`
 
-### HERMES_WRITE_SAFE_ROOT (optional sandbox)
+### XHERMES_WRITE_SAFE_ROOT (optional sandbox)
 
 When set, `write_file` and `patch` may only target paths inside the listed directory prefix(es). Anything outside is **hard-blocked** — not routed through dangerous-command approval.
 
-- Set automatically in the [official Docker image](https://github.com/NousResearch/xhermes-agent) (`HERMES_WRITE_SAFE_ROOT=/opt/data`)
+- Set automatically in the [official Docker image](https://github.com/NousResearch/xhermes-agent) (`XHERMES_WRITE_SAFE_ROOT=/opt/data`)
 - Supports multiple roots separated by `:` on Unix or `;` on Windows
 - **Do not add to `~/.xhermes/.env` casually.** If you set it to a project directory, the agent cannot write to `~/.xhermes/cron/jobs.json`, profile skills, or other XHermes state outside that prefix
 
 To allow both a workspace and XHermes home:
 
 ```bash
-export HERMES_WRITE_SAFE_ROOT=/path/to/project:/home/you/.xhermes
+export XHERMES_WRITE_SAFE_ROOT=/path/to/project:/home/you/.xhermes
 ```
 
-Unset the variable to restore unrestricted writes (subject to the protected-path denylist). Full reference: [HERMES_WRITE_SAFE_ROOT](../reference/environment-variables.md#hermes_write_safe_root).
+Unset the variable to restore unrestricted writes (subject to the protected-path denylist). Full reference: [XHERMES_WRITE_SAFE_ROOT](../reference/environment-variables.md#hermes_write_safe_root).
 
 ### Cron and other XHermes state
 
@@ -541,7 +541,7 @@ terminal:
 
 ### Credential File Passthrough (OAuth tokens, etc.) {#credential-file-passthrough}
 
-Some skills need **files** (not just env vars) in the sandbox — for example, Google Workspace stores OAuth tokens as `google_token.json` under the active profile's `HERMES_HOME`. Skills declare these in frontmatter:
+Some skills need **files** (not just env vars) in the sandbox — for example, Google Workspace stores OAuth tokens as `google_token.json` under the active profile's `XHERMES_HOME`. Skills declare these in frontmatter:
 
 ```yaml
 required_credential_files:
@@ -551,7 +551,7 @@ required_credential_files:
     description: Google OAuth2 client credentials
 ```
 
-When loaded, XHermes checks if these files exist in the active profile's `HERMES_HOME` and registers them for mounting:
+When loaded, XHermes checks if these files exist in the active profile's `XHERMES_HOME` and registers them for mounting:
 
 - **Docker**: Read-only bind mounts (`-v host:container:ro`)
 - **Modal**: Mounted at sandbox creation + synced before each command (handles mid-session OAuth setup)

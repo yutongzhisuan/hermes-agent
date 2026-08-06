@@ -138,7 +138,7 @@ def _check_dispatcher_presence(
 ) -> tuple[bool, str]:
     """Return ``(running, message)``.
 
-    - ``running=True``: a gateway is alive for this HERMES_HOME and its
+    - ``running=True``: a gateway is alive for this XHERMES_HOME and its
       config has ``kanban.dispatch_in_gateway`` on (default). Message
       is a short status line.
     - ``running=False``: either no gateway is running, or the gateway
@@ -153,7 +153,7 @@ def _check_dispatcher_presence(
 
     ``hermes_home`` scopes the probe to a named profile's directory. The
     dashboard plugin API passes it because the dashboard backend process can
-    be running under a different HERMES_HOME than the profile the request
+    be running under a different XHERMES_HOME than the profile the request
     targets, which otherwise produced a "no gateway is running" warning
     against a perfectly healthy profile gateway (#71211). CLI callers leave
     it ``None`` and keep the existing process-level behavior.
@@ -232,7 +232,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     # --- global --board flag ---
     # Applies to every subcommand below. When set, scopes all reads and
     # writes to that board's DB. When omitted, resolves via the
-    # HERMES_KANBAN_BOARD env var, then the persisted current-board
+    # XHERMES_KANBAN_BOARD env var, then the persisted current-board
     # file, then "default". See kanban_db.get_current_board().
     kanban_parser.add_argument(
         "--board",
@@ -241,7 +241,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
         help=(
             "Board slug to operate on. Defaults to the current board "
             "(set via `xhermes kanban boards switch <slug>` or the "
-            "HERMES_KANBAN_BOARD env var). Use `xhermes kanban boards list` "
+            "XHERMES_KANBAN_BOARD env var). Use `xhermes kanban boards list` "
             "to see all boards."
         ),
     )
@@ -425,7 +425,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     # --- list ---
     p_list = sub.add_parser("list", aliases=["ls"], help="List tasks")
     p_list.add_argument("--mine", action="store_true",
-                        help="Filter by $HERMES_PROFILE as assignee")
+                        help="Filter by $XHERMES_PROFILE as assignee")
     p_list.add_argument("--assignee", default=None)
     p_list.add_argument("--status", default=None,
                         choices=sorted(kb.VALID_STATUSES))
@@ -568,7 +568,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     p_comment.add_argument("task_id")
     p_comment.add_argument("text", nargs="+", help="Comment body")
     p_comment.add_argument("--author", default=None,
-                           help="Author name (default: $HERMES_PROFILE or 'user')")
+                           help="Author name (default: $XHERMES_PROFILE or 'user')")
     p_comment.add_argument("--max-len", type=int, default=None,
                            help="Trim the stored comment body to this many characters")
 
@@ -581,7 +581,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     p_attach.add_argument("--name", default=None,
                           help="Stored filename (default: the source file's basename)")
     p_attach.add_argument("--author", default=None,
-                          help="uploaded_by label (default: $HERMES_PROFILE or 'user')")
+                          help="uploaded_by label (default: $XHERMES_PROFILE or 'user')")
 
     p_attachments = sub.add_parser("attachments", help="List a task's attachments")
     p_attachments.add_argument("task_id")
@@ -877,7 +877,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
         "--author",
         default=None,
         help="Author name recorded on the audit comment "
-             "(default: $HERMES_PROFILE or 'specifier')",
+             "(default: $XHERMES_PROFILE or 'specifier')",
     )
     p_specify.add_argument(
         "--json",
@@ -914,7 +914,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
         "--author",
         default=None,
         help="Author name recorded on the audit comment "
-             "(default: $HERMES_PROFILE or 'decomposer')",
+             "(default: $XHERMES_PROFILE or 'decomposer')",
     )
     p_decompose.add_argument(
         "--json",
@@ -995,7 +995,7 @@ def kanban_command(args: argparse.Namespace) -> int:
         return _dispatch_boards(args)
 
     # `--board <slug>` applies to every subcommand below by way of an
-    # env-var pin for the duration of this call. Using HERMES_KANBAN_BOARD
+    # env-var pin for the duration of this call. Using XHERMES_KANBAN_BOARD
     # (rather than threading `board=` through 50+ kb.connect() sites)
     # keeps the patch small and inherits the exact same resolution the
     # dispatcher uses for workers — consistency is a feature here.
@@ -1025,7 +1025,7 @@ def kanban_command(args: argparse.Namespace) -> int:
     # is idempotent, so running it every invocation is cheap (one
     # SELECT against sqlite_master when tables already exist) and
     # prevents "no such table: tasks" on first use from a fresh
-    # HERMES_HOME. Previously only `init` and `daemon` triggered
+    # XHERMES_HOME. Previously only `init` and `daemon` triggered
     # schema creation; `create` / `list` / every other command would
     # error out on a fresh install.
     with board_scope:
@@ -1102,7 +1102,7 @@ def kanban_command(args: argparse.Namespace) -> int:
 
 def _profile_author() -> str:
     """Best-effort author name for an interactive CLI call."""
-    for env in ("HERMES_PROFILE_NAME", "HERMES_PROFILE"):
+    for env in ("XHERMES_PROFILE_NAME", "XHERMES_PROFILE"):
         v = os.environ.get(env)
         if v:
             return v
@@ -1170,7 +1170,7 @@ def _is_delegated_child_cli_mutation(args: argparse.Namespace) -> bool:
 
         return is_delegated_child_process_context()
     except Exception:
-        return bool(os.environ.get("HERMES_DELEGATED_CHILD_CONTEXT"))
+        return bool(os.environ.get("XHERMES_DELEGATED_CHILD_CONTEXT"))
 
 
 # ---------------------------------------------------------------------------
@@ -1183,7 +1183,7 @@ def _dispatch_boards(args: argparse.Namespace) -> int:
     Boards management is deliberately separate from the task-level
     commands: it operates on the filesystem (board directories,
     ``current`` pointer, ``board.json``), not on the per-board SQLite
-    DB, so a fresh HERMES_HOME that has never called ``kanban init``
+    DB, so a fresh XHERMES_HOME that has never called ``kanban init``
     can still run ``boards create`` / ``boards list``.
     """
     sub = getattr(args, "boards_action", None) or "list"
@@ -2127,9 +2127,9 @@ def _cmd_attach_rm(args: argparse.Namespace) -> int:
 
 
 def _worker_run_id_for(task_id: str) -> Optional[int]:
-    if os.environ.get("HERMES_KANBAN_TASK") != task_id:
+    if os.environ.get("XHERMES_KANBAN_TASK") != task_id:
         return None
-    raw = os.environ.get("HERMES_KANBAN_RUN_ID")
+    raw = os.environ.get("XHERMES_KANBAN_RUN_ID")
     if not raw:
         return None
     try:

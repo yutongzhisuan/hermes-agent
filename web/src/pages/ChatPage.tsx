@@ -188,8 +188,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
   // so a missing token there is expected, not an error.
   const [banner, setBanner] = useState<string | null>(() =>
     typeof window !== "undefined" &&
-    !window.__HERMES_SESSION_TOKEN__ &&
-    !window.__HERMES_AUTH_REQUIRED__
+    !window.__XHERMES_SESSION_TOKEN__ &&
+    !window.__XHERMES_AUTH_REQUIRED__
       ? "Session token unavailable. Open this page through `xhermes dashboard`, not directly."
       : null,
   );
@@ -479,8 +479,8 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     const host = hostRef.current;
     if (!host) return;
 
-    const token = window.__HERMES_SESSION_TOKEN__;
-    const gated = !!window.__HERMES_AUTH_REQUIRED__;
+    const token = window.__XHERMES_SESSION_TOKEN__;
+    const gated = !!window.__XHERMES_AUTH_REQUIRED__;
     // Banner already initialised above; just bail before wiring xterm/WS.
     // In gated mode the token is absent by design — api.buildWsUrl() mints
     // a WS ticket instead, so don't bail; let the effect reach that path.
@@ -542,7 +542,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     //
     //   4. **DOM paste / drop on the host.**  Bare Ctrl+V and context-menu
     //      paste fire a ClipboardEvent; drag-drop lands files. Image
-    //      payloads upload to HERMES_HOME/images then drive `/image`.
+    //      payloads upload to XHERMES_HOME/images then drive `/image`.
     //
     // OSC 52 reads (terminal asking to read the clipboard) are not
     // supported — that would let any content the TUI renders exfiltrate
@@ -575,7 +575,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
     // ── Image paste / drop ───────────────────────────────────────────────
     // The Chat tab is an xterm mirror of a TUI inside the gateway. Server-side
     // clipboard.paste / xclip never see the browser clipboard, so image paste
-    // must upload browser bytes to HERMES_HOME/images, then drive `/image`
+    // must upload browser bytes to XHERMES_HOME/images, then drive `/image`
     // over the PTY (same burst-then-Return timing as handleCopyLast).
     let imageUploadDisposed = false;
     const pasteDelay = () =>
@@ -892,7 +892,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       });
     });
 
-    // WebSocket. In gated mode (``window.__HERMES_AUTH_REQUIRED__``) this
+    // WebSocket. In gated mode (``window.__XHERMES_AUTH_REQUIRED__``) this
     // awaits a single-use ticket via /api/auth/ws-ticket before opening;
     // in loopback mode it resolves synchronously against the injected
     // session token. The IIFE keeps the outer effect synchronous so its
@@ -974,7 +974,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
       // refresh/transient drops. A forced-fresh start rotates the token so
       // the previous keep-alive PTY is not reattached (registry reaps it).
       params.attach = ptyAttachToken(forceFresh);
-      // Profile-scoped chat: the PTY child gets HERMES_HOME pointed at the
+      // Profile-scoped chat: the PTY child gets XHERMES_HOME pointed at the
       // selected profile, so the conversation runs with that profile's model,
       // skills, memory, and sessions (see web_server._resolve_chat_argv).
       if (scopedProfile) params.profile = scopedProfile;
@@ -1633,7 +1633,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
 
 declare global {
   interface Window {
-    __HERMES_SESSION_TOKEN__?: string;
-    __HERMES_AUTH_REQUIRED__?: boolean;
+    __XHERMES_SESSION_TOKEN__?: string;
+    __XHERMES_AUTH_REQUIRED__?: boolean;
   }
 }

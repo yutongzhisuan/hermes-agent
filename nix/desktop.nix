@@ -3,7 +3,7 @@
 # `hermesAgent` is the fully-built `.#default` package — it ships the
 # `xhermes` binary with the venv, runtime PATH, bundled skills/plugins, etc.
 # already wired up.  We point the desktop at it via the existing
-# `HERMES_DESKTOP_HERMES` override env var, so the desktop's resolver
+# `XHERMES_DESKTOP_XHERMES` override env var, so the desktop's resolver
 # uses our fully wrapped binary at step 4 ("existing XHermes CLI").
 # No reimplementation of the agent resolution in this wrapper.
 {
@@ -156,14 +156,14 @@ stdenv.mkDerivation {
       --replace-fail "process.resourcesPath" "'$out/share/xhermes-desktop'"
 
     # Wrap the nixpkgs electron binary to launch our app.  Set
-    # HERMES_DESKTOP_HERMES to the absolute path of the nix-built `xhermes`
+    # XHERMES_DESKTOP_XHERMES to the absolute path of the nix-built `xhermes`
     # binary so the desktop's resolver step 4 ("existing XHermes CLI on
     # PATH") uses our fully wrapped binary — venv with all deps,
     # bundled skills/plugins, runtime PATH (ripgrep/git/ffmpeg/etc).
     # No reimplementation of the agent resolver in the wrapper.
     makeWrapper ${lib.getExe electron} $out/bin/xhermes-desktop \
       --add-flags "$out/share/xhermes-desktop" \
-      --set HERMES_DESKTOP_HERMES "${lib.getExe hermesAgent}" \
+      --set XHERMES_DESKTOP_XHERMES "${lib.getExe hermesAgent}" \
       --set ELECTRON_IS_DEV 0
 
     runHook postInstall

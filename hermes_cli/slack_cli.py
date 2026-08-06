@@ -168,7 +168,7 @@ def slack_manifest_command(args) -> int:
 
     Flags (all parsed in ``hermes_cli/main.py``):
       --write [PATH]  Write to file instead of stdout (default path:
-                      ``$HERMES_HOME/slack-manifest.json``)
+                      ``$XHERMES_HOME/slack-manifest.json``)
       --name NAME     Override the bot display name (default: "xHermes")
       --description DESC  Override the bot description
       --long-description TEXT  Override the long app description (175-4,000 characters)

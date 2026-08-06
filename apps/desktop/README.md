@@ -67,10 +67,10 @@ npm run dev          # Vite renderer + Electron, which boots the Python backend
 Point the app at a specific source checkout, or sandbox it away from your real config:
 
 ```bash
-# throwaway HERMES_HOME, separate Electron userData, distinct app name to avoid the single-instance lock
+# throwaway XHERMES_HOME, separate Electron userData, distinct app name to avoid the single-instance lock
 ../scripts/dev-sandbox.sh npm run dev
-HERMES_DESKTOP_HERMES_ROOT=/path/to/clone npm run dev
-HERMES_HOME=/tmp/throwaway npm run dev
+XHERMES_DESKTOP_XHERMES_ROOT=/path/to/clone npm run dev
+XHERMES_HOME=/tmp/throwaway npm run dev
 npm run dev:fake-boot   # exercise the startup overlay with deterministic delays
 ```
 
@@ -88,7 +88,7 @@ Installers are built and uploaded to GitHub Releases manually. macOS/Windows sig
 ### How it works
 
 The packaged app ships the Electron shell and a native React chat surface. On
-first launch it can install the XHermes Agent runtime into `HERMES_HOME`
+first launch it can install the XHermes Agent runtime into `XHERMES_HOME`
 (`~/.xhermes`, or `%LOCALAPPDATA%\xhermes` on Windows), using the same layout as a
 CLI install.
 
@@ -104,10 +104,10 @@ The app has three boundaries:
 
 Backend resolution is an ordered ladder:
 
-1. `HERMES_DESKTOP_HERMES_ROOT`
+1. `XHERMES_DESKTOP_XHERMES_ROOT`
 2. the current source checkout during development
 3. a completed managed install
-4. `HERMES_DESKTOP_HERMES`, or `xhermes` on `PATH`
+4. `XHERMES_DESKTOP_XHERMES`, or `xhermes` on `PATH`
 5. a system Python that can import the XHermes runtime
 6. the first-launch bootstrap installer
 
@@ -177,7 +177,7 @@ release-path changes.
 
 ### Troubleshooting
 
-Boot logs land in `HERMES_HOME/logs/desktop.log` (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
+Boot logs land in `XHERMES_HOME/logs/desktop.log` (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
 
 **macOS / Linux:**
 
@@ -199,7 +199,7 @@ Remove-Item "$env:LOCALAPPDATA\xhermes\xhermes-agent\.xhermes-bootstrap-complete
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\xhermes\xhermes-agent\venv"
 ```
 
-> The default XHermes home on Windows is `%LOCALAPPDATA%\xhermes`. Set the `HERMES_HOME` env var if you've relocated it.
+> The default XHermes home on Windows is `%LOCALAPPDATA%\xhermes`. Set the `XHERMES_HOME` env var if you've relocated it.
 
 ---
 

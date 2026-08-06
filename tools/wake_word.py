@@ -517,7 +517,7 @@ class _OpenWakeWordEngine(_Engine):
 
 # sherpa-onnx open-vocabulary KWS model: a small streaming zipformer
 # transducer. English (GigaSpeech); one-time download, cached under
-# HERMES_HOME. Keywords are typed phrases tokenized at RUNTIME — no
+# XHERMES_HOME. Keywords are typed phrases tokenized at RUNTIME — no
 # training step, unlike openWakeWord/Porcupine custom models.
 _SHERPA_KWS_MODEL_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/"

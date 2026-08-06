@@ -1,4 +1,4 @@
-"""Resolve HERMES_HOME for standalone skill scripts.
+"""Resolve XHERMES_HOME for standalone skill scripts.
 
 Skill scripts may run outside the XHermes process (e.g. system Python,
 nix env, CI) where ``hermes_constants`` is not importable.  This module
@@ -11,7 +11,7 @@ picked up automatically.  The fallback path replicates the core logic
 from ``hermes_constants.py`` using only the stdlib.
 
 All scripts under ``google-workspace/scripts/`` should import from here
-instead of duplicating the ``HERMES_HOME = Path(os.getenv(...))`` pattern.
+instead of duplicating the ``XHERMES_HOME = Path(os.getenv(...))`` pattern.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ except (ModuleNotFoundError, ImportError):
         """Return the XHermes home directory (default: ~/.xhermes).
 
         Mirrors ``hermes_constants.get_hermes_home()``."""
-        val = os.environ.get("HERMES_HOME", "").strip()
+        val = os.environ.get("XHERMES_HOME", "").strip()
         return Path(val) if val else Path.home() / ".xhermes"
 
     def display_hermes_home() -> str:

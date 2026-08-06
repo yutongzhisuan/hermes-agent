@@ -38,20 +38,20 @@ If you're just running the XHermes Agent and want to use Docker, see `website/do
 │   │   └── skills_sync.py
 │   └── 02-reconcile-profiles          ← hermes_cli.container_boot
 │       ├── chown /run/service (xhermes-writable for runtime register)
-│       └── walk $HERMES_HOME/profiles/<name>/gateway_state.json
+│       └── walk $XHERMES_HOME/profiles/<name>/gateway_state.json
 │           → recreate /run/service/gateway-<name>/
 │           → auto-start only those with prior_state == "running"
 │
 ├── s6-rc.d (static services, in /etc/s6-overlay/s6-rc.d/)
 │   ├── main-xhermes/run                ← exec sleep infinity (no-op slot)
-│   └── dashboard/run                  ← if HERMES_DASHBOARD=1, runs `xhermes dashboard`
+│   └── dashboard/run                  ← if XHERMES_DASHBOARD=1, runs `xhermes dashboard`
 │
 ├── /run/service (s6-svscan watches; tmpfs)
 │   ├── gateway-coder/                 ← runtime-registered per-profile
 │   │   ├── type        ("longrun")
 │   │   ├── run         ("#!/command/with-contenv sh ... exec s6-setuidgid xhermes xhermes -p coder gateway run")
 │   │   ├── down        (marker — present means "registered but don't auto-start")
-│   │   └── log/run     (s6-log → $HERMES_HOME/logs/gateways/coder/current)
+│   │   └── log/run     (s6-log → $XHERMES_HOME/logs/gateways/coder/current)
 │   └── ...
 │
 └── CMD ("main program")               ← /opt/xhermes/docker/main-wrapper.sh
@@ -69,7 +69,7 @@ If you're just running the XHermes Agent and want to use Docker, see `website/do
 | `docker/cont-init.d/02-reconcile-profiles` | Calls `hermes_cli.container_boot` on every boot to restore profile gateway slots from the persistent volume. |
 | `docker/main-wrapper.sh` | The container's CMD. Routes user args, drops to xhermes via `s6-setuidgid`, exec's the chosen program. |
 | `docker/s6-rc.d/main-xhermes/run` | No-op `sleep infinity` — slot exists so the s6-rc user bundle is valid; main xhermes runs as the CMD, not as a supervised service. |
-| `docker/s6-rc.d/dashboard/run` | Conditional service — `exec sleep infinity` unless `HERMES_DASHBOARD` is truthy. |
+| `docker/s6-rc.d/dashboard/run` | Conditional service — `exec sleep infinity` unless `XHERMES_DASHBOARD` is truthy. |
 | `docker/entrypoint.sh` | Back-compat shim that `exec`s the stage2 hook. External scripts that hard-coded the old entrypoint path still work. |
 | `hermes_cli/service_manager.py` | `S6ServiceManager`: `register_profile_gateway`, `unregister_profile_gateway`, `start/stop/restart/is_running`, `list_profile_gateways`. |
 | `hermes_cli/container_boot.py` | `reconcile_profile_gateways()` — walks persistent profiles, regenerates s6 slots, emits `container-boot.log`. |
@@ -79,7 +79,7 @@ If you're just running the XHermes Agent and want to use Docker, see `website/do
 
 The original plan (v1–v3) called for main xhermes to run as a supervised s6-rc service. Two real s6-overlay v3 mechanics blocked that:
 
-1. **cont-init.d scripts receive no CMD args** — so the stage2 hook can't parse `docker run <image> chat -q "hi"` to set `HERMES_ARGS` for a service `run` script to consume.
+1. **cont-init.d scripts receive no CMD args** — so the stage2 hook can't parse `docker run <image> chat -q "hi"` to set `XHERMES_ARGS` for a service `run` script to consume.
 2. **`/run/s6/basedir/bin/halt` does NOT propagate the exit code** written to `/run/s6-linux-init-container-results/exitcode`. Containers always exit 143 (SIGTERM) regardless. Confirmed by skarnet (s6 author) in [issue #477](https://github.com/just-containers/s6-overlay/issues/477): _"if you want a container shutdown, you need to either have your CMD exit, or, if you have no CMD, write the container exit code you want then call halt"_.
 
 So we use the s6-overlay-native CMD pattern via the dispatcher: `ENTRYPOINT ["/opt/xhermes/docker/entrypoint-dispatch.sh"]`, which under PID 1 exec's `/init /opt/xhermes/docker/main-wrapper.sh "$@"`. The wrapper is prepended to user args automatically — so `docker run <image> --version` becomes `/init main-wrapper.sh --version`, and `--version` doesn't get intercepted by /init's POSIX shell. The wrapper drops to xhermes via `s6-setuidgid`, then exec's the chosen program. The program's exit code becomes the container exit code, exactly matching the pre-s6 tini contract. When the entrypoint is NOT PID 1 (Fly Machines, `docker run --init`), the dispatcher skips `/init` entirely (it would abort with `can only run as pid 1`), restores the s6 helper PATH, runs stage2-hook.sh, and exec's main-wrapper.sh directly — no supervised services on that path (#38349).
@@ -137,7 +137,7 @@ Edit `S6ServiceManager._render_run_script` in `hermes_cli/service_manager.py`. T
 
 ```sh
 docker build -t xhermes-agent-harness:latest .
-HERMES_TEST_IMAGE=xhermes-agent-harness:latest scripts/run_tests.sh tests/docker/ -v
+XHERMES_TEST_IMAGE=xhermes-agent-harness:latest scripts/run_tests.sh tests/docker/ -v
 # Expect 19 passed, 0 xfailed against the s6 image
 ```
 
@@ -151,11 +151,11 @@ The harness lives in `tests/docker/` and skips when Docker isn't available. The 
 
 ### Profile directory ownership
 
-The cont-init reconciler runs as xhermes (`s6-setuidgid xhermes` in `02-reconcile-profiles`). If a profile dir ends up root-owned (e.g. because `docker exec <c> xhermes profile create …` ran as root by default), the reconciler can't read SOUL.md and fails with `PermissionError`. Mitigation: `stage2-hook.sh` chowns `$HERMES_HOME/profiles` to xhermes on **every** boot, idempotently. Don't remove that block.
+The cont-init reconciler runs as xhermes (`s6-setuidgid xhermes` in `02-reconcile-profiles`). If a profile dir ends up root-owned (e.g. because `docker exec <c> xhermes profile create …` ran as root by default), the reconciler can't read SOUL.md and fails with `PermissionError`. Mitigation: `stage2-hook.sh` chowns `$XHERMES_HOME/profiles` to xhermes on **every** boot, idempotently. Don't remove that block.
 
 ### Files written by `docker exec` are root-owned
 
-`docker exec` defaults to root. Either pass `--user xhermes` or rely on the stage2 chown sweep next reboot. Don't write files under `$HERMES_HOME/profiles/<name>/` as root manually — the next reconcile pass will sweep them but in-flight operations may hit perm errors.
+`docker exec` defaults to root. Either pass `--user xhermes` or rely on the stage2 chown sweep next reboot. Don't write files under `$XHERMES_HOME/profiles/<name>/` as root manually — the next reconcile pass will sweep them but in-flight operations may hit perm errors.
 
 ### Service slot exists but s6-svstat says "s6-supervise not running"
 

@@ -25,7 +25,7 @@ def main() -> None:
     args = parser.parse_args()
 
     hermes_home = Path(tempfile.mkdtemp(prefix="xhermes-otel-smoke-"))
-    os.environ["HERMES_HOME"] = str(hermes_home)
+    os.environ["XHERMES_HOME"] = str(hermes_home)
 
     from gateway.status import write_runtime_status
     from agent.monitoring.gateway_health_export import start_gateway_health_export

@@ -218,7 +218,7 @@ The director turns this into actual `kanban_create` calls.
 ## API-key prerequisites check
 
 Before firing the kanban, verify required keys are available. Check both
-the XHermes `.env` (`${HERMES_HOME:-$HOME/.xhermes}/.env`) and macOS Keychain
+the XHermes `.env` (`${XHERMES_HOME:-$HOME/.xhermes}/.env`) and macOS Keychain
 (if on macOS):
 
 ```bash
@@ -226,7 +226,7 @@ check_key() {
     local var="$1"
     local kc_account="$2"
     local kc_service="$3"
-    local _hermes_env="${HERMES_HOME:-$HOME/.xhermes}/.env"
+    local _hermes_env="${XHERMES_HOME:-$HOME/.xhermes}/.env"
     if grep -q "^${var}=" "$_hermes_env" 2>/dev/null && \
        [ -n "$(grep "^${var}=" "$_hermes_env" | cut -d= -f2-)" ]; then
         return 0

@@ -339,7 +339,7 @@ def get_tool_definitions(
                 frozenset(disabled_toolsets) if disabled_toolsets else None,
                 registry._generation,
                 cfg_fp,
-                bool(os.environ.get("HERMES_KANBAN_TASK")),
+                bool(os.environ.get("XHERMES_KANBAN_TASK")),
                 bool(skip_tool_search_assembly),
                 _is_delegated_child_context(),
                 profile_scope,
@@ -389,11 +389,11 @@ def _compute_tool_definitions(
     if enabled_toolsets is not None:
         effective_enabled_toolsets = list(enabled_toolsets)
         if (
-            os.environ.get("HERMES_KANBAN_TASK")
+            os.environ.get("XHERMES_KANBAN_TASK")
             and not _is_delegated_child_context()
             and "kanban" not in effective_enabled_toolsets
         ):
-            # Dispatcher-spawned workers are scoped by HERMES_KANBAN_TASK and
+            # Dispatcher-spawned workers are scoped by XHERMES_KANBAN_TASK and
             # must always receive the lifecycle handoff tools. Assignee
             # profiles may intentionally restrict their normal chat toolsets
             # (for token/cost reasons), but that should not strip the kanban
@@ -427,7 +427,7 @@ def _compute_tool_definitions(
             if validate_toolset(toolset_name):
                 from toolsets import bundle_non_core_tools, get_toolset
                 if toolset_name.startswith("xhermes-") or (get_toolset(toolset_name) or {}).get("posture"):
-                    # Platform bundles (xhermes-*) include _HERMES_CORE_TOOLS, and
+                    # Platform bundles (xhermes-*) include _XHERMES_CORE_TOOLS, and
                     # posture toolsets (`posture: True`, e.g. `coding`) re-list
                     # those same core tools without owning them, so subtracting
                     # the whole toolset would strip core tools shared by other
@@ -564,7 +564,7 @@ def _compute_tool_definitions(
     # Conditionally replace MCP + plugin (non-core) tools with three bridge
     # tools (tool_search / tool_describe / tool_call) when the deferrable
     # surface exceeds the configured threshold (default 10% of context
-    # window). Core XHermes tools (toolsets._HERMES_CORE_TOOLS) are NEVER
+    # window). Core XHermes tools (toolsets._XHERMES_CORE_TOOLS) are NEVER
     # deferred. See tools/tool_search.py for full design notes.
     #
     # This is deliberately the last step before returning — sanitization

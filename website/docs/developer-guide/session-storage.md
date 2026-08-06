@@ -404,7 +404,7 @@ db.delete_session("sess_abc123")
 Default path: `~/.xhermes/state.db`
 
 This is derived from `hermes_constants.get_hermes_home()` which resolves to
-`~/.xhermes/` by default, or the value of `HERMES_HOME` environment variable.
+`~/.xhermes/` by default, or the value of `XHERMES_HOME` environment variable.
 
 The database file, WAL file (`state.db-wal`), and shared-memory file
 (`state.db-shm`) are all created in the same directory.

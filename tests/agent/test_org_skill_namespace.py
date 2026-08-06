@@ -374,7 +374,7 @@ class TestLocalEditsSurviveOrgUpdates:
     def test_auto_propose_defaults_off(self, monkeypatch):
         from tools import skills_sync_client as ssc
 
-        monkeypatch.delenv("HERMES_SYNC_ORG_AUTO_PROPOSE", raising=False)
+        monkeypatch.delenv("XHERMES_SYNC_ORG_AUTO_PROPOSE", raising=False)
         monkeypatch.setattr(
             "hermes_cli.config.load_config", lambda: {}, raising=False
         )
@@ -385,5 +385,5 @@ class TestLocalEditsSurviveOrgUpdates:
     def test_auto_propose_can_be_enabled_by_env(self, monkeypatch):
         from tools import skills_sync_client as ssc
 
-        monkeypatch.setenv("HERMES_SYNC_ORG_AUTO_PROPOSE", "1")
+        monkeypatch.setenv("XHERMES_SYNC_ORG_AUTO_PROPOSE", "1")
         assert ssc.sync_org_auto_propose() is True

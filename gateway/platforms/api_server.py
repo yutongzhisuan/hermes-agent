@@ -293,7 +293,7 @@ def _resolve_request_runtime_agent_kwargs(provider: str, target_model: Optional[
 
     model_cfg = _get_model_config()
     max_tokens = None
-    env_max_tokens = os.environ.get("HERMES_MAX_TOKENS")
+    env_max_tokens = os.environ.get("XHERMES_MAX_TOKENS")
     if env_max_tokens:
         try:
             max_tokens = int(env_max_tokens)
@@ -792,7 +792,7 @@ class ResponseStore:
             self._conn = sqlite3.connect(":memory:", check_same_thread=False)
             self._db_path = None
         # Use shared WAL-fallback helper so response_store.db degrades
-        # gracefully on NFS/SMB/FUSE-mounted HERMES_HOME (same filesystem
+        # gracefully on NFS/SMB/FUSE-mounted XHERMES_HOME (same filesystem
         # issue addressed for state.db/kanban.db — see
         # hermes_state._WAL_INCOMPAT_MARKERS).
         from hermes_state import apply_wal_with_fallback
@@ -6472,7 +6472,7 @@ class APIServerAdapter(BasePlatformAdapter):
                                 # the other agent-entry routes bind it via
                                 # _run_agent(). Without it,
                                 # tools.async_delegation reads an empty
-                                # HERMES_SESSION_CHAT_ID on /v1/runs and
+                                # XHERMES_SESSION_CHAT_ID on /v1/runs and
                                 # background delegations stay forced-sync
                                 # (no wake target).
                                 chat_id=session_id or "",

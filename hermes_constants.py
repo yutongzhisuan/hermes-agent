@@ -14,8 +14,8 @@ from pathlib import Path
 
 _profile_fallback_warned: bool = False
 _UNSET = object()
-_HERMES_HOME_OVERRIDE: ContextVar[str | object] = ContextVar(
-    "_HERMES_HOME_OVERRIDE", default=_UNSET
+_XHERMES_HOME_OVERRIDE: ContextVar[str | object] = ContextVar(
+    "_XHERMES_HOME_OVERRIDE", default=_UNSET
 )
 
 # ── TUI busy-indicator styles ─────────────────────────────────────────
@@ -34,17 +34,17 @@ def set_hermes_home_override(path: str | Path | None) -> Token:
     ``os.environ`` because that is shared by every thread in the process.
     """
     value: str | object = _UNSET if path is None else str(path)
-    return _HERMES_HOME_OVERRIDE.set(value)
+    return _XHERMES_HOME_OVERRIDE.set(value)
 
 
 def reset_hermes_home_override(token: Token) -> None:
     """Restore the previous context-local XHermes home override."""
-    _HERMES_HOME_OVERRIDE.reset(token)
+    _XHERMES_HOME_OVERRIDE.reset(token)
 
 
 def get_hermes_home_override() -> str | None:
     """Return the active context-local XHermes home override, if any."""
-    override = _HERMES_HOME_OVERRIDE.get()
+    override = _XHERMES_HOME_OVERRIDE.get()
     if override is _UNSET or not override:
         return None
     return str(override)
@@ -82,7 +82,7 @@ def _hermes_home_from_env() -> Path:
     """Resolve the XHermes home from the process environment only.
 
     Prefers the ``XHERMES_HOME`` env var, falling back to the legacy
-    ``HERMES_HOME`` (subprocess spawners still propagate the legacy name),
+    ``XHERMES_HOME`` (subprocess spawners still propagate the legacy name),
     then to the platform-native default.  Deliberately ignores the
     context-local override installed by :func:`set_hermes_home_override`, so
     this reflects the process/launch scope rather than a per-task profile.
@@ -91,7 +91,7 @@ def _hermes_home_from_env() -> Path:
     """
     val = (
         os.environ.get("XHERMES_HOME", "").strip()
-        or os.environ.get("HERMES_HOME", "").strip()
+        or os.environ.get("XHERMES_HOME", "").strip()
     )
     if val:
         return Path(val)
@@ -101,7 +101,7 @@ def _hermes_home_from_env() -> Path:
 def _warn_profile_fallback_once() -> None:
     """Warn once when falling back to the default home while a profile is active.
 
-    Guard: if a non-default profile is sticky-active but ``HERMES_HOME`` is
+    Guard: if a non-default profile is sticky-active but ``XHERMES_HOME`` is
     unset, the fallback to the default profile is almost certainly wrong.
     """
     global _profile_fallback_warned
@@ -125,11 +125,11 @@ def _warn_profile_fallback_once() -> None:
         # configured, and (b) root-logger propagation would double-emit
         # on consoles where a StreamHandler is already attached.
         msg = (
-            f"[HERMES_HOME fallback] HERMES_HOME is unset but active "
+            f"[XHERMES_HOME fallback] XHERMES_HOME is unset but active "
             f"profile is {active!r}. Falling back to {fallback_home}, which "
             f"is the DEFAULT profile — not {active!r}. Any data this "
             f"process writes will land in the wrong profile. The "
-            f"subprocess spawner should pass HERMES_HOME explicitly "
+            f"subprocess spawner should pass XHERMES_HOME explicitly "
             f"(see issue #18594)."
         )
         try:
@@ -143,17 +143,17 @@ def get_hermes_home() -> Path:
     """Return the XHermes home directory (default: platform-native path).
 
     Resolution order: context-local override (see
-    :func:`set_hermes_home_override`) → ``HERMES_HOME`` env var → the
+    :func:`set_hermes_home_override`) → ``XHERMES_HOME`` env var → the
     platform-native default.  This is the single source of truth — all other
     copies should import this.
 
-    When ``HERMES_HOME`` is unset but an ``active_profile`` file indicates
+    When ``XHERMES_HOME`` is unset but an ``active_profile`` file indicates
     a non-default profile is active, logs a loud one-shot warning to
     ``errors.log`` so cross-profile data corruption is diagnosable instead
     of silent.  Behavior is unchanged otherwise — we still return
     the platform-native default — because raising here would brick 30+ module-level
     callers that import this at load time.  Subprocess spawners are
-    expected to propagate ``HERMES_HOME`` explicitly (see the systemd
+    expected to propagate ``XHERMES_HOME`` explicitly (see the systemd
     template in ``hermes_cli/gateway.py`` and the kanban dispatcher in
     ``hermes_cli/kanban_db.py``).  See https://github.com/NousResearch/xhermes-agent/issues/18594.
     """
@@ -163,7 +163,7 @@ def get_hermes_home() -> Path:
 
     if not (
         os.environ.get("XHERMES_HOME", "").strip()
-        or os.environ.get("HERMES_HOME", "").strip()
+        or os.environ.get("XHERMES_HOME", "").strip()
     ):
         _warn_profile_fallback_once()
 
@@ -175,7 +175,7 @@ def get_process_hermes_home() -> Path:
 
     Unlike :func:`get_hermes_home`, this never follows the context-local
     override set by :func:`set_hermes_home_override`.  It resolves only the
-    process ``HERMES_HOME`` env var (falling back to the platform default),
+    process ``XHERMES_HOME`` env var (falling back to the platform default),
     so it reflects the scope the process was launched under **as long as
     nothing mutates ``os.environ`` in-process**.
 
@@ -204,8 +204,8 @@ def get_default_hermes_root() -> Path:
     Works both for standard (``~/.xhermes/profiles/coder``) and Docker
     (``/opt/data/profiles/coder``) layouts.
 
-    Prefers ``XHERMES_HOME`` over legacy ``HERMES_HOME`` so a leaked
-    ``HERMES_HOME=~/.xhermes`` can never make xhermes treat xhermes's home
+    Prefers ``XHERMES_HOME`` over legacy ``XHERMES_HOME`` so a leaked
+    ``XHERMES_HOME=~/.xhermes`` can never make xhermes treat xhermes's home
     as its own root.
 
     Import-safe — no dependencies beyond stdlib.
@@ -213,12 +213,12 @@ def get_default_hermes_root() -> Path:
     native_home = _get_platform_default_hermes_home()
     env_home = (
         os.environ.get("XHERMES_HOME", "").strip()
-        or os.environ.get("HERMES_HOME", "").strip()
+        or os.environ.get("XHERMES_HOME", "").strip()
     )
     if not env_home:
         return native_home
     env_path = Path(env_home)
-    # Legacy xhermes default home leaked via HERMES_HOME (e.g. the user's own
+    # Legacy xhermes default home leaked via XHERMES_HOME (e.g. the user's own
     # xhermes install exporting it globally) — never adopt it as xhermes's root.
     # Profile-level ops (profile list / gateway status) must stay on ~/.xhermes.
     legacy_defaults = [Path.home() / ".xhermes"]
@@ -252,7 +252,7 @@ def get_default_hermes_root() -> Path:
     if env_path.parent.name == "profiles":
         return env_path.parent.parent
 
-    # Not a profile path — HERMES_HOME itself is the root
+    # Not a profile path — XHERMES_HOME itself is the root
     return env_path
 
 
@@ -287,9 +287,9 @@ def get_optional_skills_dir(default: Path | None = None) -> Path:
     """Return the optional-skills directory, honoring package-manager wrappers.
 
     Packaged installs may ship ``optional-skills`` outside the Python package
-    tree and expose it via ``HERMES_OPTIONAL_SKILLS``.
+    tree and expose it via ``XHERMES_OPTIONAL_SKILLS``.
     """
-    override = os.getenv("HERMES_OPTIONAL_SKILLS", "").strip()
+    override = os.getenv("XHERMES_OPTIONAL_SKILLS", "").strip()
     if override:
         return Path(override)
     packaged = _package_data_subdir("optional-skills")
@@ -306,9 +306,9 @@ def get_optional_mcps_dir(default: Path | None = None) -> Path:
     Mirrors :func:`get_optional_skills_dir` for the MCP catalog (Nous-approved
     Model Context Protocol servers shipped with the repo but disabled by
     default). Packaged installs may ship ``optional-mcps`` outside the Python
-    package tree and expose it via ``HERMES_OPTIONAL_MCPS``.
+    package tree and expose it via ``XHERMES_OPTIONAL_MCPS``.
     """
-    override = os.getenv("HERMES_OPTIONAL_MCPS", "").strip()
+    override = os.getenv("XHERMES_OPTIONAL_MCPS", "").strip()
     if override:
         return Path(override)
     packaged = _package_data_subdir("optional-mcps")
@@ -323,12 +323,12 @@ def get_bundled_skills_dir(default: Path | None = None) -> Path:
     """Return the bundled skills directory for source and packaged installs.
 
     Resolution order:
-        1. ``HERMES_BUNDLED_SKILLS`` env var (Nix wrapper / explicit override)
+        1. ``XHERMES_BUNDLED_SKILLS`` env var (Nix wrapper / explicit override)
         2. Headless wheel ``xhermes_agent_data/skills`` when present
         3. Caller-supplied ``default`` (typically the source-checkout path)
-        4. ``<HERMES_HOME>/skills`` last-resort
+        4. ``<XHERMES_HOME>/skills`` last-resort
     """
-    override = os.getenv("HERMES_BUNDLED_SKILLS", "").strip()
+    override = os.getenv("XHERMES_BUNDLED_SKILLS", "").strip()
     if override:
         return Path(override)
     packaged = _package_data_subdir("skills")
@@ -360,11 +360,11 @@ def get_hermes_dir(
     ``platforms/pairing/``.
 
     Args:
-        new_subpath: Preferred path relative to HERMES_HOME (e.g. ``"cache/images"``).
-        old_name: Legacy path relative to HERMES_HOME (e.g. ``"image_cache"``).
+        new_subpath: Preferred path relative to XHERMES_HOME (e.g. ``"cache/images"``).
+        old_name: Legacy path relative to XHERMES_HOME (e.g. ``"image_cache"``).
         home: Optional explicit XHermes home. Profile-aware callers that manage
             more than one home in the same process use this instead of
-            temporarily mutating the process or context-local HERMES_HOME.
+            temporarily mutating the process or context-local XHERMES_HOME.
 
     Returns:
         Absolute ``Path`` — legacy location if it exists with content,
@@ -382,7 +382,7 @@ def iter_hermes_node_dirs(home: Path | None = None) -> list[Path]:
 
     Windows installs from ``scripts/install.ps1`` unpack portable Node directly
     into ``%LOCALAPPDATA%\\xhermes\\node``. POSIX installs use
-    ``$HERMES_HOME/node/bin``. Include both shapes on every platform so mixed
+    ``$XHERMES_HOME/node/bin``. Include both shapes on every platform so mixed
     or migrated installs still work.
     """
     root = home or get_hermes_home()
@@ -412,7 +412,7 @@ def _candidate_node_command_names(command: str) -> list[str]:
     return [f"{base}.cmd", f"{base}.exe", base]
 
 
-_HERMES_NODE_TARGET_MAJOR = int(os.environ.get("HERMES_NODE_TARGET_MAJOR", "22"))
+_XHERMES_NODE_TARGET_MAJOR = int(os.environ.get("XHERMES_NODE_TARGET_MAJOR", "22"))
 _managed_node_heal_attempted = False
 _NODE_BOOTSTRAP_SCRIPT = (
     Path(__file__).resolve().parent / "scripts" / "lib" / "node-bootstrap.sh"
@@ -422,8 +422,8 @@ _NODE_BOOTSTRAP_SCRIPT = (
 def node_tool_runnable(path: str | None) -> bool:
     """Return True only when *path* is a Node/npm/npx binary that actually runs.
 
-    XHermes-managed Node trees live under ``$HERMES_HOME/node`` (or a profile's
-    ``HERMES_HOME``). A partial upgrade or interrupted install can leave
+    XHermes-managed Node trees live under ``$XHERMES_HOME/node`` (or a profile's
+    ``XHERMES_HOME``). A partial upgrade or interrupted install can leave
     ``bin/npm`` behind while ``lib/cli.js`` is missing — the wrapper exists but
     immediately throws ``MODULE_NOT_FOUND``. ``find_hermes_node_executable``
     used to trust file presence alone, so ``xhermes update`` would pick that
@@ -474,7 +474,7 @@ def hermes_managed_node_tree_present(home: Path | None = None) -> bool:
 
 
 def _heal_managed_node_windows() -> bool:
-    """Redownload the portable Node zip into ``%HERMES_HOME%\\node`` on Windows."""
+    """Redownload the portable Node zip into ``%XHERMES_HOME%\\node`` on Windows."""
     import re
     import tempfile
     import urllib.request
@@ -494,7 +494,7 @@ def _heal_managed_node_windows() -> bool:
         return False
 
     home = get_hermes_home()
-    index_url = f"https://nodejs.org/dist/latest-v{_HERMES_NODE_TARGET_MAJOR}.x/"
+    index_url = f"https://nodejs.org/dist/latest-v{_XHERMES_NODE_TARGET_MAJOR}.x/"
     try:
         with urllib.request.urlopen(index_url, timeout=60) as response:
             index_html = response.read().decode("utf-8", errors="replace")
@@ -502,7 +502,7 @@ def _heal_managed_node_windows() -> bool:
         return False
 
     match = re.search(
-        rf"node-v{_HERMES_NODE_TARGET_MAJOR}\.\d+\.\d+-win-{node_arch}\.zip",
+        rf"node-v{_XHERMES_NODE_TARGET_MAJOR}\.\d+\.\d+-win-{node_arch}\.zip",
         index_html,
     )
     if not match:
@@ -539,12 +539,12 @@ def _heal_managed_node_windows() -> bool:
 
 
 def _bootstrap_managed_node_posix() -> bool:
-    """Install a fresh managed Node under ``$HERMES_HOME/node`` on POSIX.
+    """Install a fresh managed Node under ``$XHERMES_HOME/node`` on POSIX.
 
     Shells out to ``_nb_install_bundled_node`` in ``scripts/lib/node-bootstrap.sh``
     (the same pinned-nodejs.org path ``install.sh`` uses), so the resulting
     tree matches what a normal install would have produced. Runs with
-    ``HERMES_NODE_SKIP_LINKS=1`` so the user's own node/npm on PATH is not
+    ``XHERMES_NODE_SKIP_LINKS=1`` so the user's own node/npm on PATH is not
     shadowed by ``~/.local/bin`` symlinks.
     """
     if not _NODE_BOOTSTRAP_SCRIPT.is_file():
@@ -561,11 +561,11 @@ def _bootstrap_managed_node_posix() -> bool:
             ],
             env={
                 **os.environ,
-                "HERMES_HOME": str(get_hermes_home()),
+                "XHERMES_HOME": str(get_hermes_home()),
                 # Private provisioning: do not symlink node/npm/npx into
                 # ~/.local/bin — the user has their own toolchain on PATH and
                 # this tree must not shadow it.
-                "HERMES_NODE_SKIP_LINKS": "1",
+                "XHERMES_NODE_SKIP_LINKS": "1",
             },
             capture_output=True,
             timeout=600,
@@ -582,7 +582,7 @@ def bootstrap_hermes_managed_node() -> str | None:
     Used when the only Node/npm on the machine belongs to the user (system,
     nvm, brew, Nix) and cannot satisfy the repo's ``engines`` requirements —
     XHermes never modifies a toolchain it does not own, so instead it provisions
-    its own tree under ``$HERMES_HOME/node`` (the same tree a fresh install
+    its own tree under ``$XHERMES_HOME/node`` (the same tree a fresh install
     creates) and works with that.
 
     Returns the managed npm executable path on success, ``None`` on failure.
@@ -641,7 +641,7 @@ def heal_hermes_managed_node() -> bool:
                 "-c",
                 f'source "{_NODE_BOOTSTRAP_SCRIPT}" && heal_managed_node',
             ],
-            env={**os.environ, "HERMES_HOME": str(get_hermes_home())},
+            env={**os.environ, "XHERMES_HOME": str(get_hermes_home())},
             capture_output=True,
             timeout=300,
             check=False,
@@ -657,7 +657,7 @@ def _managed_node_tree_outdated(home: Path | None = None) -> bool:
     An outdated managed Node (e.g. a 22 tree from an older install) heals the
     same way a broken one does: :func:`find_hermes_node_executable` triggers
     the once-per-process heal, which redownloads
-    ``latest-v{_HERMES_NODE_TARGET_MAJOR}.x`` — so existing users are upgraded
+    ``latest-v{_XHERMES_NODE_TARGET_MAJOR}.x`` — so existing users are upgraded
     on next launch, not just on the next installer re-run. Mirrors
     ``_nb_managed_node_outdated`` in ``scripts/lib/node-bootstrap.sh``.
     """
@@ -682,14 +682,14 @@ def _managed_node_tree_outdated(home: Path | None = None) -> bool:
                 major = int(result.stdout.decode().strip().lstrip("v").split(".")[0])
             except (OSError, subprocess.TimeoutExpired, ValueError, IndexError):
                 return False  # broken, not outdated — the runnable probe handles it
-            return major < _HERMES_NODE_TARGET_MAJOR
+            return major < _XHERMES_NODE_TARGET_MAJOR
     return False
 
 
 def find_hermes_node_executable(command: str) -> str | None:
     """Return a XHermes-managed Node/npm executable path, healing broken trees.
 
-    Outdated trees (node major below ``_HERMES_NODE_TARGET_MAJOR``) heal the
+    Outdated trees (node major below ``_XHERMES_NODE_TARGET_MAJOR``) heal the
     same way broken ones do — the once-per-process heal redownloads the target
     major, upgrading existing users on next launch rather than next reinstall.
     When the heal fails (offline, download error), an outdated-but-runnable
@@ -877,7 +877,7 @@ def _legacy_path_has_content(path: Path) -> bool:
 
 
 def display_hermes_home() -> str:
-    """Return a user-friendly display string for the current HERMES_HOME.
+    """Return a user-friendly display string for the current XHERMES_HOME.
 
     Uses ``~/`` shorthand for readability::
 
@@ -901,7 +901,7 @@ def secure_parent_dir(path: Path) -> None:
 
     Refuses to chmod ``/`` or any top-level directory (resolved parent with
     fewer than 3 parts, i.e. ``/`` or any direct child like ``/usr``) to
-    prevent catastrophic host bricking when ``HERMES_HOME`` or other path
+    prevent catastrophic host bricking when ``XHERMES_HOME`` or other path
     env vars resolve to an unexpected location.
 
     See https://github.com/NousResearch/xhermes-agent/issues/25821.
@@ -928,13 +928,13 @@ def _norm_home_path(path: str | None) -> str:
 
 
 def _profile_home_path(env: dict[str, str] | None = None) -> str | None:
-    """Return ``{HERMES_HOME}/home`` when the profile-home directory exists."""
+    """Return ``{XHERMES_HOME}/home`` when the profile-home directory exists."""
     hermes_home = (
         get_hermes_home_override()
         or (env or {}).get("XHERMES_HOME")
-        or (env or {}).get("HERMES_HOME")
+        or (env or {}).get("XHERMES_HOME")
         or os.getenv("XHERMES_HOME")
-        or os.getenv("HERMES_HOME")
+        or os.getenv("XHERMES_HOME")
     )
     if not hermes_home:
         return None
@@ -957,7 +957,7 @@ def _iter_real_home_candidates(env: dict[str, str] | None = None) -> list[str]:
     env = env or {}
     candidates: list[str] = []
     explicit = str(
-        env.get("HERMES_REAL_HOME") or os.getenv("HERMES_REAL_HOME", "")
+        env.get("XHERMES_REAL_HOME") or os.getenv("XHERMES_REAL_HOME", "")
     ).strip()
     if explicit:
         candidates.append(explicit)
@@ -994,9 +994,9 @@ def _iter_real_home_candidates(env: dict[str, str] | None = None) -> list[str]:
 def get_real_home(env: dict[str, str] | None = None) -> str:
     """Return the OS user's real home directory, avoiding XHermes profile HOME.
 
-    ``HERMES_HOME`` scopes XHermes state. ``HOME`` is reserved for the OS/user
+    ``XHERMES_HOME`` scopes XHermes state. ``HOME`` is reserved for the OS/user
     account and the many external CLIs that store credentials under ``~``.
-    If a parent process is already running with ``HOME={HERMES_HOME}/home``,
+    If a parent process is already running with ``HOME={XHERMES_HOME}/home``,
     this helper repairs back to the account home when possible.
     """
     profile_home = _profile_home_path(env)
@@ -1018,10 +1018,10 @@ def get_subprocess_home(env: dict[str, str] | None = None) -> str | None:
     ``TERMINAL_HOME_MODE``):
 
     * ``auto`` (default): host installs keep the real user HOME; containers use
-      ``{HERMES_HOME}/home`` for persistent state. If a host parent already has
+      ``{XHERMES_HOME}/home`` for persistent state. If a host parent already has
       HOME pointed at the profile home, repair subprocesses back to real HOME.
     * ``real``: always prefer the real OS-user HOME.
-    * ``profile``: use ``{HERMES_HOME}/home`` when it exists, preserving the
+    * ``profile``: use ``{XHERMES_HOME}/home`` when it exists, preserving the
       older strict per-profile tool-config isolation.
     """
     env = env or {}
@@ -1064,7 +1064,7 @@ def apply_subprocess_home_env(env: dict[str, str]) -> None:
     """Apply XHermes' subprocess HOME contract to *env* in-place."""
     real_home = get_real_home(env)
     if real_home:
-        env["HERMES_REAL_HOME"] = real_home
+        env["XHERMES_REAL_HOME"] = real_home
     home = get_subprocess_home(env)
     if home:
         env["HOME"] = home
@@ -1445,7 +1445,7 @@ def is_container() -> bool:
 
 
 def get_config_path() -> Path:
-    """Return the path to ``config.yaml`` under HERMES_HOME.
+    """Return the path to ``config.yaml`` under XHERMES_HOME.
 
     Replaces the ``get_hermes_home() / "config.yaml"`` pattern repeated
     in 7+ files (skill_utils.py, hermes_logging.py, hermes_time.py, etc.).
@@ -1454,12 +1454,12 @@ def get_config_path() -> Path:
 
 
 def get_skills_dir() -> Path:
-    """Return the path to the skills directory under HERMES_HOME."""
+    """Return the path to the skills directory under XHERMES_HOME."""
     return get_hermes_home() / "skills"
 
 
 def get_env_path() -> Path:
-    """Return the path to the ``.env`` file under HERMES_HOME."""
+    """Return the path to the ``.env`` file under XHERMES_HOME."""
     return get_hermes_home() / ".env"
 
 

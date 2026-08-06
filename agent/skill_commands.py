@@ -173,8 +173,8 @@ def _resolve_skill_commands_platform() -> Optional[str]:
     :func:`get_skill_commands` can drop a stale cache that was populated
     for a different platform's ``skills.platform_disabled`` view (#14536).
 
-    Resolves from (in order) ``HERMES_PLATFORM`` env var and
-    ``HERMES_SESSION_PLATFORM`` from the gateway session context. Returns
+    Resolves from (in order) ``XHERMES_PLATFORM`` env var and
+    ``XHERMES_SESSION_PLATFORM`` from the gateway session context. Returns
     ``None`` when no platform scope is active (e.g. classic CLI, RL
     rollouts, standalone scripts).
     """
@@ -182,11 +182,11 @@ def _resolve_skill_commands_platform() -> Optional[str]:
         from gateway.session_context import get_session_env
 
         resolved_platform = (
-            os.getenv("HERMES_PLATFORM")
-            or get_session_env("HERMES_SESSION_PLATFORM")
+            os.getenv("XHERMES_PLATFORM")
+            or get_session_env("XHERMES_SESSION_PLATFORM")
         )
     except Exception:
-        resolved_platform = os.getenv("HERMES_PLATFORM")
+        resolved_platform = os.getenv("XHERMES_PLATFORM")
     return resolved_platform or None
 
 def _load_skill_payload(skill_identifier: str, task_id: str | None = None) -> tuple[dict[str, Any], Path | None, str] | None:
@@ -756,7 +756,7 @@ def build_preloaded_skills_prompt(
     raw identifier straight into ``_load_skill_payload``, bypassing
     ``get_skill_commands()``'s scan-time disabled filter — mirrors the
     bundle-invocation gate (#59156). Without this, ``xhermes -s <skill>`` or
-    a deployment's ``HERMES_TUI_SKILLS`` env var could force-load a skill an
+    a deployment's ``XHERMES_TUI_SKILLS`` env var could force-load a skill an
     operator disabled via ``skills.disabled``/``skills.platform_disabled``.
     """
     prompt_parts: list[str] = []

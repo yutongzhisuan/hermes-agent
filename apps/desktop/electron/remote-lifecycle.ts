@@ -11,14 +11,14 @@
  *   - reuse an existing desktop-dedicated dashboard via a lockfile + an
  *     AUTHENTICATED /api/status probe (pid liveness alone is insufficient),
  *   - spawn a fresh detached `--isolated --port 0` dashboard and scrape its
- *     `HERMES_DASHBOARD_READY port=<n>` readiness line,
+ *     `XHERMES_DASHBOARD_READY port=<n>` readiness line,
  *   - adopt the token the dashboard actually serves (served-token adoption),
  *   - clean up a stale dashboard only when it is provably ours.
  *
  * No `import 'electron'` so it's unit-testable with `node --test`. main.ts wires
  * the real SshConnection, fetch, adoptServedDashboardToken, and waitForHermes in.
  *
- * The minted HERMES_DASHBOARD_SESSION_TOKEN is the SPAWN credential. After
+ * The minted XHERMES_DASHBOARD_SESSION_TOKEN is the SPAWN credential. After
  * readiness the caller runs served-token adoption against the tunneled baseUrl
  * and the SERVED token's fingerprint is what lands in the lockfile — so the
  * reuse probe checks the credential that actually authenticates /api/ws, not
@@ -32,7 +32,7 @@ const LOCKFILE_SCHEMA_VERSION = 2
 // an old running dashboard unsafe to reattach to (token handling, readiness/spawn
 // args, served-token reconciliation). A mismatch forces a clean respawn.
 const PROTOCOL_VERSION = 1
-const READY_RE = /^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
+const READY_RE = /^XHERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
 const REMOTE_LOCK_DIR = '~/.xhermes/desktop-ssh'
 const SUPPORTED_REMOTE_OS = new Set(['Linux', 'Darwin'])
 const DEFAULT_READY_TIMEOUT_MS = 45_000
@@ -242,12 +242,12 @@ async function probeRemotePlatform(ssh) {
   return { os: osName, arch }
 }
 
-// The HERMES_HOME the remote dashboard will use (explicit env wins, else
+// The XHERMES_HOME the remote dashboard will use (explicit env wins, else
 // ~/.xhermes). Recorded in the lockfile so a future reuse can tell it's the same
 // state store; best-effort.
 async function probeRemoteHermesHome(ssh) {
   try {
-    const out = (await ssh.exec('echo "${HERMES_HOME:-$HOME/.xhermes}"')).trim().split('\n').pop()
+    const out = (await ssh.exec('echo "${XHERMES_HOME:-$HOME/.xhermes}"')).trim().split('\n').pop()
 
     return out || '~/.xhermes'
   } catch (cause) {
@@ -451,7 +451,7 @@ function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
   const tokenArg = tokenFilePath ? ` --ssh-session-token-file ${expandRemotePath(tokenFilePath)}` : ''
   const ownerArg = opts.spawnNonce ? ` --ssh-owner-nonce ${validateSpawnNonce(opts.spawnNonce)}` : ''
   const subCmd = `serve --isolated --host 127.0.0.1 --port 0${tokenArg}${ownerArg}`
-  const dashCmd = `env HERMES_DESKTOP=1 ${xhermes} ${profileArgs}${subCmd}`
+  const dashCmd = `env XHERMES_DESKTOP=1 ${xhermes} ${profileArgs}${subCmd}`
 
   return (
     `mkdir -p "$(dirname ${logPath})" && ` +

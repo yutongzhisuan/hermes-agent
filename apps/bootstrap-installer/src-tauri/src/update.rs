@@ -898,7 +898,7 @@ fn resolve_hermes(install_root: &Path) -> Option<PathBuf> {
 fn update_child_env(install_root: &Path) -> Vec<(String, OsString)> {
     let hermes_home = crate::paths::hermes_home();
     let mut envs = vec![(
-        "HERMES_HOME".to_string(),
+        "XHERMES_HOME".to_string(),
         hermes_home.as_os_str().to_os_string(),
     )];
     // `xhermes update` is a Python CLI writing to a pipe here, so CPython
@@ -916,7 +916,7 @@ fn update_child_env(install_root: &Path) -> Vec<(String, OsString)> {
     // and no number of retries can ever succeed. Keep the variable name in
     // sync with HANDOFF_PID_ENV in hermes_cli/update_lock.py.
     envs.push((
-        "HERMES_UPDATE_HANDOFF_PID".to_string(),
+        "XHERMES_UPDATE_HANDOFF_PID".to_string(),
         OsString::from(std::process::id().to_string()),
     ));
     if let Some(path) = path_with_prepended_entries(&[
@@ -1246,7 +1246,7 @@ mod tests {
     fn update_child_env_names_our_pid_for_the_lock_handoff() {
         let envs = update_child_env(Path::new("/x/xhermes-agent"));
         assert!(
-            envs.iter().any(|(k, v)| k == "HERMES_UPDATE_HANDOFF_PID"
+            envs.iter().any(|(k, v)| k == "XHERMES_UPDATE_HANDOFF_PID"
                 && v.to_str() == Some(std::process::id().to_string().as_str())),
             "the xhermes update child claims the same marker we hold; without our pid \
              it refuses its own parent's lock and every GUI update dead-ends on exit 2"

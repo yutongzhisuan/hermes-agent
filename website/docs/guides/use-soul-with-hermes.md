@@ -50,7 +50,7 @@ XHermes now uses only the global SOUL file for the current instance:
 If you run XHermes with a custom home directory, it becomes:
 
 ```text
-$HERMES_HOME/SOUL.md
+$XHERMES_HOME/SOUL.md
 ```
 
 ## First-run behavior
@@ -65,7 +65,7 @@ Important:
 
 ## How XHermes uses it
 
-When XHermes starts a session, it reads `SOUL.md` from `HERMES_HOME`, scans it for prompt-injection patterns, truncates it if needed, and uses it as the **agent identity** — slot #1 in the system prompt. This means SOUL.md completely replaces the built-in default identity text.
+When XHermes starts a session, it reads `SOUL.md` from `XHERMES_HOME`, scans it for prompt-injection patterns, truncates it if needed, and uses it as the **agent identity** — slot #1 in the system prompt. This means SOUL.md completely replaces the built-in default identity text.
 
 If SOUL.md is missing, empty, or cannot be loaded, XHermes falls back to a built-in default identity.
 
@@ -238,7 +238,7 @@ That iterative approach works better than trying to design the perfect personali
 ### I edited SOUL.md but XHermes still sounds the same
 
 Check:
-- you edited `~/.xhermes/SOUL.md` or `$HERMES_HOME/SOUL.md`
+- you edited `~/.xhermes/SOUL.md` or `$XHERMES_HOME/SOUL.md`
 - not some repo-local `SOUL.md`
 - the file is not empty
 - your session was restarted after the edit

@@ -14,7 +14,7 @@ import argparse
 
 
 # `--profile` / `-p` is consumed by ``main._apply_profile_override`` before
-# argparse runs (it sets ``HERMES_HOME`` and strips itself from ``sys.argv``),
+# argparse runs (it sets ``XHERMES_HOME`` and strips itself from ``sys.argv``),
 # so it isn't on the parser. Listed here so all "carry over on relaunch"
 # metadata lives in one file.
 PRE_ARGPARSE_INHERITED_FLAGS: list[tuple[str, bool]] = [
@@ -134,7 +134,7 @@ def build_top_level_parser():
         default=None,
         help=(
             "Model override for this invocation (e.g. anthropic/claude-sonnet-4.6). "
-            "Applies to -z/--oneshot and --tui. Also settable via HERMES_INFERENCE_MODEL env var."
+            "Applies to -z/--oneshot and --tui. Also settable via XHERMES_INFERENCE_MODEL env var."
         ),
     )
     _inherited_flag(
@@ -202,7 +202,7 @@ def build_top_level_parser():
         default=False,
         help=(
             "Auto-approve any unseen shell hooks declared in config.yaml "
-            "without a TTY prompt.  Equivalent to HERMES_ACCEPT_HOOKS=1 or "
+            "without a TTY prompt.  Equivalent to XHERMES_ACCEPT_HOOKS=1 or "
             "hooks_auto_accept: true in config.yaml.  Use on CI / headless "
             "runs that can't prompt."
         ),
@@ -390,7 +390,7 @@ def build_top_level_parser():
         default=argparse.SUPPRESS,
         help=(
             "Auto-approve any unseen shell hooks declared in config.yaml "
-            "without a TTY prompt (see also HERMES_ACCEPT_HOOKS env var and "
+            "without a TTY prompt (see also XHERMES_ACCEPT_HOOKS env var and "
             "hooks_auto_accept: in config.yaml)."
         ),
     )

@@ -32,7 +32,7 @@ offline_build_headless_wheel() {
   mkdir -p "$out_dir"
   (
     cd "$root"
-    export HERMES_HEADLESS_WHEEL_BUILD=1
+    export XHERMES_HEADLESS_WHEEL_BUILD=1
     if command -v uv >/dev/null 2>&1; then
       uv run python -c "from setuptools.build_meta import build_wheel; build_wheel('${out_dir}')" >&2
     else

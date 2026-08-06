@@ -741,7 +741,7 @@ class TelegramAdapter(BasePlatformAdapter):
         )
         # Buffer rapid/album photo updates so Telegram image bursts are handled
         # as a single MessageEvent instead of self-interrupting multiple turns.
-        self._media_batch_delay_seconds = env_float("HERMES_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS", 0.8)
+        self._media_batch_delay_seconds = env_float("XHERMES_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS", 0.8)
         self._pending_photo_batches: Dict[str, MessageEvent] = {}
         self._pending_photo_batch_tasks: Dict[str, asyncio.Task] = {}
         self._media_group_events: Dict[str, MessageEvent] = {}
@@ -754,13 +754,13 @@ class TelegramAdapter(BasePlatformAdapter):
         # in ~180ms.  All bounds are conservative for Telegram's
         # ~1 edit/s flood envelope.
         self._text_batch_delay_seconds = self._env_float_clamped(
-            "HERMES_TELEGRAM_TEXT_BATCH_DELAY_SECONDS",
+            "XHERMES_TELEGRAM_TEXT_BATCH_DELAY_SECONDS",
             0.3,
             min_value=0.08,
             max_value=2.0,
         )
         self._text_batch_split_delay_seconds = self._env_float_clamped(
-            "HERMES_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS",
+            "XHERMES_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS",
             1.0,
             min_value=self._text_batch_delay_seconds,
             max_value=4.0,
@@ -3729,11 +3729,11 @@ class TelegramAdapter(BasePlatformAdapter):
                     return default
 
             request_kwargs = {
-                "connection_pool_size": _env_int("HERMES_TELEGRAM_HTTP_POOL_SIZE", 512),
-                "pool_timeout": _env_float("HERMES_TELEGRAM_HTTP_POOL_TIMEOUT", 8.0),
-                "connect_timeout": _env_float("HERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT", 10.0),
-                "read_timeout": _env_float("HERMES_TELEGRAM_HTTP_READ_TIMEOUT", 20.0),
-                "write_timeout": _env_float("HERMES_TELEGRAM_HTTP_WRITE_TIMEOUT", 20.0),
+                "connection_pool_size": _env_int("XHERMES_TELEGRAM_HTTP_POOL_SIZE", 512),
+                "pool_timeout": _env_float("XHERMES_TELEGRAM_HTTP_POOL_TIMEOUT", 8.0),
+                "connect_timeout": _env_float("XHERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT", 10.0),
+                "read_timeout": _env_float("XHERMES_TELEGRAM_HTTP_READ_TIMEOUT", 20.0),
+                "write_timeout": _env_float("XHERMES_TELEGRAM_HTTP_WRITE_TIMEOUT", 20.0),
                 # Not a duplicate of write_timeout: PTB routes any request
                 # carrying files to media_write_timeout instead, so the line
                 # above never applied to an upload and every upload was pinned
@@ -3787,7 +3787,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     kwargs["limits"] = _pool_limits
                 return kwargs
 
-            disable_fallback = (os.getenv("HERMES_TELEGRAM_DISABLE_FALLBACK_IPS", "").strip().lower() in {"1", "true", "yes", "on"})
+            disable_fallback = (os.getenv("XHERMES_TELEGRAM_DISABLE_FALLBACK_IPS", "").strip().lower() in {"1", "true", "yes", "on"})
             fallback_ips = self._fallback_ips()
             if not fallback_ips:
                 logger.warning("[%s] Discovering Telegram API fallback IPs via DNS-over-HTTPS…", self.name)
@@ -3879,7 +3879,7 @@ class TelegramAdapter(BasePlatformAdapter):
             # Each attempt is capped by _init_timeout so a single unreachable
             # fallback-IP chain can't block startup indefinitely.
             _max_connect = 8
-            _init_timeout = _env_float("HERMES_TELEGRAM_INIT_TIMEOUT", 30.0)
+            _init_timeout = _env_float("XHERMES_TELEGRAM_INIT_TIMEOUT", 30.0)
             # Total watchdog: ensure the entire connect loop has an upper bound
             # even if the retry loop itself silently stalls (#67498). This is
             # the per-attempt timeout PLUS generous margins between attempts so
@@ -3901,8 +3901,8 @@ class TelegramAdapter(BasePlatformAdapter):
                             f"({_init_timeout:.0f}s each) — total connect watchdog "
                             f"deadline ({_init_timeout * _max_connect + 120.0:.0f}s) exceeded. "
                             f"Check network connectivity to api.telegram.org "
-                            f"or set HERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT / "
-                            f"HERMES_TELEGRAM_INIT_TIMEOUT to a lower value."
+                            f"or set XHERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT / "
+                            f"XHERMES_TELEGRAM_INIT_TIMEOUT to a lower value."
                         )
                     logger.warning(
                         "[%s] Connecting to Telegram (attempt %d/%d)…",
@@ -3933,7 +3933,7 @@ class TelegramAdapter(BasePlatformAdapter):
                         raise OSError(
                             f"Telegram initialization timed out after {_max_connect} attempts "
                             f"({_init_timeout:.0f}s each). Check network connectivity to api.telegram.org "
-                            f"or set HERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT to a lower value."
+                            f"or set XHERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT to a lower value."
                         )
                 except OSError as init_err:
                     rebuild_app = True
@@ -9881,7 +9881,7 @@ def _resolve_notifications_mode() -> str:
     config.yaml display.platforms.telegram.notifications, defaulting to
     'important'.  Mirrors the post-construction logic that used to live in
     gateway/run.py::_create_adapter()."""
-    mode = os.getenv("HERMES_TELEGRAM_NOTIFICATIONS", "")
+    mode = os.getenv("XHERMES_TELEGRAM_NOTIFICATIONS", "")
     if not mode:
         try:
             from gateway.config import load_gateway_config

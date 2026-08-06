@@ -157,7 +157,7 @@ class TestResumePendingFreshnessGate:
 
 
     def test_stale_resume_pending_falls_through_to_reset(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_AUTO_CONTINUE_FRESHNESS", "3600")
+        monkeypatch.setenv("XHERMES_AUTO_CONTINUE_FRESHNESS", "3600")
         # The freshness gate only applies when the user has opted into
         # automatic resets — session_reset.mode: none disables it (#61052).
         from gateway.config import SessionResetPolicy
@@ -183,7 +183,7 @@ class TestResumePendingFreshnessGate:
     def test_reset_mode_none_disables_freshness_gate(self, tmp_path, monkeypatch):
         """session_reset.mode: none opts out of ALL automatic resets —
         including the resume_pending freshness gate (#61052)."""
-        monkeypatch.setenv("HERMES_AUTO_CONTINUE_FRESHNESS", "3600")
+        monkeypatch.setenv("XHERMES_AUTO_CONTINUE_FRESHNESS", "3600")
         from gateway.config import SessionResetPolicy
         store = _make_store(tmp_path, policy=SessionResetPolicy(mode="none"))
         source = _make_source()

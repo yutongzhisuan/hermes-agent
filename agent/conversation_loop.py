@@ -2304,7 +2304,7 @@ def run_conversation(
                 except Exception:
                     pass
 
-                if env_var_enabled("HERMES_DUMP_REQUESTS"):
+                if env_var_enabled("XHERMES_DUMP_REQUESTS"):
                     agent._dump_api_request_debug(api_kwargs, reason="preflight")
 
                 # This object is private to the in-process MoA facade.  Add it
@@ -6478,7 +6478,7 @@ def run_conversation(
                 # takes ~0s to process) followed by slow post-tool
                 # processing (compression, persist) and a slow
                 # follow-up API call can exceed the gateway inactivity
-                # timeout (HERMES_AGENT_TIMEOUT, default 1800s) and the
+                # timeout (XHERMES_AGENT_TIMEOUT, default 1800s) and the
                 # gateway kills the session before the next activity
                 # touch fires (#69559, #69131).
                 agent._touch_activity(f"tool results posted, continuing iteration #{api_call_count}")
@@ -7104,7 +7104,7 @@ def run_conversation(
                     logger.info(
                         "kanban stop-loop nudge issued (attempt %d) task=%s",
                         agent._kanban_stop_nudges,
-                        os.environ.get("HERMES_KANBAN_TASK", ""),
+                        os.environ.get("XHERMES_KANBAN_TASK", ""),
                     )
                     agent._emit_status(
                         "⚠️ Kanban worker tried to exit without "

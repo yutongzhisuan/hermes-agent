@@ -1,6 +1,6 @@
 """Filesystem paths for the unbroker skill (stdlib only).
 
-All per-subject data lives under PDD_DATA_DIR (default: $HERMES_HOME/unbroker),
+All per-subject data lives under PDD_DATA_DIR (default: $XHERMES_HOME/unbroker),
 which is the same trust boundary XHermes uses for .env and OAuth tokens.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME") or (Path.home() / ".xhermes"))
+    return Path(os.environ.get("XHERMES_HOME") or (Path.home() / ".xhermes"))
 
 
 def data_dir() -> Path:

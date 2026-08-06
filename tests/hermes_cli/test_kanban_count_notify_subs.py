@@ -22,8 +22,8 @@ from hermes_cli import kanban_db as kb
 def kanban_home(tmp_path, monkeypatch):
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
-    monkeypatch.setenv("HERMES_KANBAN_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_KANBAN_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     return home
 

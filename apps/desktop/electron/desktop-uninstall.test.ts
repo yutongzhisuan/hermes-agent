@@ -141,7 +141,7 @@ test('buildPosixCleanupScript waits for the PID, runs the uninstall module, remo
   assert.match(script, /seq 1 60/)
   assert.match(script, /'-m' 'hermes_cli\.uninstall' '--mode' 'gui'/)
   assert.match(script, /rm -rf '\/opt\/xhermes\/linux-unpacked'/)
-  assert.match(script, /export HERMES_HOME='\/home\/x\/\.xhermes'/)
+  assert.match(script, /export XHERMES_HOME='\/home\/x\/\.xhermes'/)
 })
 
 test('buildPosixCleanupScript exports PYTHONPATH when pythonPath is set (lite/full)', () => {

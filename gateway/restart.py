@@ -18,7 +18,7 @@ GATEWAY_FATAL_CONFIG_EXIT_CODE = 78
 # Set by ``xhermes gateway run --external-supervisor``. Unlike systemd's
 # INVOCATION_ID and launchd's XPC_SERVICE_NAME, this survives wrappers that
 # intentionally replace the child environment (for example ``sudo env -i``).
-EXTERNAL_GATEWAY_SUPERVISOR_ENV = "HERMES_GATEWAY_EXTERNAL_SUPERVISOR"
+EXTERNAL_GATEWAY_SUPERVISOR_ENV = "XHERMES_GATEWAY_EXTERNAL_SUPERVISOR"
 
 DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT = float(
     DEFAULT_CONFIG["agent"]["restart_drain_timeout"]
@@ -41,7 +41,7 @@ def is_gateway_supervisor_process(
     env = os.environ if environ is None else environ
     if env.get("INVOCATION_ID"):
         return True
-    if env.get("HERMES_S6_SUPERVISED_CHILD"):
+    if env.get("XHERMES_S6_SUPERVISED_CHILD"):
         return True
     xpc_service = env.get("XPC_SERVICE_NAME", "")
     if xpc_service and xpc_service != "0":

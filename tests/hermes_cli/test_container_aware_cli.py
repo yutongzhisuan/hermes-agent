@@ -23,11 +23,11 @@ from hermes_cli.config import (
 
 @pytest.fixture
 def container_env(tmp_path, monkeypatch):
-    """Set up a fake HERMES_HOME with .container-mode file."""
+    """Set up a fake XHERMES_HOME with .container-mode file."""
     hermes_home = tmp_path / ".xhermes"
     hermes_home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-    monkeypatch.delenv("HERMES_DEV", raising=False)
+    monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
+    monkeypatch.delenv("XHERMES_DEV", raising=False)
 
     container_mode = hermes_home / ".container-mode"
     container_mode.write_text(

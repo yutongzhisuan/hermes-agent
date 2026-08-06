@@ -69,11 +69,11 @@ def bang_shell_enabled() -> bool:
         def env_var_enabled(name, default=""):  # type: ignore[misc]
             return str(os.getenv(name, default)).strip().lower() in {"1", "true", "yes", "on"}
 
-    if env_var_enabled("HERMES_GATEWAY_SESSION"):
+    if env_var_enabled("XHERMES_GATEWAY_SESSION"):
         return False
-    if env_var_enabled("HERMES_CRON_SESSION"):
+    if env_var_enabled("XHERMES_CRON_SESSION"):
         return False
-    if (os.getenv("HERMES_SESSION_PLATFORM") or "").strip():
+    if (os.getenv("XHERMES_SESSION_PLATFORM") or "").strip():
         return False
     return True
 

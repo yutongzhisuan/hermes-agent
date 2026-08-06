@@ -3,7 +3,7 @@
 //! Direct port of `runBootstrap` from `apps/desktop/electron/bootstrap-runner.ts`.
 //! Drives install.ps1 / install.sh stage-by-stage, emits progress events
 //! over the Tauri `bootstrap` channel, writes a forensic log to
-//! HERMES_HOME/logs/bootstrap-<timestamp>.log.
+//! XHERMES_HOME/logs/bootstrap-<timestamp>.log.
 //!
 //! Lifecycle:
 //!   1. `start_bootstrap` (Tauri command) → spawns the worker task.
@@ -43,7 +43,7 @@ pub struct StartBootstrapArgs {
     /// bootstrap-runner passes false to avoid building-while-running.
     #[serde(default = "default_true")]
     pub include_desktop: bool,
-    /// Optional override for HERMES_HOME. Tests use this; production
+    /// Optional override for XHERMES_HOME. Tests use this; production
     /// almost always falls back to the OS default.
     pub hermes_home: Option<String>,
 }
@@ -762,13 +762,13 @@ async fn run_bootstrap(
         }
     };
 
-    // Copy ourselves to HERMES_HOME/xhermes-setup.exe so the desktop app can
+    // Copy ourselves to XHERMES_HOME/xhermes-setup.exe so the desktop app can
     // re-invoke us with `--update` and shortcuts have a stable target. This is
     // a one-shot install concern; an `--update` re-invocation no-ops because
     // we're already running from that path. Best-effort — a failure here must
     // not fail an otherwise-successful install.
     if let Err(err) = crate::paths::copy_self_to_hermes_home() {
-        tracing::warn!(?err, "failed to copy installer into HERMES_HOME (non-fatal)");
+        tracing::warn!(?err, "failed to copy installer into XHERMES_HOME (non-fatal)");
         emit_log(&format!(
             "[bootstrap] warning: could not stage updater binary: {err}"
         ));

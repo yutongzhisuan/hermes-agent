@@ -1,4 +1,4 @@
-"""Default SOUL.md template seeded into HERMES_HOME on first run."""
+"""Default SOUL.md template seeded into XHERMES_HOME on first run."""
 
 DEFAULT_SOUL_MD = (
     "You are xHermes Agent, an intelligent AI assistant created by Nous Research. "

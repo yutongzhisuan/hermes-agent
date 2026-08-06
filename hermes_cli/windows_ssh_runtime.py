@@ -52,7 +52,7 @@ def _root() -> Path:
     # The helper uploads the token before the child applies `--profile`, while
     # read_token() runs after profile activation. Anchor both processes to the
     # machine root so a named profile cannot move the reader away from the
-    # helper's token, including custom HERMES_HOME layouts.
+    # helper's token, including custom XHERMES_HOME layouts.
     return get_default_hermes_root() / "desktop-ssh"
 
 

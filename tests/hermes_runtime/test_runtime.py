@@ -17,14 +17,14 @@ from hermes_runtime.runtime import HermesRuntime
 
 def test_parse_ready_port_finds_backend_line():
     buf = bytearray()
-    port = parse_ready_port(b"noise\nHERMES_BACKEND_READY port=9123\n", buf)
+    port = parse_ready_port(b"noise\nXHERMES_BACKEND_READY port=9123\n", buf)
     assert port == 9123
     assert buf == b""
 
 
 def test_parse_ready_port_buffers_partial_line():
     buf = bytearray()
-    assert parse_ready_port(b"HERMES_BACKEND", buf) is None
+    assert parse_ready_port(b"XHERMES_BACKEND", buf) is None
     port = parse_ready_port(b"_READY port=4400\n", buf)
     assert port == 4400
 
@@ -36,7 +36,7 @@ def test_runtime_stop_is_idempotent():
 
 
 def test_runtime_start_missing_binary(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
     rt = HermesRuntime(xhermes_executable="/no/such/xhermes", hermes_home=tmp_path / ".xhermes")
     with pytest.raises(RuntimeBinaryNotFound):
         rt.start(timeout_s=1)
@@ -45,14 +45,14 @@ def test_runtime_start_missing_binary(tmp_path, monkeypatch):
 def test_runtime_start_parses_fake_backend(tmp_path, monkeypatch):
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
 
     script = tmp_path / "fake_xhermes"
     script.write_text(
         "#!/usr/bin/env python3\n"
         "import sys, time\n"
         "print('booting', flush=True)\n"
-        "print('HERMES_BACKEND_READY port=8765', flush=True)\n"
+        "print('XHERMES_BACKEND_READY port=8765', flush=True)\n"
         "time.sleep(60)\n",
         encoding="utf-8",
     )
@@ -73,7 +73,7 @@ def test_runtime_start_parses_fake_backend(tmp_path, monkeypatch):
 def test_runtime_start_timeout_kills_child(tmp_path, monkeypatch):
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
 
     script = tmp_path / "hang_xhermes"
     script.write_text(

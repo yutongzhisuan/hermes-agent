@@ -35,7 +35,7 @@ import pytest
 def hermes_home(tmp_path, monkeypatch):
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
     return home
 
 

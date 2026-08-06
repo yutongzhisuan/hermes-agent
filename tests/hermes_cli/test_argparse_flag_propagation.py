@@ -103,27 +103,27 @@ class TestChatVerboseArg:
 
 
 class TestYoloEnvVar:
-    """Verify --yolo sets HERMES_YOLO_MODE regardless of flag position.
+    """Verify --yolo sets XHERMES_YOLO_MODE regardless of flag position.
 
     This tests the actual cmd_chat logic pattern (getattr → os.environ).
     """
 
     @pytest.fixture(autouse=True)
     def _clean_env(self):
-        os.environ.pop("HERMES_YOLO_MODE", None)
+        os.environ.pop("XHERMES_YOLO_MODE", None)
         yield
-        os.environ.pop("HERMES_YOLO_MODE", None)
+        os.environ.pop("XHERMES_YOLO_MODE", None)
 
     def _simulate_cmd_chat_yolo_check(self, args):
         """Replicate the exact check from cmd_chat in main.py."""
         if getattr(args, "yolo", False):
-            os.environ["HERMES_YOLO_MODE"] = "1"
+            os.environ["XHERMES_YOLO_MODE"] = "1"
 
     def test_yolo_before_chat_sets_env(self):
         parser = _build_parser()
         args = parser.parse_args(["--yolo", "chat"])
         self._simulate_cmd_chat_yolo_check(args)
-        assert os.environ.get("HERMES_YOLO_MODE") == "1"
+        assert os.environ.get("XHERMES_YOLO_MODE") == "1"
 
 
 class TestAcceptHooksOnAgentSubparsers:

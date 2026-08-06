@@ -340,8 +340,8 @@ def _load_json_file(path: Path) -> dict:
 def _merge_pairing_dir(active_dir: Path, alternate_dir: Path) -> None:
     """Merge split legacy/new pairing data into the active PairingStore dir.
 
-    Older installs use ``{HERMES_HOME}/pairing`` while newer code/docs may
-    write ``{HERMES_HOME}/platforms/pairing``. If both directories exist, the
+    Older installs use ``{XHERMES_HOME}/pairing`` while newer code/docs may
+    write ``{XHERMES_HOME}/platforms/pairing``. If both directories exist, the
     gateway must not silently ignore approved users sitting in the inactive
     location; otherwise already-paired Feishu users get asked for a fresh code.
     """
@@ -412,14 +412,14 @@ class PairingStore:
       - _rate_limits.json         : rate limit tracking
 
     When constructed with ``profile="<name>"``, storage resolves from that
-    profile's own HERMES_HOME using the same legacy/consolidated layout rules
+    profile's own XHERMES_HOME using the same legacy/consolidated layout rules
     as ``xhermes -p <name> pairing ...``. This keeps multiplex gateways and
     profile-scoped CLI approvals on one whitelist. Without a profile, storage
-    is the global pairing directory for the current HERMES_HOME.
+    is the global pairing directory for the current XHERMES_HOME.
     """
 
     def __init__(self, profile: Optional[str] = None):
-        # Resolve storage directory lazily — tests use a temp HERMES_HOME
+        # Resolve storage directory lazily — tests use a temp XHERMES_HOME
         # and PairingStore may be constructed before the env is set.
         if profile:
             root = get_default_hermes_root()

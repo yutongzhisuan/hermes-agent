@@ -167,7 +167,7 @@ def _has_agent_browser() -> bool:
     if agent_browser_runnable(shutil.which("agent-browser")):
         return True
 
-    # XHermes-managed Node dirs (Windows installer / POSIX $HERMES_HOME/node)
+    # XHermes-managed Node dirs (Windows installer / POSIX $XHERMES_HOME/node)
     # are prepended to PATH at runtime but usually absent from the *probe*
     # process's PATH — the same rung `_find_agent_browser` searches. Without
     # it a successful install keeps reporting "needs setup" on Windows.
@@ -258,7 +258,7 @@ def _local_stt_backend_available() -> bool:
     ``apply_nous_managed_defaults`` from flipping a working local setup
     to the managed gateway.
     """
-    if get_env_value("HERMES_LOCAL_STT_COMMAND"):
+    if get_env_value("XHERMES_LOCAL_STT_COMMAND"):
         return True
     try:
         from tools.transcription_tools import _HAS_FASTER_WHISPER
@@ -448,10 +448,10 @@ def get_nous_subscription_features(
     try:
         from tools.transcription_tools import _HAS_FASTER_WHISPER
         local_stt_available = bool(_HAS_FASTER_WHISPER) or bool(
-            get_env_value("HERMES_LOCAL_STT_COMMAND")
+            get_env_value("XHERMES_LOCAL_STT_COMMAND")
         )
     except Exception:
-        local_stt_available = bool(get_env_value("HERMES_LOCAL_STT_COMMAND"))
+        local_stt_available = bool(get_env_value("XHERMES_LOCAL_STT_COMMAND"))
 
     # When use_gateway is set, suppress direct credentials for managed detection
     if web_use_gateway:

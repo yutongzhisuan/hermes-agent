@@ -933,7 +933,7 @@ def _render_command_tts_template(
 
     def replace_match(match: re.Match[str]) -> str:
         name = match.group("double") or match.group("single")
-        token = f"__HERMES_TTS_PLACEHOLDER_{len(replacements)}__"
+        token = f"__XHERMES_TTS_PLACEHOLDER_{len(replacements)}__"
         replacements.append((
             token,
             _quote_command_tts_placeholder(
@@ -2552,7 +2552,7 @@ def _get_piper_voices_dir() -> Path:
     """Return the directory where XHermes caches Piper voice models.
 
     Resolves to ``~/.xhermes/cache/piper-voices/`` under the active
-    HERMES_HOME so voice downloads follow profile boundaries.
+    XHERMES_HOME so voice downloads follow profile boundaries.
     """
     from hermes_constants import get_hermes_dir
     root = Path(get_hermes_dir("cache/piper-voices", "piper_voices_cache"))
@@ -2864,7 +2864,7 @@ def text_to_speech_tool(
     # ElevenLabs can produce Opus natively (no ffmpeg needed). Edge TTS
     # always outputs MP3 and needs ffmpeg for conversion.
     from gateway.session_context import get_session_env
-    platform = get_session_env("HERMES_SESSION_PLATFORM", "").lower()
+    platform = get_session_env("XHERMES_SESSION_PLATFORM", "").lower()
     want_opus = platform in OPUS_VOICE_PLATFORMS
 
     # Determine output path

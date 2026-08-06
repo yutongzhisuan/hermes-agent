@@ -58,7 +58,7 @@
 │         │ spawn                            │
 │         ▼                                  │
 │    xhermes serve --host 127.0.0.1 --port 0 │
-│         │ HERMES_BACKEND_READY port=<n>     │
+│         │ XHERMES_BACKEND_READY port=<n>     │
 │         ▼                                  │
 │    JsonRpc client ──WS──► /api/ws          │
 │         prompt.submit / tool.* events …    │
@@ -121,7 +121,7 @@
 |------|-----|
 | 保留 | `serve`、gateway 启停、config/setup、cron、tools、skills、profiles、ACP 子命令 |
 | 移除或明确报错 | `desktop` / `gui` / `--tui`（本发行版不含 UI） |
-| 保留模块、headless 使用 | `web_server.py` 供 `serve` 挂 `/api/ws`；`HERMES_SERVE_HEADLESS=1` 不挂 SPA |
+| 保留模块、headless 使用 | `web_server.py` 供 `serve` 挂 `/api/ws`；`XHERMES_SERVE_HEADLESS=1` 不挂 SPA |
 | 可删（确认无其它引用后） | 仅 SPA 构建辅助、仅 PTY 嵌 TUI 的逻辑 |
 
 ### 4.4 包名与入口脚本
@@ -156,7 +156,7 @@ CI 打印 wheel 解压 top 体积；设门禁防止再次打进 `web_dist` / `no
 from hermes_runtime import HermesRuntime, RuntimeInfo
 
 rt = HermesRuntime(
-    hermes_home=None,          # default: get_hermes_home() / HERMES_HOME
+    hermes_home=None,          # default: get_hermes_home() / XHERMES_HOME
     profile=None,
     host="127.0.0.1",
     port=0,
@@ -166,7 +166,7 @@ rt = HermesRuntime(
 
 info: RuntimeInfo = rt.start(timeout_s=60)
 # info.ws_url, info.base_url, info.token, info.port, info.pid
-# token = SDK 生成并经 HERMES_DASHBOARD_SESSION_TOKEN 注入（非 serve 输出，见 §5.3）
+# token = SDK 生成并经 XHERMES_DASHBOARD_SESSION_TOKEN 注入（非 serve 输出，见 §5.3）
 
 rt.stop(grace_s=10)
 # also: with HermesRuntime(...) as rt: ...
@@ -184,13 +184,13 @@ rt.stop(grace_s=10)
 xhermes [--profile P] serve --host 127.0.0.1 --port 0
 ```
 
-环境：`HERMES_HOME` / profile；`HERMES_SERVE_HEADLESS=1`（serve 自动设置，SDK 双保险）；**`HERMES_DASHBOARD_SESSION_TOKEN=<sdk_token>`（SDK 生成，见下）**。
+环境：`XHERMES_HOME` / profile；`XHERMES_SERVE_HEADLESS=1`（serve 自动设置，SDK 双保险）；**`XHERMES_DASHBOARD_SESSION_TOKEN=<sdk_token>`（SDK 生成，见下）**。
 
 Ready + token 机制（代码核查确认，修正初稿"端口 + token"表述）：
-- serve headless 输出 `HERMES_BACKEND_READY port=<n>`，**只含 port，不含 token**（`web_server.py:17536-17541` 注释明确 headless "不广播连接 URL，只 announce bind"）
+- serve headless 输出 `XHERMES_BACKEND_READY port=<n>`，**只含 port，不含 token**（`web_server.py:17536-17541` 注释明确 headless "不广播连接 URL，只 announce bind"）
 - WS `/api/ws` 在 loopback 下**仍需 `?token=<_SESSION_TOKEN>`**（`_ws_auth_reason` L14653-14658；HTTP 页面 loopback 免 auth，但 WS 不免——初稿"loopback 免 token"假设不成立）
-- `_SESSION_TOKEN` 优先读 `HERMES_DASHBOARD_SESSION_TOKEN` env，否则随机生成（L301）
-- **SDK 方案**：spawn 前 SDK 生成 `token = secrets.token_urlsafe(32)`，设 `HERMES_DASHBOARD_SESSION_TOKEN` env 传入 serve → 解析 ready 行拿 port → 拼 `ws://127.0.0.1:<port>/api/ws?token=<token>` 连接。token 由 SDK 主动注入，无需 serve 输出。
+- `_SESSION_TOKEN` 优先读 `XHERMES_DASHBOARD_SESSION_TOKEN` env，否则随机生成（L301）
+- **SDK 方案**：spawn 前 SDK 生成 `token = secrets.token_urlsafe(32)`，设 `XHERMES_DASHBOARD_SESSION_TOKEN` env 传入 serve → 解析 ready 行拿 port → 拼 `ws://127.0.0.1:<port>/api/ws?token=<token>` 连接。token 由 SDK 主动注入，无需 serve 输出。
 
 超时 → 杀子进程并抛 `RuntimeStartError`（附最后 N 行日志）。
 
@@ -198,7 +198,7 @@ Ready + token 机制（代码核查确认，修正初稿"端口 + token"表述�
 
 ### 5.4 配置与多实例
 
-- 密钥与配置仍在 `HERMES_HOME` 的 `config.yaml` + `.env`。
+- 密钥与配置仍在 `XHERMES_HOME` 的 `config.yaml` + `.env`。
 - 多实例：不同 `hermes_home` 或 profile，沿用现有 token lock 等隔离机制。
 
 ### 5.5 SDK 层错误

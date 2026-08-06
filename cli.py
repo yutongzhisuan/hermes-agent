@@ -48,7 +48,7 @@ from typing import List, Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 # Suppress startup messages for clean CLI experience
-os.environ["HERMES_QUIET"] = "1"  # Our own modules
+os.environ["XHERMES_QUIET"] = "1"  # Our own modules
 
 from hermes_cli.fallback_config import get_fallback_chain
 from hermes_cli.cli_agent_setup_mixin import CLIAgentSetupMixin
@@ -371,7 +371,7 @@ def _resolve_prefill_messages_file(config: Dict[str, Any]) -> str:
     ``agent.prefill_messages_file`` remains a legacy fallback for older CLI and
     godmode-generated configs.
     """
-    env_path = os.getenv("HERMES_PREFILL_MESSAGES_FILE", "").strip()
+    env_path = os.getenv("XHERMES_PREFILL_MESSAGES_FILE", "").strip()
     if env_path:
         return env_path
     top_level = str(config.get("prefill_messages_file", "") or "").strip()
@@ -417,19 +417,19 @@ def load_cli_config() -> Dict[str, Any]:
     Environment variables take precedence over config file values.
     Returns default values if no config file exists.
 
-    If HERMES_IGNORE_USER_CONFIG=1 is set (via ``xhermes chat --ignore-user-config``),
+    If XHERMES_IGNORE_USER_CONFIG=1 is set (via ``xhermes chat --ignore-user-config``),
     the user config at ``~/.xhermes/config.yaml`` is skipped entirely and only the
     built-in defaults plus the project-level ``cli-config.yaml`` (if any) are used.
     Credentials in ``.env`` are still loaded — this flag only suppresses
     behavioral/config settings.
     """
-    # Check user config first ({HERMES_HOME}/config.yaml)
+    # Check user config first ({XHERMES_HOME}/config.yaml)
     user_config_path = _hermes_home / 'config.yaml'
     project_config_path = Path(__file__).parent / 'cli-config.yaml'
 
     # --ignore-user-config: force-skip the user config.yaml (still honor project
     # config as a fallback so defaults stay sensible).
-    ignore_user_config = os.environ.get("HERMES_IGNORE_USER_CONFIG") == "1"
+    ignore_user_config = os.environ.get("XHERMES_IGNORE_USER_CONFIG") == "1"
 
     # Use user config if it exists, otherwise project config
     if user_config_path.exists() and not ignore_user_config:
@@ -695,9 +695,9 @@ def load_cli_config() -> Dict[str, Any]:
     }
     
     # Bridge config → env vars for terminal_tool. TERMINAL_CWD is force-exported
-    # UNLESS we're inside a gateway process (detected by _HERMES_GATEWAY marker)
+    # UNLESS we're inside a gateway process (detected by _XHERMES_GATEWAY marker)
     # where it was already set correctly by gateway/run.py's config bridge.
-    _is_gateway = os.environ.get("_HERMES_GATEWAY") == "1"
+    _is_gateway = os.environ.get("_XHERMES_GATEWAY") == "1"
     for config_key, env_var in env_mappings.items():
         if config_key in terminal_config:
             if env_var == "TERMINAL_CWD":
@@ -774,15 +774,15 @@ def load_cli_config() -> Dict[str, Any]:
     if isinstance(security_config, dict):
         redact = security_config.get("redact_secrets")
         if redact is not None:
-            os.environ["HERMES_REDACT_SECRETS"] = str(redact).lower()
+            os.environ["XHERMES_REDACT_SECRETS"] = str(redact).lower()
 
     # Session-search index knobs (hermes_state reads the env carriers).
     sessions_config = defaults.get("sessions", {})
     if isinstance(sessions_config, dict):
         if "cjk_fts" in sessions_config:
-            os.environ["HERMES_CJK_FTS"] = str(sessions_config["cjk_fts"])
+            os.environ["XHERMES_CJK_FTS"] = str(sessions_config["cjk_fts"])
         if "search_slow_ms" in sessions_config:
-            os.environ["HERMES_SEARCH_SLOW_MS"] = str(
+            os.environ["XHERMES_SEARCH_SLOW_MS"] = str(
                 sessions_config["search_slow_ms"]
             )
 
@@ -1013,10 +1013,10 @@ def _prepare_deferred_agent_startup() -> None:
     global _deferred_agent_startup_done
     if _deferred_agent_startup_done:
         return
-    if os.environ.get("HERMES_DEFER_AGENT_STARTUP") != "1":
+    if os.environ.get("XHERMES_DEFER_AGENT_STARTUP") != "1":
         return
     _deferred_agent_startup_done = True
-    _accept_hooks = os.environ.get("HERMES_ACCEPT_HOOKS", "").lower() in {
+    _accept_hooks = os.environ.get("XHERMES_ACCEPT_HOOKS", "").lower() in {
         "1",
         "true",
         "yes",
@@ -1081,11 +1081,11 @@ def _arm_exit_watchdog(timeout_s: float | None = None) -> None:
     Daemon threads keep running through ``Py_FinalizeEx``'s thread joins,
     so the timer fires even when the main thread is stuck in teardown.
 
-    Tune with ``HERMES_EXIT_WATCHDOG_S`` (seconds); ``0`` disables.
+    Tune with ``XHERMES_EXIT_WATCHDOG_S`` (seconds); ``0`` disables.
     """
     if timeout_s is None:
         try:
-            timeout_s = float(os.getenv("HERMES_EXIT_WATCHDOG_S", "30"))
+            timeout_s = float(os.getenv("XHERMES_EXIT_WATCHDOG_S", "30"))
         except (TypeError, ValueError):
             timeout_s = 30.0
     if timeout_s <= 0:
@@ -1159,7 +1159,7 @@ def _arm_exit_watchdog_on_shutdown_signal() -> None:
         return
     _signal_watchdog_armed = True
     try:
-        base = float(os.getenv("HERMES_EXIT_WATCHDOG_S", "30"))
+        base = float(os.getenv("XHERMES_EXIT_WATCHDOG_S", "30"))
     except (TypeError, ValueError):
         base = 30.0
     if base <= 0:
@@ -2545,9 +2545,9 @@ def _hex_to_ansi(hex_color: str, *, bold: bool = False) -> str:
 # Terminal.app / iTerm2 background.
 #
 # Detection priority:
-#   1. HERMES_LIGHT / HERMES_TUI_LIGHT env (true/false) — explicit override
-#   2. HERMES_TUI_THEME=light|dark — explicit theme
-#   3. HERMES_TUI_BACKGROUND=#RRGGBB — explicit bg hint
+#   1. XHERMES_LIGHT / XHERMES_TUI_LIGHT env (true/false) — explicit override
+#   2. XHERMES_TUI_THEME=light|dark — explicit theme
+#   3. XHERMES_TUI_BACKGROUND=#RRGGBB — explicit bg hint
 #   4. COLORFGBG env (set by xterm/Konsole/urxvt) — bg slot 7/15 = light
 #   5. OSC 11 query (\x1b]11;?\x1b\\) — ask the terminal directly
 #   6. Default: assume dark (matches the legacy XHermes assumption)
@@ -2653,7 +2653,7 @@ def _detect_light_mode() -> bool:
     result = False
     try:
         # 1. Explicit env override
-        for var in ("HERMES_LIGHT", "HERMES_TUI_LIGHT"):
+        for var in ("XHERMES_LIGHT", "XHERMES_TUI_LIGHT"):
             v = (os.environ.get(var) or "").strip().lower()
             if _TRUE_RE.match(v):
                 result = True
@@ -2663,7 +2663,7 @@ def _detect_light_mode() -> bool:
                 _LIGHT_MODE_CACHE = result
                 return result
         # 2. Theme hint
-        theme = (os.environ.get("HERMES_TUI_THEME") or "").strip().lower()
+        theme = (os.environ.get("XHERMES_TUI_THEME") or "").strip().lower()
         if theme == "light":
             result = True
             _LIGHT_MODE_CACHE = result
@@ -2672,7 +2672,7 @@ def _detect_light_mode() -> bool:
             _LIGHT_MODE_CACHE = result
             return result
         # 3. Explicit bg hex
-        bg_hint = os.environ.get("HERMES_TUI_BACKGROUND") or ""
+        bg_hint = os.environ.get("XHERMES_TUI_BACKGROUND") or ""
         bg_lum = _luminance_from_hex(bg_hint)
         if bg_lum is not None:
             result = bg_lum >= 0.5
@@ -3917,8 +3917,8 @@ class ChatConsole:
         """
         yield self
 
-# ASCII Art - HERMES-AGENT logo (full width, single line - requires ~95 char terminal)
-HERMES_AGENT_LOGO = """[bold #FFD700]██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
+# ASCII Art - XHERMES-AGENT logo (full width, single line - requires ~95 char terminal)
+XHERMES_AGENT_LOGO = """[bold #FFD700]██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
 [bold #FFD700]██║  ██║██╔════╝██╔══██╗████╗ ████║██╔════╝██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
 [#FFBF00]███████║█████╗  ██████╔╝██╔████╔██║█████╗  ███████╗█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
 [#FFBF00]██╔══██║██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══╝  ╚════██║╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
@@ -3926,7 +3926,7 @@ HERMES_AGENT_LOGO = """[bold #FFD700]██╗  ██╗███████�
 [#CD7F32]╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝      ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]"""
 
 # ASCII Art - XHermes Caduceus (compact, fits in left panel)
-HERMES_CADUCEUS = """[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⣀⣀⠀⢀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
+XHERMES_CADUCEUS = """[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⣀⣀⠀⢀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
 [#CD7F32]⠀⠀⠀⠀⠀⠀⢀⣠⣴⣾⣿⣿⣇⠸⣿⣿⠇⣸⣿⣿⣷⣦⣄⡀⠀⠀⠀⠀⠀⠀[/]
 [#FFBF00]⠀⢀⣠⣴⣶⠿⠋⣩⡿⣿⡿⠻⣿⡇⢠⡄⢸⣿⠟⢿⣿⢿⣍⠙⠿⣶⣦⣄⡀⠀[/]
 [#FFBF00]⠀⠀⠉⠉⠁⠶⠟⠋⠀⠉⠀⢀⣈⣁⡈⢁⣈⣁⡀⠀⠉⠀⠙⠻⠶⠈⠉⠉⠀⠀[/]
@@ -3958,14 +3958,14 @@ def _build_compact_banner() -> str:
     dim_color = _skin.get_color("banner_dim", "#B8860B") if _skin else "#B8860B"
 
     if skin_name == "default":
-        line1 = "⚕ NOUS HERMES - AI Agent Framework"
-        tiny_line = "⚕ NOUS HERMES"
+        line1 = "⚕ NOUS XHERMES - AI Agent Framework"
+        tiny_line = "⚕ NOUS XHERMES"
     else:
         agent_name = _skin.get_branding("agent_name", "xHermes Agent") if _skin else "xHermes Agent"
         line1 = f"{agent_name} - AI Agent Framework"
         tiny_line = agent_name
 
-    if os.environ.get("HERMES_FAST_STARTUP_BANNER") == "1":
+    if os.environ.get("XHERMES_FAST_STARTUP_BANNER") == "1":
         from hermes_cli import __release_date__ as _release_date
         from hermes_cli import __version__ as _version
 
@@ -4112,8 +4112,8 @@ def save_config_value(key_path: str, value: any) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    # Runtime persistence ALWAYS targets the user's HERMES_HOME config.yaml,
-    # creating it if needed. Resolve HERMES_HOME live (not the import-time
+    # Runtime persistence ALWAYS targets the user's XHERMES_HOME config.yaml,
+    # creating it if needed. Resolve XHERMES_HOME live (not the import-time
     # _hermes_home constant) so profile switches and test isolation land right.
     #
     # We deliberately do NOT fall back to the repo's project cli-config.yaml:
@@ -4122,9 +4122,9 @@ def save_config_value(key_path: str, value: any) -> bool:
     # load_wake_word_config) never read it. Writing a user setting there means
     # the reader never sees it. This was the "wake-word ear reverts to disabled
     # after restart" bug — the toggle's persist wrote to cli-config.yaml (which
-    # exists in the checkout) while startup read HERMES_HOME/config.yaml, so the
+    # exists in the checkout) while startup read XHERMES_HOME/config.yaml, so the
     # setting silently vanished every restart on any install whose
-    # HERMES_HOME/config.yaml didn't exist yet.
+    # XHERMES_HOME/config.yaml didn't exist yet.
     config_path = get_hermes_home() / 'config.yaml'
     
     try:
@@ -4375,8 +4375,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # through MoA instead of hitting the real provider with an unknown
         # model (#56828). A ``moa:`` prefix wins over an explicit ``--provider``.
         _moa_provider_override, self.model = _normalize_moa_model(self.model)
-        # Read max_tokens from config (env var override: HERMES_MAX_TOKENS)
-        _env_mt = os.environ.get("HERMES_MAX_TOKENS")
+        # Read max_tokens from config (env var override: XHERMES_MAX_TOKENS)
+        _env_mt = os.environ.get("XHERMES_MAX_TOKENS")
         if _env_mt:
             try:
                 self.max_tokens = int(_env_mt)
@@ -4413,7 +4413,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             _moa_provider_override
             or provider
             or CLI_CONFIG["model"].get("provider")
-            or os.getenv("HERMES_INFERENCE_PROVIDER")
+            or os.getenv("XHERMES_INFERENCE_PROVIDER")
             or "auto"
         )
         self._provider_source: Optional[str] = None
@@ -4446,9 +4446,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # other paths may bypass it. This fallback is therefore the only
             # safety net for configs that still carry the root key.
             self.max_turns = CLI_CONFIG["max_turns"]
-        elif os.getenv("HERMES_MAX_ITERATIONS"):
+        elif os.getenv("XHERMES_MAX_ITERATIONS"):
             try:
-                self.max_turns = int(os.getenv("HERMES_MAX_ITERATIONS", ""))
+                self.max_turns = int(os.getenv("XHERMES_MAX_ITERATIONS", ""))
             except (TypeError, ValueError):
                 self.max_turns = 500
         else:
@@ -4480,11 +4480,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # by `xhermes chat --ignore-rules` in hermes_cli/main.py. When true we
         # pass skip_context_files=True and skip_memory=True to AIAgent so
         # AGENTS.md/SOUL.md/.cursorrules and persistent memory are not loaded.
-        self.ignore_rules = ignore_rules or os.environ.get("HERMES_IGNORE_RULES") == "1"
+        self.ignore_rules = ignore_rules or os.environ.get("XHERMES_IGNORE_RULES") == "1"
         
         # Ephemeral system prompt: env var takes precedence, then config
         self.system_prompt = (
-            os.getenv("HERMES_EPHEMERAL_SYSTEM_PROMPT", "")
+            os.getenv("XHERMES_EPHEMERAL_SYSTEM_PROMPT", "")
             or CLI_CONFIG["agent"].get("system_prompt", "")
         )
         self.personalities = CLI_CONFIG["agent"].get("personalities", {})
@@ -4600,7 +4600,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
         # Opportunistic state.db maintenance — runs at most once per
         # min_interval_hours, tracked via state_meta in state.db itself so
-        # it's shared across all XHermes processes for this HERMES_HOME.
+        # it's shared across all XHermes processes for this XHERMES_HOME.
         # Never blocks startup on failure.
         _run_state_db_auto_maintenance(self._session_db)
 
@@ -7232,7 +7232,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         
         # Tool discovery is intentionally deferred on the Termux bare prompt
         # path; availability warnings are shown once tools are initialized.
-        if os.environ.get("HERMES_DEFER_AGENT_STARTUP") != "1":
+        if os.environ.get("XHERMES_DEFER_AGENT_STARTUP") != "1":
             self._show_tool_availability_warnings()
 
         # Warn about low context lengths (common with local servers). Keep
@@ -7579,7 +7579,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
     def _show_status(self):
         """Show compact startup status line."""
         # Avoid pulling the full tool registry into the bare Termux prompt path.
-        if os.environ.get("HERMES_DEFER_AGENT_STARTUP") == "1":
+        if os.environ.get("XHERMES_DEFER_AGENT_STARTUP") == "1":
             tool_status = "tools deferred"
         else:
             tools = get_tool_definitions(enabled_toolsets=self.enabled_toolsets, quiet_mode=True)
@@ -8250,7 +8250,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     self.agent._session_db_created = False
                     self._session_db.create_session(
                         session_id=self.session_id,
-                        source=os.environ.get("HERMES_SESSION_SOURCE", "cli"),
+                        source=os.environ.get("XHERMES_SESSION_SOURCE", "cli"),
                         model=self.model,
                         model_config={
                             "max_iterations": self.max_turns,
@@ -10872,7 +10872,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         ``enable_session_yolo`` / ``disable_session_yolo`` write to) so the
         status bar reflects the actual bypass state instead of a stale env
         var. Also honors the process-start ``--yolo`` flag, which freezes
-        ``HERMES_YOLO_MODE`` into ``_YOLO_MODE_FROZEN`` before tool imports
+        ``XHERMES_YOLO_MODE`` into ``_YOLO_MODE_FROZEN`` before tool imports
         happen.
         """
         try:
@@ -10897,7 +10897,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         Per-session toggle that mirrors the gateway and TUI ``/yolo`` handlers
         (see ``gateway/run.py:_handle_yolo_command`` and
         ``tui_gateway/server.py`` key=="yolo"). We deliberately do NOT mutate
-        ``HERMES_YOLO_MODE`` here — that env var is read once at module import
+        ``XHERMES_YOLO_MODE`` here — that env var is read once at module import
         time into ``tools.approval._YOLO_MODE_FROZEN`` to keep prompt-injected
         skills from flipping the bypass mid-session, so setting it after CLI
         startup is a silent no-op. Routing through ``enable_session_yolo`` /
@@ -14654,7 +14654,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # include `-p <profile>` for non-default profiles. Without this,
             # copying the hint from a non-default profile fails to find the
             # session on the next invocation. The "default" and "custom"
-            # profile names use the standard HERMES_HOME, so no -p needed.
+            # profile names use the standard XHERMES_HOME, so no -p needed.
             try:
                 from hermes_cli.profiles import get_active_profile_name
                 _active_profile = get_active_profile_name()
@@ -14977,7 +14977,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # main thread simply blocks on the remaining import work instead of
         # redoing it. Skipped when agent startup is explicitly deferred
         # (Termux) — that path defers heavy work on purpose.
-        if os.environ.get("HERMES_DEFER_AGENT_STARTUP") != "1":
+        if os.environ.get("XHERMES_DEFER_AGENT_STARTUP") != "1":
             def _prewarm_agent_runtime() -> None:
                 try:
                     import run_agent  # noqa: F401  (imports model_tools + tool registry)
@@ -14996,11 +14996,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # won't affect the running process — we just want the operator to
         # see that they're running without the safety net.
         try:
-            _redact_raw = os.getenv("HERMES_REDACT_SECRETS", "true")
+            _redact_raw = os.getenv("XHERMES_REDACT_SECRETS", "true")
             if _redact_raw.lower() not in {"1", "true", "yes", "on"}:
                 self._console_print(
                     "[bold red]⚠  Secret redaction is DISABLED[/] "
-                    f"(HERMES_REDACT_SECRETS={_redact_raw}). "
+                    f"(XHERMES_REDACT_SECRETS={_redact_raw}). "
                     "API keys and tokens may appear verbatim in chat output, "
                     "session JSONs, and logs. Set "
                     "[cyan]security.redact_secrets: true[/] in config.yaml "
@@ -15157,10 +15157,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._voice_tts_stop = None  # active streaming pipeline's stop event
         self._voice_barge_capture = threading.Event()  # barge monitor is capturing the interruption
 
-        if os.environ.get("HERMES_DEFER_AGENT_STARTUP") != "1":
+        if os.environ.get("XHERMES_DEFER_AGENT_STARTUP") != "1":
             self._install_tool_callbacks()
 
-        if os.environ.get("HERMES_DEFER_AGENT_STARTUP") != "1":
+        if os.environ.get("XHERMES_DEFER_AGENT_STARTUP") != "1":
             self._ensure_tirith_security()
         
         # Key bindings for the input area
@@ -17545,7 +17545,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             spawned with ``os.setsid`` and therefore survives as an orphan
             with PPID=1.
 
-            Grace window (``HERMES_SIGTERM_GRACE``, default 1.5 s) gives
+            Grace window (``XHERMES_SIGTERM_GRACE``, default 1.5 s) gives
             the daemon time to: detect the interrupt (next 200 ms poll) →
             call _kill_process (SIGTERM + 1 s wait + SIGKILL if needed) →
             return from _wait_for_process.  ``time.sleep`` releases the
@@ -17580,7 +17580,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         _signal_agent, f"received signal {signum}"
                     )
                     try:
-                        _grace = float(os.getenv("HERMES_SIGTERM_GRACE", "1.5"))
+                        _grace = float(os.getenv("XHERMES_SIGTERM_GRACE", "1.5"))
                     except (TypeError, ValueError):
                         _grace = 1.5
                     if _grace > 0:
@@ -17863,7 +17863,7 @@ def _run_kanban_goal_loop_q(cli: "HermesCLI", first_response: str) -> None:
     """Drive a kanban goal_mode worker through the Ralph-style goal loop.
 
     Called from the quiet single-query path AFTER the worker's first turn,
-    only when ``HERMES_KANBAN_GOAL_MODE`` is set (dispatcher-spawned
+    only when ``XHERMES_KANBAN_GOAL_MODE`` is set (dispatcher-spawned
     goal_mode card). Wires the worker's ``run_conversation`` and the kanban
     DB into ``goals.run_kanban_goal_loop``. All errors are swallowed by the
     caller — a broken goal loop must never wedge a worker, the dispatcher's
@@ -17871,7 +17871,7 @@ def _run_kanban_goal_loop_q(cli: "HermesCLI", first_response: str) -> None:
     """
     import os as _os
 
-    task_id = (_os.environ.get("HERMES_KANBAN_TASK") or "").strip()
+    task_id = (_os.environ.get("XHERMES_KANBAN_TASK") or "").strip()
     if not task_id:
         return
 
@@ -18022,7 +18022,7 @@ def main(
 
     # Signal to terminal_tool that we're in interactive mode
     # This enables interactive sudo password prompts with timeout
-    os.environ["HERMES_INTERACTIVE"] = "1"
+    os.environ["XHERMES_INTERACTIVE"] = "1"
     
     # Handle gateway mode (messaging + cron)
     if gateway:
@@ -18179,7 +18179,7 @@ def main(
     # per-thread interrupt flag the worker's poll loop checks every 200 ms.
     # Give the worker a grace window to call _kill_process (SIGTERM to the
     # process group, then SIGKILL after 1 s), then raise KeyboardInterrupt
-    # so main unwinds normally.  HERMES_SIGTERM_GRACE overrides the 1.5 s
+    # so main unwinds normally.  XHERMES_SIGTERM_GRACE overrides the 1.5 s
     # default for debugging.
     def _signal_handler_q(signum, frame):
         logger.debug("Received signal %s in single-query mode", signum)
@@ -18192,7 +18192,7 @@ def main(
             if _agent is not None:
                 request_hard_interrupt(_agent, f"received signal {signum}")
                 try:
-                    _grace = float(os.getenv("HERMES_SIGTERM_GRACE", "1.5"))
+                    _grace = float(os.getenv("XHERMES_SIGTERM_GRACE", "1.5"))
                 except (TypeError, ValueError):
                     _grace = 1.5
                 if _grace > 0:
@@ -18211,7 +18211,7 @@ def main(
         # first so the final debug trace isn't lost; SIGALRM deadman guards
         # the flush against any rare blocking-I/O case (the reporter measured
         # flush in <1ms; the alarm is a failsafe, not the common path).
-        if os.environ.get("HERMES_KANBAN_TASK"):
+        if os.environ.get("XHERMES_KANBAN_TASK"):
             try:
                 import signal as _sig_mod
                 if hasattr(_sig_mod, "SIGALRM"):
@@ -18260,7 +18260,7 @@ def main(
             # path or URL into a kanban task body never get it routed to the
             # model's vision input.
             single_query_image_urls: list[str] = []
-            _kanban_task_id = os.environ.get("HERMES_KANBAN_TASK", "").strip()
+            _kanban_task_id = os.environ.get("XHERMES_KANBAN_TASK", "").strip()
             if _kanban_task_id:
                 try:
                     from hermes_cli import kanban_db as _kb
@@ -18407,7 +18407,7 @@ def main(
                         # out (→ sticky block). Gated on the env vars the
                         # dispatcher sets in `_default_spawn`; a no-op for every
                         # normal worker and every non-kanban `-q` run.
-                        if os.environ.get("HERMES_KANBAN_GOAL_MODE") == "1":
+                        if os.environ.get("XHERMES_KANBAN_GOAL_MODE") == "1":
                             try:
                                 _run_kanban_goal_loop_q(cli, response)
                             except Exception as _goal_exc:
@@ -18431,7 +18431,7 @@ def main(
                         _exit_code = 0
                         if isinstance(result, dict) and result.get("failed"):
                             _exit_code = 1
-                            if os.environ.get("HERMES_KANBAN_TASK") and result.get(
+                            if os.environ.get("XHERMES_KANBAN_TASK") and result.get(
                                 "failure_reason"
                             ) in ("rate_limit", "billing"):
                                 try:

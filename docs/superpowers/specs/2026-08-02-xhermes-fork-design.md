@@ -82,14 +82,14 @@ pipx install --python python3.11 /path/to/xhermes
 
 ### 2.3 环境变量策略
 
-内部代码大量读取 `HERMES_*`（`HERMES_HOME`、`HERMES_BIN`、`HERMES_DASHBOARD_PORT`、`HERMES_GATEWAY_*` 等）。完整改名为 `XHERMES_*` 会严重破坏上游同步，因此：
+内部代码大量读取 `XHERMES_*`（`XHERMES_HOME`、`XHERMES_BIN`、`XHERMES_DASHBOARD_PORT`、`XHERMES_GATEWAY_*` 等）。完整改名为 `XHERMES_*` 会严重破坏上游同步，因此：
 
 | 变量 | 策略 |
 |---|---|
-| `XHERMES_HOME` | **新增**；解析 home 时优先于 `HERMES_HOME` |
-| `HERMES_HOME` | 保留；xhermes 向子进程传播时仍写此名（兼容内部 500+ 读取点） |
-| 其他 `HERMES_*` | **不批量改名**；安装脚本与文档明确：**勿在 shell profile 全局导出** `HERMES_HOME` / `HERMES_BIN` / `HERMES_DASHBOARD_PORT` 等 |
-| 安装脚本 | 只写入 xhermes 自己的 wrapper / systemd `Environment=`，不写用户 `~/.bashrc` 全局 `export HERMES_HOME=...` |
+| `XHERMES_HOME` | **新增**；解析 home 时优先于 `XHERMES_HOME` |
+| `XHERMES_HOME` | 保留；xhermes 向子进程传播时仍写此名（兼容内部 500+ 读取点） |
+| 其他 `XHERMES_*` | **不批量改名**；安装脚本与文档明确：**勿在 shell profile 全局导出** `XHERMES_HOME` / `XHERMES_BIN` / `XHERMES_DASHBOARD_PORT` 等 |
+| 安装脚本 | 只写入 xhermes 自己的 wrapper / systemd `Environment=`，不写用户 `~/.bashrc` 全局 `export XHERMES_HOME=...` |
 
 进程级 environ 天然隔离；真正的串扰来自用户全局导出——用文档 + 安装约束缓解，而不是改遍所有 env 名。
 
@@ -137,19 +137,19 @@ def _get_platform_default_hermes_home() -> Path:
 
 ```python
 def _hermes_home_from_env() -> Path:
-    # xhermes: 优先 XHERMES_HOME，兼容遗留 HERMES_HOME
+    # xhermes: 优先 XHERMES_HOME，兼容遗留 XHERMES_HOME
     val = os.environ.get("XHERMES_HOME", "").strip() \
-        or os.environ.get("HERMES_HOME", "").strip()
+        or os.environ.get("XHERMES_HOME", "").strip()
     if val:
         return Path(val)
     return _get_platform_default_hermes_home()
 ```
 
-**原理**：xhermes 进程把自身 home 传给子进程时仍写 `HERMES_HOME` → 子进程读 `HERMES_HOME` fallback 成功。内部大量 `os.environ.get("HERMES_HOME", ...)` 全部保留不动。
+**原理**：xhermes 进程把自身 home 传给子进程时仍写 `XHERMES_HOME` → 子进程读 `XHERMES_HOME` fallback 成功。内部大量 `os.environ.get("XHERMES_HOME", ...)` 全部保留不动。
 
 #### 3.2b-1 关键例外：`get_default_hermes_root()` 必须同步加 `XHERMES_HOME` 优先
 
-`hermes_constants.py` 的 `get_default_hermes_root()`（约 L161-198）**直接读** `os.environ.get("HERMES_HOME", "")`（L179 附近），**不经过** `_hermes_home_from_env()`。若只改 `_hermes_home_from_env()` 而漏改此处，当 `HERMES_HOME=~/.xhermes` 泄漏进 xhermes 进程环境时：
+`hermes_constants.py` 的 `get_default_hermes_root()`（约 L161-198）**直接读** `os.environ.get("XHERMES_HOME", "")`（L179 附近），**不经过** `_hermes_home_from_env()`。若只改 `_hermes_home_from_env()` 而漏改此处，当 `XHERMES_HOME=~/.xhermes` 泄漏进 xhermes 进程环境时：
 
 1. `native_home = ~/.xhermes`，`env_home = ~/.xhermes`
 2. `~/.xhermes` 不在 `~/.xhermes` 下 → `relative_to` 抛 `ValueError`
@@ -158,9 +158,9 @@ def _hermes_home_from_env() -> Path:
 
 此函数用于 `profile list` 等 profile 级操作，错配会直接违反"互不干扰"目标。§3.2c 笼统说"优先 `get_default_hermes_root()`"，但该函数本身就是漏洞点，必须先修。
 
-**改法**：`get_default_hermes_root()` 解析 env 时同样走 `XHERMES_HOME` 优先逻辑（或统一改用 `_hermes_home_from_env()`），确保即使 `HERMES_HOME` 泄漏也不会指向 xhermes home。同理排查 `_profile_home_path()`（L830 附近，亦直接读 `HERMES_HOME`）等绕过 `_hermes_home_from_env()` 的读取点。
+**改法**：`get_default_hermes_root()` 解析 env 时同样走 `XHERMES_HOME` 优先逻辑（或统一改用 `_hermes_home_from_env()`），确保即使 `XHERMES_HOME` 泄漏也不会指向 xhermes home。同理排查 `_profile_home_path()`（L830 附近，亦直接读 `XHERMES_HOME`）等绕过 `_hermes_home_from_env()` 的读取点。
 
-验证：`XHERMES_HOME` unset 且 `HERMES_HOME=~/.xhermes` 时，`get_default_hermes_root()` 应返回 `~/.xhermes`（native_home），**而非** `~/.xhermes`。
+验证：`XHERMES_HOME` unset 且 `XHERMES_HOME=~/.xhermes` 时，`get_default_hermes_root()` 应返回 `~/.xhermes`（native_home），**而非** `~/.xhermes`。
 
 #### 3.2c 硬编码 `~/.xhermes` fallback 替换
 
@@ -287,11 +287,11 @@ xhermes 有独立 `config.yaml`；改默认值是为了**开箱不冲突**。
 
 | 位置 | 改动 |
 |---|---|
-| `scripts/install.sh` | `HERMES_HOME` 默认 `~/.xhermes`；`INSTALL_DIR=$HERMES_HOME/xhermes-agent`；命令链到 `xhermes`；bootstrap `.xhermes-bootstrap-complete`；**REPO_URL 指向你的 fork** |
+| `scripts/install.sh` | `XHERMES_HOME` 默认 `~/.xhermes`；`INSTALL_DIR=$XHERMES_HOME/xhermes-agent`；命令链到 `xhermes`；bootstrap `.xhermes-bootstrap-complete`；**REPO_URL 指向你的 fork** |
 | `install.ps1` | 同上（Windows：`%LOCALAPPDATA%\xhermes\xhermes-agent`） |
 | `scripts/run_tests.sh` | 共享 venv 探针 → `~/.xhermes/xhermes-agent/venv` |
 | `docker-compose*.yml` | 卷 `~/.xhermes`；镜像/容器名避开 `xhermes-*`；端口映射用 9219 等 |
-| `apps/desktop/electron/main.ts` | home → `.xhermes`；`ACTIVE_HERMES_ROOT = .../xhermes-agent`；bootstrap marker；`setAppUserModelId('com.<you>.xhermes')` |
+| `apps/desktop/electron/main.ts` | home → `.xhermes`；`ACTIVE_XHERMES_ROOT = .../xhermes-agent`；bootstrap marker；`setAppUserModelId('com.<you>.xhermes')` |
 | `apps/desktop/electron/backend-command.ts` | `xhermes serve` |
 | `apps/desktop/electron/*.test.ts` | 路径断言改为 `xhermes-agent` / `xhermes` |
 | Electron `userData` / 更新 marker | 随 appId / home 隔离；`.xhermes-update-in-progress` → `.xhermes-update-in-progress`（若仍落在 home 下） |
@@ -344,7 +344,7 @@ OFFICIAL_REPO_URL = "https://github.com/NousResearch/xhermes-agent.git"
 | 内部模块名 | ✅ 零改动，业务 import merge 干净 |
 | `toolsets.py` 的 `xhermes-telegram` 等 key | ✅ 配置在各自 config.yaml |
 | 项目插件 `./.xhermes/plugins/` | ⚠️ 必须与 xhermes 的 `./.xhermes/plugins/` 错开（见 3.2c） |
-| 全局 `HERMES_*` 用户导出 | ⚠️ 文档约束，见 §2.3 |
+| 全局 `XHERMES_*` 用户导出 | ⚠️ 文档约束，见 §2.3 |
 | 同一 bot token | ❌ 不共存，见 §2.4 |
 
 ### 4.1 四维度审计
@@ -428,14 +428,14 @@ git commit   # 若有冲突解决 / overlay 结果
 | 同 venv 安装 → site-packages 覆盖 | 硬性独立 venv；文档禁止混装 |
 | 静默 rename 毁掉 xhermes 数据 | **已删除该设计**；仅显式 copy 迁移 |
 | `xhermes update` 拉上游覆盖改名 | 官方 URL 改指向 fork；upstream 只读 merge |
-| 全局 `HERMES_*` 导出串扰 | 安装不写全局 export；文档警告 |
+| 全局 `XHERMES_*` 导出串扰 | 安装不写全局 export；文档警告 |
 | systemd/launchd 误操作对方 | `_SERVICE_BASE` 与 unit 全集改名 |
 | 安装子目录与 desktop root 不一致 | 统一 `xhermes-agent` 子目录 |
 | 上游改动命中改名面 | overlay + 合并后 checklist |
 | 同一 bot token 双开失败 | §2.4 写明运营约束 |
 | 前端包名波及 | shared → 依赖方顺序改 |
-| 测试断言绑死 `.xhermes` / `xhermes` 文案 | 优先依赖 `HERMES_HOME` tmp 夹具；产品路径字面量随 overlay 更新；避免写死枚举快照 |
-| `get_default_hermes_root()` 直接读 `HERMES_HOME` 绕过 `XHERMES_HOME` 优先层 | §3.2b-1：该函数同步走 `XHERMES_HOME` 优先；`HERMES_HOME=~/.xhermes` 泄漏时仍返回 `~/.xhermes` |
+| 测试断言绑死 `.xhermes` / `xhermes` 文案 | 优先依赖 `XHERMES_HOME` tmp 夹具；产品路径字面量随 overlay 更新；避免写死枚举快照 |
+| `get_default_hermes_root()` 直接读 `XHERMES_HOME` 绕过 `XHERMES_HOME` 优先层 | §3.2b-1：该函数同步走 `XHERMES_HOME` 优先；`XHERMES_HOME=~/.xhermes` 泄漏时仍返回 `~/.xhermes` |
 | `scripts/xhermes-gateway` 独立脚本硬编码服务名/label/venv 路径 | §3.3：补入改动全集；或 fork 不发行该脚本 |
 
 ---

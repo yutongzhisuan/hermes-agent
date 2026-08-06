@@ -46,8 +46,8 @@ def _run_block(tmp_path: Path, use_venv: str) -> Path:
 
     script = (
         "set -e\n"
-        f"HERMES_BIN={hermes_bin}\n"
-        f"HERMES_ENTRYPOINT={entrypoint}\n"
+        f"XHERMES_BIN={hermes_bin}\n"
+        f"XHERMES_ENTRYPOINT={entrypoint}\n"
         f"command_link_dir={command_link_dir}\n"
         f"command_link_display_dir={command_link_dir}\n"
         f"USE_VENV={use_venv}\n"
@@ -109,8 +109,8 @@ def test_acp_launcher_does_not_follow_a_symlink_into_the_venv(tmp_path):
 
     script = (
         "set -e\n"
-        f"HERMES_BIN={hermes_bin}\n"
-        f"HERMES_ENTRYPOINT={entrypoint}\n"
+        f"XHERMES_BIN={hermes_bin}\n"
+        f"XHERMES_ENTRYPOINT={entrypoint}\n"
         f"command_link_dir={command_link_dir}\n"
         f"command_link_display_dir={command_link_dir}\n"
         "USE_VENV=true\n"
@@ -133,7 +133,7 @@ def test_acp_launcher_does_not_follow_a_symlink_into_the_venv(tmp_path):
 # xhermes-agent launcher regression (#74819)
 # ---------------------------------------------------------------------------
 
-HERMES_AGENT_BLOCK = re.compile(
+XHERMES_AGENT_BLOCK = re.compile(
     r'(rm -f "\$command_link_dir/xhermes-agent".*?'
     r'log_success "Installed xhermes-agent launcher[^\n]*\n)',
     re.S,
@@ -141,7 +141,7 @@ HERMES_AGENT_BLOCK = re.compile(
 
 
 def _extract_hermes_agent_shim_block() -> str:
-    match = HERMES_AGENT_BLOCK.search(INSTALL_SH.read_text(encoding="utf-8"))
+    match = XHERMES_AGENT_BLOCK.search(INSTALL_SH.read_text(encoding="utf-8"))
     assert match, (
         "could not locate the xhermes-agent launcher block in scripts/install.sh — "
         "if it was renamed, update this test with it"
@@ -166,7 +166,7 @@ def _run_hermes_agent_block(tmp_path: Path, use_venv: str) -> Path | None:
 
     script = (
         "set -e\n"
-        f"HERMES_BIN={hermes_bin}\n"
+        f"XHERMES_BIN={hermes_bin}\n"
         f"INSTALL_DIR={install_dir}\n"
         f"command_link_dir={command_link_dir}\n"
         f"command_link_display_dir={command_link_dir}\n"

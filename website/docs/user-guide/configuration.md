@@ -91,11 +91,11 @@ For AI provider setup (OpenRouter, Anthropic, Copilot, custom endpoints, self-ho
 
 ### Provider Timeouts
 
-You can set `providers.<id>.request_timeout_seconds` for a provider-wide request timeout, plus `providers.<id>.models.<model>.timeout_seconds` for a model-specific override. Applies to the primary turn client on every transport (OpenAI-wire, native Anthropic, Anthropic-compatible), the fallback chain, rebuilds after credential rotation, and (for OpenAI-wire) the per-request timeout kwarg — so the configured value wins over the legacy `HERMES_API_TIMEOUT` env var.
+You can set `providers.<id>.request_timeout_seconds` for a provider-wide request timeout, plus `providers.<id>.models.<model>.timeout_seconds` for a model-specific override. Applies to the primary turn client on every transport (OpenAI-wire, native Anthropic, Anthropic-compatible), the fallback chain, rebuilds after credential rotation, and (for OpenAI-wire) the per-request timeout kwarg — so the configured value wins over the legacy `XHERMES_API_TIMEOUT` env var.
 
-You can also set `providers.<id>.stale_timeout_seconds` for the non-streaming stale-call detector, plus `providers.<id>.models.<model>.stale_timeout_seconds` for a model-specific override. This wins over the legacy `HERMES_API_CALL_STALE_TIMEOUT` env var.
+You can also set `providers.<id>.stale_timeout_seconds` for the non-streaming stale-call detector, plus `providers.<id>.models.<model>.stale_timeout_seconds` for a model-specific override. This wins over the legacy `XHERMES_API_CALL_STALE_TIMEOUT` env var.
 
-Leaving these unset keeps the legacy defaults (`HERMES_API_TIMEOUT=1800`s, `HERMES_API_CALL_STALE_TIMEOUT=90`s, native Anthropic 900s). The non-streaming stale detector is auto-disabled for local endpoints when left implicit and can scale upward for very large contexts. Not currently wired for AWS Bedrock (both `bedrock_converse` and AnthropicBedrock SDK paths use boto3 with its own timeout configuration). See the commented example in [`cli-config.yaml.example`](https://github.com/NousResearch/xhermes-agent/blob/main/cli-config.yaml.example).
+Leaving these unset keeps the legacy defaults (`XHERMES_API_TIMEOUT=1800`s, `XHERMES_API_CALL_STALE_TIMEOUT=90`s, native Anthropic 900s). The non-streaming stale detector is auto-disabled for local endpoints when left implicit and can scale upward for very large contexts. Not currently wired for AWS Bedrock (both `bedrock_converse` and AnthropicBedrock SDK paths use boto3 with its own timeout configuration). See the commented example in [`cli-config.yaml.example`](https://github.com/NousResearch/xhermes-agent/blob/main/cli-config.yaml.example).
 
 ## Update Behavior
 
@@ -103,12 +103,12 @@ Leaving these unset keeps the legacy defaults (`HERMES_API_TIMEOUT=1800`s, `HERM
 
 ```yaml
 updates:
-  pre_update_backup: quick       # quick (state snapshot, default) | full (snapshot + HERMES_HOME zip) | off
+  pre_update_backup: quick       # quick (state snapshot, default) | full (snapshot + XHERMES_HOME zip) | off
   backup_keep: 5                 # Keep this many full pre-update backup zips
   non_interactive_local_changes: stash  # stash | discard
 ```
 
-`pre_update_backup` is the single pre-update safety knob: `quick` (default) snapshots critical state files (pairing data, cron jobs, config, auth; files over 1 GiB are skipped) into `state-snapshots/`; `full` additionally zips all of `HERMES_HOME` into `backups/` and can add minutes on large homes; `off` disables both. Legacy booleans are honored (`true` → `full`, `false` → `off`).
+`pre_update_backup` is the single pre-update safety knob: `quick` (default) snapshots critical state files (pairing data, cron jobs, config, auth; files over 1 GiB are skipped) into `state-snapshots/`; `full` additionally zips all of `XHERMES_HOME` into `backups/` and can add minutes on large homes; `off` disables both. Legacy booleans are honored (`true` → `full`, `false` → `off`).
 
 For git installs, XHermes auto-stashes dirty tracked files and untracked files before checking out the update branch or pulling. Interactive terminal updates prompt before restoring that stash. Non-interactive updates (desktop/chat app, gateway, or `--yes`) use `updates.non_interactive_local_changes`: `stash` restores local source edits after a successful pull, while `discard` drops the update-created stash after a successful pull. Use `discard` only on managed installs where local source edits are never meant to persist.
 
@@ -159,7 +159,7 @@ terminal:
 By default, local tool subprocesses keep your real OS-user `HOME`. This lets
 external CLIs such as `git`, `ssh`, `gh`, `az`, `npm`, Claude Code, and Codex
 find the credentials and config they already use in your normal shell. XHermes
-state is still profile-scoped through `HERMES_HOME`; `HOME` is not how profiles
+state is still profile-scoped through `XHERMES_HOME`; `HOME` is not how profiles
 select config, memory, sessions, or skills.
 
 XHermes does **not** change your system-wide `HOME`, your shell startup files, or
@@ -171,9 +171,9 @@ background terminal processes, `execute_code`, and ACP helper processes.
 
 | Mode | Host installs | Containers | Tradeoff |
 |---|---|---|---|
-| `auto` | Keep the real OS-user `HOME` | Use `{HERMES_HOME}/home` | Recommended default. Host CLIs keep working; container state persists. |
+| `auto` | Keep the real OS-user `HOME` | Use `{XHERMES_HOME}/home` | Recommended default. Host CLIs keep working; container state persists. |
 | `real` | Force the real OS-user `HOME` | Force the real OS-user `HOME` if visible | Useful if a parent process accidentally started with `HOME` pointed at a profile home. |
-| `profile` | Use `{HERMES_HOME}/home` when it exists | Use `{HERMES_HOME}/home` when it exists | Strict per-profile CLI config isolation, but normal `~/.ssh`, `~/.gitconfig`, `~/.azure`, `~/.config/gh`, Claude/Codex auth, npm state, etc. will not be visible unless you initialize or link them inside the profile home. |
+| `profile` | Use `{XHERMES_HOME}/home` when it exists | Use `{XHERMES_HOME}/home` when it exists | Strict per-profile CLI config isolation, but normal `~/.ssh`, `~/.gitconfig`, `~/.azure`, `~/.config/gh`, Claude/Codex auth, npm state, etc. will not be visible unless you initialize or link them inside the profile home. |
 
 The downside of the default is that host profiles share the same normal
 user-level CLI credentials/config under `~`. If you need a profile with a
@@ -188,20 +188,20 @@ terminal:
   home_mode: profile
 ```
 
-In that mode tool subprocesses use `{HERMES_HOME}/home` as `HOME`. XHermes also
-sets `HERMES_REAL_HOME` so scripts can still locate the actual user home when
-they need it. Container backends keep using `{HERMES_HOME}/home` in `auto` mode
+In that mode tool subprocesses use `{XHERMES_HOME}/home` as `HOME`. XHermes also
+sets `XHERMES_REAL_HOME` so scripts can still locate the actual user home when
+they need it. Container backends keep using `{XHERMES_HOME}/home` in `auto` mode
 because that directory lives on the persistent XHermes data volume.
 
 Scripts that need to distinguish profile state from the real user home should
-prefer `HERMES_HOME` for XHermes data and `HERMES_REAL_HOME` for the account home:
+prefer `XHERMES_HOME` for XHermes data and `XHERMES_REAL_HOME` for the account home:
 
 ```python
 from pathlib import Path
 import os
 
-hermes_home = Path(os.environ["HERMES_HOME"])
-real_home = Path(os.environ.get("HERMES_REAL_HOME", os.environ["HOME"]))
+hermes_home = Path(os.environ["XHERMES_HOME"])
+real_home = Path(os.environ.get("XHERMES_REAL_HOME", os.environ["HOME"]))
 ```
 
 :::warning
@@ -255,7 +255,7 @@ terminal:
 
 **`terminal.docker_network`** (default `true`; env: `TERMINAL_DOCKER_NETWORK`) — set to `false` to run the sandbox container with `--network=none`, cutting off all network egress from agent commands. This applies to the execution container used by `terminal`, `execute_code`, and the file tools. Because containers persist across XHermes processes, flipping this to `false` while an older networked container exists will remove that container and start a fresh air-gapped one (a warning is logged); background processes running inside it are lost. Prefer this key over passing `--network=none` through `docker_extra_args`.
 
-**Requirements:** Docker Desktop or Docker Engine installed and running. XHermes probes `$PATH` plus common macOS install locations (`/usr/local/bin/docker`, `/opt/homebrew/bin/docker`, Docker Desktop app bundle). Podman is supported out of the box: set `HERMES_DOCKER_BINARY=podman` (or the full path) to force it when both are installed.
+**Requirements:** Docker Desktop or Docker Engine installed and running. XHermes probes `$PATH` plus common macOS install locations (`/usr/local/bin/docker`, `/opt/homebrew/bin/docker`, Docker Desktop app bundle). Podman is supported out of the box: set `XHERMES_DOCKER_BINARY=podman` (or the full path) to force it when both are installed.
 
 #### Container lifecycle
 
@@ -315,7 +315,7 @@ Every key under `terminal:` has an env-var override of the form `TERMINAL_<KEY_U
 | `TERMINAL_CONTAINER_PERSISTENT` | `container_persistent` | `true` / `false` — controls the bind-mount workspace dirs, distinct from `docker_persist_across_processes` |
 | `TERMINAL_LIFETIME_SECONDS` | `lifetime_seconds` | Idle reaper window |
 | `TERMINAL_TIMEOUT` | `timeout` | Per-command timeout |
-| `HERMES_DOCKER_BINARY` | _none_ | Force a specific docker/podman binary path |
+| `XHERMES_DOCKER_BINARY` | _none_ | Force a specific docker/podman binary path |
 
 ### SSH Backend
 
@@ -948,7 +948,7 @@ agent:
   coding_instructions: ""      # Standing project-wide coding rules appended to the coding brief
 ```
 
-`verify_on_stop` accepts `true` (on everywhere), `false` (off), or `"auto"` (on for interactive coding surfaces — CLI, TUI, desktop — and programmatic callers; off for messaging surfaces like Telegram/Discord where the verification narrative reads as chat noise). The config migration turns it **off** on existing installs, so treat off as the effective default and opt in explicitly. The `HERMES_VERIFY_ON_STOP` env var overrides the config value when set.
+`verify_on_stop` accepts `true` (on everywhere), `false` (off), or `"auto"` (on for interactive coding surfaces — CLI, TUI, desktop — and programmatic callers; off for messaging surfaces like Telegram/Discord where the verification narrative reads as chat noise). The config migration turns it **off** on existing installs, so treat off as the effective default and opt in explicitly. The `XHERMES_VERIFY_ON_STOP` env var overrides the config value when set.
 
 For a user/plugin policy gate at the same point — keep the agent going with your own checks — see the [`pre_verify` hook](/user-guide/features/hooks#pre_verify).
 
@@ -969,16 +969,16 @@ XHermes has separate timeout layers for streaming, plus a stale detector for non
 
 | Timeout | Default | Local providers | Config / env |
 |---------|---------|----------------|--------------|
-| Socket read timeout | 120s | Auto-raised to 1800s | `HERMES_STREAM_READ_TIMEOUT` |
-| Stale stream detection | 180s | Raised to a 900s ceiling (`agent.local_stream_stale_timeout`) | `HERMES_STREAM_STALE_TIMEOUT` |
-| Stale non-stream detection | 90s | Auto-disabled when left implicit | `providers.<id>.stale_timeout_seconds` or `HERMES_API_CALL_STALE_TIMEOUT` |
-| API call (non-streaming) | 1800s | Unchanged | `providers.<id>.request_timeout_seconds` / `timeout_seconds` or `HERMES_API_TIMEOUT` |
+| Socket read timeout | 120s | Auto-raised to 1800s | `XHERMES_STREAM_READ_TIMEOUT` |
+| Stale stream detection | 180s | Raised to a 900s ceiling (`agent.local_stream_stale_timeout`) | `XHERMES_STREAM_STALE_TIMEOUT` |
+| Stale non-stream detection | 90s | Auto-disabled when left implicit | `providers.<id>.stale_timeout_seconds` or `XHERMES_API_CALL_STALE_TIMEOUT` |
+| API call (non-streaming) | 1800s | Unchanged | `providers.<id>.request_timeout_seconds` / `timeout_seconds` or `XHERMES_API_TIMEOUT` |
 
-The **socket read timeout** controls how long httpx waits for the next chunk of data from the provider. Local LLMs can take minutes for prefill on large contexts before producing the first token, so XHermes raises this to 30 minutes when it detects a local endpoint. If you explicitly set `HERMES_STREAM_READ_TIMEOUT`, that value is always used regardless of endpoint detection.
+The **socket read timeout** controls how long httpx waits for the next chunk of data from the provider. Local LLMs can take minutes for prefill on large contexts before producing the first token, so XHermes raises this to 30 minutes when it detects a local endpoint. If you explicitly set `XHERMES_STREAM_READ_TIMEOUT`, that value is always used regardless of endpoint detection.
 
-The **stale stream detection** kills connections that receive SSE keep-alive pings but no actual content. For local providers (which don't send keep-alive pings during prefill) the default is raised to a finite 900-second ceiling instead of the 180s base — configurable via `agent.local_stream_stale_timeout` or the `HERMES_LOCAL_STREAM_STALE_TIMEOUT` env var.
+The **stale stream detection** kills connections that receive SSE keep-alive pings but no actual content. For local providers (which don't send keep-alive pings during prefill) the default is raised to a finite 900-second ceiling instead of the 180s base — configurable via `agent.local_stream_stale_timeout` or the `XHERMES_LOCAL_STREAM_STALE_TIMEOUT` env var.
 
-The **stale non-stream detection** kills non-streaming calls that produce no response for too long. By default XHermes disables this on local endpoints to avoid false positives during long prefills. If you explicitly set `providers.<id>.stale_timeout_seconds`, `providers.<id>.models.<model>.stale_timeout_seconds`, or `HERMES_API_CALL_STALE_TIMEOUT`, that explicit value is honored even on local endpoints.
+The **stale non-stream detection** kills non-streaming calls that produce no response for too long. By default XHermes disables this on local endpoints to avoid false positives during long prefills. If you explicitly set `providers.<id>.stale_timeout_seconds`, `providers.<id>.models.<model>.stale_timeout_seconds`, or `XHERMES_API_CALL_STALE_TIMEOUT`, that explicit value is honored even on local endpoints.
 
 ## Context Pressure Warnings
 
@@ -1670,11 +1670,11 @@ Example footer:
   • concepts/rag-pipeline.md — [patch] Could not find match for old_string
 ```
 
-Set `file_mutation_verifier: false` (or `HERMES_FILE_MUTATION_VERIFIER=0`) to suppress the footer. The verifier only fires when real failures are outstanding at turn end — a model that retries a failed patch and succeeds within the same turn will not trigger it for that file.
+Set `file_mutation_verifier: false` (or `XHERMES_FILE_MUTATION_VERIFIER=0`) to suppress the footer. The verifier only fires when real failures are outstanding at turn end — a model that retries a failed patch and succeeds within the same turn will not trigger it for that file.
 
 **Trust the verifier over the model's summary.** The footer means the listed files were **not** modified on disk, even if the assistant's closing message says the task is done. Common causes:
 
-- **Write denied** — path is on the credential denylist or outside `HERMES_WRITE_SAFE_ROOT` (see [File write safety](./security.md#file-write-safety))
+- **Write denied** — path is on the credential denylist or outside `XHERMES_WRITE_SAFE_ROOT` (see [File write safety](./security.md#file-write-safety))
 - **Patch mismatch** — `old_string` did not match the file on disk
 - **Syntax gate** — candidate content failed JSON/YAML/TOML validation before write
 
@@ -1682,11 +1682,11 @@ Example footer when writes are blocked:
 
 ```
 ⚠️ File-mutation verifier: 2 file(s) were NOT modified this turn despite any wording above that may suggest otherwise. Run `git status` or `read_file` to confirm.
-  • ~/.xhermes/cron/jobs.json — [patch] Write denied: '…' is outside HERMES_WRITE_SAFE_ROOT (/path/to/project)
-  • ~/.xhermes/scripts/monitor.py — [write_file] Write denied: '…' is outside HERMES_WRITE_SAFE_ROOT (/path/to/project)
+  • ~/.xhermes/cron/jobs.json — [patch] Write denied: '…' is outside XHERMES_WRITE_SAFE_ROOT (/path/to/project)
+  • ~/.xhermes/scripts/monitor.py — [write_file] Write denied: '…' is outside XHERMES_WRITE_SAFE_ROOT (/path/to/project)
 ```
 
-If writes to XHermes state (cron jobs, skills, scripts under `~/.xhermes/`) are failing, check whether `HERMES_WRITE_SAFE_ROOT` is set in your environment. For cron changes, use the `cronjob` tool or `xhermes cron edit` instead of patching `jobs.json` directly.
+If writes to XHermes state (cron jobs, skills, scripts under `~/.xhermes/`) are failing, check whether `XHERMES_WRITE_SAFE_ROOT` is set in your environment. For cron changes, use the `cronjob` tool or `xhermes cron edit` instead of patching `jobs.json` directly.
 
 ### UI language for static messages
 
@@ -1694,7 +1694,7 @@ The `display.language` setting translates a small set of static user-facing mess
 
 Supported values: `en` (default), `zh` (Simplified Chinese), `zh-hant` (Traditional Chinese), `ja` (Japanese), `de` (German), `es` (Spanish), `fr` (French), `tr` (Turkish), `uk` (Ukrainian), `af` (Afrikaans), `ko` (Korean), `it` (Italian), `ga` (Irish), `pt` (Portuguese), `ru` (Russian), `hu` (Hungarian). Unknown values fall back to English.
 
-You can also set this per-session with the `HERMES_LANGUAGE` env var, which overrides the config value.
+You can also set this per-session with the `XHERMES_LANGUAGE` env var, which overrides the config value.
 
 ```yaml
 display:
@@ -1825,14 +1825,14 @@ stt:
   # model: "whisper-1"         # Legacy fallback key still respected
 ```
 
-Language resolution is the same for **every** STT provider (local, groq, openai, mistral, xai, elevenlabs, deepinfra, command providers, and plugins): `stt.<provider>.language` → `stt.language` → `HERMES_LOCAL_STT_LANGUAGE` env var → provider auto-detect. **The default is `stt.language: "en"`** — Whisper auto-detection frequently misidentifies short or accented clips, which shows up as voice notes transcribed in the wrong language. Non-English speakers should set `stt.language` to their language code once (e.g. `"es"`, `"zh"`, `"uk"`); set it to `""` to restore auto-detection for multilingual use.
+Language resolution is the same for **every** STT provider (local, groq, openai, mistral, xai, elevenlabs, deepinfra, command providers, and plugins): `stt.<provider>.language` → `stt.language` → `XHERMES_LOCAL_STT_LANGUAGE` env var → provider auto-detect. **The default is `stt.language: "en"`** — Whisper auto-detection frequently misidentifies short or accented clips, which shows up as voice notes transcribed in the wrong language. Non-English speakers should set `stt.language` to their language code once (e.g. `"es"`, `"zh"`, `"uk"`); set it to `""` to restore auto-detection for multilingual use.
 
 Set `stt.echo_transcripts: false` when the gateway should transcribe voice notes for the agent but must not post the raw transcript back to the chat (for example, customer-facing WhatsApp bots).
 
 Provider behavior:
 
 - `local` uses `faster-whisper` running on your machine. Install it separately with `pip install faster-whisper`. Silence-hallucination hardening is on by default: a Silero VAD filter keeps silence/noise from ever reaching Whisper, cross-window conditioning is disabled, and segments the model itself flags as probably-not-speech *and* low-confidence are dropped. Set `stt.local.vad: false` to transcribe non-speech audio (music, ambient) with the raw behavior.
-- `groq` uses Groq's Whisper-compatible endpoint and reads `GROQ_API_KEY`. Pass `stt.groq.language` (or the global `HERMES_LOCAL_STT_LANGUAGE` env var) to skip auto-detection and reduce latency.
+- `groq` uses Groq's Whisper-compatible endpoint and reads `GROQ_API_KEY`. Pass `stt.groq.language` (or the global `XHERMES_LOCAL_STT_LANGUAGE` env var) to skip auto-detection and reduce latency.
 - `openai` uses the OpenAI speech API and reads `VOICE_TOOLS_OPENAI_KEY`.
 
 If the requested provider is unavailable, XHermes falls back automatically in this order: `local` → `groq` → `openai`.
@@ -1923,7 +1923,7 @@ both are set.
 
 The cap is enforced with a local runtime lease file and is best-effort: XHermes
 fails open if the registry cannot be read or locked so users are not stranded.
-It is intended for a single host/profile runtime, not a shared `$HERMES_HOME`
+It is intended for a single host/profile runtime, not a shared `$XHERMES_HOME`
 mounted across multiple machines.
 
 Control whether shared chats keep one conversation per room or one conversation per participant:
@@ -2170,7 +2170,7 @@ approvals:
 |------|----------|
 | `smart` (default) | Use an auxiliary LLM to assess whether a flagged command is actually dangerous. Low-risk commands are auto-approved for that command only. Genuinely risky commands are denied; uncertain decisions escalate to the user. |
 | `manual` | Prompt the user before executing any flagged command. In the CLI, shows an interactive approval dialog. In messaging, queues a pending approval request. |
-| `off` | Skip all approval checks. Equivalent to `HERMES_YOLO_MODE=true`. **Use with caution.** |
+| `off` | Skip all approval checks. Equivalent to `XHERMES_YOLO_MODE=true`. **Use with caution.** |
 
 Smart mode is particularly useful for reducing approval fatigue — it lets the agent work more autonomously on safe operations while still catching genuinely destructive commands.
 
@@ -2266,8 +2266,8 @@ XHermes uses two different context scopes:
 
 | File | Purpose | Scope |
 |------|---------|-------|
-| `SOUL.md` | **Primary agent identity** — defines who the agent is (slot #1 in the system prompt) | `~/.xhermes/SOUL.md` or `$HERMES_HOME/SOUL.md` |
-| `.xhermes.md` / `HERMES.md` | Project-specific instructions (highest priority) | Walks to git root |
+| `SOUL.md` | **Primary agent identity** — defines who the agent is (slot #1 in the system prompt) | `~/.xhermes/SOUL.md` or `$XHERMES_HOME/SOUL.md` |
+| `.xhermes.md` / `XHERMES.md` | Project-specific instructions (highest priority) | Walks to git root |
 | `AGENTS.md` | Project-specific instructions, coding conventions | Recursive directory walk |
 | `CLAUDE.md` | Claude Code context files (also detected) | Working directory only |
 | `.cursorrules` | Cursor IDE rules (also detected) | Working directory only |
@@ -2333,7 +2333,7 @@ Configuration for the [web dashboard](/user-guide/features/web-dashboard) — vi
 dashboard:
   theme: "default"            # "default" | "midnight" | "ember" | "mono" | "cyberpunk" | "rose"
   show_token_analytics: false # Re-enable the (local-estimate-only) token/cost analytics surfaces
-  public_url: ""              # Full public authority for OAuth redirect_uri (env: HERMES_DASHBOARD_PUBLIC_URL)
+  public_url: ""              # Full public authority for OAuth redirect_uri (env: XHERMES_DASHBOARD_PUBLIC_URL)
   oauth:                      # Portal OAuth gate (engaged with --host and not --insecure)
     client_id: ""             # agent:{instance_id} — Portal provisions this
     portal_url: ""            # blank → plugin default (production Portal)
@@ -2351,4 +2351,4 @@ dashboard:
 - `theme` — dashboard visual theme.
 - `show_token_analytics` — off by default. The Analytics page and token/cost figures are a **local lower-bound estimate** (they exclude auxiliary calls, retries, fallbacks, and cache writes), so they can read far below the provider bill. Set `true` only if you understand they're not billing.
 - `public_url` — when set, this is the complete authority (scheme + host + optional path prefix) the OAuth `redirect_uri` is built from. Set it for deploys behind reverse proxies that don't reliably forward `X-Forwarded-*` headers. Leave empty to use proxy-header reconstruction.
-- `oauth` / `basic_auth` / `drain_auth` — auth provider config read by the bundled dashboard-auth plugins. The drain secret itself is **not** set here; it's provisioned via the `HERMES_DASHBOARD_DRAIN_SECRET` env var. See [Web Dashboard](/user-guide/features/web-dashboard) for full auth setup.
+- `oauth` / `basic_auth` / `drain_auth` — auth provider config read by the bundled dashboard-auth plugins. The drain secret itself is **not** set here; it's provisioned via the `XHERMES_DASHBOARD_DRAIN_SECRET` env var. See [Web Dashboard](/user-guide/features/web-dashboard) for full auth setup.

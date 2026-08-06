@@ -153,7 +153,7 @@ function buildPosixCleanupScript({ desktopPid, pythonExe, pythonPath, agentRoot,
     '    sleep 0.5',
     '  done',
     'fi',
-    `export HERMES_HOME=${q(hermesHome)}`
+    `export XHERMES_HOME=${q(hermesHome)}`
   ]
 
   if (pythonPath) {
@@ -209,7 +209,7 @@ function buildWindowsCleanupScript({
   const lines = [
     '@echo off',
     'setlocal enableextensions',
-    `set "HERMES_HOME=${String(hermesHome).replace(/"/g, '')}"`,
+    `set "XHERMES_HOME=${String(hermesHome).replace(/"/g, '')}"`,
     `set "PID=${pid}"`
   ]
 

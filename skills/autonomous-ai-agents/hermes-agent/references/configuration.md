@@ -26,7 +26,7 @@ Full reference: https://xhermes-agent.nousresearch.com/docs/user-guide/configura
 ### Toolsets
 
 Enable/disable via `xhermes tools` (interactive) or `xhermes tools enable/disable NAME`.
-Full enumeration: `TOOLSETS` dict in `toolsets.py` (`_HERMES_CORE_TOOLS` is the default bundle most platforms inherit).
+Full enumeration: `TOOLSETS` dict in `toolsets.py` (`_XHERMES_CORE_TOOLS` is the default bundle most platforms inherit).
 
 | Toolset | What it provides |
 |---------|-----------------|

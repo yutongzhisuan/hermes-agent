@@ -146,7 +146,7 @@ RUN set -eu; \
 # updated.
 COPY --chmod=0755 docker/tini-shim.sh /usr/bin/tini
 
-# Non-root user for runtime; UID can be overridden via HERMES_UID at runtime
+# Non-root user for runtime; UID can be overridden via XHERMES_UID at runtime
 RUN useradd -u 10000 -m -d /opt/data xhermes
 
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
@@ -301,14 +301,14 @@ RUN mkdir -p /opt/xhermes/bin && \
     chmod 0755 /opt/xhermes/bin/xhermes && \
     printf 'docker\n' > /opt/xhermes/.install_method
 # The ``.install_method`` stamp is baked next to the running code (the install
-# tree), NOT into $HERMES_HOME. $HERMES_HOME (/opt/data) is a shared data
+# tree), NOT into $XHERMES_HOME. $XHERMES_HOME (/opt/data) is a shared data
 # volume that is commonly bind-mounted from the host and even shared with a
 # host-side Desktop/CLI install; stamping it at boot used to clobber that
 # host install's marker and wrongly block its ``xhermes update``. A code-scoped
 # stamp is read first by detect_install_method() and is immune to the share.
 # Start as root so the s6-overlay stage2 hook can usermod/groupmod and chown
 # the data volume. Each supervised service then drops to the xhermes user via
-# `s6-setuidgid xhermes` in its run script. If HERMES_UID is unset, services
+# `s6-setuidgid xhermes` in its run script. If XHERMES_UID is unset, services
 # run as the default xhermes user (UID 10000).
 
 # ---------- Bake build-time git revision ----------
@@ -318,7 +318,7 @@ RUN mkdir -p /opt/xhermes/bin && \
 # That makes support triage from container bug reports impossible:
 # we can't tell which commit the user is actually running.
 #
-# Fix: write the commit SHA passed via the HERMES_GIT_SHA build-arg to
+# Fix: write the commit SHA passed via the XHERMES_GIT_SHA build-arg to
 # /opt/xhermes/.hermes_build_sha at build time, and have
 # hermes_cli/build_info.py read it at runtime.  Both `xhermes dump` and
 # banner.get_git_banner_state() try the baked SHA first, then fall back
@@ -328,9 +328,9 @@ RUN mkdir -p /opt/xhermes/bin && \
 # omits the file, and the runtime falls back to live-git lookup.  CI
 # (.github/workflows/docker.yml) passes ${{ github.sha }} so
 # every published image has it.
-ARG HERMES_GIT_SHA=
-RUN if [ -n "${HERMES_GIT_SHA}" ]; then \
-        printf '%s\n' "${HERMES_GIT_SHA}" > /opt/xhermes/.hermes_build_sha; \
+ARG XHERMES_GIT_SHA=
+RUN if [ -n "${XHERMES_GIT_SHA}" ]; then \
+        printf '%s\n' "${XHERMES_GIT_SHA}" > /opt/xhermes/.hermes_build_sha; \
     fi
 
 # ---------- s6-overlay service wiring ----------
@@ -347,7 +347,7 @@ COPY docker/s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 # runs before user services start.
 #
 # 02-reconcile-profiles re-creates per-profile gateway s6 service
-# slots from $HERMES_HOME/profiles/<name>/ after a container restart
+# slots from $XHERMES_HOME/profiles/<name>/ after a container restart
 # (the /run/service/ scandir is tmpfs and wiped on restart). Phase 4.
 RUN mkdir -p /etc/cont-init.d && \
     printf '#!/command/with-contenv sh\nexec /opt/xhermes/docker/stage2-hook.sh\n' \
@@ -357,7 +357,7 @@ COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-su
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
 # ---------- Runtime ----------
-ENV HERMES_WEB_DIST=/opt/xhermes/hermes_cli/web_dist
+ENV XHERMES_WEB_DIST=/opt/xhermes/hermes_cli/web_dist
 # Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
 # `ui-tui && npm run build`). This makes _make_tui_argv take the prebuilt-bundle
 # fast path (`node --expose-gc /opt/xhermes/ui-tui/dist/entry.js`) and skip the
@@ -374,10 +374,10 @@ ENV HERMES_WEB_DIST=/opt/xhermes/hermes_cli/web_dist
 # embedded-chat (/api/pty) connections → ENOTEMPTY → the chat tab dies with a
 # 502 / "[session ended]". Pointing at the prebuilt bundle sidesteps the whole
 # check. (A separate launcher hardening is tracked independently.)
-ENV HERMES_TUI_DIR=/opt/xhermes/ui-tui
-ENV HERMES_HOME=/opt/data
-ENV HERMES_WRITE_SAFE_ROOT=/opt/data
-ENV HERMES_DISABLE_LAZY_INSTALLS=1
+ENV XHERMES_TUI_DIR=/opt/xhermes/ui-tui
+ENV XHERMES_HOME=/opt/data
+ENV XHERMES_WRITE_SAFE_ROOT=/opt/data
+ENV XHERMES_DISABLE_LAZY_INSTALLS=1
 # The published image seals /opt/xhermes (root-owned, read-only) so a runtime
 # lazy install can't mutate the agent's own venv and brick it. But opt-in
 # backends (Firecrawl web search, Exa, Feishu, …) keep their SDKs in
@@ -390,11 +390,11 @@ ENV HERMES_DISABLE_LAZY_INSTALLS=1
 # is seeded + chowned to the xhermes user by docker/stage2-hook.sh and lives
 # on the /opt/data volume, so it persists across container recreates / image
 # updates (an ABI stamp invalidates it if a rebuild bumps the interpreter).
-ENV HERMES_LAZY_INSTALL_TARGET=/opt/data/lazy-packages
+ENV XHERMES_LAZY_INSTALL_TARGET=/opt/data/lazy-packages
 
 # `docker exec` privilege-drop shim. When operators run
 # `docker exec <c> xhermes ...` they default to root, and any file the
-# command writes under $HERMES_HOME (auth.json, .env, config.yaml) ends
+# command writes under $XHERMES_HOME (auth.json, .env, config.yaml) ends
 # up root-owned and unreadable to the supervised gateway (UID 10000).
 # The shim lives at /opt/xhermes/bin/xhermes, sits earliest on PATH, and
 # transparently re-exec's the real venv binary via `s6-setuidgid xhermes`
@@ -402,7 +402,7 @@ ENV HERMES_LAZY_INSTALL_TARGET=/opt/data/lazy-packages
 # `--user xhermes`, etc.) hit the short-circuit path with no overhead.
 # Recursion is impossible because the shim exec's the venv binary by
 # absolute path (/opt/xhermes/.venv/bin/xhermes). See the shim source for
-# the opt-out env var (HERMES_DOCKER_EXEC_AS_ROOT=1).
+# the opt-out env var (XHERMES_DOCKER_EXEC_AS_ROOT=1).
 COPY --chmod=0755 docker/xhermes-exec-shim.sh /opt/xhermes/bin/xhermes
 COPY --chmod=0755 docker/entrypoint-dispatch.sh /opt/xhermes/docker/entrypoint-dispatch.sh
 

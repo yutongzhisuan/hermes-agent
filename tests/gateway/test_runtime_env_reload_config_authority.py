@@ -1,8 +1,8 @@
 """Regression tests for gateway per-turn env reload preserving config authority.
 
 Issue #19158: startup bridges config.yaml agent.max_turns into
-HERMES_MAX_ITERATIONS, but a later per-turn load_dotenv(..., override=True)
-can restore a stale .env HERMES_MAX_ITERATIONS value before the next turn.
+XHERMES_MAX_ITERATIONS, but a later per-turn load_dotenv(..., override=True)
+can restore a stale .env XHERMES_MAX_ITERATIONS value before the next turn.
 """
 
 from __future__ import annotations
@@ -23,18 +23,18 @@ def test_reload_runtime_env_preserves_config_max_turns(tmp_path: Path, monkeypat
         encoding="utf-8",
     )
     (hermes_home / ".env").write_text(
-        "HERMES_MAX_ITERATIONS=90\nOPENROUTER_API_KEY=fresh-key\n",
+        "XHERMES_MAX_ITERATIONS=90\nOPENROUTER_API_KEY=fresh-key\n",
         encoding="utf-8",
     )
 
     monkeypatch.setattr(gateway_run, "_hermes_home", hermes_home)
-    monkeypatch.setenv("HERMES_MAX_ITERATIONS", "9000")
+    monkeypatch.setenv("XHERMES_MAX_ITERATIONS", "9000")
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
     gateway_run._reload_runtime_env_preserving_config_authority()
 
     assert os.environ["OPENROUTER_API_KEY"] == "fresh-key"
-    assert os.environ["HERMES_MAX_ITERATIONS"] == "9000"
+    assert os.environ["XHERMES_MAX_ITERATIONS"] == "9000"
 
 
 def test_reload_runtime_env_preserves_config_terminal_backend(
@@ -58,7 +58,7 @@ def test_reload_runtime_env_preserves_config_terminal_backend(
     (hermes_home / ".env").write_text("TERMINAL_ENV=docker\n", encoding="utf-8")
 
     monkeypatch.setattr(gateway_run, "_hermes_home", hermes_home)
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
     # Startup bridge already ran: the effective backend is local.
     monkeypatch.setenv("TERMINAL_ENV", "local")
 

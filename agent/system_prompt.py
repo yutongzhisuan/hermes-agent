@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional
 from agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY,
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
-    HERMES_AGENT_HELP_GUIDANCE,
+    XHERMES_AGENT_HELP_GUIDANCE,
     KANBAN_GUIDANCE,
     MEMORY_GUIDANCE,
     OPENAI_MODEL_EXECUTION_GUIDANCE,
@@ -129,7 +129,7 @@ _TUI_EMBEDDED_PANE_CLARIFIER = (
 def _tui_embedded_pane_clarifier(hint: str) -> str:
     """Append the desktop-embedded-terminal-pane clarifier to a tui hint.
 
-    Triggered by ``HERMES_DESKTOP_TERMINAL=1`` (set by ``main.cjs`` only on the
+    Triggered by ``XHERMES_DESKTOP_TERMINAL=1`` (set by ``main.cjs`` only on the
     shell env of the desktop's embedded TUI PTY — never on the chat backend).
     This is a runtime-surface qualifier, not a config override, so it lives at
     the resolution site rather than inside ``_resolve_platform_hint`` (which
@@ -144,7 +144,7 @@ def _tui_embedded_pane_clarifier(hint: str) -> str:
         return hint
     if _TUI_EMBEDDED_PANE_CLARIFIER in hint:
         return hint
-    if not is_truthy_value(os.getenv("HERMES_DESKTOP_TERMINAL")):
+    if not is_truthy_value(os.getenv("XHERMES_DESKTOP_TERMINAL")):
         return hint
     return hint + _TUI_EMBEDDED_PANE_CLARIFIER
 
@@ -187,7 +187,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     stable_parts: List[str] = []
 
     # Try SOUL.md as primary identity unless the caller explicitly skipped it.
-    # Some execution modes (cron) still want HERMES_HOME persona while keeping
+    # Some execution modes (cron) still want XHERMES_HOME persona while keeping
     # cwd project instructions disabled.
     _soul_loaded = False
     if agent.load_soul_identity or not agent.skip_context_files:
@@ -201,7 +201,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         stable_parts.append(DEFAULT_AGENT_IDENTITY)
 
     # Pointer to the xhermes-agent skill + docs for user questions about XHermes itself.
-    stable_parts.append(HERMES_AGENT_HELP_GUIDANCE)
+    stable_parts.append(XHERMES_AGENT_HELP_GUIDANCE)
 
     # Universal task-completion / no-fabrication guidance.  Applied to ALL
     # models regardless of tool_use_enforcement gating — the failure modes
@@ -233,7 +233,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         tool_guidance.append(SKILLS_GUIDANCE)
     # Kanban worker/orchestrator lifecycle — only present when the
     # dispatcher spawned this process (kanban_show check_fn gates on
-    # HERMES_KANBAN_TASK env var). Normal chat sessions never see
+    # XHERMES_KANBAN_TASK env var). Normal chat sessions never see
     # this block. Resolved once at __init__ (see _kanban_worker_guidance).
     _kanban_guidance = getattr(agent, "_kanban_worker_guidance", None)
     if _kanban_guidance:

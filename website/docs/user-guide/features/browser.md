@@ -252,7 +252,7 @@ If step 5 logs you out, the Camofox server isn't honoring the stable `userId`. D
 
 ##### Where state lives
 
-XHermes derives the stable `userId` from the profile-scoped directory `~/.xhermes/browser_auth/camofox/` (or the equivalent under `$HERMES_HOME` for non-default profiles). The actual browser profile data lives on the Camofox server side, keyed by that `userId`. To fully reset a persistent profile, clear it on the Camofox server and remove the corresponding XHermes profile's state directory.
+XHermes derives the stable `userId` from the profile-scoped directory `~/.xhermes/browser_auth/camofox/` (or the equivalent under `$XHERMES_HOME` for non-default profiles). The actual browser profile data lives on the Camofox server side, keyed by that `userId`. To fully reset a persistent profile, clear it on the Camofox server and remove the corresponding XHermes profile's state directory.
 
 #### Externally managed Camofox sessions
 

@@ -142,7 +142,7 @@ subcommands/gui.py        # 补入：gui 子命令构建器，main.py:465 顶层
 | `hermes_cli/uninstall.py` | 处理 `gui_uninstall` 引用：L548 `from hermes_cli.gui_uninstall import (...)`、L981 `from hermes_cli.gui_uninstall import uninstall_gui`——删除 gui_uninstall.py 后这两处懒加载会 ImportError，需移除 `run_gui_uninstall` 函数及 L1149 调用，或随 `xhermes uninstall --gui` 子命令一并摘除 |
 | `package.json`（根） | `workspaces` 移除 `"apps/*"`、`"ui-tui"`、`"ui-tui/packages/*"`、`"web"`、`"tests-js"`（v3：ui-tui/apps 全删，不再保留 shared）；scripts 移除 `install:web`/`install:desktop`/`install:tui`/`audit:web`/`audit:tui` 等 web/desktop/tui 专属 |
 | `Makefile` | 移除 `build-web`/`build-website`/`build-desktop`/`build-tui`/`run-dashboard`/`run-serve`/`run-desktop-dev`/`run-website-dev`/`dist:*`/`pack` 目标（v3：`build-tui` 一并移除）；`build` 目标若无剩余则移除；`clean`（138 行）移除 web/apps/website/ui-tui 路径；`test` 目标移除 `apps/desktop test:e2e`（55 行）与 `ui-tui test` |
-| `Dockerfile` | 移除 `COPY web/` + `cd web && npm run build`（180/272-275 行）；移除 `ENV HERMES_WEB_DIST`（360 行）；**v3：移除 `COPY ui-tui/` + `COPY apps/shared/` + 对应 npm build 层**（删 TUI 后无前端构建） |
+| `Dockerfile` | 移除 `COPY web/` + `cd web && npm run build`（180/272-275 行）；移除 `ENV XHERMES_WEB_DIST`（360 行）；**v3：移除 `COPY ui-tui/` + `COPY apps/shared/` + 对应 npm build 层**（删 TUI 后无前端构建） |
 | `pyproject.toml` | `[tool.setuptools.packages.find]` include 白名单已按名匹配，删目录后自然不打包；核对 `package-data` 无 web 引用 |
 | `nix/` | 移除 `desktop.nix`、`web.nix`（若 nix 配置不维护则整体可评估） |
 | `scripts/install.sh` | `--include-desktop` 选项（179 行）与桌面打包分支（2826-3023 行）移除或标注失效；**`node-deps` 阶段保留**（见 §4.6） |
@@ -166,11 +166,11 @@ subcommands/gui.py        # 补入：gui 子命令构建器，main.py:465 顶层
 
 | main.py 位置 | 内容 | 处理 |
 |---|---|---|
-| L281-366 | `_config_default_interface_early()`、`HERMES_TUI` env、`--tui` flag 检测、TTY gate | 移除 tui 分支，`_config_default_interface_early` 固定返回 "cli" |
+| L281-366 | `_config_default_interface_early()`、`XHERMES_TUI` env、`--tui` flag 检测、TTY gate | 移除 tui 分支，`_config_default_interface_early` 固定返回 "cli" |
 | L1630-1632 | 提示文案 `xhermes --tui --resume` | 改为 `xhermes --resume` |
-| L1843-1845 | `HERMES_TUI_FORCE_BUILD` env | 移除 |
-| L1925-2030 | `_find_bundled_tui()`、`HERMES_TUI_DIR` env | 整函数删除 |
-| L2335-2470 | `_launch_tui()` + 大量 `HERMES_TUI_*` env 传播 | 整函数删除（含 `HERMES_TUI_ACTIVE_SESSION_FILE`/`HERMES_TUI_PROVIDER`/`HERMES_TUI_TOOLSETS`/`HERMES_TUI_SKILLS`/`HERMES_TUI_QUERY`/`HERMES_TUI_IMAGE`/`HERMES_TUI_CHECKPOINTS`/`HERMES_TUI_PASS_SESSION_ID`/`HERMES_TUI_MAX_TURNS`/`HERMES_TUI_TOOL_PROGRESS`/`HERMES_TUI_RESUME` 等） |
+| L1843-1845 | `XHERMES_TUI_FORCE_BUILD` env | 移除 |
+| L1925-2030 | `_find_bundled_tui()`、`XHERMES_TUI_DIR` env | 整函数删除 |
+| L2335-2470 | `_launch_tui()` + 大量 `XHERMES_TUI_*` env 传播 | 整函数删除（含 `XHERMES_TUI_ACTIVE_SESSION_FILE`/`XHERMES_TUI_PROVIDER`/`XHERMES_TUI_TOOLSETS`/`XHERMES_TUI_SKILLS`/`XHERMES_TUI_QUERY`/`XHERMES_TUI_IMAGE`/`XHERMES_TUI_CHECKPOINTS`/`XHERMES_TUI_PASS_SESSION_ID`/`XHERMES_TUI_MAX_TURNS`/`XHERMES_TUI_TOOL_PROGRESS`/`XHERMES_TUI_RESUME` 等） |
 | L2546-2567 | `_resolve_use_tui(args)` | 整函数删除，调用点固定走 CLI 路径 |
 | 子命令注册 | `--tui` flag 注册（argparse） | 移除 flag；保留 `--cli`（无副作用）或一并移除 |
 
@@ -267,9 +267,9 @@ xhermes-agent/
 | 上游 merge 时已删目录改动冲突 | git 历史保留，冲突时按 overlay 模型处理；`git revert` 可临时恢复 |
 | `xhermes serve`/`dashboard` 命令残留 | §4.3 摘除子命令注册，否则报 ImportError |
 | 遗漏某个被 CLI/TUI 引用的 web 文件 | ~~§4.2 已按 import 链验证~~ 首轮核查有误（dashboard_procs 误判），二次核查已修正；§9 验证方案兜底 |
-| **`xhermes --tui` 启动逻辑残留** | §4.5：删 tui_gateway/ 后须摘除 main.py 的 `_launch_tui`/`_resolve_use_tui`/`_find_bundled_tui` 及 `HERMES_TUI_*` env，否则 `xhermes --tui` 尝试 spawn 已删进程而崩 |
+| **`xhermes --tui` 启动逻辑残留** | §4.5：删 tui_gateway/ 后须摘除 main.py 的 `_launch_tui`/`_resolve_use_tui`/`_find_bundled_tui` 及 `XHERMES_TUI_*` env，否则 `xhermes --tui` 尝试 spawn 已删进程而崩 |
 | ~~误删 `apps/shared/`（TUI 硬依赖）~~ | **v3 作废**：删 TUI 后 shared 失去消费者，apps/ 整删（§4.1） |
-| **Dockerfile 引用已删 `web/` 构建层** | §4.3 同步移除 `COPY web/` + `HERMES_WEB_DIST`，否则镜像构建失败 |
+| **Dockerfile 引用已删 `web/` 构建层** | §4.3 同步移除 `COPY web/` + `XHERMES_WEB_DIST`，否则镜像构建失败 |
 | **Makefile/package.json 引用已删目录** | §4.3 同步精简 workspaces 与目标 |
 | **~50 个测试断言已删代码** | §4.4 删除/跳过 web_server/dashboard 测试（实测 test_web_server 18、test_dashboard 25，约 44 个） |
 | **误删 `dashboard_procs.py`（update 流程依赖）** | §5.3：已移出删除清单；该文件服务 `xhermes update` 残留进程清理，删则 CLI 启动崩且 update 断 |
@@ -314,7 +314,7 @@ echo "hi" | timeout 5 python -m cli  # CLI 单轮冒烟
 | 2026-08-05 | **v3：移除 TUI**（ui-tui + tui_gateway + --tui 启动模式） | 用户要求只留 CLI；核查确认 agent/tools/hermes_cli 对 tui_gateway 零 import，删除安全 |
 | 2026-08-03 | 保留 `hermes_cli/webhook.py` | 是 `xhermes webhook` CLI 子命令，配合消息网关 webhook adapter，非 serve 面 |
 
-**审核补充记录（2026-08-03）：** 首轮审核发现并修正 5 处遗漏——① `apps/shared/` 是 ui-tui 的 TS 依赖，不能整删 `apps/`；② 根 `package.json` workspaces 引用 `apps/*`/`web`/`tests-js` 需精简；③ Dockerfile 构建 web SPA 进镜像（`COPY web/` + `HERMES_WEB_DIST`）需同步移除；④ Makefile 有 ~12 个 web/apps/website 目标需移除；⑤ `tests/` 下 ~50 个 web_server/dashboard 测试文件需删除或跳过。
+**审核补充记录（2026-08-03）：** 首轮审核发现并修正 5 处遗漏——① `apps/shared/` 是 ui-tui 的 TS 依赖，不能整删 `apps/`；② 根 `package.json` workspaces 引用 `apps/*`/`web`/`tests-js` 需精简；③ Dockerfile 构建 web SPA 进镜像（`COPY web/` + `XHERMES_WEB_DIST`）需同步移除；④ Makefile 有 ~12 个 web/apps/website 目标需移除；⑤ `tests/` 下 ~50 个 web_server/dashboard 测试文件需删除或跳过。
 
 **二次核查修订（2026-08-03，代码级引用验证）：** 首轮的"验证过的引用事实"有误，二次对照代码库修正 4 处——
 
@@ -328,7 +328,7 @@ echo "hi" | timeout 5 python -m cli  # CLI 单轮冒烟
 **v3 修订（2026-08-05，移除 TUI）：** 用户要求从"保留 CLI+TUI"改为"只保留 CLI"。代码核查确认可行性后，全文档调整——
 
 1. **新增删除目标**：`ui-tui/`、`tui_gateway/`、`apps/shared/`（v2 保留 shared 因 TUI 删除而作废，apps/ 整删）。核查依据：`grep "^(from|import) tui_gateway"` 在 agent/tools/hermes_cli 返回空——40+ 文件的 "tui_gateway" 出现均为注释/logger 名/文档，零 import 依赖。
-2. **新增 §4.5 TUI 启动模式摘除**：`--tui` 是 CLI 一等启动模式（非独立组件），main.py 有 `_launch_tui`/`_resolve_use_tui`/`_find_bundled_tui` + 大量 `HERMES_TUI_*` env；删 tui_gateway/ 后必须摘除这些逻辑，否则 `xhermes --tui` 崩。
+2. **新增 §4.5 TUI 启动模式摘除**：`--tui` 是 CLI 一等启动模式（非独立组件），main.py 有 `_launch_tui`/`_resolve_use_tui`/`_find_bundled_tui` + 大量 `XHERMES_TUI_*` env；删 tui_gateway/ 后必须摘除这些逻辑，否则 `xhermes --tui` 崩。
 3. **同步修改点**：package.json workspaces 移除 ui-tui；Makefile 移除 build-tui；Dockerfile 移除 `COPY ui-tui/` + `apps/shared/`。
 4. **测试**：tui 相关测试约 101 个（tui 命中 35 + tui_gateway 命中 66）随删。
 5. **衔接**：fork 设计 §3.7 前端包名改名（`xhermes-tui`/`@xhermes/ink`/`@xhermes/shared`）随之废弃。

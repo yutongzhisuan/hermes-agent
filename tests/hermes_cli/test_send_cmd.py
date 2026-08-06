@@ -218,7 +218,7 @@ def test_load_hermes_env_bridges_config_yaml_scalars(tmp_path, monkeypatch):
         "TELEGRAM_HOME_CHANNEL: '5550001111'\nnested:\n  ignored: true\n"
     )
 
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
     monkeypatch.delenv("TELEGRAM_HOME_CHANNEL", raising=False)
     monkeypatch.delenv("SOME_TOKEN", raising=False)
 

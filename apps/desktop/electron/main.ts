@@ -249,7 +249,7 @@ import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './work
 import { readWslWindowsClipboardImage } from './wsl-clipboard-image'
 import { resolvePickerDefaultPath } from './wsl-path-bridge'
 
-const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
+const USER_DATA_OVERRIDE = process.env.XHERMES_DESKTOP_USER_DATA_DIR
 
 if (USER_DATA_OVERRIDE) {
   const resolvedUserData = path.resolve(USER_DATA_OVERRIDE)
@@ -257,8 +257,8 @@ if (USER_DATA_OVERRIDE) {
   app.setPath('userData', resolvedUserData)
 }
 
-const DEV_SERVER = process.env.HERMES_DESKTOP_DEV_SERVER
-const IS_PACKAGED = app.isPackaged || Boolean(process.env.HERMES_DESKTOP_IS_PACKAGED)
+const DEV_SERVER = process.env.XHERMES_DESKTOP_DEV_SERVER
+const IS_PACKAGED = app.isPackaged || Boolean(process.env.XHERMES_DESKTOP_IS_PACKAGED)
 const IS_MAC = process.platform === 'darwin'
 const IS_WINDOWS = process.platform === 'win32'
 const IS_WSL = isWslEnvironment()
@@ -279,7 +279,7 @@ const PRELOAD_PATH = path.join(APP_ROOT, 'dist', 'electron-preload.js')
 // GPU and never see it. Fall back to software rendering when a remote display
 // is detected; it's rock-steady over the wire and the CPU cost is negligible
 // next to the connection's latency. Must run before app `ready` — these
-// switches only apply pre-launch. Override with HERMES_DESKTOP_DISABLE_GPU
+// switches only apply pre-launch. Override with XHERMES_DESKTOP_DISABLE_GPU
 // (1/true → always disable, 0/false → keep GPU on).
 const REMOTE_DISPLAY_REASON = detectRemoteDisplay()
 
@@ -306,7 +306,7 @@ if (DEV_CDP.port) {
   app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
   console.log(
     `[xhermes] renderer debugging on http://127.0.0.1:${DEV_CDP.port} — anything that can reach it ` +
-      'can run code in the renderer. HERMES_DESKTOP_CDP_PORT=off to disable.'
+      'can run code in the renderer. XHERMES_DESKTOP_CDP_PORT=off to disable.'
   )
 } else {
   const why = describeDevCdpDecision(DEV_CDP)
@@ -522,8 +522,8 @@ if (INSTALL_STAMP) {
   )
 }
 
-// HERMES_HOME — the user-facing root for everything XHermes-related. Mirrors
-// scripts/install.ps1's $HermesHome and scripts/install.sh's $HERMES_HOME.
+// XHERMES_HOME — the user-facing root for everything XHermes-related. Mirrors
+// scripts/install.ps1's $HermesHome and scripts/install.sh's $XHERMES_HOME.
 //
 // Defaults:
 //   Windows: %LOCALAPPDATA%\xhermes (matches install.ps1)
@@ -534,12 +534,12 @@ if (INSTALL_STAMP) {
 // %LOCALAPPDATA%\xhermes yet, prefer the legacy path so we don't orphan their
 // existing config / sessions / .env. New installs go to %LOCALAPPDATA%.
 //
-// HERMES_DESKTOP_USER_DATA_DIR (used by test:desktop:fresh) puts the sandbox
-// HERMES_HOME beneath the throwaway userData dir so a fresh-install run never
+// XHERMES_DESKTOP_USER_DATA_DIR (used by test:desktop:fresh) puts the sandbox
+// XHERMES_HOME beneath the throwaway userData dir so a fresh-install run never
 // touches the user's real ~/.xhermes / %LOCALAPPDATA%\xhermes.
 function resolveHermesHome() {
-  if (process.env.HERMES_HOME) {
-    return normalizeHermesHomeRoot(process.env.HERMES_HOME)
+  if (process.env.XHERMES_HOME) {
+    return normalizeHermesHomeRoot(process.env.XHERMES_HOME)
   }
 
   if (USER_DATA_OVERRIDE) {
@@ -548,12 +548,12 @@ function resolveHermesHome() {
 
   if (IS_WINDOWS) {
     // A GUI app launched from Explorer inherits the environment block captured
-    // at login, so a HERMES_HOME set via `setx` AFTER login is invisible in
+    // at login, so a XHERMES_HOME set via `setx` AFTER login is invisible in
     // process.env even though the CLI (a fresh shell) sees it. Without this the
     // backend silently falls back to %LOCALAPPDATA%\xhermes and reports "No
     // inference provider configured" despite a valid configured home (#45471).
     // Consult the live User-scoped registry value before the default below.
-    const fromRegistry = readWindowsUserEnvVar('HERMES_HOME')
+    const fromRegistry = readWindowsUserEnvVar('XHERMES_HOME')
 
     if (fromRegistry) {
       return normalizeHermesHomeRoot(fromRegistry)
@@ -576,20 +576,20 @@ function resolveHermesHome() {
   return path.join(app.getPath('home'), '.xhermes')
 }
 
-const HERMES_HOME = resolveHermesHome()
+const XHERMES_HOME = resolveHermesHome()
 
 function pathWithHermesManagedNode(...entries) {
-  const managed = hermesManagedNodePathEntries(HERMES_HOME).filter(directoryExists)
+  const managed = hermesManagedNodePathEntries(XHERMES_HOME).filter(directoryExists)
 
   return [...managed, ...entries, process.env.PATH].filter(Boolean).join(path.delimiter)
 }
 
-// ACTIVE_HERMES_ROOT — the canonical mutable XHermes install. Same path
+// ACTIVE_XHERMES_ROOT — the canonical mutable XHermes install. Same path
 // install.ps1 / install.sh use, so a desktop-only user and a CLI-only user end
 // up with identical layouts and can share one install.
-const ACTIVE_HERMES_ROOT = path.join(HERMES_HOME, 'xhermes-agent')
+const ACTIVE_XHERMES_ROOT = path.join(XHERMES_HOME, 'xhermes-agent')
 // VENV_ROOT — venv lives inside the repo, exactly like install.ps1 does it.
-const VENV_ROOT = path.join(ACTIVE_HERMES_ROOT, 'venv')
+const VENV_ROOT = path.join(ACTIVE_XHERMES_ROOT, 'venv')
 // BOOTSTRAP_COMPLETE_MARKER — written by the first-launch bootstrap runner
 // (Phase 1D) after install.ps1 has completed all stages and the user has
 // finished initial configuration. Presence of this marker means the install
@@ -598,10 +598,10 @@ const VENV_ROOT = path.join(ACTIVE_HERMES_ROOT, 'venv')
 // means we re-run the bootstrap; install.ps1's stages are idempotent so a
 // re-run on an already-good install just discovers everything in place.
 //
-// We deliberately put the marker INSIDE ACTIVE_HERMES_ROOT (not alongside)
+// We deliberately put the marker INSIDE ACTIVE_XHERMES_ROOT (not alongside)
 // so that deleting the checkout to start fresh also deletes the marker --
 // avoids the confusing "marker exists but checkout is gone" state.
-const BOOTSTRAP_COMPLETE_MARKER = path.join(ACTIVE_HERMES_ROOT, '.xhermes-bootstrap-complete')
+const BOOTSTRAP_COMPLETE_MARKER = path.join(ACTIVE_XHERMES_ROOT, '.xhermes-bootstrap-complete')
 const BOOTSTRAP_MARKER_SCHEMA_VERSION = 1
 
 const DESKTOP_CONNECTION_CONFIG_PATH = path.join(app.getPath('userData'), 'connection.json')
@@ -610,7 +610,7 @@ const DESKTOP_UPDATE_CONFIG_PATH = path.join(app.getPath('userData'), 'updates.j
 const DESKTOP_WINDOW_STATE_PATH = path.join(app.getPath('userData'), 'window-state.json')
 // active-profile.json records which XHermes profile the desktop launches its
 // local backend as. When set, startHermes() passes `xhermes --profile <name>
-// dashboard …`, which deterministically pins HERMES_HOME (see
+// dashboard …`, which deterministically pins XHERMES_HOME (see
 // _apply_profile_override in hermes_cli/main.py) and bypasses the sticky
 // ~/.xhermes/active_profile file. Unset (null) preserves the legacy behavior:
 // no --profile flag, so the backend honors active_profile / default.
@@ -622,10 +622,10 @@ const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
 // tracks main. User can also override at runtime via
 // hermesDesktop.updates.setBranch().
 const DEFAULT_UPDATE_BRANCH = 'main'
-// desktop.log lives under HERMES_HOME/logs/ so it sits next to agent.log,
+// desktop.log lives under XHERMES_HOME/logs/ so it sits next to agent.log,
 // errors.log, gateway.log produced by hermes_logging.setup_logging — one log
 // directory per user, regardless of which UI surface produced the line.
-const DESKTOP_LOG_PATH = path.join(HERMES_HOME, 'logs', 'desktop.log')
+const DESKTOP_LOG_PATH = path.join(XHERMES_HOME, 'logs', 'desktop.log')
 const DESKTOP_LOG_FLUSH_MS = 120
 const DESKTOP_LOG_BUFFER_MAX_CHARS = 64 * 1024
 // Bound desktop.log on disk. It is an append-only forensic log, so a boot loop
@@ -647,15 +647,15 @@ const DESKTOP_LOG_MAX_BYTES = 10 * 1024 * 1024
 const DESKTOP_LOG_BACKUP_COUNT = 3
 const DESKTOP_LOG_DISCARD_BYTES = DESKTOP_LOG_MAX_BYTES * 4
 const desktopLogBackupPath = n => `${DESKTOP_LOG_PATH}.${n}`
-const BOOT_FAKE_MODE = process.env.HERMES_DESKTOP_BOOT_FAKE === '1'
-const BOOT_FAKE_ERROR = process.env.HERMES_DESKTOP_BOOT_FAKE_ERROR || ''
+const BOOT_FAKE_MODE = process.env.XHERMES_DESKTOP_BOOT_FAKE === '1'
+const BOOT_FAKE_ERROR = process.env.XHERMES_DESKTOP_BOOT_FAKE_ERROR || ''
 // Automated teardown (Playwright's app.close(), harness scripts) quits with
 // nobody to answer a modal, so the active-work confirmation would hang the
 // caller instead of letting the process exit. Force quits set this.
-const SKIP_QUIT_CONFIRM = process.env.HERMES_DESKTOP_SKIP_QUIT_CONFIRM === '1'
+const SKIP_QUIT_CONFIRM = process.env.XHERMES_DESKTOP_SKIP_QUIT_CONFIRM === '1'
 
 const BOOT_FAKE_STEP_MS = (() => {
-  const raw = Number.parseInt(String(process.env.HERMES_DESKTOP_BOOT_FAKE_STEP_MS || ''), 10)
+  const raw = Number.parseInt(String(process.env.XHERMES_DESKTOP_BOOT_FAKE_STEP_MS || ''), 10)
 
   if (!Number.isFinite(raw) || raw <= 0) {
     return 650
@@ -664,7 +664,7 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME = process.env.HERMES_DESKTOP_APP_NAME || 'XHermes'
+const APP_NAME = process.env.XHERMES_DESKTOP_APP_NAME || 'XHermes'
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
 
@@ -1064,8 +1064,8 @@ const backendPool = new Map() // profile -> { process, port, token, connectionPr
 // Keep the pool light: cap concurrent profile backends (LRU eviction) and reap
 // idle ones. A user idles at exactly the primary backend; pool backends only
 // exist while a non-primary profile is actively being chatted through.
-const POOL_MAX_BACKENDS = Math.max(1, Number(process.env.HERMES_DESKTOP_POOL_MAX) || 3)
-const POOL_IDLE_MS = Math.max(60_000, Number(process.env.HERMES_DESKTOP_POOL_IDLE_MS) || 10 * 60_000)
+const POOL_MAX_BACKENDS = Math.max(1, Number(process.env.XHERMES_DESKTOP_POOL_MAX) || 3)
+const POOL_IDLE_MS = Math.max(60_000, Number(process.env.XHERMES_DESKTOP_POOL_IDLE_MS) || 10 * 60_000)
 // A backend touched within this window has a live renderer socket (the keepalive
 // pings every 60s for every open profile). LRU eviction must spare these — a
 // concurrent multi-profile session keeps several backends "fresh" at once, and
@@ -1604,7 +1604,7 @@ function promptFirstRunSetupChoice(backend) {
     type: 'setup-choice',
     active: true,
     platform: backend.platform || process.platform,
-    activeRoot: backend.activeRoot || ACTIVE_HERMES_ROOT
+    activeRoot: backend.activeRoot || ACTIVE_XHERMES_ROOT
   })
 }
 
@@ -1732,7 +1732,7 @@ function directoryExists(filePath) {
 }
 
 // --- in-app update mutual exclusion (#50238) -------------------------------
-// The Tauri updater writes HERMES_HOME/.xhermes-update-in-progress for the whole
+// The Tauri updater writes XHERMES_HOME/.xhermes-update-in-progress for the whole
 // duration of an `--update` run (see update.rs UpdateMarkerGuard). If the user
 // relaunches the desktop mid-update — because the window vanished with no
 // progress and looks crashed — a fresh instance must NOT spawn its own local
@@ -1767,7 +1767,7 @@ const UPDATE_HANDOFF_DWELL_MS = 2500
 // reports as a blocker, aborting every update attempt.
 function updateGateDeps() {
   return {
-    hasLiveMarker: () => Boolean(readLiveUpdateMarker(HERMES_HOME)),
+    hasLiveMarker: () => Boolean(readLiveUpdateMarker(XHERMES_HOME)),
     isUpdateInFlight: () => updateInFlight
   }
 }
@@ -1868,7 +1868,7 @@ function unwrapWindowsVenvHermesCommand(command, backendArgs) {
     getVenvPython,
     getVenvSitePackagesEntries,
     buildDesktopBackendEnv,
-    hermesHome: HERMES_HOME,
+    hermesHome: XHERMES_HOME,
     resolvePath: (...segments) => path.resolve(...segments),
     dirname: p => path.dirname(p),
     basename: p => path.basename(p),
@@ -1921,7 +1921,7 @@ function backendSupportsServe(backend) {
       // and its timeout-only retry instead of a thinner local bound.
       execProbeSync(backend.command, [...prefix, 'serve', '--help'], {
         cwd: backend.root || undefined,
-        env: { ...process.env, HERMES_HOME, ...(backend.env || {}) },
+        env: { ...process.env, XHERMES_HOME, ...(backend.env || {}) },
         timeout: PROBE_TIMEOUT_MS,
         stdio: 'ignore',
         // `.cmd`/`.bat` shim backends carry shell: true in their descriptor
@@ -2000,7 +2000,7 @@ function isHermesSourceRoot(root) {
 }
 
 function findPythonForRoot(root) {
-  const override = process.env.HERMES_DESKTOP_PYTHON
+  const override = process.env.XHERMES_DESKTOP_PYTHON
 
   if (override && fileExists(override)) {
     return override
@@ -2172,7 +2172,7 @@ function findSystemPython() {
   return null
 }
 
-// findGitBash — locate bash.exe on Windows. Resolves HERMES_GIT_BASH_PATH
+// findGitBash — locate bash.exe on Windows. Resolves XHERMES_GIT_BASH_PATH
 // first (mirrors tools/environments/local.py:_find_bash), then PortableGit,
 // standard install locations, and finally PATH.
 function findGitBash() {
@@ -2206,7 +2206,7 @@ function getVenvPython(venvRoot) {
 // This makes "no flashing windows" a property of the one backend launch rather
 // than a flag that has to be remembered at every descendant spawn site. Restoring
 // console python also restores stdout, so the backend announces its port on the
-// normal HERMES_DASHBOARD_READY stdout line and no ready-file side channel is
+// normal XHERMES_DASHBOARD_READY stdout line and no ready-file side channel is
 // needed.
 
 function makeDashboardReadyFile() {
@@ -2374,16 +2374,16 @@ function writeZoomState(zoomLevel) {
 }
 
 // Match the backend's source resolution but bias toward a real git checkout.
-// Dev → SOURCE_REPO_ROOT. Packaged/CLI install → ACTIVE_HERMES_ROOT.
-// HERMES_DESKTOP_HERMES_ROOT always wins so devs can pin a worktree.
+// Dev → SOURCE_REPO_ROOT. Packaged/CLI install → ACTIVE_XHERMES_ROOT.
+// XHERMES_DESKTOP_XHERMES_ROOT always wins so devs can pin a worktree.
 function resolveUpdateRoot() {
   const candidates = [
-    process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT),
+    process.env.XHERMES_DESKTOP_XHERMES_ROOT && path.resolve(process.env.XHERMES_DESKTOP_XHERMES_ROOT),
     !IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT) ? SOURCE_REPO_ROOT : null,
-    isHermesSourceRoot(ACTIVE_HERMES_ROOT) ? ACTIVE_HERMES_ROOT : null
+    isHermesSourceRoot(ACTIVE_XHERMES_ROOT) ? ACTIVE_XHERMES_ROOT : null
   ].filter(Boolean)
 
-  return candidates.find(c => directoryExists(path.join(c, '.git'))) || candidates[0] || ACTIVE_HERMES_ROOT
+  return candidates.find(c => directoryExists(path.join(c, '.git'))) || candidates[0] || ACTIVE_XHERMES_ROOT
 }
 
 function runGit(args, options: any = {}): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -2622,7 +2622,7 @@ let quitConfirmedWithActiveWork = false
 // see resolveStagedUpdaterBinary for the policy and for #74836. Returns null
 // whenever no hand-off applies; callers degrade gracefully.
 function resolveUpdaterBinary() {
-  return resolveStagedUpdaterBinary(HERMES_HOME, { fileExists, isWindows: IS_WINDOWS })
+  return resolveStagedUpdaterBinary(XHERMES_HOME, { fileExists, isWindows: IS_WINDOWS })
 }
 
 function repairMacUpdaterHelper(updater) {
@@ -2863,7 +2863,7 @@ async function applyUpdates(opts = {}) {
     if (!updater) {
       // No staged updater binary — this is a CLI-installed user (they ran
       // `xhermes desktop`, never the Tauri installer that self-copies
-      // xhermes-setup.exe into HERMES_HOME). They DO have a working `xhermes`
+      // xhermes-setup.exe into XHERMES_HOME). They DO have a working `xhermes`
       // on PATH / in the venv, so the correct path is the one-liner in their
       // native medium. We show the EXACT command, branch-pinned to the
       // checkout they're on — bare `xhermes update` defaults to main and would
@@ -2894,7 +2894,7 @@ async function applyUpdates(opts = {}) {
       return { ok: true, manual: true, command, hermesRoot: updateRoot }
     }
 
-    const handoffConflict = updateHandoffConflict(HERMES_HOME)
+    const handoffConflict = updateHandoffConflict(XHERMES_HOME)
 
     if (handoffConflict) {
       // A different updater already owns the marker — most often a previous
@@ -2930,7 +2930,7 @@ async function applyUpdates(opts = {}) {
     // ── Pre-flight state.db integrity guard (#68474) ─────────────────
     // Emergency backup and header verification before the update touches
     // anything.  Runs while the backend is still alive.
-    preflightStateDb(HERMES_HOME, rememberLog)
+    preflightStateDb(XHERMES_HOME, rememberLog)
 
     // Stop our own backend(s) and wait for the venv shim to unlock BEFORE we
     // spawn the updater. Without this the updater races a still-locked
@@ -2990,10 +2990,10 @@ async function applyUpdates(opts = {}) {
     // Detached so the updater outlives this process — it needs us GONE before
     // `xhermes update` will run (the venv shim is locked while we live).
     const child = spawnUpdaterProcess(updater, updaterArgs, {
-      cwd: HERMES_HOME,
+      cwd: XHERMES_HOME,
       env: {
         ...process.env,
-        HERMES_HOME,
+        XHERMES_HOME,
         PATH: pathWithHermesManagedNode(venvBin)
       },
       detached: true,
@@ -3016,7 +3016,7 @@ async function applyUpdates(opts = {}) {
     // strictly better than never updating again, and the updater still writes
     // its own marker moments later.
     if (Number.isInteger(child.pid) && stagedUpdaterSupportsPrewrittenMarker(updater)) {
-      writeUpdateMarker(HERMES_HOME, child.pid)
+      writeUpdateMarker(XHERMES_HOME, child.pid)
     } else if (Number.isInteger(child.pid)) {
       rememberLog(
         `[updates] skipping marker pre-write: staged updater predates self-adopt (${updater}); it would refuse its own claim`
@@ -3052,7 +3052,7 @@ async function handOffWindowsBootstrapRecovery(reason) {
     return false
   }
 
-  const handoffConflict = updateHandoffConflict(HERMES_HOME)
+  const handoffConflict = updateHandoffConflict(XHERMES_HOME)
 
   if (handoffConflict) {
     // Same hazard as applyUpdates (#75778): a live foreign updater already
@@ -3095,10 +3095,10 @@ async function handOffWindowsBootstrapRecovery(reason) {
   await releaseBackendLockForUpdate(updateRoot)
 
   const child = spawnUpdaterProcess(updater, updaterArgs, {
-    cwd: HERMES_HOME,
+    cwd: XHERMES_HOME,
     env: {
       ...process.env,
-      HERMES_HOME,
+      XHERMES_HOME,
       PATH: pathWithHermesManagedNode(venvBin)
     },
     detached: true,
@@ -3111,7 +3111,7 @@ async function handOffWindowsBootstrapRecovery(reason) {
   // exclusion: a pre-#74782 binary would refuse its own pre-written claim and
   // strand the very recovery meant to heal the install.
   if (Number.isInteger(child.pid) && stagedUpdaterSupportsPrewrittenMarker(updater)) {
-    writeUpdateMarker(HERMES_HOME, child.pid)
+    writeUpdateMarker(XHERMES_HOME, child.pid)
   } else if (Number.isInteger(child.pid)) {
     rememberLog(
       `[bootstrap] skipping marker pre-write: staged updater predates self-adopt (${updater}); it would refuse its own claim`
@@ -3303,7 +3303,7 @@ async function applyUpdatesPosixInApp(opts: any) {
   }
 
   // ── Pre-flight state.db integrity guard (#68474) ──
-  preflightStateDb(HERMES_HOME, rememberLog)
+  preflightStateDb(XHERMES_HOME, rememberLog)
 
   // Put the XHermes-managed Node and the venv on PATH so `xhermes desktop`'s
   // npm build can find them on a machine with no system Node. Windows portable
@@ -3313,7 +3313,7 @@ async function applyUpdatesPosixInApp(opts: any) {
   // multi-GB archives for minutes) stream nothing to the progress UI — users
   // read the silence as a hang and cancel a healthy update.
   const env: Record<string, string> = {
-    HERMES_HOME,
+    XHERMES_HOME,
     PYTHONUNBUFFERED: '1',
     PATH: pathWithHermesManagedNode(path.join(updateRoot, 'venv', 'bin'))
   }
@@ -3324,7 +3324,7 @@ async function applyUpdatesPosixInApp(opts: any) {
   // mid-update produces the boot→kill→crash loop in #37532 — the desktop
   // already restarts its own backend via the rebuild+relaunch below, so the
   // reap must spare it. Hand the live backend's PID to the update process;
-  // _kill_stale_dashboard_processes reads HERMES_DESKTOP_CHILD_PID and excludes
+  // _kill_stale_dashboard_processes reads XHERMES_DESKTOP_CHILD_PID and excludes
   // it while still reaping any genuinely-orphaned backends. (#37532)
   // Exclude every desktop-managed backend (primary + all pool profiles) from
   // the update reaper. _kill_stale_dashboard_processes accepts a comma-separated
@@ -3343,7 +3343,7 @@ async function applyUpdatesPosixInApp(opts: any) {
   }
 
   if (desktopChildPids.length) {
-    env.HERMES_DESKTOP_CHILD_PID = desktopChildPids.join(',')
+    env.XHERMES_DESKTOP_CHILD_PID = desktopChildPids.join(',')
   }
 
   // Branch-pin so a non-main checkout doesn't get switched to main (and self-heal
@@ -3611,7 +3611,7 @@ function readBootstrapMarker() {
   return readJson(BOOTSTRAP_COMPLETE_MARKER)
 }
 
-// Marker-independent: is the canonical install at ACTIVE_HERMES_ROOT actually
+// Marker-independent: is the canonical install at ACTIVE_XHERMES_ROOT actually
 // runnable right now? A complete CLI install (`install.sh --include-desktop`)
 // or a DMG launch over a prior CLI install satisfies this WITHOUT the desktop
 // ever having written the bootstrap marker -- so we must be able to recognise
@@ -3620,11 +3620,11 @@ function isActiveRuntimeUsable() {
   const venvPython = getVenvPython(VENV_ROOT)
 
   return (
-    isHermesSourceRoot(ACTIVE_HERMES_ROOT) &&
+    isHermesSourceRoot(ACTIVE_XHERMES_ROOT) &&
     fileExists(venvPython) &&
     canImportHermesCli(venvPython, {
       env: {
-        PYTHONPATH: [ACTIVE_HERMES_ROOT, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
+        PYTHONPATH: [ACTIVE_XHERMES_ROOT, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
       }
     })
   )
@@ -3656,7 +3656,7 @@ function writeBootstrapMarker(payload) {
 }
 
 function resolveWebDist() {
-  const override = process.env.HERMES_DESKTOP_WEB_DIST
+  const override = process.env.XHERMES_DESKTOP_WEB_DIST
 
   if (override && directoryExists(path.resolve(override))) {
     return path.resolve(override)
@@ -3680,7 +3680,7 @@ function resolveWebDist() {
     rememberLog(
       `[web-dist] dashboard frontend dir resolved to an asar-internal path that ` +
         `is not a real directory: ${fallback}. Static routes will 404. ` +
-        `Ensure dist/** is unpacked (asarUnpack) or set HERMES_DESKTOP_WEB_DIST.`
+        `Ensure dist/** is unpacked (asarUnpack) or set XHERMES_DESKTOP_WEB_DIST.`
     )
   }
 
@@ -3732,7 +3732,7 @@ function resolveHermesCwd() {
   // real directory), then the home dir.
   const candidates = [
     readDefaultProjectDir(),
-    process.env.HERMES_DESKTOP_CWD,
+    process.env.XHERMES_DESKTOP_CWD,
     IS_PACKAGED ? null : process.env.INIT_CWD,
     IS_PACKAGED ? null : process.cwd(),
     !IS_PACKAGED ? SOURCE_REPO_ROOT : null,
@@ -3837,7 +3837,7 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
     command,
     args: ['-m', 'hermes_cli.main', ...backendArgs],
     env: buildDesktopBackendEnv({
-      hermesHome: HERMES_HOME,
+      hermesHome: XHERMES_HOME,
       pythonPathEntries: [root, ...getVenvSitePackagesEntries(venvRoot)],
       venvRoot
     }),
@@ -3847,7 +3847,7 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
   }
 }
 
-// createActiveBackend — build a backend pointing at ACTIVE_HERMES_ROOT, the
+// createActiveBackend — build a backend pointing at ACTIVE_XHERMES_ROOT, the
 // canonical install location shared with the CLI installer. The venv at
 // VENV_ROOT may not exist yet on first run; bootstrap=true tells
 // ensureRuntime() to create / refresh it before launch.
@@ -3857,24 +3857,24 @@ function createActiveBackend(backendArgs) {
 
   return {
     kind: 'python',
-    label: `XHermes at ${ACTIVE_HERMES_ROOT}`,
+    label: `XHermes at ${ACTIVE_XHERMES_ROOT}`,
     command,
     args: ['-m', 'hermes_cli.main', ...backendArgs],
     env: buildDesktopBackendEnv({
-      hermesHome: HERMES_HOME,
-      pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
+      hermesHome: XHERMES_HOME,
+      pythonPathEntries: [ACTIVE_XHERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
       venvRoot: VENV_ROOT
     }),
-    root: ACTIVE_HERMES_ROOT,
+    root: ACTIVE_XHERMES_ROOT,
     bootstrap: true,
     shell: false
   }
 }
 
 function resolveHermesBackend(backendArgs) {
-  // 1. Explicit override -- HERMES_DESKTOP_HERMES_ROOT points at a developer
+  // 1. Explicit override -- XHERMES_DESKTOP_XHERMES_ROOT points at a developer
   //    checkout. Honour it as-is (no bootstrap; the user is driving).
-  const overrideRoot = process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT)
+  const overrideRoot = process.env.XHERMES_DESKTOP_XHERMES_ROOT && path.resolve(process.env.XHERMES_DESKTOP_XHERMES_ROOT)
 
   if (overrideRoot && isHermesSourceRoot(overrideRoot)) {
     const backend = createPythonBackend(overrideRoot, `XHermes source at ${overrideRoot}`, backendArgs)
@@ -3896,7 +3896,7 @@ function resolveHermesBackend(backendArgs) {
     }
   }
 
-  // 3. ACTIVE_HERMES_ROOT — the canonical install at
+  // 3. ACTIVE_XHERMES_ROOT — the canonical install at
   //    %LOCALAPPDATA%\\xhermes\\xhermes-agent (Windows) or ~/.xhermes/xhermes-agent.
   //    A valid bootstrap marker proves Desktop finished the first-run install
   //    flow, but marker provenance is NOT the same thing as runtime usability:
@@ -3909,7 +3909,7 @@ function resolveHermesBackend(backendArgs) {
   if (activeRuntime.shouldUseActiveRuntime && !bootstrapRepairRequested) {
     if (!activeRuntime.hasValidMarker) {
       rememberLog(
-        `[bootstrap] Active XHermes runtime at ${ACTIVE_HERMES_ROOT} is usable but the bootstrap marker is missing or stale; skipping first-run bootstrap.`
+        `[bootstrap] Active XHermes runtime at ${ACTIVE_XHERMES_ROOT} is usable but the bootstrap marker is missing or stale; skipping first-run bootstrap.`
       )
     }
 
@@ -3924,10 +3924,10 @@ function resolveHermesBackend(backendArgs) {
   //    a previous tool-only setup, or pip-installed system-wide. Use it but
   //    do NOT write a bootstrap marker; the user did this themselves and we
   //    don't want to take ownership of an install we didn't perform.
-  //    HERMES_DESKTOP_IGNORE_EXISTING=1 forces the bootstrap path for testing.
-  if (process.env.HERMES_DESKTOP_IGNORE_EXISTING !== '1') {
+  //    XHERMES_DESKTOP_IGNORE_EXISTING=1 forces the bootstrap path for testing.
+  if (process.env.XHERMES_DESKTOP_IGNORE_EXISTING !== '1') {
     let hermesCommand = null
-    const hermesOverride = process.env.HERMES_DESKTOP_HERMES
+    const hermesOverride = process.env.XHERMES_DESKTOP_XHERMES
 
     if (hermesOverride) {
       const resolvedOverride = findOnPath(hermesOverride)
@@ -3966,7 +3966,7 @@ function resolveHermesBackend(backendArgs) {
       // and lets the resolver fall through to step 6 / bootstrap.
       const shellForProbe = isCommandScript(hermesCommand)
 
-      // HERMES_DESKTOP_HERMES is an explicit deployment override (used by
+      // XHERMES_DESKTOP_XHERMES is an explicit deployment override (used by
       // the Nix wrapper), not a discovered PATH candidate. It must not fall
       // through to the install-script bootstrap if the optional probe times
       // out under load; the pinned backend is the only valid runtime there.
@@ -4041,7 +4041,7 @@ function resolveHermesBackend(backendArgs) {
     env: {},
     shell: false,
     // Hints for the bootstrap runner / UI layer:
-    activeRoot: ACTIVE_HERMES_ROOT,
+    activeRoot: ACTIVE_XHERMES_ROOT,
     installStamp: INSTALL_STAMP, // may be null in dev
     isPackaged: IS_PACKAGED,
     platform: process.platform
@@ -4105,8 +4105,8 @@ async function ensureRuntime(backend) {
       installStamp: backend.installStamp,
       activeRoot: backend.activeRoot,
       sourceRepoRoot: SOURCE_REPO_ROOT,
-      hermesHome: HERMES_HOME,
-      logRoot: path.join(HERMES_HOME, 'logs'),
+      hermesHome: XHERMES_HOME,
+      logRoot: path.join(XHERMES_HOME, 'logs'),
       abortSignal: bootstrapAbortController.signal,
       onEvent: ev => {
         // Tee every bootstrap event to (a) the desktop log for forensics
@@ -4142,7 +4142,7 @@ async function ensureRuntime(backend) {
       const bootstrapError = new Error(
         `XHermes bootstrap failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ` +
           `${bootstrapResult.error || 'unknown error'}. ` +
-          `Check ${path.join(HERMES_HOME, 'logs', 'desktop.log')} for the full transcript.`
+          `Check ${path.join(XHERMES_HOME, 'logs', 'desktop.log')} for the full transcript.`
       ) as any
 
       bootstrapError.isBootstrapFailure = true
@@ -4167,9 +4167,9 @@ async function ensureRuntime(backend) {
   // sync flow exited through, minus all the factory/pip/marker machinery
   // (install.ps1 owns those concerns now and the bootstrap-complete marker
   // attests they ran successfully).
-  if (!isHermesSourceRoot(ACTIVE_HERMES_ROOT)) {
+  if (!isHermesSourceRoot(ACTIVE_XHERMES_ROOT)) {
     throw new Error(
-      `XHermes install at ${ACTIVE_HERMES_ROOT} is missing or incomplete. ` +
+      `XHermes install at ${ACTIVE_XHERMES_ROOT} is missing or incomplete. ` +
         'Reinstall via the desktop installer or scripts/install.ps1.'
     )
   }
@@ -4205,7 +4205,7 @@ async function ensureRuntime(backend) {
   }
 
   backend.command = getVenvPython(VENV_ROOT)
-  backend.label = `XHermes at ${ACTIVE_HERMES_ROOT} (venv: ${VENV_ROOT})`
+  backend.label = `XHermes at ${ACTIVE_XHERMES_ROOT} (venv: ${VENV_ROOT})`
   updateBootProgress({
     phase: 'runtime.ready',
     message: 'XHermes runtime is ready',
@@ -6484,7 +6484,7 @@ async function freshGatewayWsUrl(profile) {
 const DEFAULT_NOUS_PORTAL_URL = 'https://portal.nousresearch.com'
 
 function resolvePortalBaseUrl() {
-  const raw = process.env.HERMES_PORTAL_BASE_URL || process.env.NOUS_PORTAL_BASE_URL || DEFAULT_NOUS_PORTAL_URL
+  const raw = process.env.XHERMES_PORTAL_BASE_URL || process.env.NOUS_PORTAL_BASE_URL || DEFAULT_NOUS_PORTAL_URL
 
   return String(raw).trim().replace(/\/+$/, '')
 }
@@ -6931,7 +6931,7 @@ function writeDesktopConnectionConfig(config) {
 }
 
 // Returns the desktop's chosen profile name, or null when unset. "default" is
-// a valid stored value (pins the root HERMES_HOME explicitly); null means "no
+// a valid stored value (pins the root XHERMES_HOME explicitly); null means "no
 // preference" and preserves the legacy launch (no --profile flag).
 function readActiveDesktopProfile() {
   try {
@@ -6971,7 +6971,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
   const scoped = key ? config.profiles?.[key] || null : null
   const block = key ? scoped || {} : config.remote || {}
 
-  const envOverride = key ? false : Boolean(process.env.HERMES_DESKTOP_REMOTE_URL)
+  const envOverride = key ? false : Boolean(process.env.XHERMES_DESKTOP_REMOTE_URL)
   const savedMode = key ? scoped?.mode : config.mode
   const ssh = savedMode === 'ssh' ? normalizeSshConfig(block) : null
 
@@ -6979,7 +6979,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
 
   const remoteToken = decryptDesktopSecret(block.token)
   const authMode = normAuthMode(block.authMode)
-  const remoteUrl = envOverride ? String(process.env.HERMES_DESKTOP_REMOTE_URL || '') : String(block.url || '')
+  const remoteUrl = envOverride ? String(process.env.XHERMES_DESKTOP_REMOTE_URL || '') : String(block.url || '')
   const mode = envOverride ? 'remote' : savedMode === 'ssh' ? 'ssh' : modeIsRemoteLike(savedMode) ? savedMode : 'local'
 
   let remoteOauthConnected = false
@@ -7017,7 +7017,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
     sshRemoteHermesPath: (ssh || savedSsh)?.remoteHermesPath || '',
     sshRemoteProfile: (ssh || savedSsh)?.remoteProfile || '',
     // The env override only forces the global/primary connection; a per-profile
-    // scope is never overridden by HERMES_DESKTOP_REMOTE_URL.
+    // scope is never overridden by XHERMES_DESKTOP_REMOTE_URL.
     envOverride
   }
 }
@@ -7345,7 +7345,7 @@ function activeSshTerminalTarget() {
     return null
   }
 
-  if (process.env.HERMES_DESKTOP_REMOTE_URL) {
+  if (process.env.XHERMES_DESKTOP_REMOTE_URL) {
     return null
   }
 
@@ -7537,7 +7537,7 @@ function persistSshConnectionToken(profile, source, token) {
 // Resolve the remote backend for a given profile, or null when that profile
 // should run a LOCAL backend. Precedence:
 //   1. explicit per-profile remote override (connection.json `profiles[name]`)
-//   2. env override (HERMES_DESKTOP_REMOTE_URL/_TOKEN) — applies app-wide
+//   2. env override (XHERMES_DESKTOP_REMOTE_URL/_TOKEN) — applies app-wide
 //   3. global remote (connection.json `mode: 'remote'`)
 // A null/empty profile resolves the env/global remote, so legacy callers and
 // the connection test (which pass no profile) are unchanged.
@@ -7571,13 +7571,13 @@ async function resolveRemoteBackend(profile) {
   }
 
   // 2. Env override (global, token-auth only).
-  const rawEnvUrl = process.env.HERMES_DESKTOP_REMOTE_URL
-  const rawEnvToken = process.env.HERMES_DESKTOP_REMOTE_TOKEN
+  const rawEnvUrl = process.env.XHERMES_DESKTOP_REMOTE_URL
+  const rawEnvToken = process.env.XHERMES_DESKTOP_REMOTE_TOKEN
 
   if (rawEnvUrl) {
     if (!rawEnvToken) {
       throw new Error(
-        'HERMES_DESKTOP_REMOTE_URL is set but HERMES_DESKTOP_REMOTE_TOKEN is not. ' +
+        'XHERMES_DESKTOP_REMOTE_URL is set but XHERMES_DESKTOP_REMOTE_TOKEN is not. ' +
           'Both must be provided to connect to a remote XHermes backend.'
       )
     }
@@ -7635,7 +7635,7 @@ function configuredRemoteProfileNames() {
 // profile via ?profile=. Cloud counts — it resolves to a remote backend (Q6).
 // Distinct from per-profile overrides — here there's one host for all.
 function globalRemoteActive() {
-  if (process.env.HERMES_DESKTOP_REMOTE_URL) {
+  if (process.env.XHERMES_DESKTOP_REMOTE_URL) {
     return true
   }
 
@@ -8176,7 +8176,7 @@ async function spawnPoolBackend(profile, entry) {
     })
   }
 
-  // --profile wins over the inherited HERMES_HOME env (see _apply_profile_override
+  // --profile wins over the inherited XHERMES_HOME env (see _apply_profile_override
   // step 3 in hermes_cli/main.py), so the child re-homes to this profile.
   // --port 0: the OS assigns an ephemeral port; the child announces it on stdout.
   const backendArgs = ['--profile', profile, 'serve', '--host', '127.0.0.1', '--port', '0']
@@ -8196,18 +8196,18 @@ async function spawnPoolBackend(profile, entry) {
       cwd: hermesCwd,
       env: {
         ...process.env,
-        HERMES_HOME,
+        XHERMES_HOME,
         ...backend.env,
         // Pin the gateway's tool/terminal cwd to the same directory we chose for
         // the child process. Inherited TERMINAL_CWD (or a stale config bridge)
         // can still point at the install dir even when spawn cwd is home.
         TERMINAL_CWD: hermesCwd,
-        HERMES_DASHBOARD_SESSION_TOKEN: token,
+        XHERMES_DASHBOARD_SESSION_TOKEN: token,
         // Marks this dashboard backend as desktop-spawned so it runs the cron
         // scheduler tick loop (the gateway isn't running under the app).
-        HERMES_DESKTOP: '1',
-        HERMES_WEB_DIST: webDist,
-        ...(readyFile ? { HERMES_DESKTOP_READY_FILE: readyFile } : {})
+        XHERMES_DESKTOP: '1',
+        XHERMES_WEB_DIST: webDist,
+        ...(readyFile ? { XHERMES_DESKTOP_READY_FILE: readyFile } : {})
       },
       shell: backend.shell,
       stdio: ['ignore', 'pipe', 'pipe']
@@ -8433,7 +8433,7 @@ async function startHermes() {
     const backendArgs = ['serve', '--host', '127.0.0.1', '--port', '0']
     // Pin the desktop's chosen profile via the global --profile flag. This is
     // deterministic (it wins over the sticky ~/.xhermes/active_profile file) and
-    // resolves HERMES_HOME the same way `xhermes -p <name>` does on the CLI. An
+    // resolves XHERMES_HOME the same way `xhermes -p <name>` does on the CLI. An
     // unset preference keeps the legacy launch so existing installs are
     // unaffected.
     const activeProfile = readActiveDesktopProfile()
@@ -8484,23 +8484,23 @@ async function startHermes() {
         cwd: hermesCwd,
         env: {
           ...process.env,
-          // Explicitly pin HERMES_HOME for the child so Python's get_hermes_home()
+          // Explicitly pin XHERMES_HOME for the child so Python's get_hermes_home()
           // resolves to the SAME location our resolveHermesHome() picked. Without
           // this pin, Python falls back to ~/.xhermes on every platform — fine on
           // mac/linux (where our default matches), but on Windows our default is
           // %LOCALAPPDATA%\xhermes, which differs from C:\Users\<u>\.xhermes.
           // Mismatch would split config / sessions / .env / logs across two
-          // directories. install.ps1 sets HERMES_HOME via setx; the desktop
+          // directories. install.ps1 sets XHERMES_HOME via setx; the desktop
           // can't reliably do that, so we set it inline for every spawn.
-          HERMES_HOME,
+          XHERMES_HOME,
           ...backend.env,
           TERMINAL_CWD: hermesCwd,
-          HERMES_DASHBOARD_SESSION_TOKEN: token,
+          XHERMES_DASHBOARD_SESSION_TOKEN: token,
           // Marks this dashboard backend as desktop-spawned so it runs the cron
           // scheduler tick loop (the gateway isn't running under the app).
-          HERMES_DESKTOP: '1',
-          HERMES_WEB_DIST: webDist,
-          ...(readyFile ? { HERMES_DESKTOP_READY_FILE: readyFile } : {})
+          XHERMES_DESKTOP: '1',
+          XHERMES_WEB_DIST: webDist,
+          ...(readyFile ? { XHERMES_DESKTOP_READY_FILE: readyFile } : {})
         },
         shell: backend.shell,
         stdio: ['ignore', 'pipe', 'pipe']
@@ -9988,7 +9988,7 @@ ipcMain.handle('xhermes:profile:set', async (_event, name) => {
   const next = writeActiveDesktopProfile(name)
 
   // Switching profiles is a backend re-home: relaunch the dashboard under the
-  // new HERMES_HOME. Pool backends keep their own homes, so only the primary
+  // new XHERMES_HOME. Pool backends keep their own homes, so only the primary
   // is torn down.
   await teardownPrimaryBackendAndWait()
   mainWindow?.reload()
@@ -10923,11 +10923,11 @@ function windowsShellSpec() {
 // Resolve the interactive shell for the embedded terminal: an explicit user
 // override wins, otherwise auto-detect the best one installed for the platform.
 function terminalShellCommand() {
-  // HERMES_DESKTOP_SHELL is the cross-platform escape hatch (a path or a bare
+  // XHERMES_DESKTOP_SHELL is the cross-platform escape hatch (a path or a bare
   // name on PATH); $SHELL is honored on POSIX, where it's the user's canonical
   // choice, but ignored on Windows, where it's usually a stray MSYS/Git path
   // node-pty can't spawn natively.
-  const override = (process.env.HERMES_DESKTOP_SHELL || (IS_WINDOWS ? '' : process.env.SHELL) || '').trim()
+  const override = (process.env.XHERMES_DESKTOP_SHELL || (IS_WINDOWS ? '' : process.env.SHELL) || '').trim()
 
   if (override) {
     const resolved = isExecutableFile(override) ? override : findOnPath(override)
@@ -10984,9 +10984,9 @@ function terminalShellEnv() {
   env.TERM_PROGRAM_VERSION = app.getVersion()
 
   // Let a xhermes/--tui launched in this pane know it's embedded in the desktop
-  // GUI (build_environment_hints surfaces this). Distinct from HERMES_DESKTOP,
+  // GUI (build_environment_hints surfaces this). Distinct from XHERMES_DESKTOP,
   // which marks the agent *backend* and gates cron/gateway behavior.
-  env.HERMES_DESKTOP_TERMINAL = '1'
+  env.XHERMES_DESKTOP_TERMINAL = '1'
 
   return env
 }
@@ -11101,8 +11101,8 @@ ipcMain.handle('xhermes:fs:openDir', async (_event, dirPath) => {
   }
 })
 
-// The LOCAL Desktop runtime-plugin root: `<HERMES_HOME>/desktop-plugins`,
-// resolved from the main-process HERMES_HOME (see resolveHermesHome) — NOT from
+// The LOCAL Desktop runtime-plugin root: `<XHERMES_HOME>/desktop-plugins`,
+// resolved from the main-process XHERMES_HOME (see resolveHermesHome) — NOT from
 // the connected backend. A remote backend reports its own `hermes_home` over
 // the gateway, which is a path on the REMOTE box; deriving the plugin dir from
 // it yields `undefined/desktop-plugins` (or a non-existent remote path) and the
@@ -11113,7 +11113,7 @@ ipcMain.handle('xhermes:fs:desktopPluginsRoot', async () => {
   // profiles/<name>/, matching the profile-scoped hermes_home the backend
   // reported before this resolver existed. 'default'/unset pins the global root.
   const profile = readActiveDesktopProfile()
-  const base = profile && profile !== 'default' ? path.join(HERMES_HOME, 'profiles', profile) : HERMES_HOME
+  const base = profile && profile !== 'default' ? path.join(XHERMES_HOME, 'profiles', profile) : XHERMES_HOME
   const dir = path.join(base, 'desktop-plugins')
 
   try {
@@ -11480,12 +11480,12 @@ function uninstallVenvPython() {
 
 async function getUninstallSummary() {
   const py = uninstallVenvPython()
-  const agentRoot = ACTIVE_HERMES_ROOT
+  const agentRoot = ACTIVE_XHERMES_ROOT
 
   // Fast JS-side fallback used when the agent venv is gone (lite client) or the
   // probe fails — the renderer still needs *something* to render options from.
   const fallback = () => ({
-    hermes_home: HERMES_HOME,
+    hermes_home: XHERMES_HOME,
     agent_installed: isHermesSourceRoot(agentRoot) && fileExists(py),
     gui_installed: true,
     source_built_artifacts: [],
@@ -11519,7 +11519,7 @@ async function getUninstallSummary() {
         ['-m', 'hermes_cli.main', 'uninstall', '--gui-summary'],
         hiddenWindowsChildOptions({
           cwd: agentRoot,
-          env: { ...process.env, HERMES_HOME, NO_COLOR: '1' },
+          env: { ...process.env, XHERMES_HOME, NO_COLOR: '1' },
           stdio: ['ignore', 'pipe', 'ignore']
         })
       )
@@ -11587,7 +11587,7 @@ async function runDesktopUninstall(mode) {
 
     if (sysPy) {
       py = sysPy
-      pythonPath = ACTIVE_HERMES_ROOT
+      pythonPath = ACTIVE_XHERMES_ROOT
     } else if (IS_WINDOWS) {
       rememberLog(
         '[uninstall] no system Python found for lite/full on Windows; falling back ' +
@@ -11607,7 +11607,7 @@ async function runDesktopUninstall(mode) {
   // lock would make the script's rmdir half-fail (#37532 for the update path).
   // Reuses the incident-hardened update teardown; no-op on macOS/Linux.
   try {
-    await releaseBackendLock(ACTIVE_HERMES_ROOT, 'uninstall')
+    await releaseBackendLock(ACTIVE_XHERMES_ROOT, 'uninstall')
   } catch (error) {
     rememberLog(`[uninstall] backend teardown errored (continuing): ${error.message}`)
   }
@@ -11616,10 +11616,10 @@ async function runDesktopUninstall(mode) {
     desktopPid: process.pid,
     pythonExe: py,
     pythonPath,
-    agentRoot: ACTIVE_HERMES_ROOT,
+    agentRoot: ACTIVE_XHERMES_ROOT,
     uninstallArgs,
     appPath: removeBundle,
-    hermesHome: HERMES_HOME
+    hermesHome: XHERMES_HOME
   }
 
   let scriptPath
@@ -11687,7 +11687,7 @@ ipcMain.handle('xhermes:vscode-theme:search', async (_event, query) => searchMar
 // running app's chat composer. Three delivery paths: macOS 'open-url',
 // Win/Linux running-app 'second-instance' (argv), Win/Linux cold-start argv.
 // ---------------------------------------------------------------------------
-const HERMES_PROTOCOL = 'xhermes'
+const XHERMES_PROTOCOL = 'xhermes'
 let _pendingDeepLink = null
 let _rendererReadyForDeepLink = false
 
@@ -11696,7 +11696,7 @@ function _extractDeepLink(argv) {
     return null
   }
 
-  return argv.find(a => typeof a === 'string' && a.startsWith(`${HERMES_PROTOCOL}://`)) || null
+  return argv.find(a => typeof a === 'string' && a.startsWith(`${XHERMES_PROTOCOL}://`)) || null
 }
 
 function handleDeepLink(url) {
@@ -11751,7 +11751,7 @@ ipcMain.handle('xhermes:deep-link-ready', () => {
     const queued = _pendingDeepLink
     _pendingDeepLink = null
     handleDeepLink(
-      `${HERMES_PROTOCOL}://${queued.kind}/${encodeURIComponent(queued.name)}` +
+      `${XHERMES_PROTOCOL}://${queued.kind}/${encodeURIComponent(queued.name)}` +
         (Object.keys(queued.params).length ? '?' + new URLSearchParams(queued.params).toString() : '')
     )
   }
@@ -11764,9 +11764,9 @@ function registerDeepLinkProtocol() {
     if (process.defaultApp && process.argv.length >= 2) {
       // Dev: register with the electron exec path + entry script so the OS can
       // relaunch us with the URL.
-      app.setAsDefaultProtocolClient(HERMES_PROTOCOL, process.execPath, [path.resolve(process.argv[1])])
+      app.setAsDefaultProtocolClient(XHERMES_PROTOCOL, process.execPath, [path.resolve(process.argv[1])])
     } else {
-      app.setAsDefaultProtocolClient(HERMES_PROTOCOL)
+      app.setAsDefaultProtocolClient(XHERMES_PROTOCOL)
     }
   } catch (err) {
     rememberLog(`[deeplink] protocol registration failed: ${err.message}`)

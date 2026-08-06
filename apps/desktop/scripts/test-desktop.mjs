@@ -49,17 +49,17 @@ const APP = (() => {
   }
 })()
 
-// Default HERMES_HOME for non-sandboxed runs -- matches main.ts's
+// Default XHERMES_HOME for non-sandboxed runs -- matches main.ts's
 // resolveHermesHome(). On Windows it's %LOCALAPPDATA%\xhermes; elsewhere
 // it's ~/.xhermes. The fresh-install sandbox launchFresh() sets its own
-// HERMES_HOME and never touches this.
-const DEFAULT_HERMES_HOME = (() => {
+// XHERMES_HOME and never touches this.
+const DEFAULT_XHERMES_HOME = (() => {
   if (PLATFORM === 'win32' && process.env.LOCALAPPDATA) {
     return path.join(process.env.LOCALAPPDATA, 'xhermes')
   }
   return path.join(os.homedir(), '.xhermes')
 })()
-const VENV_ROOT = path.join(DEFAULT_HERMES_HOME, 'xhermes-agent', 'venv')
+const VENV_ROOT = path.join(DEFAULT_XHERMES_HOME, 'xhermes-agent', 'venv')
 const FRESH_SANDBOX_ROOT = path.join(os.tmpdir(), 'xhermes-desktop-fresh-install')
 
 function die(message) {
@@ -115,7 +115,7 @@ function ensurePlatformBuilds() {
 }
 
 function ensurePackagedApp() {
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && exists(APP.binary)) {
+  if (process.env.XHERMES_DESKTOP_SKIP_BUILD === '1' && exists(APP.binary)) {
     return
   }
 
@@ -162,7 +162,7 @@ function ensureDmg() {
   if (PLATFORM !== 'darwin') {
     die('DMG mode is macOS-only; on Windows use the `nsis` mode instead.')
   }
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && exists(resolveDmgPath())) {
+  if (process.env.XHERMES_DESKTOP_SKIP_BUILD === '1' && exists(resolveDmgPath())) {
     return
   }
   run('npm', ['run', 'dist:mac:dmg'])
@@ -172,7 +172,7 @@ function ensureNsis() {
   if (PLATFORM !== 'win32') {
     die('NSIS mode is win32-only; on macOS use the `dmg` mode instead.')
   }
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && resolveNsisPath()) {
+  if (process.env.XHERMES_DESKTOP_SKIP_BUILD === '1' && resolveNsisPath()) {
     return
   }
   run('npm', ['run', 'dist:win:nsis'])
@@ -256,13 +256,13 @@ function launchFresh() {
     env[key] = value
   }
 
-  env.HERMES_DESKTOP_CWD = cwd
-  env.HERMES_DESKTOP_IGNORE_EXISTING = '1'
-  env.HERMES_DESKTOP_TEST_MODE = 'fresh-install'
-  env.HERMES_DESKTOP_USER_DATA_DIR = userDataDir
-  env.HERMES_HOME = hermesHome
-  delete env.HERMES_DESKTOP_HERMES
-  delete env.HERMES_DESKTOP_HERMES_ROOT
+  env.XHERMES_DESKTOP_CWD = cwd
+  env.XHERMES_DESKTOP_IGNORE_EXISTING = '1'
+  env.XHERMES_DESKTOP_TEST_MODE = 'fresh-install'
+  env.XHERMES_DESKTOP_USER_DATA_DIR = userDataDir
+  env.XHERMES_HOME = hermesHome
+  delete env.XHERMES_DESKTOP_XHERMES
+  delete env.XHERMES_DESKTOP_XHERMES_ROOT
 
   const child = spawn(APP.binary, [], {
     cwd: os.homedir(),
@@ -275,7 +275,7 @@ function launchFresh() {
   console.log('\nFresh install sandbox:')
   console.log(`  root: ${sandbox}`)
   console.log(`  electron userData: ${userDataDir}`)
-  console.log(`  HERMES_HOME: ${hermesHome}`)
+  console.log(`  XHERMES_HOME: ${hermesHome}`)
   console.log(`  cwd: ${cwd}`)
 
   return { runtimeRoot: path.join(hermesHome, 'xhermes-agent', 'venv') }
@@ -400,13 +400,13 @@ function printArtifacts(options = {}) {
 function help() {
   console.log(`Usage:
   npm run test:desktop:existing  # build packaged app, launch with normal PATH/existing XHermes
-  npm run test:desktop:fresh     # build packaged app, launch with temp userData + HERMES_HOME
+  npm run test:desktop:fresh     # build packaged app, launch with temp userData + XHERMES_HOME
   npm run test:desktop:dmg       # (macOS only) build DMG and open it
   npm run test:desktop:nsis      # (win32 only) build NSIS installer
   npm run test:desktop:all       # build installer, validate app payload, print paths
 
 Fast rerun (skip rebuild if the packaged app already exists):
-  HERMES_DESKTOP_SKIP_BUILD=1 npm run test:desktop:fresh
+  XHERMES_DESKTOP_SKIP_BUILD=1 npm run test:desktop:fresh
 `)
 }
 

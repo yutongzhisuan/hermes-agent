@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 
-CANARY_KEY = "HERMES_TEAMS_DOTENV_CANARY"
+CANARY_KEY = "XHERMES_TEAMS_DOTENV_CANARY"
 
 
 def _plant_cwd_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -206,7 +206,7 @@ class TestLoadGatewayConfigApiServerExplicitDisable:
             "    enabled: false\n",
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
         monkeypatch.setenv("API_SERVER_ENABLED", "true")
         # Must satisfy _has_usable_api_server_key (min_length=16) — a weaker
         # key never enters the env-override branch on current main, which

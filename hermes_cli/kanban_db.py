@@ -27,9 +27,9 @@ Board resolution order (highest precedence first, all optional):
 * ``board=`` argument passed directly to :func:`connect` / :func:`init_db`
   (explicit — used by the CLI ``--board`` flag and the dashboard
   ``?board=...`` query param).
-* ``HERMES_KANBAN_BOARD`` env var (used by the dispatcher to pin workers
+* ``XHERMES_KANBAN_BOARD`` env var (used by the dispatcher to pin workers
   to the board their task lives on — workers cannot see other boards).
-* ``HERMES_KANBAN_DB`` env var (pins the DB file path directly — legacy
+* ``XHERMES_KANBAN_DB`` env var (pins the DB file path directly — legacy
   override still honoured; highest precedence when the file path itself
   is what the caller wants to force).
 * ``<root>/kanban/current`` — a one-line text file holding the slug of
@@ -37,17 +37,17 @@ Board resolution order (highest precedence first, all optional):
   switch <slug>``. When absent, the active board is ``default``.
 
 In standard installs ``<root>`` is ``~/.xhermes``. In Docker / custom
-deployments where ``HERMES_HOME`` points outside ``~/.xhermes`` (e.g.
-``/opt/xhermes``), ``<root>`` is ``HERMES_HOME``. Legacy env-var
+deployments where ``XHERMES_HOME`` points outside ``~/.xhermes`` (e.g.
+``/opt/xhermes``), ``<root>`` is ``XHERMES_HOME``. Legacy env-var
 overrides still work:
 
-* ``HERMES_KANBAN_DB`` — pin the database file path directly.
-* ``HERMES_KANBAN_WORKSPACES_ROOT`` — pin the workspaces root directly.
-* ``HERMES_KANBAN_HOME`` — pin the umbrella root that anchors kanban
+* ``XHERMES_KANBAN_DB`` — pin the database file path directly.
+* ``XHERMES_KANBAN_WORKSPACES_ROOT`` — pin the workspaces root directly.
+* ``XHERMES_KANBAN_HOME`` — pin the umbrella root that anchors kanban
   paths. Useful for tests and unusual deployments.
 
-The dispatcher injects ``HERMES_KANBAN_DB``,
-``HERMES_KANBAN_WORKSPACES_ROOT``, and ``HERMES_KANBAN_BOARD`` into
+The dispatcher injects ``XHERMES_KANBAN_DB``,
+``XHERMES_KANBAN_WORKSPACES_ROOT``, and ``XHERMES_KANBAN_BOARD`` into
 worker subprocess env so workers converge on the exact DB the
 dispatcher used to claim their task — even under unusual symlink or
 Docker layouts.
@@ -178,7 +178,7 @@ def _assert_not_delegated_child_mutation() -> None:
 
         delegated = is_delegated_child_process_context()
     except Exception:
-        delegated = bool(os.environ.get("HERMES_DELEGATED_CHILD_CONTEXT"))
+        delegated = bool(os.environ.get("XHERMES_DELEGATED_CHILD_CONTEXT"))
     if delegated:
         raise PermissionError(
             "delegate_task child contexts cannot mutate Kanban tasks or boards"
@@ -194,7 +194,7 @@ def _fire_kanban_lifecycle_hook(event: str, task_id: str, **fields: Any) -> None
     a plugin raising, import error) is swallowed — a misbehaving observer must
     never break a board state transition.
 
-    ``profile_name`` is resolved from the active HERMES_HOME so dispatcher- and
+    ``profile_name`` is resolved from the active XHERMES_HOME so dispatcher- and
     worker-side hooks both carry the right profile without the caller plumbing
     it through.
     """
@@ -214,7 +214,7 @@ def _fire_kanban_lifecycle_hook(event: str, task_id: str, **fields: Any) -> None
 # next dispatcher tick reclaims it. Workers that outlive this window should
 # call ``heartbeat_claim(task_id)`` periodically. In practice most kanban
 # workloads either finish within 15m, set a longer claim explicitly, or use
-# ``HERMES_KANBAN_CLAIM_TTL_SECONDS`` to raise the default claim window for
+# ``XHERMES_KANBAN_CLAIM_TTL_SECONDS`` to raise the default claim window for
 # long single-call MCP workflows.
 DEFAULT_CLAIM_TTL_SECONDS = 15 * 60
 
@@ -243,14 +243,14 @@ def _resolve_claim_ttl_seconds(ttl_seconds: Optional[int] = None) -> int:
     """Return the effective claim TTL, honoring the kanban env override.
 
     Explicit call-site values win. Otherwise a positive integer from
-    ``HERMES_KANBAN_CLAIM_TTL_SECONDS`` overrides the built-in default.
+    ``XHERMES_KANBAN_CLAIM_TTL_SECONDS`` overrides the built-in default.
     Invalid or non-positive env values fall back silently so existing
     installs keep working.
     """
     if ttl_seconds is not None:
         return max(1, int(ttl_seconds))
 
-    raw = os.environ.get("HERMES_KANBAN_CLAIM_TTL_SECONDS", "").strip()
+    raw = os.environ.get("XHERMES_KANBAN_CLAIM_TTL_SECONDS", "").strip()
     if raw:
         try:
             parsed = int(raw)
@@ -285,12 +285,12 @@ KANBAN_RATE_LIMIT_EXIT_CODE = 75
 def _resolve_crash_grace_seconds() -> int:
     """Return the crash-detection grace period in seconds.
 
-    Reads ``HERMES_KANBAN_CRASH_GRACE_SECONDS`` from the environment;
+    Reads ``XHERMES_KANBAN_CRASH_GRACE_SECONDS`` from the environment;
     falls back to ``DEFAULT_CRASH_GRACE_SECONDS`` when absent, empty,
     non-integer, or negative. A value of 0 restores immediate-reclaim
     behaviour (useful for tests).
     """
-    raw = os.environ.get("HERMES_KANBAN_CRASH_GRACE_SECONDS", "").strip()
+    raw = os.environ.get("XHERMES_KANBAN_CRASH_GRACE_SECONDS", "").strip()
     if raw:
         try:
             parsed = int(raw)
@@ -304,14 +304,14 @@ def _resolve_crash_grace_seconds() -> int:
 def _resolve_rate_limit_cooldown_seconds() -> int:
     """Return the rate-limit requeue cooldown in seconds.
 
-    Reads ``HERMES_KANBAN_RATE_LIMIT_COOLDOWN_SECONDS`` from the environment;
+    Reads ``XHERMES_KANBAN_RATE_LIMIT_COOLDOWN_SECONDS`` from the environment;
     falls back to ``DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS`` when absent, empty,
     non-integer, or negative. A value of 0 disables the cooldown (re-spawn on
     the next tick) — useful for tests that want to assert the task becomes
     spawnable again immediately.
     """
     raw = os.environ.get(
-        "HERMES_KANBAN_RATE_LIMIT_COOLDOWN_SECONDS", ""
+        "XHERMES_KANBAN_RATE_LIMIT_COOLDOWN_SECONDS", ""
     ).strip()
     if raw:
         try:
@@ -420,18 +420,18 @@ def kanban_home() -> Path:
 
     Resolution order:
 
-    1. ``HERMES_KANBAN_HOME`` env var when set and non-empty (explicit
+    1. ``XHERMES_KANBAN_HOME`` env var when set and non-empty (explicit
        override for tests and unusual deployments).
     2. ``get_default_hermes_root()``, which already returns ``<root>``
-       when ``HERMES_HOME`` is ``<root>/profiles/<name>``, and returns
-       ``HERMES_HOME`` directly for Docker / custom deployments.
+       when ``XHERMES_HOME`` is ``<root>/profiles/<name>``, and returns
+       ``XHERMES_HOME`` directly for Docker / custom deployments.
 
     The kanban board is shared across profiles **by design** (see the
     module docstring). Resolving the kanban paths through the active
-    profile's ``HERMES_HOME`` would silently fork the board per profile,
+    profile's ``XHERMES_HOME`` would silently fork the board per profile,
     which breaks the dispatcher / worker handoff.
     """
-    override = os.environ.get("HERMES_KANBAN_HOME", "").strip()
+    override = os.environ.get("XHERMES_KANBAN_HOME", "").strip()
     if override:
         return Path(override).expanduser()
     from hermes_constants import get_default_hermes_root
@@ -464,7 +464,7 @@ def get_current_board() -> str:
 
     Order (highest precedence first):
 
-    1. ``HERMES_KANBAN_BOARD`` env var (set by the dispatcher on worker
+    1. ``XHERMES_KANBAN_BOARD`` env var (set by the dispatcher on worker
        spawn, or manually for ad-hoc overrides).
     2. ``<root>/kanban/current`` on disk (set by ``xhermes kanban boards
        switch``), but only when that board still exists.
@@ -483,7 +483,7 @@ def get_current_board() -> str:
         except ValueError:
             pass
 
-    env = os.environ.get("HERMES_KANBAN_BOARD", "").strip()
+    env = os.environ.get("XHERMES_KANBAN_BOARD", "").strip()
     if env:
         try:
             normed = _normalize_board_slug(env)
@@ -567,7 +567,7 @@ def kanban_db_path(board: Optional[str] = None) -> Path:
 
     Resolution (highest precedence first):
 
-    1. ``HERMES_KANBAN_DB`` env var — pins the path directly. Honoured for
+    1. ``XHERMES_KANBAN_DB`` env var — pins the path directly. Honoured for
        back-compat and for the dispatcher→worker handoff (defense in
        depth: dispatcher injects this into worker env so workers are
        immune to any path-resolution disagreement).
@@ -576,7 +576,7 @@ def kanban_db_path(board: Optional[str] = None) -> Path:
     3. Board ``default`` → ``<root>/kanban.db`` (back-compat path).
        Other boards → ``<root>/kanban/boards/<slug>/kanban.db``.
     """
-    override = os.environ.get("HERMES_KANBAN_DB", "").strip()
+    override = os.environ.get("XHERMES_KANBAN_DB", "").strip()
     if override:
         return Path(override).expanduser()
     slug = _normalize_board_slug(board)
@@ -591,14 +591,14 @@ def workspaces_root(board: Optional[str] = None) -> Path:
     """Return the directory under which ``scratch`` workspaces are created.
 
     Anchored per-board so workspaces don't leak between projects.
-    ``HERMES_KANBAN_WORKSPACES_ROOT`` pins the path directly (highest
+    ``XHERMES_KANBAN_WORKSPACES_ROOT`` pins the path directly (highest
     precedence) — the dispatcher injects this into worker env.
 
     ``default`` keeps the legacy path ``<root>/kanban/workspaces/`` so
     that existing scratch workspaces from before the boards feature are
     preserved. Other boards use ``<root>/kanban/boards/<slug>/workspaces/``.
     """
-    override = os.environ.get("HERMES_KANBAN_WORKSPACES_ROOT", "").strip()
+    override = os.environ.get("XHERMES_KANBAN_WORKSPACES_ROOT", "").strip()
     if override:
         return Path(override).expanduser()
     slug = _normalize_board_slug(board)
@@ -616,7 +616,7 @@ def attachments_root(board: Optional[str] = None) -> Path:
     per-board so attachments don't leak between projects. Each task gets
     its own ``<root>/.../attachments/<task_id>/`` subdirectory.
 
-    ``HERMES_KANBAN_ATTACHMENTS_ROOT`` pins the path directly (highest
+    ``XHERMES_KANBAN_ATTACHMENTS_ROOT`` pins the path directly (highest
     precedence) for tests and unusual deployments.
 
     ``default`` uses ``<root>/kanban/attachments/``; other boards use
@@ -628,7 +628,7 @@ def attachments_root(board: Optional[str] = None) -> Path:
     directly. Remote backends (Docker/Modal) need this directory mounted;
     see the kanban docs.
     """
-    override = os.environ.get("HERMES_KANBAN_ATTACHMENTS_ROOT", "").strip()
+    override = os.environ.get("XHERMES_KANBAN_ATTACHMENTS_ROOT", "").strip()
     if override:
         return Path(override).expanduser()
     slug = _normalize_board_slug(board)
@@ -981,7 +981,7 @@ class Task:
     # through to the goals engine default (``goals.DEFAULT_MAX_TURNS``).
     goal_max_turns: Optional[int] = None
     # Originating chat/agent session id, when the task was created from
-    # within an agent loop that propagated ``HERMES_SESSION_ID``. NULL for
+    # within an agent loop that propagated ``XHERMES_SESSION_ID``. NULL for
     # tasks created from the CLI, the dashboard, or any path that doesn't
     # set the env var. Lets clients render a per-session board without
     # relying on tenant + time-window heuristics.
@@ -1257,7 +1257,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     -- goals-engine default.
     goal_max_turns       INTEGER,
     -- Originating chat/agent session id when the task was created from
-    -- inside an agent loop that propagated ``HERMES_SESSION_ID``. NULL
+    -- inside an agent loop that propagated ``XHERMES_SESSION_ID``. NULL
     -- for tasks created from the CLI, dashboard, or any path that doesn't
     -- set the env var. Indexed so per-session list queries stay cheap on
     -- larger boards.
@@ -1410,7 +1410,7 @@ def _resolve_busy_timeout_ms() -> int:
     expected.  A long busy timeout lets SQLite serialize writers via WAL rather
     than surfacing transient ``database is locked`` failures during bursts.
     """
-    raw = os.environ.get("HERMES_KANBAN_BUSY_TIMEOUT_MS", "").strip()
+    raw = os.environ.get("XHERMES_KANBAN_BUSY_TIMEOUT_MS", "").strip()
     if raw:
         try:
             parsed = int(raw)
@@ -2166,7 +2166,7 @@ def connect(
     * ``db_path`` explicit → used as-is (legacy callers, tests).
     * ``board`` explicit → resolves to that board's DB.
     * Neither → :func:`kanban_db_path` resolves via
-      ``HERMES_KANBAN_DB`` env → ``HERMES_KANBAN_BOARD`` env →
+      ``XHERMES_KANBAN_DB`` env → ``XHERMES_KANBAN_BOARD`` env →
       ``<root>/kanban/current`` → ``default``.
     """
     if db_path is not None:
@@ -2452,7 +2452,7 @@ def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
     if "session_id" not in cols:
         # Originating agent/chat session id, populated when the task is
         # created from within an agent loop that propagated
-        # ``HERMES_SESSION_ID`` (e.g. ACP). NULL on legacy rows and on any
+        # ``XHERMES_SESSION_ID`` (e.g. ACP). NULL on legacy rows and on any
         # creation path that doesn't set the env var (CLI, dashboard).
         _add_column_if_missing(
             conn, "tasks", "session_id", "session_id TEXT"
@@ -5252,7 +5252,7 @@ def _managed_scratch_path_info(p: Path) -> tuple[bool, Optional[str]]:
     except OSError:
         return False, None
     roots: list[tuple[Path, Optional[str]]] = []
-    override = os.environ.get("HERMES_KANBAN_WORKSPACES_ROOT", "").strip()
+    override = os.environ.get("XHERMES_KANBAN_WORKSPACES_ROOT", "").strip()
     if override:
         try:
             roots.append((Path(override).expanduser().resolve(strict=False), None))
@@ -5304,7 +5304,7 @@ def _is_managed_scratch_path(p: Path) -> bool:
     broader kanban home, a board root, or sibling subtrees like ``logs/`` or
     ``boards/<slug>/`` itself. Allowed roots:
 
-    * ``HERMES_KANBAN_WORKSPACES_ROOT`` when set (worker-side override
+    * ``XHERMES_KANBAN_WORKSPACES_ROOT`` when set (worker-side override
       injected by the dispatcher).
     * ``<kanban_home>/kanban/workspaces`` — legacy default-board scratch root.
     * ``<kanban_home>/kanban/boards/<slug>/workspaces`` for each board slug
@@ -6774,7 +6774,7 @@ _RESPAWN_GUARD_SUCCESS_WINDOW = 3600  # 1 hour
 # would be re-spawned on the very next tick and immediately bounce off the
 # same quota wall, burning a worker slot every tick for hours. The cooldown
 # spaces retries out so the board keeps cheaply probing whether quota is back
-# without thrashing. Overridable via ``HERMES_KANBAN_RATE_LIMIT_COOLDOWN_SECONDS``
+# without thrashing. Overridable via ``XHERMES_KANBAN_RATE_LIMIT_COOLDOWN_SECONDS``
 # for operators who want a tighter/looser probe cadence.
 DEFAULT_RATE_LIMIT_COOLDOWN_SECONDS = 300  # 5 minutes
 
@@ -8835,7 +8835,7 @@ def _resolve_hermes_argv() -> list[str]:
 
     Tries in order:
 
-    1. ``$HERMES_BIN`` — explicit operator override. Path-like values are
+    1. ``$XHERMES_BIN`` — explicit operator override. Path-like values are
        normalized to absolute paths; bare command names keep normal PATH
        semantics and never prefer a same-directory file before ``PATH``.
     2. ``shutil.which("xhermes")`` — the console-script shim, normalized to
@@ -8856,7 +8856,7 @@ def _resolve_hermes_argv() -> list[str]:
     """
     import shutil
 
-    env_bin = os.environ.get("HERMES_BIN", "").strip()
+    env_bin = os.environ.get("XHERMES_BIN", "").strip()
     if env_bin:
         if _looks_like_path(env_bin):
             return _hermes_path_argv(env_bin)
@@ -8910,7 +8910,7 @@ def _resolve_worker_cli_toolsets(hermes_home: Optional[str]) -> Optional[list[st
     explicit ``--toolsets`` pin so worker startup cannot fall back to a stale
     root/active-profile config or a profile whose top-level ``toolsets`` entry
     is only the kanban orchestrator surface. ``model_tools`` still appends the
-    task-scoped kanban lifecycle tools when ``HERMES_KANBAN_TASK`` is set.
+    task-scoped kanban lifecycle tools when ``XHERMES_KANBAN_TASK`` is set.
     """
     if not hermes_home:
         return None
@@ -8928,7 +8928,7 @@ def _resolve_worker_cli_toolsets(hermes_home: Optional[str]) -> Optional[list[st
         return toolsets or None
     except Exception as exc:
         _log.debug(
-            "kanban worker: could not resolve CLI toolsets for HERMES_HOME=%r (%s)",
+            "kanban worker: could not resolve CLI toolsets for XHERMES_HOME=%r (%s)",
             hermes_home,
             exc,
         )
@@ -8975,7 +8975,7 @@ def _default_spawn(
     the PID check is a safety net for crashes, OOM kills, and Ctrl+C.
 
     ``board`` pins the child's kanban context to that board: the child's
-    ``HERMES_KANBAN_DB`` / ``HERMES_KANBAN_BOARD`` / workspaces_root env
+    ``XHERMES_KANBAN_DB`` / ``XHERMES_KANBAN_BOARD`` / workspaces_root env
     vars all resolve to the same board the dispatcher claimed the task
     from. Workers cannot accidentally see other boards.
     """
@@ -8996,28 +8996,28 @@ def _default_spawn(
     for key in _VAR_MAP:
         env.pop(key, None)
 
-    # Inject HERMES_HOME so the worker reads the profile-scoped config.yaml
+    # Inject XHERMES_HOME so the worker reads the profile-scoped config.yaml
     # (fallback_providers, toolsets, agent settings, etc.) instead of the root
     # config.  Without this, `env = dict(os.environ)` copies only the parent's
     # env, and when the child process starts `xhermes -p <name>` the
     # _apply_profile_override() runs *before* hermes_constants is imported.
-    # If HERMES_HOME is absent from the child's env, get_hermes_home() falls
+    # If XHERMES_HOME is absent from the child's env, get_hermes_home() falls
     # back to get_hermes_home() (the DEFAULT profile root), ignoring the
     # profile-specific config entirely.  Fixes profile-scoped fallback_providers
     # being invisible to kanban workers.
     from hermes_cli.profiles import resolve_profile_env
     try:
-        env["HERMES_HOME"] = resolve_profile_env(profile_arg)
+        env["XHERMES_HOME"] = resolve_profile_env(profile_arg)
     except FileNotFoundError:
         # Profile dir doesn't exist — defer resolution to the CLI's
-        # _apply_profile_override() via HERMES_PROFILE (set below).
+        # _apply_profile_override() via XHERMES_PROFILE (set below).
         # This only happens in test fixtures where the isolated
-        # HERMES_HOME never had profiles created.
+        # XHERMES_HOME never had profiles created.
         pass
     if task.tenant:
-        env["HERMES_TENANT"] = task.tenant
-    env["HERMES_KANBAN_TASK"] = task.id
-    env["HERMES_KANBAN_WORKSPACE"] = workspace
+        env["XHERMES_TENANT"] = task.tenant
+    env["XHERMES_KANBAN_TASK"] = task.id
+    env["XHERMES_KANBAN_WORKSPACE"] = workspace
     # Tag the worker's session so it lands in state.db as `kanban`, not as an
     # untitled `cli` row. A worker is a dispatcher-owned run whose transcript is
     # read on the board and in `xhermes kanban log` — it is not a conversation
@@ -9025,7 +9025,7 @@ def _default_spawn(
     # resume picker, session_search) filters it out by source. Without this the
     # sidebar renders one row per attempt, labeled with the worker's own prompt
     # ("work kanban task t_…").
-    env["HERMES_SESSION_SOURCE"] = "kanban"
+    env["XHERMES_SESSION_SOURCE"] = "kanban"
     # Pin TERMINAL_CWD to the task's workspace so the worker's file tools and
     # context-file loader anchor on the workspace, not whatever cwd the
     # dispatching gateway happened to export. The worker subprocess is already
@@ -9041,18 +9041,18 @@ def _default_spawn(
     if workspace and os.path.isabs(workspace) and os.path.isdir(workspace):
         env["TERMINAL_CWD"] = workspace
     if task.branch_name:
-        env["HERMES_KANBAN_BRANCH"] = task.branch_name
+        env["XHERMES_KANBAN_BRANCH"] = task.branch_name
     if task.current_run_id is not None:
-        env["HERMES_KANBAN_RUN_ID"] = str(task.current_run_id)
+        env["XHERMES_KANBAN_RUN_ID"] = str(task.current_run_id)
     if task.claim_lock:
-        env["HERMES_KANBAN_CLAIM_LOCK"] = task.claim_lock
+        env["XHERMES_KANBAN_CLAIM_LOCK"] = task.claim_lock
     # Goal-loop mode: the worker reads these and wraps its run in the
     # Ralph-style /goal judge loop (see cli.py quiet-mode path). Only set
     # when enabled so non-goal tasks keep a clean env.
     if task.goal_mode:
-        env["HERMES_KANBAN_GOAL_MODE"] = "1"
+        env["XHERMES_KANBAN_GOAL_MODE"] = "1"
         if task.goal_max_turns is not None:
-            env["HERMES_KANBAN_GOAL_MAX_TURNS"] = str(int(task.goal_max_turns))
+            env["XHERMES_KANBAN_GOAL_MAX_TURNS"] = str(int(task.goal_max_turns))
     terminal_timeout = _worker_terminal_timeout_env(
         task.max_runtime_seconds,
         env.get("TERMINAL_TIMEOUT"),
@@ -9067,37 +9067,37 @@ def _default_spawn(
         env["TERMINAL_MAX_FOREGROUND_TIMEOUT"] = foreground_timeout
     # Pin the shared board + workspaces root the dispatcher resolved, so
     # that even when the worker activates a profile (`xhermes -p <name>`
-    # rewrites HERMES_HOME), its kanban paths still match the
+    # rewrites XHERMES_HOME), its kanban paths still match the
     # dispatcher's. Belt-and-braces with the `get_default_hermes_root()`
     # resolution in `kanban_home()` — symmetric resolution is the norm,
     # but unusual symlink / Docker layouts are caught here too.
-    env["HERMES_KANBAN_DB"] = str(kanban_db_path(board=board))
-    env["HERMES_KANBAN_WORKSPACES_ROOT"] = str(workspaces_root(board=board))
-    _retag_legacy_worker_sessions(env["HERMES_KANBAN_WORKSPACES_ROOT"])
+    env["XHERMES_KANBAN_DB"] = str(kanban_db_path(board=board))
+    env["XHERMES_KANBAN_WORKSPACES_ROOT"] = str(workspaces_root(board=board))
+    _retag_legacy_worker_sessions(env["XHERMES_KANBAN_WORKSPACES_ROOT"])
     # Board slug — the final defense-in-depth pin. If the worker ever
     # resolves kanban paths without the DB / workspaces env vars, the
     # board slug still forces it to the right directory.
     resolved_board = _normalize_board_slug(board) or get_current_board()
-    env["HERMES_KANBAN_BOARD"] = resolved_board
-    # HERMES_PROFILE is the author the kanban_comment tool defaults to.
+    env["XHERMES_KANBAN_BOARD"] = resolved_board
+    # XHERMES_PROFILE is the author the kanban_comment tool defaults to.
     # `xhermes -p <assignee>` activates the profile, but the env var is
     # what the tool reads — set it explicitly here so comments are
     # attributed correctly regardless of how the child loads config.
-    env["HERMES_PROFILE"] = profile_arg
+    env["XHERMES_PROFILE"] = profile_arg
 
-    # A worker must NEVER boot the interactive TUI: an inherited HERMES_TUI=1
+    # A worker must NEVER boot the interactive TUI: an inherited XHERMES_TUI=1
     # or a `display.interface: tui` in the profile's config would send the
     # quiet chat run into the Ink TUI, whose no-TTY bail-out exits 0 without
     # doing the task → "protocol violation" on every attempt. `--cli` is the
     # highest-precedence interface override; dropping the env var covers
     # older xhermes builds on PATH that predate the flag's precedence.
-    env.pop("HERMES_TUI", None)
+    env.pop("XHERMES_TUI", None)
 
     cmd = [
         *_resolve_hermes_argv(),
         "-p", profile_arg,
         "--cli",
-        # Worker subprocesses switch to a profile-scoped HERMES_HOME above,
+        # Worker subprocesses switch to a profile-scoped XHERMES_HOME above,
         # so they see that profile's shell-hook allowlist instead of the
         # dispatcher's root allowlist. Pass --accept-hooks explicitly so
         # profile-local worker sessions still register configured hooks.
@@ -9125,7 +9125,7 @@ def _default_spawn(
     # branch, not a nested one.
     if task.reasoning_effort:
         cmd.extend(["--reasoning", task.reasoning_effort])
-    worker_toolsets = _resolve_worker_cli_toolsets(env.get("HERMES_HOME"))
+    worker_toolsets = _resolve_worker_cli_toolsets(env.get("XHERMES_HOME"))
     if worker_toolsets:
         cmd.extend(["--toolsets", ",".join(worker_toolsets)])
     cmd.extend([
@@ -9474,7 +9474,7 @@ def build_worker_context(conn: sqlite3.Connection, task_id: str) -> str:
             age = _relative_age(c.created_at, _now)
             ts_disp = f"{ts}, {age}" if age else ts
             # Render author with explicit "comment from worker" framing so
-            # operator-controlled HERMES_PROFILE values like "xhermes-system"
+            # operator-controlled XHERMES_PROFILE values like "xhermes-system"
             # or "operator" can't be misread by the next worker as a system
             # directive above the (attacker-influenceable) comment body.
             # Defense-in-depth — the LLM-controlled author-forgery surface

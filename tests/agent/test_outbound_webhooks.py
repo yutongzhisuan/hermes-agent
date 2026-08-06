@@ -323,7 +323,7 @@ class TestRegistration:
         assert second == []
 
     def test_safe_mode_skips_registration(self, monkeypatch):
-        monkeypatch.setenv("HERMES_SAFE_MODE", "1")
+        monkeypatch.setenv("XHERMES_SAFE_MODE", "1")
         cfg = _cfg(
             {"url": "https://example.com/hook", "events": ["on_session_end"]}
         )

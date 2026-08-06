@@ -62,10 +62,10 @@ class SpillIfOversizedTests(unittest.TestCase):
 
 
     def test_default_directory_uses_hermes_home(self):
-        """When no directory override, spill under HERMES_HOME/hook_outputs."""
+        """When no directory override, spill under XHERMES_HOME/hook_outputs."""
         test_home = tempfile.mkdtemp(prefix="xhermes-home-")
         try:
-            with patch.dict(os.environ, {"HERMES_HOME": test_home}):
+            with patch.dict(os.environ, {"XHERMES_HOME": test_home}):
                 # Also patch get_hermes_home to the env var to mirror production.
                 cfg = self._cfg(directory=None, max_chars=5)
                 hos.spill_if_oversized("x" * 200, session_id="sess", config=cfg)

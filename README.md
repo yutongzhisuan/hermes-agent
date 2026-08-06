@@ -219,13 +219,13 @@ See `xhermes claw migrate --help` for all options, or use the `openclaw-migratio
 We welcome contributions! See the [Contributing Guide](https://xhermes-agent.nousresearch.com/docs/developer-guide/contributing) for development setup, code style, and PR process.
 
 Quick start for contributors — use the standard installer, then work from the
-full git checkout it creates at `$HERMES_HOME/xhermes-agent` (usually
+full git checkout it creates at `$XHERMES_HOME/xhermes-agent` (usually
 `~/.xhermes/xhermes-agent`). This matches the layout used by `xhermes update`, the
 managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/yutongzhisuan/xhermes-agent/xhermes-agent/scripts/install.sh | bash
-cd "${HERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
+cd "${XHERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```

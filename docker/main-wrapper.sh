@@ -8,7 +8,7 @@
 #
 # Env note: /init scrubs env before invoking CMD, so when this wrapper
 # is launched through the supervised path it must rehydrate via
-# with-contenv before touching HERMES_HOME / PATH. On the non-PID-1
+# with-contenv before touching XHERMES_HOME / PATH. On the non-PID-1
 # fallback path the Dockerfile env is still intact, so we skip the
 # re-exec and continue directly.
 #
@@ -20,13 +20,13 @@
 # Drop to xhermes via s6-setuidgid, but skip it when already non-root.
 set -e
 
-if [ -z "${HERMES_MAIN_WRAPPER_ENV_READY:-}" ] && \
-   [ -z "${HERMES_HOME:-}" ] && \
+if [ -z "${XHERMES_MAIN_WRAPPER_ENV_READY:-}" ] && \
+   [ -z "${XHERMES_HOME:-}" ] && \
    [ -x /command/with-contenv ]; then
-    export HERMES_MAIN_WRAPPER_ENV_READY=1
+    export XHERMES_MAIN_WRAPPER_ENV_READY=1
     exec /command/with-contenv sh "$0" "$@"
 fi
-unset HERMES_MAIN_WRAPPER_ENV_READY
+unset XHERMES_MAIN_WRAPPER_ENV_READY
 
 drop() { [ "$(id -u)" = 0 ] && set -- s6-setuidgid xhermes "$@"; exec "$@"; }
 
@@ -45,7 +45,7 @@ if [ "$cur_uid" != 0 ] && [ "$cur_uid" != "$(id -u xhermes)" ]; then
 To make container-written files match your HOST user, don't use --user.
 Start as root (the default) and pass your host UID/GID instead:
 
-    docker run -e HERMES_UID=\$(id -u) -e HERMES_GID=\$(id -g) ...
+    docker run -e XHERMES_UID=\$(id -u) -e XHERMES_GID=\$(id -g) ...
 
 NAS users (Synology / unRAID / UGOS) can use the PUID/PGID aliases:
 
@@ -67,7 +67,7 @@ export HOME=/opt/data
 # Save the Docker -w (or default) working directory before init
 # scripts cd to /opt/data, so the container starts in the
 # directory the user requested.
-_hermes_orig_cwd="${HERMES_ORIG_CWD:-$PWD}"
+_hermes_orig_cwd="${XHERMES_ORIG_CWD:-$PWD}"
 
 cd /opt/data
 # shellcheck disable=SC1091

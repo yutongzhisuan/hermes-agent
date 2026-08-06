@@ -1463,7 +1463,7 @@ Each unique `(event, command)` pair prompts the user for approval the first time
 Three escape hatches bypass the interactive prompt — any one is sufficient:
 
 1. `--accept-hooks` flag on the CLI (e.g. `xhermes --accept-hooks chat`)
-2. `HERMES_ACCEPT_HOOKS=1` environment variable
+2. `XHERMES_ACCEPT_HOOKS=1` environment variable
 3. `hooks_auto_accept: true` in `~/.xhermes/config.yaml`
 
 Non-TTY runs (gateway, cron, CI) need one of these three — otherwise any newly-added hook silently stays un-registered and logs a warning.
@@ -1530,7 +1530,7 @@ hooks:
     - name: ci-notify                       # optional label for logs
       url: https://ci.example.com/xhermes-events
       events: [on_session_end, subagent_stop]
-      secret_env: HERMES_OUTBOUND_WEBHOOK_SECRET   # env var holding the HMAC secret
+      secret_env: XHERMES_OUTBOUND_WEBHOOK_SECRET   # env var holding the HMAC secret
       timeout: 10                           # per-attempt seconds (1–60)
 
     - name: tool-monitor
@@ -1591,6 +1591,6 @@ Because `delivery_id` and `timestamp` live **inside the signed body**, a verifie
 - **Bounded retries.** Connection errors and 5xx responses are retried once with backoff; 4xx responses are not retried (the receiver said the request itself is wrong). Failures are logged and dropped — delivery is best-effort, not guaranteed.
 - **Redirects are never followed.** A 3xx response is treated as a misconfiguration and logged — following a redirected POST would silently drop the signed payload. Point the `url` at the final endpoint.
 - **Bounded queue.** If the queue backs up (dead endpoint, event storm), new events are dropped with a warning rather than consuming unbounded memory.
-- **No consent prompt.** Outbound targets execute no code on your machine — they receive data at a URL you configured. `HERMES_SAFE_MODE=1` still skips registration, same as plugins and shell hooks. Note that payloads include tool inputs and event metadata, so only point targets at endpoints you trust, and prefer `https://`.
+- **No consent prompt.** Outbound targets execute no code on your machine — they receive data at a URL you configured. `XHERMES_SAFE_MODE=1` still skips registration, same as plugins and shell hooks. Note that payloads include tool inputs and event metadata, so only point targets at endpoints you trust, and prefer `https://`.
 
 `xhermes hooks list` shows configured outbound targets alongside shell hooks, including whether each target is signed.

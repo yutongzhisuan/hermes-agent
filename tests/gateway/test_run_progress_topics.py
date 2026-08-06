@@ -385,7 +385,7 @@ def _make_runner(adapter):
 @pytest.mark.asyncio
 async def test_run_agent_progress_uses_event_message_id_for_slack_dm(monkeypatch, tmp_path):
     """Slack DM progress should keep event ts fallback threading."""
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "all")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "all")
     # Since PR #8006, Slack's built-in display tier sets tool_progress="off"
     # by default. Override via config so this test still exercises the
     # progress-callback path the Slack DM event_message_id threading depends on.
@@ -472,7 +472,7 @@ def _run_long_preview_helper(monkeypatch, tmp_path, preview_length=0):
     import asyncio
     import yaml
 
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "all")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "all")
 
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None
@@ -531,7 +531,7 @@ def test_discord_truncated_tool_url_links_to_full_destination(monkeypatch, tmp_p
     """The real gateway path must retain the URL beyond its visible cap."""
     import yaml
 
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "all")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "all")
 
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None
@@ -1180,7 +1180,7 @@ async def test_terminal_progress_renders_fenced_code_block(monkeypatch, tmp_path
     'bash' as a literal first code line).  In non-verbose ("all"/"new") mode the
     command is collapsed to a single line capped at tool_preview_length so a long
     or multi-line command doesn't render as a huge block (#42634)."""
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "all")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "all")
 
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None
@@ -1233,7 +1233,7 @@ async def test_terminal_progress_verbose_shows_full_command(monkeypatch, tmp_pat
     """Verbose mode on a markdown-capable gateway renders the FULL multi-line
     command in a bare fenced block (no truncation, no 'bash' tag).  This is the
     parity guarantee for #42634: verbose keeps full detail, non-verbose caps."""
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "verbose")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "verbose")
 
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None
@@ -1281,7 +1281,7 @@ async def test_terminal_progress_no_bash_block_in_verbose_mode(monkeypatch, tmp_
     """#41215 also rendered the bash block in verbose mode. The revert removed it
     from both branches, so verbose progress must not emit a fenced ```bash block
     either (verbose still shows args by opt-in, just not as a code block)."""
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "verbose")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "verbose")
 
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None
@@ -1343,7 +1343,7 @@ async def test_consecutive_terminal_progress_collapses_headers(monkeypatch, tmp_
     """Back-to-back terminal calls render ONE "terminal" header followed by
     adjacent code blocks; a different tool in between resets the header so the
     next terminal call gets a fresh one."""
-    monkeypatch.setenv("HERMES_TOOL_PROGRESS_MODE", "all")
+    monkeypatch.setenv("XHERMES_TOOL_PROGRESS_MODE", "all")
 
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None

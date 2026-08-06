@@ -20,11 +20,11 @@
 
 | 事实 | 影响 |
 |------|------|
-| `setup.py` 默认 **禁止** 非 Nix 环境构建 wheel/sdist（`HERMES_NIX_BUILD=1` 才放行） | P0 须新增 headless wheel 构建门闩 |
+| `setup.py` 默认 **禁止** 非 Nix 环境构建 wheel/sdist（`XHERMES_NIX_BUILD=1` 才放行） | P0 须新增 headless wheel 构建门闩 |
 | `serve` 依赖 `[web]` extra（`fastapi` + `uvicorn`） | 烟测前至少要把 web 依赖并入 core 或文档化 `pip install xhermes-agent[web]` |
 | `skills/`、`locales/`、`optional-skills/`、`optional-mcps/` 不在 `packages.find` 内 | Wheel 须显式打包数据资产 + 运行时解析 |
 | `plugins/` 已在 `packages.find` 内 | 随 wheel 安装；`get_bundled_plugins_dir()` 开发态 fallback 仍有效 |
-| Desktop 已有 TS `backend-ready.ts` 解析 `HERMES_BACKEND_READY port=<n>` | Python SDK 应对齐同一 regex；token 由 SDK 注入 `HERMES_DASHBOARD_SESSION_TOKEN` |
+| Desktop 已有 TS `backend-ready.ts` 解析 `XHERMES_BACKEND_READY port=<n>` | Python SDK 应对齐同一 regex；token 由 SDK 注入 `XHERMES_DASHBOARD_SESSION_TOKEN` |
 
 验证基线（开发态）：
 
@@ -63,7 +63,7 @@ scripts/run_tests.sh tests/test_packaging_build_guard.py -q
 在 `_IN_NIX_BUILD` 之外增加 headless 发行构建标记：
 
 ```python
-_IN_HEADLESS_WHEEL_BUILD = os.environ.get("HERMES_HEADLESS_WHEEL_BUILD") == "1"
+_IN_HEADLESS_WHEEL_BUILD = os.environ.get("XHERMES_HEADLESS_WHEEL_BUILD") == "1"
 _ALLOWED = _IN_NIX_BUILD or _IN_HEADLESS_WHEEL_BUILD
 ```
 
@@ -73,7 +73,7 @@ _ALLOWED = _IN_NIX_BUILD or _IN_HEADLESS_WHEEL_BUILD
 
 `tests/test_packaging_build_guard.py` 增加用例：
 
-- `HERMES_HEADLESS_WHEEL_BUILD=1` → wheel/sdist 构建 **成功**
+- `XHERMES_HEADLESS_WHEEL_BUILD=1` → wheel/sdist 构建 **成功**
 - 无标记 → 仍 **拒绝**（保持现有行为）
 
 - [ ] **Step 3: 添加构建脚本**
@@ -83,7 +83,7 @@ _ALLOWED = _IN_NIX_BUILD or _IN_HEADLESS_WHEEL_BUILD
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-export HERMES_HEADLESS_WHEEL_BUILD=1
+export XHERMES_HEADLESS_WHEEL_BUILD=1
 python -m pip install -q build
 python -m build -w -o dist/
 # 打印 wheel 体积与 top-level 目录清单（供回归对比）
@@ -93,7 +93,7 @@ python -m build -w -o dist/
 
 ```bash
 scripts/run_tests.sh tests/test_packaging_build_guard.py -q
-HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
+XHERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 ```
 
 Expected: guard 测试 PASS；dist/*.whl 生成
@@ -102,7 +102,7 @@ Expected: guard 测试 PASS；dist/*.whl 生成
 
 ```bash
 git add setup.py tests/test_packaging_build_guard.py scripts/build_headless_wheel.sh
-git commit -m "feat(packaging): allow headless wheel builds via HERMES_HEADLESS_WHEEL_BUILD"
+git commit -m "feat(packaging): allow headless wheel builds via XHERMES_HEADLESS_WHEEL_BUILD"
 ```
 
 ---
@@ -152,7 +152,7 @@ def get_bundled_skills_dir(default=None) -> Path:
 
 - [ ] **Step 3: 写 wheel 内容契约测试**
 
-`tests/test_headless_wheel_assets.py`（在 `HERMES_HEADLESS_WHEEL_BUILD=1` 构建后，或模拟安装到 temp venv）：
+`tests/test_headless_wheel_assets.py`（在 `XHERMES_HEADLESS_WHEEL_BUILD=1` 构建后，或模拟安装到 temp venv）：
 
 - wheel 内存在 `skills/**/SKILL.md`（数量 ≥ 1）
 - wheel 内存在 `locales/en.yaml`
@@ -161,7 +161,7 @@ def get_bundled_skills_dir(default=None) -> Path:
 - [ ] **Step 4: 运行测试**
 
 ```bash
-HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
+XHERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 python -m venv /tmp/xhermes-wheel-test
 /tmp/xhermes-wheel-test/bin/pip install dist/xhermes_agent-*.whl
 /tmp/xhermes-wheel-test/bin/python -c "from hermes_constants import get_bundled_skills_dir; print(get_bundled_skills_dir())"
@@ -205,7 +205,7 @@ git commit -m "feat(packaging): bundle runtime data assets in headless wheel"
 
 ```bash
 /tmp/xhermes-wheel-test/bin/xhermes serve --host 127.0.0.1 --port 0
-# 期望 stdout 出现 HERMES_BACKEND_READY port=<n>
+# 期望 stdout 出现 XHERMES_BACKEND_READY port=<n>
 ```
 
 - [ ] **Step 4: Commit**
@@ -251,9 +251,9 @@ class HermesRuntime:
 | 项 | 规则 |
 |----|------|
 | Spawn argv | `["xhermes"] + (["--profile", p] if p else []) + ["serve", "--host", host, "--port", str(port)]` |
-| Token | spawn 前 `token = secrets.token_urlsafe(32)`，env `HERMES_DASHBOARD_SESSION_TOKEN=token` |
-| Headless | env `HERMES_SERVE_HEADLESS=1`（双保险） |
-| Ready | 解析 stdout 行 `HERMES_BACKEND_READY port=(\d+)`（与 `backend-ready.ts` 同 regex） |
+| Token | spawn 前 `token = secrets.token_urlsafe(32)`，env `XHERMES_DASHBOARD_SESSION_TOKEN=token` |
+| Headless | env `XHERMES_SERVE_HEADLESS=1`（双保险） |
+| Ready | 解析 stdout 行 `XHERMES_BACKEND_READY port=(\d+)`（与 `backend-ready.ts` 同 regex） |
 | WS URL | `ws://{host}:{port}/api/ws?token={quote(token)}` |
 | 进程组 | POSIX: `start_new_session=True`；Windows: 文档化 `CREATE_NEW_PROCESS_GROUP` 若需要 |
 | 可执行文件 | `shutil.which("xhermes")` 或 `importlib.metadata` entry point 回退 |
@@ -292,9 +292,9 @@ git commit -m "feat(runtime): add HermesRuntime subprocess SDK for headless serv
 
 流程：
 
-1. `HERMES_HEADLESS_WHEEL_BUILD=1` 构建 wheel（或 CI 缓存 artifact）
+1. `XHERMES_HEADLESS_WHEEL_BUILD=1` 构建 wheel（或 CI 缓存 artifact）
 2. temp venv + `pip install dist/*.whl`
-3. temp `HERMES_HOME`
+3. temp `XHERMES_HOME`
 4. `HermesRuntime(...).start(timeout_s=120)`
 5. `websockets` 或 stdlib 连接 `info.ws_url`
 6. 收到 JSON-RPC event `gateway.ready`
@@ -306,7 +306,7 @@ git commit -m "feat(runtime): add HermesRuntime subprocess SDK for headless serv
 
 ```yaml
 # 伪代码
-- run: HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
+- run: XHERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 - run: scripts/run_tests.sh tests/hermes_runtime/test_wheel_smoke.py -q
 ```
 
@@ -320,7 +320,7 @@ git commit -m "test(runtime): add headless wheel install smoke test"
 
 ## P0 完成标准（DoD）
 
-- [ ] `HERMES_HEADLESS_WHEEL_BUILD=1` 可构建 wheel
+- [ ] `XHERMES_HEADLESS_WHEEL_BUILD=1` 可构建 wheel
 - [ ] Wheel 不含前端目录；含 skills/locales 等数据资产
 - [ ] `HermesRuntime.start()` → 可连 `/api/ws` 并收到 `gateway.ready`
 - [ ] 单元测试 + 烟测在 CI 绿
@@ -400,7 +400,7 @@ git commit -m "feat(packaging): merge backend extras into core for headless whee
 
 实现策略（二选一，推荐 A）：
 
-- **A. 编译期/打包期 flag** — `HERMES_HEADLESS_DIST=1` 写入 wheel 构建 env，runtime 检测后禁用 UI 入口
+- **A. 编译期/打包期 flag** — `XHERMES_HEADLESS_DIST=1` 写入 wheel 构建 env，runtime 检测后禁用 UI 入口
 - **B. 直接删除 subparser** — 更干净，但与「同源码双发行」冲突
 
 若仓库仍需支持「全功能源码树 + headless wheel」双轨，选 **A**。
@@ -409,7 +409,7 @@ git commit -m "feat(packaging): merge backend extras into core for headless whee
 
 - [ ] **Step 2: 确认 `serve` headless 不依赖 `web_dist`**
 
-复用现有 `HERMES_SERVE_HEADLESS` / `mount_spa` 禁用逻辑；加测试。
+复用现有 `XHERMES_SERVE_HEADLESS` / `mount_spa` 禁用逻辑；加测试。
 
 - [ ] **Step 3: Commit**
 
@@ -431,7 +431,7 @@ git commit -m "feat(cli): disable UI entrypoints in headless wheel distribution"
 1. 安装：`pip install xhermes-agent`（体积与 Python 版本说明）
 2. 最小示例：`HermesRuntime` + WS `prompt.submit`
 3. 协议索引：RPC / event 表链接
-4. 配置：`HERMES_HOME`、`config.yaml`、`.env` 密钥
+4. 配置：`XHERMES_HOME`、`config.yaml`、`.env` 密钥
 5. 多实例：profile / 不同 `hermes_home`
 6. 与官方 Desktop 差异：无 bundled Electron；协议兼容
 
@@ -496,7 +496,7 @@ git commit -m "docs: add headless wheel integration guide"
 
 | 风险 | 阶段 | 缓解 |
 |------|------|------|
-| `setup.py` 误放开所有 wheel 构建 | P0 | 仅 `HERMES_HEADLESS_WHEEL_BUILD=1` |
+| `setup.py` 误放开所有 wheel 构建 | P0 | 仅 `XHERMES_HEADLESS_WHEEL_BUILD=1` |
 | 数据资产未打进 wheel → skills 空 | P0 | 契约测试 + `get_package_data_root` |
 | 全量依赖导致 Windows CI 失败（matrix/olm） | P1 | 保持 matrix lazy；文档说明 |
 | 与 cli-tui-prune 分支冲突 | 全程 | 本计划优先；禁止删 `tui_gateway` |

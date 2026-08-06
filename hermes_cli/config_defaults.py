@@ -113,7 +113,7 @@ DEFAULT_CONFIG = {
         # prompt's environment-hints block. Lets a host that wraps XHermes
         # (sandbox runner, managed platform) explain the runtime environment
         # — proxy, credential handling, mount layout — without editing the
-        # identity slot (SOUL.md). Empty by default. The HERMES_ENVIRONMENT_HINT
+        # identity slot (SOUL.md). Empty by default. The XHERMES_ENVIRONMENT_HINT
         # env var overrides this (build-time/container mechanism).
         "environment_hint": "",
         # Coding posture — on interactive coding surfaces (CLI, TUI, desktop
@@ -222,7 +222,7 @@ DEFAULT_CONFIG = {
         # local endpoint is detected, this finite ceiling replaces the former
         # infinite disable so a wedged local server eventually trips the
         # detector instead of hanging forever. The env var
-        # ``HERMES_LOCAL_STREAM_STALE_TIMEOUT`` overrides for escape-hatch use.
+        # ``XHERMES_LOCAL_STREAM_STALE_TIMEOUT`` overrides for escape-hatch use.
         "local_stream_stale_timeout": 900,
         # How user-attached images are presented to the main model on each turn.
         #   "auto"   — attach natively when the active model reports
@@ -273,9 +273,9 @@ DEFAULT_CONFIG = {
         "env_passthrough": [],
         # HOME handling for host tool subprocesses:
         #   auto    — host keeps the real OS-user HOME; containers use
-        #             HERMES_HOME/home for persistent state (default)
+        #             XHERMES_HOME/home for persistent state (default)
         #   real    — force the real OS-user HOME
-        #   profile — force HERMES_HOME/home when it exists (old strict
+        #   profile — force XHERMES_HOME/home when it exists (old strict
         #             per-profile CLI config isolation)
         "home_mode": "auto",
         # Extra files to source in the login shell when building the
@@ -1095,12 +1095,12 @@ DEFAULT_CONFIG = {
         #   "cli" — the classic prompt_toolkit REPL (default, preserves prior behavior)
         #   "tui" — the modern Ink TUI (same as passing `--tui`)
         # Explicit flags always win over this setting: `--cli` forces the classic
-        # REPL and `--tui` (or HERMES_TUI=1) forces the TUI regardless of config.
+        # REPL and `--tui` (or XHERMES_TUI=1) forces the TUI regardless of config.
         "interface": "cli",
         # When true, `xhermes --tui` auto-resumes the most recent human-
         # facing session on launch instead of forging a fresh one.
         # Mirrors `xhermes -c` muscle memory.  Default off so existing
-        # users aren't surprised.  HERMES_TUI_RESUME=<id> always wins.
+        # users aren't surprised.  XHERMES_TUI_RESUME=<id> always wins.
         "tui_auto_resume_recent": False,
         # When true (default), `xhermes --tui` drops a one-time hint
         # ("subagents working · /agents to watch live") the first time a turn
@@ -1226,7 +1226,7 @@ DEFAULT_CONFIG = {
         "tool_progress_grouping": "accumulate",
         # Optional custom phrases for generic long-running status messages.
         # Built-in defaults live in gateway/assets/status_phrases.yaml. Users
-        # can set `path`/`paths` to HERMES_HOME-relative YAML files/directories
+        # can set `path`/`paths` to XHERMES_HOME-relative YAML files/directories
         # (or rely on conventional status_phrases.yaml / status_phrases/*.yaml).
         # Keys: status, generic. Use
         # mode: "append" (default) to add phrases, or "replace" to fully
@@ -1332,8 +1332,8 @@ DEFAULT_CONFIG = {
         # ``--insecure`` is not). The bundled Nous Portal plugin reads
         # both keys at startup; they are the canonical surface for these
         # settings. Each can be overridden by an environment variable —
-        # ``HERMES_DASHBOARD_OAUTH_CLIENT_ID`` and
-        # ``HERMES_DASHBOARD_PORTAL_URL`` respectively — and the env var
+        # ``XHERMES_DASHBOARD_OAUTH_CLIENT_ID`` and
+        # ``XHERMES_DASHBOARD_PORTAL_URL`` respectively — and the env var
         # wins when set to a non-empty value. The override path is what
         # Fly.io's platform-secret injection uses to push the per-deploy
         # client_id at provisioning time without operators needing to
@@ -1352,7 +1352,7 @@ DEFAULT_CONFIG = {
         # either ``password_hash`` (preferred — no plaintext at rest) or
         # ``password`` (plaintext, hashed in-memory at load) are set. Each
         # key is overridable by an env var
-        # (``HERMES_DASHBOARD_BASIC_AUTH_USERNAME`` /
+        # (``XHERMES_DASHBOARD_BASIC_AUTH_USERNAME`` /
         # ``_PASSWORD_HASH`` / ``_PASSWORD`` / ``_SECRET`` /
         # ``_TTL_SECONDS``), env winning when non-empty. Leave ``username``
         # empty (the default) to keep the plugin a no-op — loopback /
@@ -1378,7 +1378,7 @@ DEFAULT_CONFIG = {
         # generic non-interactive token-auth capability). The SECRET itself
         # is a credential and is NOT configured here: it is provisioned by
         # nous-account-service at deploy time via the
-        # ``HERMES_DASHBOARD_DRAIN_SECRET`` env var (the .env-is-for-secrets
+        # ``XHERMES_DASHBOARD_DRAIN_SECRET`` env var (the .env-is-for-secrets
         # rule). These are the behavioural knobs only. The plugin is a no-op
         # unless that env var is set to a >=256-bit secret; a weak secret is
         # rejected at registration (fail-closed) and the drain endpoint stays
@@ -1389,7 +1389,7 @@ DEFAULT_CONFIG = {
             "scope": "drain",
             "min_secret_chars": 43,
         },
-        # Public URL override (env: ``HERMES_DASHBOARD_PUBLIC_URL``).
+        # Public URL override (env: ``XHERMES_DASHBOARD_PUBLIC_URL``).
         # When set, this is the complete authority — scheme + host +
         # optional path prefix (e.g. ``https://example.com/xhermes``) —
         # the OAuth ``redirect_uri`` is built from. Set this for deploys
@@ -1789,7 +1789,7 @@ DEFAULT_CONFIG = {
     # always goes to ~/.xhermes/skills/.
     "skills": {
         "external_dirs": [],   # e.g. ["~/.agents/skills", "/shared/team-skills"]
-        # Substitute ${HERMES_SKILL_DIR} and ${HERMES_SESSION_ID} in SKILL.md
+        # Substitute ${XHERMES_SKILL_DIR} and ${XHERMES_SESSION_ID} in SKILL.md
         # content with the absolute skill directory and the active session id
         # before the agent sees it.  Lets skill authors reference bundled
         # scripts without the agent having to join paths.
@@ -2082,7 +2082,7 @@ DEFAULT_CONFIG = {
         # through tools.slash_confirm — native yes/no buttons on Telegram,
         # Discord, and Slack; text fallback elsewhere.  Users click "Always
         # Approve" to silence the prompt permanently; that flips this key to
-        # false.  TUI has its own modal overlay (HERMES_TUI_NO_CONFIRM=1 to
+        # false.  TUI has its own modal overlay (XHERMES_TUI_NO_CONFIRM=1 to
         # opt out there).
         "destructive_slash_confirm": True,
     },
@@ -2118,7 +2118,7 @@ DEFAULT_CONFIG = {
     "hooks": {},
 
     # Auto-accept shell-hook registrations without a TTY prompt.  Also
-    # toggleable per-invocation via --accept-hooks or HERMES_ACCEPT_HOOKS=1.
+    # toggleable per-invocation via --accept-hooks or XHERMES_ACCEPT_HOOKS=1.
     # Gateway / cron / non-interactive runs need this (or one of the other
     # channels) to pick up newly-added hooks.
     "hooks_auto_accept": False,
@@ -2176,7 +2176,7 @@ DEFAULT_CONFIG = {
         # Active cron SCHEDULER provider (Axis B — the trigger that decides
         # WHEN a due job fires). Empty string = the built-in in-process 60s
         # ticker (default). Name an installed provider (plugins/cron_providers/<name>/ or
-        # $HERMES_HOME/plugins/<name>/) to relocate the trigger — e.g. "chronos",
+        # $XHERMES_HOME/plugins/<name>/) to relocate the trigger — e.g. "chronos",
         # the NAS-mediated managed-cron provider for scale-to-zero deployments.
         # An unknown or unavailable provider falls back to the built-in, so cron
         # never loses its trigger.
@@ -2227,7 +2227,7 @@ DEFAULT_CONFIG = {
         # Maximum number of due jobs to run in parallel per tick.
         # null/0 = unbounded (limited only by thread count).
         # 1 = serial (pre-v0.9 behaviour).
-        # Also overridable via HERMES_CRON_MAX_PARALLEL env var.
+        # Also overridable via XHERMES_CRON_MAX_PARALLEL env var.
         "max_parallel_jobs": None,
         # Per-job output-file retention: save_job_output keeps the N most
         # recent .md files and prunes older ones. 0 or negative disables
@@ -2237,7 +2237,7 @@ DEFAULT_CONFIG = {
         # SessionDB opens/migrates state.db synchronously and has no timeout
         # of its own against a wedged sqlite3.connect. An unbounded hang here
         # wedges the job's dispatch guard forever. Also overridable via
-        # HERMES_CRON_SESSION_DB_TIMEOUT env var. 0 = unlimited (skip the bound).
+        # XHERMES_CRON_SESSION_DB_TIMEOUT env var. 0 = unlimited (skip the bound).
         "session_db_timeout_seconds": 10,
     },
 
@@ -2468,7 +2468,7 @@ DEFAULT_CONFIG = {
         # if your gateway hits "discord connect timed out" / "Timeout waiting
         # for connection to Discord" restart loops. ``0`` or negative disables
         # the timeout entirely (wait indefinitely). Bridged at startup to the
-        # internal HERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT env var, which still
+        # internal XHERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT env var, which still
         # works as a manual override and wins if set explicitly.
         "platform_connect_timeout": 30,
 
@@ -2488,7 +2488,7 @@ DEFAULT_CONFIG = {
 
         # Scale-to-zero idle detection (Phase 0). The gateway watches for idle
         # and, when an instance is opted in via the NAS "Labs" toggle (carried as
-        # the HERMES_SCALE_TO_ZERO env stamp) AND messaging is relay-only/absent
+        # the XHERMES_SCALE_TO_ZERO env stamp) AND messaging is relay-only/absent
         # AND a wakeUrl is registered, drives the relay transport dormant so the
         # platform (e.g. Fly autostop:"suspend") can suspend the now-idle machine;
         # it wakes on the connector's wakeUrl poke. This is the idle TIMEOUT only
@@ -2521,7 +2521,7 @@ DEFAULT_CONFIG = {
         # booting so a crash-looping supervisor (launchd KeepAlive, systemd
         # Restart=always) can't hammer the process into a respawn storm.
         # ``max_starts <= 0`` disables the breaker. The env vars
-        # ``HERMES_GATEWAY_MAX_STARTS`` / ``HERMES_GATEWAY_START_WINDOW_S``
+        # ``XHERMES_GATEWAY_MAX_STARTS`` / ``XHERMES_GATEWAY_START_WINDOW_S``
         # override these defaults for escape-hatch use.
         "respawn_storm": {
             "max_starts": 5,
@@ -2562,7 +2562,7 @@ DEFAULT_CONFIG = {
         # ``trust_recent_files_seconds`` window. Recommended for
         # public-facing gateways where prompt injection from one user
         # shouldn't be able to exfiltrate the host's secrets to that same
-        # user. Bridged to HERMES_MEDIA_DELIVERY_STRICT.
+        # user. Bridged to XHERMES_MEDIA_DELIVERY_STRICT.
         "strict": False,
         # Extra directories from which model-emitted bare file paths may be
         # uploaded as native gateway attachments. Files inside the XHermes
@@ -2570,7 +2570,7 @@ DEFAULT_CONFIG = {
         # are always trusted; this list adds operator-controlled roots
         # (project dirs, scratch dirs, mounted shares). Accepts a list of
         # absolute paths or a single os.pathsep-separated string. Bridged
-        # to HERMES_MEDIA_ALLOW_DIRS at gateway startup. Tilde paths are
+        # to XHERMES_MEDIA_ALLOW_DIRS at gateway startup. Tilde paths are
         # expanded. Honored in both default and strict mode.
         "media_delivery_allow_dirs": [],
         # When true, files whose mtime is within ``trust_recent_files_seconds``
@@ -2579,11 +2579,11 @@ DEFAULT_CONFIG = {
         # PDFs the agent writes into a working directory. System paths
         # (/etc, /proc, ~/.ssh, ~/.aws, etc.) remain blocked regardless.
         # Disable to fall back to pure-allowlist mode. Bridged to
-        # HERMES_MEDIA_TRUST_RECENT_FILES. Only consulted when ``strict``
+        # XHERMES_MEDIA_TRUST_RECENT_FILES. Only consulted when ``strict``
         # is true; in default mode the denylist alone gates delivery.
         "trust_recent_files": True,
         # Recency window in seconds. 600 (10 min) comfortably covers a
-        # multi-tool agent turn. Bridged to HERMES_MEDIA_TRUST_RECENT_SECONDS.
+        # multi-tool agent turn. Bridged to XHERMES_MEDIA_TRUST_RECENT_SECONDS.
         # Only consulted when ``strict`` is true.
         "trust_recent_files_seconds": 600,
 
@@ -2710,13 +2710,13 @@ DEFAULT_CONFIG = {
         # get index-speed exact matching instead of LIKE full-table scans.
         # True (default): use the index when the extension is present; the
         # setting is inert when it isn't. False: never load the extension or
-        # serve the cjk index. Bridged to HERMES_CJK_FTS (internal carrier).
+        # serve the cjk index. Bridged to XHERMES_CJK_FTS (internal carrier).
         "cjk_fts": True,
         # Slow session-search log threshold in milliseconds: searches at or
         # above it log one INFO line with the routing path taken (fts_cjk /
         # fts5 / trigram / like_scan) so latency regressions stay
         # attributable per query shape. 0 logs every search. Bridged to
-        # HERMES_SEARCH_SLOW_MS (internal carrier).
+        # XHERMES_SEARCH_SLOW_MS (internal carrier).
         "search_slow_ms": 1000,
     },
 
@@ -2747,13 +2747,13 @@ DEFAULT_CONFIG = {
         #
         #   quick (default) — snapshot critical small state files (pairing
         #     JSONs, cron jobs, config.yaml, .env, auth.json, per-profile
-        #     DBs) into <HERMES_HOME>/state-snapshots/ before the update.
+        #     DBs) into <XHERMES_HOME>/state-snapshots/ before the update.
         #     Files over 1 GiB (e.g. a bloated state.db) are skipped with a
         #     warning so the snapshot stays fast. Restore via ``/snapshot``.
         #     This is the #15733 (lost pairing data) / #34600 (emptied cron
         #     jobs) safety net.
         #   full — the quick snapshot PLUS a full ``xhermes backup``-style zip
-        #     of HERMES_HOME into <HERMES_HOME>/backups/, restorable with
+        #     of XHERMES_HOME into <XHERMES_HOME>/backups/, restorable with
         #     ``xhermes import``. Can add minutes on large homes. This is the
         #     #48200 (wrong-path wipe) safety net. ``--backup`` forces this
         #     for a single run.
@@ -2816,7 +2816,7 @@ DEFAULT_CONFIG = {
 
         # How to handle missing server binaries.
         # ``"auto"`` — try to install via npm/go/pip into
-        #              ``<HERMES_HOME>/lsp/bin/`` on first use.
+        #              ``<XHERMES_HOME>/lsp/bin/`` on first use.
         # ``"manual"`` — only use binaries already on PATH.
         # ``"off"`` — alias for ``manual``.
         "install_strategy": "auto",
@@ -3078,7 +3078,7 @@ DEFAULT_CONFIG = {
         #   true    - always disable GPU acceleration (software rendering).
         #             Use on no-GPU VMs / Proxmox hosts where the GPU path hangs.
         #   false   - always keep GPU acceleration on, even over a remote display.
-        # Bridged to the HERMES_DESKTOP_DISABLE_GPU env var the Electron app reads.
+        # Bridged to the XHERMES_DESKTOP_DISABLE_GPU env var the Electron app reads.
         "disable_gpu": "auto",
         # macOS only: optional persistent code-signing identity (a cert in the
         # login keychain — a self-signed "Code Signing" cert from Keychain
@@ -3402,7 +3402,7 @@ OPTIONAL_ENV_VARS = {
         "category": "provider",
         "advanced": True,
     },
-    "HERMES_QWEN_BASE_URL": {
+    "XHERMES_QWEN_BASE_URL": {
         "description": "Qwen Portal base URL override (default: https://portal.qwen.ai/v1)",
         "prompt": "Qwen Portal base URL (leave empty for default)",
         "url": None,
@@ -3865,21 +3865,21 @@ OPTIONAL_ENV_VARS = {
     },
 
     # ── Langfuse observability ──
-    "HERMES_LANGFUSE_PUBLIC_KEY": {
+    "XHERMES_LANGFUSE_PUBLIC_KEY": {
         "description": "Langfuse project public key (pk-lf-...)",
         "prompt": "Langfuse public key",
         "url": "https://cloud.langfuse.com",
         "password": False,
         "category": "tool",
     },
-    "HERMES_LANGFUSE_SECRET_KEY": {
+    "XHERMES_LANGFUSE_SECRET_KEY": {
         "description": "Langfuse project secret key (sk-lf-...)",
         "prompt": "Langfuse secret key",
         "url": "https://cloud.langfuse.com",
         "password": True,
         "category": "tool",
     },
-    "HERMES_LANGFUSE_BASE_URL": {
+    "XHERMES_LANGFUSE_BASE_URL": {
         "description": "Langfuse server URL (default: https://cloud.langfuse.com)",
         "prompt": "Langfuse server URL (leave empty for cloud.langfuse.com)",
         "url": None,
@@ -4054,7 +4054,7 @@ OPTIONAL_ENV_VARS = {
         "advanced": True,
     },
     "MATRIX_DEVICE_ID": {
-        "description": "Stable Matrix device ID for E2EE persistence across restarts (e.g. HERMES_BOT)",
+        "description": "Stable Matrix device ID for E2EE persistence across restarts (e.g. XHERMES_BOT)",
         "prompt": "Matrix device ID (stable across restarts)",
         "url": None,
         "password": False,
@@ -4270,23 +4270,23 @@ OPTIONAL_ENV_VARS = {
         "password": True,
         "category": "setting",
     },
-    # HERMES_TOOL_PROGRESS_MODE is deprecated — tool progress is configured via
+    # XHERMES_TOOL_PROGRESS_MODE is deprecated — tool progress is configured via
     # display.tool_progress in config.yaml (off|new|all|verbose|log). The
-    # gateway still falls back to HERMES_TOOL_PROGRESS_MODE for backward
+    # gateway still falls back to XHERMES_TOOL_PROGRESS_MODE for backward
     # compatibility, so it lives in _EXTRA_ENV_KEYS (known to reload and
     # compatibility paths) but is intentionally NOT listed here:
     # OPTIONAL_ENV_VARS feeds user-facing surfaces (dashboard keys page, setup
     # checklists) and deprecated knobs shouldn't be offered there. The boolean
-    # HERMES_TOOL_PROGRESS is fully unsupported since the v12 config support
+    # XHERMES_TOOL_PROGRESS is fully unsupported since the v12 config support
     # floor retired its only consumer (the v3→4 migration).
-    "HERMES_PREFILL_MESSAGES_FILE": {
+    "XHERMES_PREFILL_MESSAGES_FILE": {
         "description": "Path to JSON file with ephemeral prefill messages for few-shot priming",
         "prompt": "Prefill messages file path",
         "url": None,
         "password": False,
         "category": "setting",
     },
-    "HERMES_EPHEMERAL_SYSTEM_PROMPT": {
+    "XHERMES_EPHEMERAL_SYSTEM_PROMPT": {
         "description": "Ephemeral system prompt injected at API-call time (never persisted to sessions)",
         "prompt": "Ephemeral system prompt",
         "url": None,

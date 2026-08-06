@@ -402,7 +402,7 @@ export interface ProfileBackendRoute {
  *  3. A profile inheriting the app-global remote shares the primary backend —
  *     one host serves every profile — so it is scoped per request instead.
  *  4. Any other local profile gets its own pooled backend, spawned with
- *     `--profile`, so its `HERMES_HOME` scopes it.
+ *     `--profile`, so its `XHERMES_HOME` scopes it.
  *
  * Routing used to be spread across three overlapping predicates that each
  * re-derived part of this table, which is how case 3 ended up registering

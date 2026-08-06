@@ -8,7 +8,7 @@ description: "通过全局 SOUL.md、内置个性预设和自定义角色定义�
 
 XHermes Agent 的个性完全可自定义。`SOUL.md` 是**主要身份标识**——它是系统提示词（prompt）中的第一项内容，定义了 Agent 是谁。
 
-- `SOUL.md` — 存放在 `HERMES_HOME` 中的持久角色文件，作为 Agent 的身份标识（系统提示词中的第 1 个槽位）
+- `SOUL.md` — 存放在 `XHERMES_HOME` 中的持久角色文件，作为 Agent 的身份标识（系统提示词中的第 1 个槽位）
 - 内置或自定义的 `/personality` 预设 — 会话级系统提示词覆盖层
 
 如果你想改变 XHermes 的身份，或将其替换为完全不同的 Agent 角色，请编辑 `SOUL.md`。
@@ -21,10 +21,10 @@ XHermes 现在会自动在以下位置生成默认的 `SOUL.md`：
 ~/.xhermes/SOUL.md
 ```
 
-更准确地说，它使用当前实例的 `HERMES_HOME`，因此如果你以自定义主目录运行 XHermes，它将使用：
+更准确地说，它使用当前实例的 `XHERMES_HOME`，因此如果你以自定义主目录运行 XHermes，它将使用：
 
 ```text
-$HERMES_HOME/SOUL.md
+$XHERMES_HOME/SOUL.md
 ```
 
 ### 重要行为
@@ -32,7 +32,7 @@ $HERMES_HOME/SOUL.md
 - **SOUL.md 是 Agent 的主要身份标识。** 它占据系统提示词的第 1 个槽位，替代硬编码的默认身份。
 - 如果 `SOUL.md` 尚不存在，XHermes 会自动创建一个初始文件
 - 已有的用户 `SOUL.md` 文件不会被覆盖
-- XHermes 仅从 `HERMES_HOME` 加载 `SOUL.md`
+- XHermes 仅从 `XHERMES_HOME` 加载 `SOUL.md`
 - XHermes 不会在当前工作目录中查找 `SOUL.md`
 - 如果 `SOUL.md` 存在但为空，或无法加载，XHermes 将回退到内置的默认身份
 - 如果 `SOUL.md` 有内容，该内容在经过安全扫描和截断处理后将原样注入
@@ -44,7 +44,7 @@ $HERMES_HOME/SOUL.md
 
 这样可以保持个性的可预测性。
 
-如果 XHermes 从你启动它的任意目录加载 `SOUL.md`，你的个性可能会在不同项目之间意外改变。通过仅从 `HERMES_HOME` 加载，个性归属于 XHermes 实例本身。
+如果 XHermes 从你启动它的任意目录加载 `SOUL.md`，你的个性可能会在不同项目之间意外改变。通过仅从 `XHERMES_HOME` 加载，个性归属于 XHermes 实例本身。
 
 这也让用户更容易理解：
 - "编辑 `~/.xhermes/SOUL.md` 来更改 XHermes 的默认个性。"
@@ -60,7 +60,7 @@ $HERMES_HOME/SOUL.md
 如果你使用自定义主目录：
 
 ```bash
-$HERMES_HOME/SOUL.md
+$XHERMES_HOME/SOUL.md
 ```
 
 ## SOUL.md 应该写什么？

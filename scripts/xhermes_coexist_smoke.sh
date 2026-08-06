@@ -25,10 +25,10 @@ check "~/.xhermes 存在（xhermes 数据未被破坏）" test -d "$HOME/.xherme
 check "~/.xhermes 存在" test -d "$HOME/.xhermes"
 
 echo "3. 不修改对方家目录（启动 xhermes 后 xhermes home mtime 不变）"
-HERMES_MTIME=$(stat -f%m "$HOME/.xhermes" 2>/dev/null || echo "missing")
+XHERMES_MTIME=$(stat -f%m "$HOME/.xhermes" 2>/dev/null || echo "missing")
 "$HOME/.xhermes/xhermes-agent/venv/bin/python" -c "from hermes_constants import get_hermes_home" 2>/dev/null
-HERMES_MTIME2=$(stat -f%m "$HOME/.xhermes" 2>/dev/null || echo "missing")
-check "xhermes home 未被 rename/删除" test "$HERMES_MTIME" = "$HERMES_MTIME2"
+XHERMES_MTIME2=$(stat -f%m "$HOME/.xhermes" 2>/dev/null || echo "missing")
+check "xhermes home 未被 rename/删除" test "$XHERMES_MTIME" = "$XHERMES_MTIME2"
 
 echo "4. profile wrapper 指向 xhermes"
 "$HOME/.xhermes/xhermes-agent/venv/bin/xhermes" profile create smoke-probe >/dev/null 2>&1 || true
@@ -40,8 +40,8 @@ echo "5. 端口不冲突（默认值错开）"
 check "xhermes 默认端口 9219（xhermes 9119）" \
   grep -q "9219" "$HOME/.xhermes/xhermes-agent/hermes_cli/web_server.py" 2>/dev/null
 
-echo "6. XHERMES_HOME 优先于 HERMES_HOME"
-OUT=$(HERMES_HOME="$HOME/.xhermes" XHERMES_HOME="$HOME/.xhermes" \
+echo "6. XHERMES_HOME 优先于 XHERMES_HOME"
+OUT=$(XHERMES_HOME="$HOME/.xhermes" XHERMES_HOME="$HOME/.xhermes" \
   "$HOME/.xhermes/xhermes-agent/venv/bin/python" -c \
   "from hermes_constants import get_hermes_home; print(get_hermes_home())" 2>/dev/null)
 check "XHERMES_HOME 胜出 (got: $OUT)" test "$OUT" = "$HOME/.xhermes"

@@ -36,7 +36,7 @@ HEADERS = {"X-XHermes-Session-Token": _SESSION_TOKEN}
 
 
 def _make_profile_home(tmp_path, monkeypatch, profile="coder"):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     profile_home = tmp_path / "profiles" / profile
     profile_home.mkdir(parents=True)
     return profile_home
@@ -271,7 +271,7 @@ def test_codex_dashboard_worker_stops_polling_after_cancel(tmp_path, monkeypatch
             )
 
     saved = []
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     monkeypatch.setattr(httpx, "Client", _Client)
     monkeypatch.setattr(auth_mod, "_save_codex_tokens", lambda tokens: saved.append(tokens))
 
@@ -585,8 +585,8 @@ def test_xai_dashboard_poller_seeds_single_entry_and_clears_suppression(tmp_path
     from hermes_cli import web_server as ws
     from agent.credential_pool import load_pool
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.delenv("HERMES_XAI_BASE_URL", raising=False)
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
+    monkeypatch.delenv("XHERMES_XAI_BASE_URL", raising=False)
     monkeypatch.delenv("XAI_BASE_URL", raising=False)
 
     # Existing chat provider must not be overwritten by dashboard OAuth.

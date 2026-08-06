@@ -269,19 +269,19 @@ Add the line to your `~/.bashrc` or `~/.zshrc` for persistent completion. Comple
 
 ## How it works
 
-Profiles use the `HERMES_HOME` environment variable. When you run `coder chat`, the wrapper script sets `HERMES_HOME=~/.xhermes/profiles/coder` before launching xhermes. Since 119+ files in the codebase resolve paths via `get_hermes_home()`, XHermes state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
+Profiles use the `XHERMES_HOME` environment variable. When you run `coder chat`, the wrapper script sets `XHERMES_HOME=~/.xhermes/profiles/coder` before launching xhermes. Since 119+ files in the codebase resolve paths via `get_hermes_home()`, XHermes state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
 
-This is separate from terminal working directory. Tool execution starts from `terminal.cwd` (or the launch directory when `cwd: "."` on the local backend), not automatically from `HERMES_HOME`.
+This is separate from terminal working directory. Tool execution starts from `terminal.cwd` (or the launch directory when `cwd: "."` on the local backend), not automatically from `XHERMES_HOME`.
 
 On host installs, tool subprocesses keep your real OS-user `HOME` by default so
 existing CLI credentials under `~` keep working across profiles. Profile data is
-isolated by `HERMES_HOME`, not by changing `HOME`. Container backends still use
-`{HERMES_HOME}/home` for persistent tool state, and host users who need strict
+isolated by `XHERMES_HOME`, not by changing `HOME`. Container backends still use
+`{XHERMES_HOME}/home` for persistent tool state, and host users who need strict
 per-profile tool config can opt in with `terminal.home_mode: profile`.
 
 This means two things that are easy to mix up:
 
-- `HERMES_HOME` is the profile boundary. It controls XHermes config, `.env`,
+- `XHERMES_HOME` is the profile boundary. It controls XHermes config, `.env`,
   memory, sessions, skills, logs, cron jobs, gateway state, and other XHermes
   data.
 - `HOME` is the operating-system/user home that external CLIs expect. On host
@@ -292,11 +292,11 @@ This means two things that are easy to mix up:
 The tradeoff is that host profiles share normal user-level CLI state by default.
 If you need separate CLI identities per profile, set `terminal.home_mode:
 profile` in that profile's `config.yaml`. In that mode XHermes launches tool
-subprocesses with `HOME={HERMES_HOME}/home`; you then need to initialize or link
+subprocesses with `HOME={XHERMES_HOME}/home`; you then need to initialize or link
 the profile-specific `~/.ssh`, `~/.gitconfig`, `~/.config/gh`, cloud CLI auth,
 Claude/Codex auth, npm state, and similar files inside that profile home.
 
-XHermes also exposes `HERMES_REAL_HOME` to subprocesses so scripts can still find
+XHermes also exposes `XHERMES_REAL_HOME` to subprocesses so scripts can still find
 the actual account home when `home_mode: profile` is active.
 
 The default profile is simply `~/.xhermes` itself. No migration needed — existing installs work identically.

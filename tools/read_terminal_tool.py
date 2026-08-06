@@ -49,8 +49,8 @@ def read_terminal_tool(
 
 
 def check_read_terminal_requirements() -> bool:
-    """Desktop GUI only — HERMES_DESKTOP is set on the gateway the app spawns."""
-    return env_var_enabled("HERMES_DESKTOP")
+    """Desktop GUI only — XHERMES_DESKTOP is set on the gateway the app spawns."""
+    return env_var_enabled("XHERMES_DESKTOP")
 
 
 READ_TERMINAL_SCHEMA = {

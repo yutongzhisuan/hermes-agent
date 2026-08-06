@@ -614,7 +614,7 @@ export const en: Translations = {
         `Connection used only when “${profile}” is the active profile. Choose Use default gateway to remove its override.`,
       envOverrideTitle: 'Environment variables are controlling this desktop session.',
       envOverrideDesc:
-        'Unset HERMES_DESKTOP_REMOTE_URL and HERMES_DESKTOP_REMOTE_TOKEN to use the saved setting below.',
+        'Unset XHERMES_DESKTOP_REMOTE_URL and XHERMES_DESKTOP_REMOTE_TOKEN to use the saved setting below.',
       modeTitle: 'Connection mode',
       localTitle: 'Local gateway',
       localDesc: 'Start a private XHermes backend on localhost. This is the default and works offline.',

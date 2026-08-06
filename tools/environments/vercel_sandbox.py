@@ -2,7 +2,7 @@
 
 Uses the Vercel Python SDK to run commands in cloud sandboxes through XHermes'
 shared ``BaseEnvironment`` shell contract. When persistence is enabled, the
-backend stores task-scoped snapshot metadata under ``HERMES_HOME`` and restores
+backend stores task-scoped snapshot metadata under ``XHERMES_HOME`` and restores
 new sandboxes from those snapshots on later task reuse.
 """
 

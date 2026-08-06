@@ -39,7 +39,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ── Locate python ───────────────────────────────────────────────────────────
 # Probe local venvs first; fall back to the Nix devShell's editable venv
-# (HERMES_PYTHON is exported by the devShell hook and ships [dev] extras:
+# (XHERMES_PYTHON is exported by the devShell hook and ships [dev] extras:
 # pytest, pytest-asyncio, pytest-timeout, ruff, ty).
 #
 # A candidate must have pytest INSTALLED, not merely exist. The release venv
@@ -82,16 +82,16 @@ fi
 
 if [ -n "$VENV" ]; then
   PYTHON="$VENV_PYTHON"
-elif [ -n "${HERMES_PYTHON:-}" ] && [ -x "$HERMES_PYTHON" ] \
-    && "$HERMES_PYTHON" -c 'import pytest' 2>/dev/null; then
-  # Guard with an import check: HERMES_PYTHON may point at the RELEASE
+elif [ -n "${XHERMES_PYTHON:-}" ] && [ -x "$XHERMES_PYTHON" ] \
+    && "$XHERMES_PYTHON" -c 'import pytest' 2>/dev/null; then
+  # Guard with an import check: XHERMES_PYTHON may point at the RELEASE
   # venv (no pytest) when inherited from a wrapped `xhermes` binary rather
   # than the devShell hook.
-  PYTHON="$HERMES_PYTHON"
-  echo "▶ no local venv — using Nix dev venv via HERMES_PYTHON: $PYTHON"
+  PYTHON="$XHERMES_PYTHON"
+  echo "▶ no local venv — using Nix dev venv via XHERMES_PYTHON: $PYTHON"
 else
   echo "error: no virtualenv with pytest found in $REPO_ROOT/.venv or $REPO_ROOT/venv," >&2
-  echo "       and HERMES_PYTHON is not a python with pytest (enter the Nix devShell or create a venv)" >&2
+  echo "       and XHERMES_PYTHON is not a python with pytest (enter the Nix devShell or create a venv)" >&2
   if [ -n "$SKIPPED_VENVS" ]; then
     echo "       (skipped for missing pytest:$SKIPPED_VENVS — install dev extras there, or create $REPO_ROOT/.venv)" >&2
   fi
@@ -149,8 +149,8 @@ exec env -i \
   LC_ALL=C.UTF-8 \
   PYTHONHASHSEED=0 \
   PYTHONUTF8=1 \
-  ${HERMES_RUN_SLOW_PET_TESTS:+HERMES_RUN_SLOW_PET_TESTS="$HERMES_RUN_SLOW_PET_TESTS"} \
-  ${HERMES_E2E_BROWSER:+HERMES_E2E_BROWSER="$HERMES_E2E_BROWSER"} \
+  ${XHERMES_RUN_SLOW_PET_TESTS:+XHERMES_RUN_SLOW_PET_TESTS="$XHERMES_RUN_SLOW_PET_TESTS"} \
+  ${XHERMES_E2E_BROWSER:+XHERMES_E2E_BROWSER="$XHERMES_E2E_BROWSER"} \
   ${EXTRA_PYTHONPATH:+PYTHONPATH="$EXTRA_PYTHONPATH"} \
   ${EXTRA_PYTEST_PLUGINS:+PYTEST_PLUGINS="$EXTRA_PYTEST_PLUGINS"} \
   "$PYTHON" "$SCRIPT_DIR/run_tests_parallel.py" "$@"

@@ -4547,7 +4547,7 @@ class TestSlackUserAgent:
 
     Slack platform partners (analytics, abuse-detection, etc.) attribute
     outbound API traffic by ``User-Agent``. The Slack adapter sets
-    ``user_agent_prefix=_HERMES_SLACK_USER_AGENT_PREFIX`` on every
+    ``user_agent_prefix=_XHERMES_SLACK_USER_AGENT_PREFIX`` on every
     ``AsyncWebClient`` it builds and threads the primary client into
     ``AsyncApp(client=...)`` so the prefix sticks on the app-owned client too.
     Pin both behaviors at the actual call sites — a future refactor that
@@ -4557,5 +4557,5 @@ class TestSlackUserAgent:
     def test_hermes_slack_user_agent_prefix_format(self):
         """Module constant matches the HermesAgent/<version> convention used
         elsewhere in the codebase for platform-partner attribution."""
-        assert _slack_mod._HERMES_SLACK_USER_AGENT_PREFIX.startswith("HermesAgent/")
+        assert _slack_mod._XHERMES_SLACK_USER_AGENT_PREFIX.startswith("HermesAgent/")
 

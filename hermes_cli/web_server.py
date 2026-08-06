@@ -132,7 +132,7 @@ except ImportError:
             f"Install with: {sys.executable} -m pip install 'fastapi' 'uvicorn[standard]'"
         )
 
-WEB_DIST = Path(os.environ["HERMES_WEB_DIST"]) if "HERMES_WEB_DIST" in os.environ else Path(__file__).parent / "web_dist"
+WEB_DIST = Path(os.environ["XHERMES_WEB_DIST"]) if "XHERMES_WEB_DIST" in os.environ else Path(__file__).parent / "web_dist"
 _log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ def _start_desktop_cron_ticker(stop_event: "threading.Event", interval: int = 60
 
     Cross-process safe: the built-in provider's ``cron.scheduler.tick`` takes
     the ``cron/.tick.lock`` file lock, so this never double-fires alongside a
-    real gateway on the same HERMES_HOME — whichever process grabs the lock
+    real gateway on the same XHERMES_HOME — whichever process grabs the lock
     first wins the tick.
     """
     from cron.scheduler_provider import resolve_cron_scheduler
@@ -203,12 +203,12 @@ async def _lifespan(app: "FastAPI"):
     # Desktop's 10-second WebSocket ready-probe to time out (GH-73083).
     _warm_gateway_module()
 
-    # Desktop-spawned backends (HERMES_DESKTOP=1) fire cron jobs themselves,
+    # Desktop-spawned backends (XHERMES_DESKTOP=1) fire cron jobs themselves,
     # since the app has no gateway running the scheduler. Server `xhermes
     # dashboard` is unaffected — it relies on its own gateway.
     cron_stop: "threading.Event | None" = None
     cron_thread: "threading.Thread | None" = None
-    if os.getenv("HERMES_DESKTOP") == "1":
+    if os.getenv("XHERMES_DESKTOP") == "1":
         cron_stop = threading.Event()
         cron_thread = threading.Thread(
             target=_start_desktop_cron_ticker,
@@ -290,7 +290,7 @@ app.include_router(_memory_oauth_router)
 # ---------------------------------------------------------------------------
 # Session token for protecting sensitive endpoints (reveal).
 # The desktop shell mints the token and injects it via
-# HERMES_DASHBOARD_SESSION_TOKEN so its main process can authenticate the
+# XHERMES_DASHBOARD_SESSION_TOKEN so its main process can authenticate the
 # /api calls it makes on the user's behalf; otherwise we generate one fresh
 # on every server start. Either way it dies when the process exits and is
 # injected into the SPA HTML so only the legitimate web UI can use it.
@@ -298,7 +298,7 @@ app.include_router(_memory_oauth_router)
 
 
 def _resolve_session_token() -> str:
-    return os.environ.get("HERMES_DASHBOARD_SESSION_TOKEN") or secrets.token_urlsafe(32)
+    return os.environ.get("XHERMES_DASHBOARD_SESSION_TOKEN") or secrets.token_urlsafe(32)
 
 
 _SESSION_TOKEN = _resolve_session_token()
@@ -1698,7 +1698,7 @@ _MEDIA_CONTENT_TYPES = {
     ".ico": "image/x-icon",
 }
 _MEDIA_MAX_BYTES = 25 * 1024 * 1024
-_MANAGED_FILES_ROOT_ENV = "HERMES_DASHBOARD_FILES_ROOT"
+_MANAGED_FILES_ROOT_ENV = "XHERMES_DASHBOARD_FILES_ROOT"
 _MANAGED_FILE_MAX_BYTES = 100 * 1024 * 1024
 _HOSTED_MANAGED_FILES_ROOT = Path("/opt/data")
 
@@ -1734,7 +1734,7 @@ _FS_READDIR_HIDDEN = {
 # (agent.file_safety.get_read_block_error and
 # gateway.platforms.base._ROOT_CREDENTIAL_FILES) so the dashboard Files tab
 # doesn't lag behind them — an operator can point the managed root at
-# HERMES_HOME itself, at which point every one of these basenames is a live
+# XHERMES_HOME itself, at which point every one of these basenames is a live
 # secret store sitting in the browsable tree.
 _SENSITIVE_MANAGED_FILE_BASENAMES = frozenset({
     "auth.json",
@@ -1760,7 +1760,7 @@ _SENSITIVE_MANAGED_FILE_BASENAMES = frozenset({
 # basename-only guard would still expose e.g. ``mcp-tokens/<server>.json``
 # (live MCP OAuth tokens) and ``pairing/<x>``. We match on ANY path component
 # so these trees are blocked wherever they appear under the browsable root,
-# without needing to resolve them relative to HERMES_HOME.
+# without needing to resolve them relative to XHERMES_HOME.
 _SENSITIVE_MANAGED_DIR_NAMES = frozenset({
     "mcp-tokens",
     "pairing",
@@ -1795,7 +1795,7 @@ def _is_sensitive_path(path: Path) -> bool:
     credential-directory-tree check: a path is sensitive if its own basename
     is sensitive OR any of its path components is a credential directory
     (``mcp-tokens`` / ``pairing``). The component match is case-insensitive
-    and needs no HERMES_HOME resolution, so it blocks these trees wherever
+    and needs no XHERMES_HOME resolution, so it blocks these trees wherever
     they sit under the operator-configured managed root — closing the gap
     the canonical guards cover as directory trees but a basename-only check
     would miss.
@@ -2073,7 +2073,7 @@ def _local_dashboard_request(request: Request) -> bool:
 
 
 def _default_hermes_root_is_opt_data() -> bool:
-    raw = os.environ.get("HERMES_HOME", "").strip()
+    raw = os.environ.get("XHERMES_HOME", "").strip()
     if not raw:
         return False
     try:
@@ -2133,7 +2133,7 @@ def _managed_files_policy(request: Request, *, create_root: bool = True) -> Mana
     # local dashboard through the auth gate (for example a macOS launchd install)
     # and still expect the Files page to browse their local home directory. Lock
     # to /opt/data only when the installation's XHermes root is actually /opt/data
-    # (the container/hosted layout) or when HERMES_DASHBOARD_FILES_ROOT is set.
+    # (the container/hosted layout) or when XHERMES_DASHBOARD_FILES_ROOT is set.
     if _default_hermes_root_is_opt_data():
         root = _ensure_managed_root(_HOSTED_MANAGED_FILES_ROOT) if create_root else _HOSTED_MANAGED_FILES_ROOT
         return ManagedFilesPolicy(default_path=root, locked_root=root, can_change_path=False)
@@ -2281,7 +2281,7 @@ async def upload_chat_image(payload: ChatImageUpload, profile: Optional[str] = N
     clipboard image bytes are not visible to the server-side clipboard, so the
     page uploads them here, then drives the TUI's ``/image <path>`` command
     with the returned gateway-visible path. Files land under
-    ``HERMES_HOME/images/`` — the same directory ``clipboard.paste`` /
+    ``XHERMES_HOME/images/`` — the same directory ``clipboard.paste`` /
     ``image.attach`` already use.
     """
     data, mime_type, ext = _decode_chat_image_upload(payload)
@@ -3015,7 +3015,7 @@ async def get_status(profile: Optional[str] = None):
         # When ?profile=<name> was given, scope PID and state reads to that
         # profile's directory — gateway identity files (PID, lock, runtime
         # status) are written to the per-profile home, not the process-level
-        # HERMES_HOME (see issue #69143). Plain /api/status keeps the exact
+        # XHERMES_HOME (see issue #69143). Plain /api/status keeps the exact
         # zero-arg call so its behavior (and cache signature) is unchanged.
         #
         # The module-level probe references are handed to the resolver so the
@@ -3766,12 +3766,12 @@ def _spawn_hermes_action(subcommand: List[str], name: str) -> subprocess.Popen:
     cmd = [_dashboard_spawn_executable(), "-m", "hermes_cli.main", *subcommand]
 
     # The dashboard runs *inside* the gateway process, so os.environ carries
-    # _HERMES_GATEWAY=1. Inheriting it makes a spawned `xhermes gateway restart`
+    # _XHERMES_GATEWAY=1. Inheriting it makes a spawned `xhermes gateway restart`
     # trip the in-process restart-loop guard and exit 1 — silently failing the
     # dashboard's auto-restart paths. The gateway's own restart watcher already
     # drops it (gateway/run.py); mirror that here (#52470).
-    action_env = {**os.environ, "HERMES_NONINTERACTIVE": "1"}
-    action_env.pop("_HERMES_GATEWAY", None)
+    action_env = {**os.environ, "XHERMES_NONINTERACTIVE": "1"}
+    action_env.pop("_XHERMES_GATEWAY", None)
 
     popen_kwargs: Dict[str, Any] = {
         "cwd": str(PROJECT_ROOT),
@@ -3974,7 +3974,7 @@ async def gateway_drain(request: Request):
     Authenticated by the non-interactive token-auth seam: the
     ``dashboard_auth/drain`` plugin registers this exact path as a token route
     and verifies the ``Authorization`` bearer secret. If that plugin isn't
-    active (no ``HERMES_DASHBOARD_DRAIN_SECRET``), the route is NOT a token
+    active (no ``XHERMES_DASHBOARD_DRAIN_SECRET``), the route is NOT a token
     route, so on a gated bind the cookie gate handles it (a browser session can
     still drive it from the dashboard) and on a loopback bind the legacy
     session-token gate applies — either way it is never unauthenticated on a
@@ -5357,7 +5357,7 @@ def _install_memory_provider_pip_dependencies(dependencies: List[str]) -> List[D
     # pipeline is environment-aware: on hosted/immutable images the agent venv
     # under /opt/xhermes is sealed read-only, and installs must be redirected
     # to the writable durable target on the data volume
-    # (HERMES_LAZY_INSTALL_TARGET, e.g. /opt/data/lazy-packages) — the same
+    # (XHERMES_LAZY_INSTALL_TARGET, e.g. /opt/data/lazy-packages) — the same
     # path every lazy backend already uses. A direct `pip install --python
     # sys.executable` on those images fails with a permission error (NS-605).
     # install_specs also activates the target on sys.path post-install so the
@@ -8181,7 +8181,7 @@ def _messaging_platform_payload(
     #
     # profile_home is passed when the request was scoped to a named profile:
     # gateway/status readers resolve process-level paths and do NOT follow the
-    # HERMES_HOME contextvar override (#56986 / #69143), so the profile's
+    # XHERMES_HOME contextvar override (#56986 / #69143), so the profile's
     # directory has to be handed over explicitly or messaging silently reports
     # another profile's gateway (#71211).
     liveness = resolve_gateway_liveness(
@@ -9196,7 +9196,7 @@ async def cancel_telegram_onboarding(pairing_id: str):
 async def get_messaging_platforms(profile: Optional[str] = None):
     # Profile-scoped so the dashboard's global profile switcher shows the
     # TARGET profile's channel credentials/state, not the root install's.
-    # load_env() honors the HERMES_HOME contextvar override; the gateway
+    # load_env() honors the XHERMES_HOME contextvar override; the gateway
     # status readers do NOT (they resolve process-level paths), so the
     # profile directory is passed explicitly for those (#71211).
     with _profile_scope(profile) as scoped_dir:
@@ -9247,7 +9247,7 @@ def _multiplex_port_binding_conflict(
     if not requested or requested.lower() == "current":
         from hermes_cli.profiles import get_active_profile_name
 
-        # The dashboard's own profile. "custom" (an unrecognized HERMES_HOME)
+        # The dashboard's own profile. "custom" (an unrecognized XHERMES_HOME)
         # is outside the profiles tree, so a multiplexed gateway never serves
         # it — nothing to guard.
         target = get_active_profile_name()
@@ -10236,7 +10236,7 @@ async def _start_device_code_flow(
         import httpx
         pconfig = PROVIDER_REGISTRY["nous"]
         portal_base_url = (
-            os.getenv("HERMES_PORTAL_BASE_URL")
+            os.getenv("XHERMES_PORTAL_BASE_URL")
             or os.getenv("NOUS_PORTAL_BASE_URL")
             or pconfig.portal_base_url
         ).rstrip("/")
@@ -11528,12 +11528,12 @@ def _cron_profile_dicts() -> List[Dict[str, Any]]:
 def _cron_default_profile() -> str:
     """Profile to target when a cron request carries no explicit ``profile``.
 
-    A desktop pool backend runs one process per profile (HERMES_HOME already
+    A desktop pool backend runs one process per profile (XHERMES_HOME already
     scoped), but these cron endpoints deliberately route storage through the
     profiles tree via ``_cron_profile_home`` — so a hardcoded ``"default"``
     fallback would write a non-default profile's job into ``~/.xhermes``.
     Resolve the process's own profile instead. ``custom`` (an unrecognized
-    HERMES_HOME outside the profiles tree) has no profile-dir equivalent, so
+    XHERMES_HOME outside the profiles tree) has no profile-dir equivalent, so
     it keeps the legacy ``default`` fallback.
     """
     try:
@@ -11546,7 +11546,7 @@ def _cron_default_profile() -> str:
 
 
 def _cron_profile_home(profile: Optional[str]) -> Tuple[str, Path]:
-    """Resolve a profile query value to (profile_name, HERMES_HOME)."""
+    """Resolve a profile query value to (profile_name, XHERMES_HOME)."""
     from hermes_cli import profiles as profiles_mod
 
     raw = (profile or _cron_default_profile()).strip() or "default"
@@ -13313,7 +13313,7 @@ def _write_profile_model(profile_dir: Path, provider: str, model: str) -> None:
     """Write the main model assignment into a specific profile's config.yaml.
 
     Scopes ``load_config``/``save_config`` to ``profile_dir`` via the
-    context-local HERMES_HOME override so the write lands in the target
+    context-local XHERMES_HOME override so the write lands in the target
     profile's config rather than the dashboard process's active profile.
     Clears any stale ``base_url`` / ``context_length`` the same way
     ``POST /api/model/set`` does, since the new model may differ.
@@ -13334,7 +13334,7 @@ def _write_profile_mcp_servers(profile_dir: Path, servers: List["MCPServerCreate
     """Write MCP server entries into a specific profile's config.yaml.
 
     Scopes ``load_config``/``save_config`` to ``profile_dir`` via the
-    context-local HERMES_HOME override (same mechanism as
+    context-local XHERMES_HOME override (same mechanism as
     ``_write_profile_model``) so the entries land in the target profile's
     config rather than the dashboard process's active profile.
 
@@ -13385,7 +13385,7 @@ def _disable_unselected_skills(profile_dir: Path, keep: List[str]) -> int:
     uses "replace" semantics: the user picks exactly which seeded built-in /
     optional skills stay active, and everything else gets added to the disabled
     list. (Hub skills are installed separately via subprocess and are active on
-    install.) Scoped to the profile via the HERMES_HOME override. Returns the
+    install.) Scoped to the profile via the XHERMES_HOME override. Returns the
     number of skills newly disabled.
     """
     from hermes_constants import set_hermes_home_override, reset_hermes_home_override
@@ -13490,7 +13490,7 @@ def _profile_scope(profile: Optional[str]):
     config resolution is untouched, but the skill-module globals are still
     retargeted to the *current* ``get_hermes_home()`` so writes land in the
     live home even when the import-time binding is stale (e.g. the process
-    imported the modules before a HERMES_HOME override, or under test
+    imported the modules before a XHERMES_HOME override, or under test
     isolation).
     """
     requested = (profile or "").strip()
@@ -13511,20 +13511,20 @@ def _profile_scope(profile: Optional[str]):
         token = set_hermes_home_override(str(profile_dir))
 
     with _SKILLS_PROFILE_LOCK:
-        old_home = _skills_tool.HERMES_HOME
+        old_home = _skills_tool.XHERMES_HOME
         old_skills_dir = _skills_tool.SKILLS_DIR
-        old_mgr_home = _skill_mgr.HERMES_HOME
+        old_mgr_home = _skill_mgr.XHERMES_HOME
         old_mgr_skills_dir = _skill_mgr.SKILLS_DIR
-        _skills_tool.HERMES_HOME = profile_dir
+        _skills_tool.XHERMES_HOME = profile_dir
         _skills_tool.SKILLS_DIR = profile_dir / "skills"
-        _skill_mgr.HERMES_HOME = profile_dir
+        _skill_mgr.XHERMES_HOME = profile_dir
         _skill_mgr.SKILLS_DIR = profile_dir / "skills"
         try:
             yield profile_dir if token is not None else None
         finally:
-            _skills_tool.HERMES_HOME = old_home
+            _skills_tool.XHERMES_HOME = old_home
             _skills_tool.SKILLS_DIR = old_skills_dir
-            _skill_mgr.HERMES_HOME = old_mgr_home
+            _skill_mgr.XHERMES_HOME = old_mgr_home
             _skill_mgr.SKILLS_DIR = old_mgr_skills_dir
             if token is not None:
                 reset_hermes_home_override(token)
@@ -14682,32 +14682,32 @@ def _resolve_chat_argv(
     function to inject a tiny fake command (``cat``, ``sh -c 'printf …'``)
     so nothing has to build Node or the TUI bundle.
 
-    Session resume is propagated via the ``HERMES_TUI_RESUME`` env var —
+    Session resume is propagated via the ``XHERMES_TUI_RESUME`` env var —
     matching what ``hermes_cli.main._launch_tui`` does for the CLI path.
     Appending ``--resume <id>`` to argv doesn't work because ``ui-tui`` does
     not parse its argv.
 
-    ``HERMES_TUI_GATEWAY_URL`` is injected so the PTY child can attach to
+    ``XHERMES_TUI_GATEWAY_URL`` is injected so the PTY child can attach to
     this process's in-memory ``tui_gateway`` instance instead of spawning
     its own Python gateway subprocess.
 
-    `sidecar_url` (when set) is forwarded as ``HERMES_TUI_SIDECAR_URL`` so
+    `sidecar_url` (when set) is forwarded as ``XHERMES_TUI_SIDECAR_URL`` so
     the spawned ``tui_gateway.entry`` can mirror dispatcher emits to the
     dashboard's ``/api/pub`` endpoint (see :func:`pub_ws`).
 
     `active_session_file` (when set) is forwarded as
-    ``HERMES_TUI_ACTIVE_SESSION_FILE``. The TUI writes the current session id
+    ``XHERMES_TUI_ACTIVE_SESSION_FILE``. The TUI writes the current session id
     there whenever it creates/resumes/switches sessions, giving the dashboard a
     small cross-process breadcrumb for reconnecting after an unexpected browser
     WebSocket close.
 
     `profile` (when set) scopes the ENTIRE chat to that profile by pointing
-    ``HERMES_HOME`` at the profile dir in the child env. Every spawned
+    ``XHERMES_HOME`` at the profile dir in the child env. Every spawned
     process (the TUI and the ``tui_gateway.entry`` it launches) resolves
     ``get_hermes_home()`` from that env var at its own import, so the child
     binds the profile's config, skills, memory, and state.db from the start
     — the same propagation ``xhermes -p <name>`` performs. The in-process
-    ``HERMES_TUI_GATEWAY_URL`` attach is SKIPPED for scoped chats: the
+    ``XHERMES_TUI_GATEWAY_URL`` attach is SKIPPED for scoped chats: the
     dashboard's in-memory gateway runs under the dashboard's own profile,
     so a profile-scoped chat must spawn its own gateway subprocess.
     """
@@ -14721,7 +14721,7 @@ def _resolve_chat_argv(
     argv, cwd = _make_tui_argv(PROJECT_ROOT / "ui-tui", tui_dev=False)
     # XHermes TUI child: build via the single spawn-env factory (profile-home
     # contract applied; secrets kept — the spawned agent needs provider creds).
-    # An explicit profile scope below still overrides HERMES_HOME afterwards.
+    # An explicit profile scope below still overrides XHERMES_HOME afterwards.
     from tools.environments.local import build_subprocess_env
     env = build_subprocess_env(scrub_secrets=False, inherit_profile_home=True)
     try:
@@ -14737,8 +14737,8 @@ def _resolve_chat_argv(
     # makes browser-side transcript scrolling feel broken. Keep the terminal
     # build unchanged for native CLI usage; only disable mouse tracking for
     # the dashboard PTY path.
-    env.setdefault("HERMES_TUI_DISABLE_MOUSE", "1")
-    env.setdefault("HERMES_TUI_INLINE", "1")
+    env.setdefault("XHERMES_TUI_DISABLE_MOUSE", "1")
+    env.setdefault("XHERMES_TUI_INLINE", "1")
     # The dashboard terminal is xterm.js, which always renders 24-bit RGB.
     # But chalk inside the TUI child decides its color depth from the
     # SERVER process env — and hosted/cloud deploys run the dashboard under
@@ -14750,10 +14750,10 @@ def _resolve_chat_argv(
     # COLORTERM=truecolor into os.environ. Backfill it for the PTY child;
     # setdefault so an explicit operator value still wins.
     env.setdefault("COLORTERM", "truecolor")
-    env["HERMES_TUI_DASHBOARD"] = "1"
+    env["XHERMES_TUI_DASHBOARD"] = "1"
 
     if profile_dir is not None:
-        env["HERMES_HOME"] = str(profile_dir)
+        env["XHERMES_HOME"] = str(profile_dir)
 
     if resume:
         _resume_db = _open_session_db_for_profile(
@@ -14766,21 +14766,21 @@ def _resolve_chat_argv(
             _resume_db.close()
         if latest_resume:
             resume = latest_resume
-        env["HERMES_TUI_RESUME"] = resume
+        env["XHERMES_TUI_RESUME"] = resume
 
     if sidecar_url:
-        env["HERMES_TUI_SIDECAR_URL"] = sidecar_url
+        env["XHERMES_TUI_SIDECAR_URL"] = sidecar_url
 
     if active_session_file:
-        env["HERMES_TUI_ACTIVE_SESSION_FILE"] = active_session_file
+        env["XHERMES_TUI_ACTIVE_SESSION_FILE"] = active_session_file
 
     # Profile-scoped chats must NOT attach to the dashboard's in-memory
     # gateway — it runs under the dashboard's own profile. Without the
     # attach URL, gatewayClient spawns its own `tui_gateway.entry`, which
-    # inherits the profile HERMES_HOME set above.
+    # inherits the profile XHERMES_HOME set above.
     if profile_dir is None:
         if gateway_ws_url := _build_gateway_ws_url():
-            env["HERMES_TUI_GATEWAY_URL"] = gateway_ws_url
+            env["XHERMES_TUI_GATEWAY_URL"] = gateway_ws_url
 
     return list(argv), str(cwd) if cwd else None, env
 
@@ -14800,7 +14800,7 @@ def _resolve_client_ws_host() -> Optional[str]:
 
     Resolution order:
 
-    1. Explicit ``HERMES_DASHBOARD_WS_HOST`` env var — wins always. Operators
+    1. Explicit ``XHERMES_DASHBOARD_WS_HOST`` env var — wins always. Operators
        running the dashboard behind a forward proxy can pin a routable host
        (e.g. ``127.0.0.1``, the container's internal IP, or a sidecar DNS
        name) and bypass auto-detection entirely.
@@ -14809,7 +14809,7 @@ def _resolve_client_ws_host() -> Optional[str]:
        run in the same container.
     3. Any other bind host (loopback or LAN IP) — preserved verbatim.
     """
-    explicit = os.environ.get("HERMES_DASHBOARD_WS_HOST", "").strip()
+    explicit = os.environ.get("XHERMES_DASHBOARD_WS_HOST", "").strip()
     if explicit:
         return explicit
 
@@ -15653,7 +15653,7 @@ async def pty_ws(ws: WebSocket) -> None:
     attach_token = ws.query_params.get("attach") or None
     registry_resume = raw_resume
     if raw_resume and env:
-        registry_resume = env.get("HERMES_TUI_RESUME") or raw_resume
+        registry_resume = env.get("XHERMES_TUI_RESUME") or raw_resume
     if attach_token is not None and (registry_resume or profile):
         # Key explicit resumes on their canonical target, never the active-session fallback.
         attach_token = f"{attach_token}\0{profile or ''}\0{registry_resume or ''}"
@@ -15764,7 +15764,7 @@ async def gateway_ws(ws: WebSocket) -> None:
 # /api/pub + /api/events — chat-tab event broadcast.
 #
 # The PTY-side ``tui_gateway.entry`` opens /api/pub at startup (driven by
-# HERMES_TUI_SIDECAR_URL set in /api/pty's PTY env) and writes every
+# XHERMES_TUI_SIDECAR_URL set in /api/pty's PTY env) and writes every
 # dispatcher emit through it.  The dashboard fans those frames out to any
 # subscriber that opened /api/events on the same channel id.  This is what
 # gives the React sidebar its tool-call feed without breaking the PTY
@@ -15946,13 +15946,13 @@ def mount_spa(application: FastAPI):
     ``mission-control.tilos.com/xhermes/*`` -> local Caddy -> :9119), the
     proxy injects ``X-Forwarded-Prefix: /xhermes`` on every request. We
     rewrite the served ``index.html`` so absolute asset URLs (``/assets/...``)
-    and the SPA's runtime ``__HERMES_BASE_PATH__`` honour that prefix
+    and the SPA's runtime ``__XHERMES_BASE_PATH__`` honour that prefix
     without rebuilding the bundle.
     """
     # `xhermes serve` is the headless backend: it must NEVER serve the browser
     # SPA, even if a dist is lying around from a prior `dashboard`/build. Take
     # the no-frontend path so only the JSON-RPC/WS/API surface is reachable.
-    _headless = os.environ.get("HERMES_SERVE_HEADLESS") == "1"
+    _headless = os.environ.get("XHERMES_SERVE_HEADLESS") == "1"
     if _headless or not WEB_DIST.exists():
         _msg = (
             "Headless backend (xhermes serve): web UI disabled — use "
@@ -15977,7 +15977,7 @@ def mount_spa(application: FastAPI):
         When the OAuth auth gate is active (``app.state.auth_required``),
         the legacy ``_SESSION_TOKEN`` is NOT injected — the SPA reads
         identity from ``/api/auth/me`` over cookie auth instead.  The
-        ``__HERMES_AUTH_REQUIRED__`` flag lets the SPA pick the right
+        ``__XHERMES_AUTH_REQUIRED__`` flag lets the SPA pick the right
         auth scheme for /api/pty and /api/ws (ticket vs token).
         """
         try:
@@ -15998,17 +15998,17 @@ def mount_spa(application: FastAPI):
         if gated:
             bootstrap_script = (
                 f"<script>"
-                f"window.__HERMES_DASHBOARD_EMBEDDED_CHAT__={chat_js};"
-                f'window.__HERMES_BASE_PATH__="{prefix}";'
-                f"window.__HERMES_AUTH_REQUIRED__={gated_js};"
+                f"window.__XHERMES_DASHBOARD_EMBEDDED_CHAT__={chat_js};"
+                f'window.__XHERMES_BASE_PATH__="{prefix}";'
+                f"window.__XHERMES_AUTH_REQUIRED__={gated_js};"
                 f"</script>"
             )
         else:
             bootstrap_script = (
-                f'<script>window.__HERMES_SESSION_TOKEN__="{_SESSION_TOKEN}";'
-                f"window.__HERMES_DASHBOARD_EMBEDDED_CHAT__={chat_js};"
-                f'window.__HERMES_BASE_PATH__="{prefix}";'
-                f"window.__HERMES_AUTH_REQUIRED__={gated_js};"
+                f'<script>window.__XHERMES_SESSION_TOKEN__="{_SESSION_TOKEN}";'
+                f"window.__XHERMES_DASHBOARD_EMBEDDED_CHAT__={chat_js};"
+                f'window.__XHERMES_BASE_PATH__="{prefix}";'
+                f"window.__XHERMES_AUTH_REQUIRED__={gated_js};"
                 f"</script>"
             )
         if prefix:
@@ -16021,7 +16021,7 @@ def mount_spa(application: FastAPI):
             html = html.replace('href="/ds-assets/', f'href="{prefix}/ds-assets/')
             html = html.replace('src="/ds-assets/', f'src="{prefix}/ds-assets/')
         # Theme flash mitigation: when the active theme is a user theme
-        # (``HERMES_HOME/dashboard-themes/<name>.yaml``), inject a minimal
+        # (``XHERMES_HOME/dashboard-themes/<name>.yaml``), inject a minimal
         # critical-CSS block so the first paint uses the target palette.
         # Without this the SPA paints the default XHermes Teal canvas, then
         # ``ThemeProvider`` flips the CSS variables once
@@ -16351,7 +16351,7 @@ def _discover_user_themes() -> list:
 
     Uses the dashboard process launch home, not ``get_hermes_home()``, so a
     transient profile override from embedded chat does not hide themes that
-    live under the server's own ``HERMES_HOME``.
+    live under the server's own ``XHERMES_HOME``.
     """
     themes_dir = get_process_hermes_home() / "dashboard-themes"
     if not themes_dir.is_dir():
@@ -16499,7 +16499,7 @@ def _discover_dashboard_plugins() -> list:
     Checks three plugin sources (same as hermes_cli.plugins):
     1. User plugins:    ~/.xhermes/plugins/<name>/dashboard/manifest.json
     2. Bundled plugins: <repo>/plugins/<name>/dashboard/manifest.json  (memory/, etc.)
-    3. Project plugins: ./.xhermes/plugins/  (only if HERMES_ENABLE_PROJECT_PLUGINS)
+    3. Project plugins: ./.xhermes/plugins/  (only if XHERMES_ENABLE_PROJECT_PLUGINS)
     """
     plugins = []
     seen_names: set = set()
@@ -16509,7 +16509,7 @@ def _discover_dashboard_plugins() -> list:
     # User dashboard plugins are a dashboard-owned asset (same category as
     # theme YAML): resolve them from the process launch home so they don't
     # vanish when a request is scoped to another profile via a context-local
-    # HERMES_HOME override (e.g. embedded /chat under --open-profile).
+    # XHERMES_HOME override (e.g. embedded /chat under --open-profile).
     search_dirs = [
         (get_process_hermes_home() / "plugins", "user"),
         (bundled_root / "memory", "bundled"),
@@ -16524,7 +16524,7 @@ def _discover_dashboard_plugins() -> list:
     # opt-in into a sticky always-on switch.  Use the shared truthy
     # semantics (``1`` / ``true`` / ``yes`` / ``on``) so the gate matches
     # ``hermes_cli/plugins.py`` and the documented user contract.
-    if env_var_enabled("HERMES_ENABLE_PROJECT_PLUGINS"):
+    if env_var_enabled("XHERMES_ENABLE_PROJECT_PLUGINS"):
         search_dirs.append((Path.cwd() / ".xhermes" / "plugins", "project"))
 
     for plugins_root, source in search_dirs:
@@ -17244,10 +17244,10 @@ def _write_dashboard_ready_file(actual_port: int) -> None:
 
     Windows Desktop can launch dashboard backends with ``pythonw.exe`` to avoid
     console flashes. That path cannot rely on stdout for the port announcement,
-    so Electron passes ``HERMES_DESKTOP_READY_FILE`` and waits for this JSON.
+    so Electron passes ``XHERMES_DESKTOP_READY_FILE`` and waits for this JSON.
     Normal CLI/dashboard launches still use the stdout READY line below.
     """
-    target = os.environ.get("HERMES_DESKTOP_READY_FILE")
+    target = os.environ.get("XHERMES_DESKTOP_READY_FILE")
     if not target:
         return
 
@@ -17339,7 +17339,7 @@ def start_server(
     machine dashboard.
 
     ``headless`` is the ``serve`` path: the JSON-RPC/WS backend with no UI
-    build and no SPA mount (mount_spa() honours ``HERMES_SERVE_HEADLESS``), so
+    build and no SPA mount (mount_spa() honours ``XHERMES_SERVE_HEADLESS``), so
     the banner announces the bind rather than a browser URL.
 
     ``ssh_session_token`` and ``ssh_owner_nonce`` are process-local Desktop SSH
@@ -17383,7 +17383,7 @@ def start_server(
         from hermes_cli.dashboard_auth import list_providers
         if not list_providers():
             # Surface the *specific* reason any bundled provider declined
-            # to register (e.g. missing HERMES_DASHBOARD_OAUTH_CLIENT_ID).
+            # to register (e.g. missing XHERMES_DASHBOARD_OAUTH_CLIENT_ID).
             # Each provider plugin that ships with xHermes Agent exposes a
             # module-level ``LAST_SKIP_REASON`` string for this purpose;
             # without it the operator would only see "no providers" which
@@ -17466,7 +17466,7 @@ def start_server(
     # We use uvicorn.Server directly (not uvicorn.run) so we can split
     # startup from the main loop.  After startup() the socket is actually
     # bound — we read the OS-assigned port from the live socket, print
-    # HERMES_DASHBOARD_READY, open the browser, *then* serve.
+    # XHERMES_DASHBOARD_READY, open the browser, *then* serve.
     #
     # This eliminates the TOCTOU of the old pre-bind-then-close approach
     # (bind port 0 → close → uvicorn rebind): the socket is held by
@@ -17533,7 +17533,7 @@ def start_server(
             # Port-discovery sentinel parsed by the desktop spawn. `serve` is a
             # plain backend, not a dashboard, so it announces a neutral token;
             # `dashboard` keeps the legacy one. The desktop matches either.
-            ready_token = "HERMES_BACKEND_READY" if headless else "HERMES_DASHBOARD_READY"
+            ready_token = "XHERMES_BACKEND_READY" if headless else "XHERMES_DASHBOARD_READY"
             print(f"{ready_token} port={actual_port}", flush=True)
             if headless:
                 # No SPA, and the JSON-RPC/WS endpoints are auth-gated — don't

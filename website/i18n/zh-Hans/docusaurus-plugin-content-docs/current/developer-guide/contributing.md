@@ -40,11 +40,11 @@ description: "如何为 XHermes Agent 做贡献 — 开发环境配置、代码�
 
 ### 使用标准安装器
 
-对大多数贡献者来说，最好的开发启动方式和用户安装方式相同：运行标准安装器，然后在它克隆出的仓库里开发。安装器会创建 XHermes venv、配置 `xhermes` 命令、为 `xhermes update` 写入安装方式标记，并把完整 git 项目克隆到 `$HERMES_HOME/xhermes-agent`（通常是 `~/.xhermes/xhermes-agent`）。这样你的开发环境会和 CLI、updater、lazy dependency installer、gateway、docs 默认假设的布局一致。
+对大多数贡献者来说，最好的开发启动方式和用户安装方式相同：运行标准安装器，然后在它克隆出的仓库里开发。安装器会创建 XHermes venv、配置 `xhermes` 命令、为 `xhermes update` 写入安装方式标记，并把完整 git 项目克隆到 `$XHERMES_HOME/xhermes-agent`（通常是 `~/.xhermes/xhermes-agent`）。这样你的开发环境会和 CLI、updater、lazy dependency installer、gateway、docs 默认假设的布局一致。
 
 ```bash
 curl -fsSL https://xhermes-agent.nousresearch.com/install.sh | bash
-cd "${HERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
+cd "${XHERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
 
 # 在标准安装基础上添加开发/测试 extras。
 uv pip install -e ".[all,dev]"

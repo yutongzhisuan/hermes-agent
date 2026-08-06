@@ -48,9 +48,9 @@ Where the installer puts things depends on whether you're installing as a normal
 | Installer                              | Code lives at                  | `xhermes` binary                         | Data directory                       |
 | -------------------------------------- | ------------------------------ | --------------------------------------- | ------------------------------------ |
 | Per-user (git installer)               | `~/.xhermes/xhermes-agent/`      | `~/.local/bin/xhermes` (symlink)         | `~/.xhermes/`                         |
-| Root-mode (`sudo curl … \| sudo bash`) | `/usr/local/lib/xhermes-agent/` | `/usr/local/bin/xhermes`                 | `/root/.xhermes/` (or `$HERMES_HOME`) |
+| Root-mode (`sudo curl … \| sudo bash`) | `/usr/local/lib/xhermes-agent/` | `/usr/local/bin/xhermes`                 | `/root/.xhermes/` (or `$XHERMES_HOME`) |
 
-The root-mode **FHS layout** (`/usr/local/lib/…`, `/usr/local/bin/xhermes`) matches where other system-wide developer tools land on Linux. It's useful for shared-machine deployments where one system install should serve every user. Per-user config (auth, skills, sessions) still lives under each user's `~/.xhermes/` or explicit `HERMES_HOME`.
+The root-mode **FHS layout** (`/usr/local/lib/…`, `/usr/local/bin/xhermes`) matches where other system-wide developer tools land on Linux. It's useful for shared-machine deployments where one system install should serve every user. Per-user config (auth, skills, sessions) still lives under each user's `~/.xhermes/` or explicit `XHERMES_HOME`.
 
 ### After Installation
 

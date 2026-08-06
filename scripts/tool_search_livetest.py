@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 # Force-isolate the test environment BEFORE any xhermes imports.
-ORIGINAL_HOME = os.environ.get("HERMES_HOME")
+ORIGINAL_HOME = os.environ.get("XHERMES_HOME")
 ORIGINAL_AUTH = Path.home() / ".xhermes" / "auth.json"
 
 _THIS_DIR = Path(__file__).resolve().parent
@@ -345,7 +345,7 @@ def register_fake_tools() -> int:
 
 
 def reset_module_state():
-    """Drop cached modules so the new HERMES_HOME takes effect."""
+    """Drop cached modules so the new XHERMES_HOME takes effect."""
     keys = [k for k in sys.modules.keys()
             if k.startswith(("tools.", "model_tools", "toolsets",
                              "hermes_cli", "agent.", "run_agent"))]
@@ -357,7 +357,7 @@ def run_one_scenario(scenario: Dict[str, Any], enabled: bool, out_dir: Path) -> 
     """Run one (scenario, enabled) combination. Returns the recorded transcript."""
     reset_module_state()
     home = setup_isolated_home(enabled=enabled)
-    os.environ["HERMES_HOME"] = str(home)
+    os.environ["XHERMES_HOME"] = str(home)
 
     # Pre-create the test file used by scenario D.
     Path("/tmp/livetest").mkdir(exist_ok=True)
@@ -542,11 +542,11 @@ def main():
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"\nSummary saved to: {summary_path}")
 
-    # Restore original HERMES_HOME
+    # Restore original XHERMES_HOME
     if ORIGINAL_HOME is not None:
-        os.environ["HERMES_HOME"] = ORIGINAL_HOME
+        os.environ["XHERMES_HOME"] = ORIGINAL_HOME
     else:
-        os.environ.pop("HERMES_HOME", None)
+        os.environ.pop("XHERMES_HOME", None)
 
 
 if __name__ == "__main__":

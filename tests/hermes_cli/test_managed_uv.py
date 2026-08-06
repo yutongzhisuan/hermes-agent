@@ -262,7 +262,7 @@ class TestUpdateManagedUv:
 
         uv = tmp_path / "bin" / "uv"
         _make_executable(uv)
-        # Fresh stamp under the isolated HERMES_HOME.
+        # Fresh stamp under the isolated XHERMES_HOME.
         import hermes_constants
         stamp = hermes_constants.get_hermes_home() / "cache" / ".uv_self_update_stamp"
         stamp.parent.mkdir(parents=True, exist_ok=True)
@@ -313,9 +313,9 @@ class TestManagedPythonStore:
         from hermes_cli.managed_uv import managed_python_install_dir
 
         checkout = tmp_path / "checkout"
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "alpha"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "profiles" / "alpha"))
         alpha = managed_python_install_dir(checkout)
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "beta"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "profiles" / "beta"))
         beta = managed_python_install_dir(checkout)
 
         expected = checkout / ".xhermes-runtime" / "python"

@@ -234,4 +234,4 @@ curl -X POST -H "Content-Type: application/json" -H "X-XHermes-Session-Token: $T
   http://localhost:PORT/api/model/set
 ```
 
-session token 在启动时注入仪表板 HTML，每次服务器重启后轮换。如需对运行中的仪表板编写脚本，可从浏览器开发者工具中获取（`window.__HERMES_SESSION_TOKEN__`）。
+session token 在启动时注入仪表板 HTML，每次服务器重启后轮换。如需对运行中的仪表板编写脚本，可从浏览器开发者工具中获取（`window.__XHERMES_SESSION_TOKEN__`）。

@@ -713,7 +713,7 @@ def _resolve_stdio_command(command: str, env: dict) -> tuple[str, dict]:
             resolved_command = which_hit
         elif resolved_command in {"npx", "npm", "node"}:
             hermes_home = os.path.expanduser(
-                os.getenv("HERMES_HOME", str(get_hermes_home()))
+                os.getenv("XHERMES_HOME", str(get_hermes_home()))
             )
             candidates = [
                 os.path.join(hermes_home, "node", "bin", resolved_command),
@@ -1872,7 +1872,7 @@ class ElicitationHandler:
         # normalizes the answer to one of accept / decline / cancel.
         #
         # The recv-loop task that fires this callback does NOT inherit
-        # the agent's contextvars (HERMES_SESSION_PLATFORM etc.). When
+        # the agent's contextvars (XHERMES_SESSION_PLATFORM etc.). When
         # the MCP tool wrapper captured the agent's context onto
         # owner._pending_call_context we replay it here via
         # contextvars.Context.run so the gateway-platform detection in
@@ -2023,7 +2023,7 @@ class MCPServerTask:
         # contextvars snapshot of the agent task that's currently in
         # session.call_tool(). The MCP recv loop dispatches incoming
         # elicitation/create requests on a SEPARATE asyncio task whose
-        # context doesn't inherit HERMES_SESSION_PLATFORM, so the
+        # context doesn't inherit XHERMES_SESSION_PLATFORM, so the
         # elicitation handler has no way to detect the gateway session
         # that triggered the call. Capturing the agent's context here
         # and replaying it inside the elicitation callback restores
@@ -4616,7 +4616,7 @@ def _ensure_mcp_loop():
 
 
 def _wrap_with_home_override(coro: "Coroutine") -> "Coroutine":
-    """Carry the caller's context-local HERMES_HOME override into ``coro``.
+    """Carry the caller's context-local XHERMES_HOME override into ``coro``.
 
     Returns ``coro`` unchanged when no override is active. Otherwise wraps
     it so the override is set inside the coroutine's own (task-local)
@@ -4690,7 +4690,7 @@ def _run_on_mcp_loop(coro_or_factory, timeout: float = 30):
 
     coro = coro_or_factory() if callable(coro_or_factory) else coro_or_factory
 
-    # Propagate the context-local HERMES_HOME override onto the MCP loop.
+    # Propagate the context-local XHERMES_HOME override onto the MCP loop.
     # Tasks scheduled via run_coroutine_threadsafe are created INSIDE the
     # loop thread, so they copy the loop thread's context — not the
     # scheduling thread's. A per-request profile scope (the dashboard's
@@ -4878,7 +4878,7 @@ def _load_mcp_config() -> Dict[str, dict]:
         from hermes_cli.config import load_config
         from utils import env_var_enabled as _env_enabled
 
-        if _env_enabled("HERMES_SAFE_MODE"):
+        if _env_enabled("XHERMES_SAFE_MODE"):
             return {}
         config = load_config()
         servers = config.get("mcp_servers")

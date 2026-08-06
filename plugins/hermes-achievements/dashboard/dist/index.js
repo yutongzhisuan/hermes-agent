@@ -5,8 +5,8 @@
   // Bundled into xhermes-agent. Upstream repo remains the staging ground for new
   // badges and UI iteration; the in-progress scan banner below is a small addition
   // layered on top of the original dist bundle.
-  const SDK = window.__HERMES_PLUGIN_SDK__;
-  if (!SDK || !window.__HERMES_PLUGINS__) return;
+  const SDK = window.__XHERMES_PLUGIN_SDK__;
+  if (!SDK || !window.__XHERMES_PLUGINS__) return;
 
   const React = SDK.React;
   const hooks = SDK.hooks;
@@ -52,7 +52,7 @@
     // Delegate to the host SDK's fetchJSON so auth is handled correctly in
     // BOTH dashboard modes: loopback (X-XHermes-Session-Token header) and
     // gated OAuth (hermes_session_at cookie via credentials:'include').
-    // Hand-rolling fetch + reading window.__HERMES_SESSION_TOKEN__ directly
+    // Hand-rolling fetch + reading window.__XHERMES_SESSION_TOKEN__ directly
     // 401s in gated mode (the token isn't injected there). fetchJSON throws
     // Error("<status>: <body>") on non-2xx — the call sites' .catch() relies
     // on that to surface errors, so we let it propagate (don't swallow).
@@ -257,7 +257,7 @@
     ctx.fillStyle = "#8b95a8";
     ctx.font = "600 20px ui-monospace, 'SF Mono', Menlo, monospace";
     ctx.textBaseline = "bottom";
-    ctx.fillText("HERMES AGENT  ·  xhermes-agent.nousresearch.com", 70, H - 40);
+    ctx.fillText("XHERMES AGENT  ·  xhermes-agent.nousresearch.com", 70, H - 40);
 
     // "UNLOCKED" stamp upper-right
     ctx.textBaseline = "top";
@@ -722,5 +722,5 @@
     );
   }
 
-  window.__HERMES_PLUGINS__.register("xhermes-achievements", AchievementsPage);
+  window.__XHERMES_PLUGINS__.register("xhermes-achievements", AchievementsPage);
 })();

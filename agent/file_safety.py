@@ -8,7 +8,7 @@ from typing import Optional
 
 
 def _hermes_home_path() -> Path:
-    """Resolve the active HERMES_HOME (profile-aware) without circular imports."""
+    """Resolve the active XHERMES_HOME (profile-aware) without circular imports."""
     try:
         from hermes_constants import get_hermes_home  # local import to avoid cycles
         return get_hermes_home()
@@ -81,10 +81,10 @@ def build_write_denied_prefixes(home: str) -> list[str]:
 
 
 def get_safe_write_roots() -> set[str]:
-    """Return resolved HERMES_WRITE_SAFE_ROOT paths. Supports multiple directories
+    """Return resolved XHERMES_WRITE_SAFE_ROOT paths. Supports multiple directories
     separated by ``os.pathsep`` (``:`` on Unix, ``;`` on Windows).
     E.g., ``/opt/data:/var/www/html`` on Unix, ``C:\\data;D:\\www`` on Windows."""
-    env = os.getenv("HERMES_WRITE_SAFE_ROOT", "")
+    env = os.getenv("XHERMES_WRITE_SAFE_ROOT", "")
     if not env:
         return set()
     roots: set[str] = set()
@@ -171,7 +171,7 @@ def get_write_denied_error(path: str, *, verb: str = "Write") -> Optional[str]:
     if denial == "safe_root":
         roots_display = os.pathsep.join(sorted(get_safe_write_roots()))
         return (
-            f"{verb} denied: '{path}' is outside HERMES_WRITE_SAFE_ROOT "
+            f"{verb} denied: '{path}' is outside XHERMES_WRITE_SAFE_ROOT "
             f"({roots_display}). Unset the variable or add this path's directory prefix."
         )
     return f"{verb} denied: '{path}' is a protected system/credential file."
@@ -196,10 +196,10 @@ def get_read_block_error(path: str) -> Optional[str]:
 
     Three categories are blocked:
 
-      * Internal XHermes cache files under ``HERMES_HOME/skills/.hub`` —
+      * Internal XHermes cache files under ``XHERMES_HOME/skills/.hub`` —
         readable metadata that an attacker could use as a prompt-injection
         carrier.
-      * Credential / secret stores under HERMES_HOME and the global XHermes
+      * Credential / secret stores under XHERMES_HOME and the global XHermes
         root: ``auth.json``, ``auth.lock``, ``.anthropic_oauth.json``,
         ``.env``, ``webhook_subscriptions.json``, ``auth/google_oauth.json``,
         and anything under ``mcp-tokens/``. These hold plaintext provider keys,
@@ -238,9 +238,9 @@ def get_read_block_error(path: str) -> Optional[str]:
     """
     resolved = Path(path).expanduser().resolve()
 
-    # Resolve BOTH the active HERMES_HOME (profile-aware) AND the global
+    # Resolve BOTH the active XHERMES_HOME (profile-aware) AND the global
     # XHermes root so credential stores at <root>/auth.json etc. are also
-    # blocked when running under a profile (HERMES_HOME points at
+    # blocked when running under a profile (XHERMES_HOME points at
     # <root>/profiles/<name> in profile mode). Same shape as the write
     # deny widening (#15981, #14157).
     hermes_dirs: list[Path] = []
@@ -270,7 +270,7 @@ def get_read_block_error(path: str) -> Optional[str]:
             )
 
     # Credential / secret stores. Exact-file matches under either
-    # HERMES_HOME or <root>.
+    # XHERMES_HOME or <root>.
     credential_file_names = (
         "auth.json",
         "auth.lock",
@@ -364,7 +364,7 @@ def raise_if_read_blocked(path: str) -> None:
 # ---------------------------------------------------------------------------
 # Cross-profile write guard (#TBD)
 #
-# XHermes profiles are separate HERMES_HOME dirs under
+# XHermes profiles are separate XHERMES_HOME dirs under
 # ``<root>/profiles/<name>/``. Each profile has its own skills/, plugins/,
 # cron/, memories/. When an agent runs under one profile, writing into
 # ANOTHER profile's directories is almost always wrong — those skills /
@@ -383,14 +383,14 @@ def raise_if_read_blocked(path: str) -> None:
 # the second path belonged to a different profile.
 # ---------------------------------------------------------------------------
 
-# Profile-scoped directories under HERMES_HOME / <root> / <root>/profiles/<X>/
+# Profile-scoped directories under XHERMES_HOME / <root> / <root>/profiles/<X>/
 # that should be guarded. Adding a new area here extends the guard with no
 # other code change.
 PROFILE_SCOPED_AREAS = ("skills", "plugins", "cron", "memories")
 
 
 def _resolve_active_profile_name() -> str:
-    """Return the active profile name derived from HERMES_HOME.
+    """Return the active profile name derived from XHERMES_HOME.
 
     ``~/.xhermes``              -> ``"default"``
     ``~/.xhermes/profiles/X``  -> ``"X"``
@@ -512,7 +512,7 @@ def get_cross_profile_warning(path: str) -> Optional[str]:
 # Non-local terminal backends (Docker, Daytona, etc.) bind a sandbox-local
 # directory to the container's ``$HOME``. The on-disk layout looks like
 #
-#   <HERMES_HOME>/profiles/<name>/sandboxes/<backend>/<task>/home/.xhermes/...
+#   <XHERMES_HOME>/profiles/<name>/sandboxes/<backend>/<task>/home/.xhermes/...
 #
 # When the agent (running host-side) speculates that authoritative profile
 # state lives at one of those sandbox-mirror paths, the write lands on the
@@ -562,7 +562,7 @@ def classify_sandbox_mirror_target(path: str) -> Optional[dict]:
 
     Detection is path-shape-only — does not require any XHermes resolver to
     succeed, so it works correctly even when called from contexts where
-    HERMES_HOME resolution would be ambiguous.
+    XHERMES_HOME resolution would be ambiguous.
     """
     try:
         target = Path(os.path.expanduser(str(path))).resolve()
@@ -607,7 +607,7 @@ def get_sandbox_mirror_warning(path: str) -> Optional[str]:
         f"created by a non-local terminal backend (docker/daytona/etc.). "
         f"Writes here land on a copy that the host XHermes process never "
         f"reads — the authoritative file is likely {info['inner_path']!r} "
-        f"under the real HERMES_HOME. Use the host-side tool for "
+        f"under the real XHERMES_HOME. Use the host-side tool for "
         f"authoritative state (e.g. ``memory`` for memories), or address "
         f"the host path directly. To bypass this guard after explicit "
         f"user direction, retry the call with ``cross_profile=True``. "
@@ -646,7 +646,7 @@ def classify_container_mirror_target(
       * ``target_path``: resolved path string
       * ``mirror_root``: the declared container mirror prefix
       * ``inner_path``: portion under the mirror root (what the agent
-        likely meant to address in the host HERMES_HOME)
+        likely meant to address in the host XHERMES_HOME)
     """
     if not mirror_prefix:
         return None
@@ -684,7 +684,7 @@ def get_container_mirror_warning(
         f"sits under {info['mirror_root']!r}, which is the container's "
         f"bind-mounted home — a per-task mirror that the host XHermes "
         f"process never reads. The authoritative file is "
-        f"{info['inner_path']!r} under the real HERMES_HOME. Use the "
+        f"{info['inner_path']!r} under the real XHERMES_HOME. Use the "
         f"host-side tool for authoritative state (e.g. ``memory`` for "
         f"memories), or address the host path directly. To bypass after "
         f"explicit user direction, retry with ``cross_profile=True``. "

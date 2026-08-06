@@ -15,19 +15,19 @@ xHermes Agent 的官方分发方式有四种，`pkg` 是其中针对 macOS 原�
 
 | 方式 | 目标平台 | 需要网络 | 需要 uv | 安装位置 | 状态 |
 |---|---|---|---|---|---|
-| `scripts/install.sh` | Linux / macOS / Termux | 是（git clone + uv sync） | 安装时 | `$HERMES_HOME/xhermes-agent` | 官方主路径 |
+| `scripts/install.sh` | Linux / macOS / Termux | 是（git clone + uv sync） | 安装时 | `$XHERMES_HOME/xhermes-agent` | 官方主路径 |
 | Docker 镜像 | Linux | 是 | 否 | 容器内 | 官方 |
 | Nix（uv2nix） | Linux / macOS | 构建时 | 否 | Nix store | 官方 |
 | **macOS pkg（本文）** | **macOS arm64** | **构建时** | **构建时** | `~/.xhermes/xhermes-agent` | **已验证** |
 
 ### 为什么不能打 wheel / sdist
 
-`setup.py` 明确禁止 `bdist_wheel` / `sdist`（`HERMES_NIX_BUILD=1` 除外）：
+`setup.py` 明确禁止 `bdist_wheel` / `sdist`（`XHERMES_NIX_BUILD=1` 除外）：
 
 - wheel 只包含 Python 包，**不含运行时资产**：`skills/`、`optional-skills/`、
   `locales/`、`hermes_cli/web_dist/`（dashboard 前端）、`ui-tui/dist/`（TUI 前端）
 - 这些资产在运行时通过**源码布局**（`__file__` 相对解析）或环境变量覆盖
-  （`HERMES_BUNDLED_SKILLS` 等）定位，wheel 装完找不到它们
+  （`XHERMES_BUNDLED_SKILLS` 等）定位，wheel 装完找不到它们
 - 因此 pkg 采用**源码树 + 自包含 Python** 布局，语义与 `install.sh` 一致，
   只是把「安装时拉源码 + uv sync」提前到「构建时」完成，用户侧变成一次
   离线安装

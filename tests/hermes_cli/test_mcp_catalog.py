@@ -41,16 +41,16 @@ def catalog_dir(tmp_path, monkeypatch):
     """Provide an isolated optional-mcps/ directory."""
     cat = tmp_path / "optional-mcps"
     cat.mkdir()
-    monkeypatch.setenv("HERMES_OPTIONAL_MCPS", str(cat))
+    monkeypatch.setenv("XHERMES_OPTIONAL_MCPS", str(cat))
     return cat
 
 
 @pytest.fixture(autouse=True)
 def _isolate_hermes_home(tmp_path, monkeypatch):
-    """Redirect all config I/O to a temp HERMES_HOME."""
+    """Redirect all config I/O to a temp XHERMES_HOME."""
     hh = tmp_path / "xhermes-home"
     hh.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hh))
+    monkeypatch.setenv("XHERMES_HOME", str(hh))
     monkeypatch.setattr(
         "hermes_cli.config.get_hermes_home", lambda: hh
     )
@@ -498,9 +498,9 @@ class TestShippedCatalog:
         manifest. Intentionally NOT a snapshot of catalog names (those are
         expected to change as PRs land).
         """
-        # Use the actual repo's optional-mcps directory (no HERMES_OPTIONAL_MCPS
+        # Use the actual repo's optional-mcps directory (no XHERMES_OPTIONAL_MCPS
         # override) so this test catches real manifests.
-        monkeypatch.delenv("HERMES_OPTIONAL_MCPS", raising=False)
+        monkeypatch.delenv("XHERMES_OPTIONAL_MCPS", raising=False)
         from hermes_cli.mcp_catalog import _catalog_root, _parse_manifest
 
         root = _catalog_root()
@@ -531,7 +531,7 @@ class TestShippedCatalog:
         pin at the transport layer (the server runs elsewhere / comes from the
         SHA-pinned clone), so they're exempt.
         """
-        monkeypatch.delenv("HERMES_OPTIONAL_MCPS", raising=False)
+        monkeypatch.delenv("XHERMES_OPTIONAL_MCPS", raising=False)
         from hermes_cli.mcp_catalog import _catalog_root, _parse_manifest
 
         root = _catalog_root()

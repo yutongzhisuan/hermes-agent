@@ -298,12 +298,12 @@ def _detect_environment(env: str) -> bool:
     result = True
     if env == "kanban":
         # Kanban is "active" either as a dispatcher-spawned worker (the
-        # dispatcher sets ``HERMES_KANBAN_TASK`` / ``HERMES_KANBAN_BOARD`` in the
+        # dispatcher sets ``XHERMES_KANBAN_TASK`` / ``XHERMES_KANBAN_BOARD`` in the
         # worker env) or as an orchestrator profile that has opted into the
         # kanban toolset. Mirror the same signals the kanban tools themselves
         # gate on (``tools/kanban_tools.py``) so the offer filter agrees with
         # tool availability.
-        if os.getenv("HERMES_KANBAN_TASK") or os.getenv("HERMES_KANBAN_BOARD"):
+        if os.getenv("XHERMES_KANBAN_TASK") or os.getenv("XHERMES_KANBAN_BOARD"):
             result = True
         else:
             try:
@@ -422,8 +422,8 @@ def get_disabled_skill_names(platform: str | None = None) -> Set[str]:
 
     Args:
         platform: Explicit platform name (e.g. ``"telegram"``).  When
-            *None*, resolves from ``HERMES_PLATFORM`` or
-            ``HERMES_SESSION_PLATFORM`` env vars.  Returns the global
+            *None*, resolves from ``XHERMES_PLATFORM`` or
+            ``XHERMES_SESSION_PLATFORM`` env vars.  Returns the global
             disabled list, unioned with the platform-specific list when a
             platform is resolved (a globally-disabled skill stays disabled
             on every platform).
@@ -442,8 +442,8 @@ def get_disabled_skill_names(platform: str | None = None) -> Set[str]:
     from gateway.session_context import get_session_env
     resolved_platform = (
         platform
-        or os.getenv("HERMES_PLATFORM")
-        or get_session_env("HERMES_SESSION_PLATFORM")
+        or os.getenv("XHERMES_PLATFORM")
+        or get_session_env("XHERMES_SESSION_PLATFORM")
     )
     global_disabled = _normalize_string_set(skills_cfg.get("disabled"))
     if resolved_platform:
@@ -543,7 +543,7 @@ def get_external_skills_dirs() -> List[Path]:
         # Expand ~ and environment variables
         expanded = os.path.expanduser(os.path.expandvars(entry))
         p = Path(expanded)
-        # Resolve relative paths against HERMES_HOME, not cwd
+        # Resolve relative paths against XHERMES_HOME, not cwd
         if not p.is_absolute():
             p = (hermes_home / p).resolve()
         else:

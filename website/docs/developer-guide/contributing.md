@@ -44,13 +44,13 @@ For most contributors, the best development bootstrap is the same path users
 take: run the standard installer, then work inside the repository it cloned.
 The installer creates the XHermes venv, wires the `xhermes` command, stamps the
 install method for `xhermes update`, and clones the full git project into
-`$HERMES_HOME/xhermes-agent` (usually `~/.xhermes/xhermes-agent`). That keeps your
+`$XHERMES_HOME/xhermes-agent` (usually `~/.xhermes/xhermes-agent`). That keeps your
 development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
 curl -fsSL https://xhermes-agent.nousresearch.com/install.sh | bash
-cd "${HERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
+cd "${XHERMES_HOME:-$HOME/.xhermes}/xhermes-agent"
 
 # Add dev/test extras on top of the standard install.
 uv pip install -e ".[all,dev]"
@@ -66,7 +66,7 @@ git checkout -b fix/description
 scripts/run_tests.sh
 ```
 
-You can also run a fully isolated XHermes instance (throwaway HERMES_HOME, separate Electron
+You can also run a fully isolated XHermes instance (throwaway XHERMES_HOME, separate Electron
 userData, distinct Electron app name to avoid the single-instance lock):
 
 ```bash

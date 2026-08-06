@@ -164,7 +164,7 @@ def _install_dependencies(provider_name: str, *, force: bool = False) -> None:
 
     # Environment-aware install: on immutable hosted images the agent venv
     # is sealed read-only and installs must go to the durable target on the
-    # data volume (HERMES_LAZY_INSTALL_TARGET). install_specs handles the
+    # data volume (XHERMES_LAZY_INSTALL_TARGET). install_specs handles the
     # routing/gating; on normal installs it is venv-scoped as before (NS-605).
     from tools.lazy_deps import install_specs
 

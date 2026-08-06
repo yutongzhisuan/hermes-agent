@@ -59,9 +59,9 @@ class TestSmartApproval:
         dangerous, pattern_key, _ = detect_dangerous_command(command)
         assert dangerous is True
 
-        monkeypatch.setenv("HERMES_SESSION_KEY", session_key)
-        monkeypatch.setenv("HERMES_EXEC_ASK", "1")
-        monkeypatch.delenv("HERMES_CRON_SESSION", raising=False)
+        monkeypatch.setenv("XHERMES_SESSION_KEY", session_key)
+        monkeypatch.setenv("XHERMES_EXEC_ASK", "1")
+        monkeypatch.delenv("XHERMES_CRON_SESSION", raising=False)
         monkeypatch.setattr(
             approval_module,
             "_get_approval_config",
@@ -239,7 +239,7 @@ class TestSessionKeyContext:
     def test_context_session_key_overrides_process_env(self):
         token = approval_module.set_current_session_key("alice")
         try:
-            with mock_patch.dict("os.environ", {"HERMES_SESSION_KEY": "bob"}, clear=False):
+            with mock_patch.dict("os.environ", {"XHERMES_SESSION_KEY": "bob"}, clear=False):
                 assert approval_module.get_current_session_key() == "alice"
         finally:
             approval_module.reset_current_session_key(token)
@@ -308,8 +308,8 @@ class TestTeePattern:
             "cat file | tee ~/.ssh/authorized_keys",
             "echo x | tee /dev/sda",
             "echo x | tee ~/.xhermes/.env",
-            "echo x | tee $HERMES_HOME/.env",
-            'echo x | tee "$HERMES_HOME/.env"',
+            "echo x | tee $XHERMES_HOME/.env",
+            'echo x | tee "$XHERMES_HOME/.env"',
         ):
             dangerous, key, desc = detect_dangerous_command(command)
             assert dangerous is True, command
@@ -335,7 +335,7 @@ class TestHermesConfigWriteProtection:
             "echo 'approvals:' > ~/.xhermes/config.yaml",
             "echo '  mode: off' >> ~/.xhermes/config.yaml",
             "echo x | tee ~/.xhermes/config.yaml",
-            "echo x | tee $HERMES_HOME/config.yaml",
+            "echo x | tee $XHERMES_HOME/config.yaml",
             "cp /tmp/evil.yaml ~/.xhermes/config.yaml",
         ):
             dangerous, key, desc = detect_dangerous_command(command)
@@ -376,7 +376,7 @@ class TestSensitiveRedirectPattern:
     def test_redirect_to_sensitive_target(self):
         authorized_keys = Path.home() / ".ssh" / "authorized_keys"
         for command in (
-            "echo x > $HERMES_HOME/.env",
+            "echo x > $XHERMES_HOME/.env",
             "cat key >> $HOME/.ssh/authorized_keys",
             "cat key >> ~/.ssh/authorized_keys",
             f"cat key >> {authorized_keys}",
@@ -502,7 +502,7 @@ class TestWindowsAbsolutePathFolding:
     SSH, and XHermes config/env files returned "safe" without an approval prompt.
     The OS-specific ``Path.home()`` / ``get_hermes_home()`` tests above only
     exercise this branch on a Windows host; these monkeypatch a Windows-style
-    HOME/HERMES_HOME so the fold is verified on the POSIX CI runner too."""
+    HOME/XHERMES_HOME so the fold is verified on the POSIX CI runner too."""
 
     def test_windows_home_multiseg_and_forward_slash_fold(self, monkeypatch):
         # The multi-segment suffix (\.ssh\authorized_keys) must also have its
@@ -632,7 +632,7 @@ class TestSmartDeniedPrompt:
         assert "[s]ession" not in rendered and "[a]lways" not in rendered
 
     def test_smart_deny_uses_locale_specific_once_deny_choices(self, monkeypatch, capsys):
-        monkeypatch.setenv("HERMES_LANGUAGE", "tr")
+        monkeypatch.setenv("XHERMES_LANGUAGE", "tr")
         from agent import i18n
         i18n.reset_language_cache()
         prompts = []
@@ -1135,18 +1135,18 @@ class TestApprovalTimeoutIsNotConsent:
 
         self._saved_env = {
             k: os.environ.get(k)
-            for k in ("HERMES_GATEWAY_SESSION", "HERMES_CRON_SESSION",
-                      "HERMES_YOLO_MODE",
-                      "HERMES_SESSION_KEY", "HERMES_INTERACTIVE")
+            for k in ("XHERMES_GATEWAY_SESSION", "XHERMES_CRON_SESSION",
+                      "XHERMES_YOLO_MODE",
+                      "XHERMES_SESSION_KEY", "XHERMES_INTERACTIVE")
         }
-        os.environ.pop("HERMES_YOLO_MODE", None)
-        os.environ.pop("HERMES_INTERACTIVE", None)
-        # HERMES_CRON_SESSION takes priority over HERMES_GATEWAY_SESSION in
+        os.environ.pop("XHERMES_YOLO_MODE", None)
+        os.environ.pop("XHERMES_INTERACTIVE", None)
+        # XHERMES_CRON_SESSION takes priority over XHERMES_GATEWAY_SESSION in
         # _is_gateway_approval_context(); a leaked value from a parent cron
         # process would force the cron path and break these gateway tests.
-        os.environ.pop("HERMES_CRON_SESSION", None)
-        os.environ["HERMES_GATEWAY_SESSION"] = "1"
-        os.environ["HERMES_SESSION_KEY"] = self.SESSION_KEY
+        os.environ.pop("XHERMES_CRON_SESSION", None)
+        os.environ["XHERMES_GATEWAY_SESSION"] = "1"
+        os.environ["XHERMES_SESSION_KEY"] = self.SESSION_KEY
 
     def teardown_method(self):
         from tools import approval as mod
@@ -1283,7 +1283,7 @@ class TestTirithImportErrorFailOpenPolicy:
         with _patch("builtins.__import__", side_effect=self._make_failing_import(real_import)):
             with _patch("hermes_cli.config.load_config_readonly", return_value=cfg):
                 with _patch("tools.approval.detect_dangerous_command", return_value=(False, None, None)):
-                    with mock_patch.dict("os.environ", {"HERMES_INTERACTIVE": "1"}, clear=False):
+                    with mock_patch.dict("os.environ", {"XHERMES_INTERACTIVE": "1"}, clear=False):
                         result = check_all_command_guards("echo hello", "local")
 
         assert result.get("approved") is True
@@ -1308,7 +1308,7 @@ class TestTirithImportErrorFailOpenPolicy:
         with _patch("builtins.__import__", side_effect=self._make_failing_import(real_import)):
             with _patch("hermes_cli.config.load_config_readonly", return_value=cfg):
                 with _patch("tools.approval.detect_dangerous_command", return_value=(False, None, None)):
-                    with mock_patch.dict("os.environ", {"HERMES_INTERACTIVE": "1"}, clear=False):
+                    with mock_patch.dict("os.environ", {"XHERMES_INTERACTIVE": "1"}, clear=False):
                         result = check_all_command_guards(
                             "echo hello",
                             "local",
@@ -1413,7 +1413,7 @@ class TestCliApprovalTimeoutClassifiedSeparately:
     def _interactive_env(self):
         return mock_patch.dict(
             "os.environ",
-            {"HERMES_INTERACTIVE": "1"},
+            {"XHERMES_INTERACTIVE": "1"},
             clear=False,
         )
 

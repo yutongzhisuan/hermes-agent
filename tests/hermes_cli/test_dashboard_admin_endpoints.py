@@ -21,7 +21,7 @@ def _client():
 
     client = TestClient(app)
     client.headers[_SESSION_HEADER_NAME] = _SESSION_TOKEN
-    # Keep the state DB under the isolated HERMES_HOME for any handler that
+    # Keep the state DB under the isolated XHERMES_HOME for any handler that
     # touches it.
     hermes_state.DEFAULT_DB_PATH = get_hermes_home() / "state.db"
     return client, _SESSION_HEADER_NAME
@@ -943,13 +943,13 @@ class TestToolsConfigEndpoints:
 
 def test_spawn_hermes_action_scrubs_gateway_loop_guard_env(monkeypatch, tmp_path):
     """The dashboard runs inside the gateway, so os.environ has
-    _HERMES_GATEWAY=1. Spawned actions (e.g. `gateway restart`) must NOT inherit
+    _XHERMES_GATEWAY=1. Spawned actions (e.g. `gateway restart`) must NOT inherit
     it, or the in-process restart-loop guard rejects the restart and it silently
     fails (#52470).
     """
     import hermes_cli.web_server as ws
 
-    monkeypatch.setenv("_HERMES_GATEWAY", "1")
+    monkeypatch.setenv("_XHERMES_GATEWAY", "1")
     monkeypatch.setattr(ws, "_ACTION_LOG_DIR", tmp_path)
 
     captured = {}
@@ -965,5 +965,5 @@ def test_spawn_hermes_action_scrubs_gateway_loop_guard_env(monkeypatch, tmp_path
 
     ws._spawn_hermes_action(["gateway", "restart"], "gateway-restart")
 
-    assert "_HERMES_GATEWAY" not in captured["env"]
-    assert captured["env"]["HERMES_NONINTERACTIVE"] == "1"
+    assert "_XHERMES_GATEWAY" not in captured["env"]
+    assert captured["env"]["XHERMES_NONINTERACTIVE"] == "1"

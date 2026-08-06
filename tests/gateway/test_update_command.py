@@ -217,7 +217,7 @@ class TestUpdateCommandPlatformGate:
 
         runner = _make_runner()
         event = _make_event(platform=Platform.DISCORD)
-        monkeypatch.setenv("HERMES_MANAGED", "")
+        monkeypatch.setenv("XHERMES_MANAGED", "")
 
         with patch("subprocess.Popen"):
             result = await runner._handle_update_command(event)
@@ -248,7 +248,7 @@ class TestUpdateCommandPlatformGate:
 
         runner = _make_runner()
         event = _make_event(platform=Platform.HOMEASSISTANT)
-        monkeypatch.setenv("HERMES_MANAGED", "")
+        monkeypatch.setenv("XHERMES_MANAGED", "")
 
         with patch("subprocess.Popen"):
             result = await runner._handle_update_command(event)

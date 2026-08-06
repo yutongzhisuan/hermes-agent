@@ -17,14 +17,14 @@ It imports one module — `@xhermes/plugin-sdk` — and gets everything: the app
 live state, the gateway JSON-RPC door, a scoped REST/socket backend namespace,
 React Query, and the app's own UI kit so plugin UI looks native by default. No
 repo clone, no `npm run build`, no patching app source. Drop the file in
-`$HERMES_HOME/desktop-plugins/<id>/plugin.js` and the app loads it within seconds
+`$XHERMES_HOME/desktop-plugins/<id>/plugin.js` and the app loads it within seconds
 and hot-reloads every save.
 
 :::warning This is not the web-dashboard plugin SDK
 "Plugin" means several unrelated things across XHermes. This page is the **native
 desktop app** (`xhermes desktop`) SDK — the `@xhermes/plugin-sdk` module and
-`$HERMES_HOME/desktop-plugins/`. The **web dashboard** (`xhermes dashboard`) has
-its own, unrelated plugin system on `window.__HERMES_PLUGIN_SDK__` with a
+`$XHERMES_HOME/desktop-plugins/`. The **web dashboard** (`xhermes dashboard`) has
+its own, unrelated plugin system on `window.__XHERMES_PLUGIN_SDK__` with a
 `manifest.json` — documented at
 [Extending the Dashboard](/user-guide/features/extending-the-dashboard). Python
 CLI/gateway plugins are documented at [Build a XHermes Plugin](/developer-guide/plugins).
@@ -53,7 +53,7 @@ plugin, and fail to resolve in a disk plugin). Capability comes in tiers:
 
 | Mode | Where | Who | Build step |
 |------|-------|-----|------------|
-| **Disk** (recommended) | `$HERMES_HOME/desktop-plugins/<id>/plugin.js` | users, agents | none — plain ESM, loaded uncompiled |
+| **Disk** (recommended) | `$XHERMES_HOME/desktop-plugins/<id>/plugin.js` | users, agents | none — plain ESM, loaded uncompiled |
 | **Bundled** | `apps/desktop/src/plugins/<id>/plugin.tsx` | in-tree, shipped with the app | the app's own Vite build |
 
 Both take the same `HermesPlugin` contract, appear in **Settings → Plugins**, and
@@ -66,7 +66,7 @@ repo.
 
 ## Quick start — your first plugin
 
-Create `$HERMES_HOME/desktop-plugins/hello/plugin.js` (that's `~/.xhermes/...`
+Create `$XHERMES_HOME/desktop-plugins/hello/plugin.js` (that's `~/.xhermes/...`
 by default, or `~/.xhermes/profiles/<name>/...` under a named profile). The folder
 name must equal the plugin `id`.
 
@@ -616,7 +616,7 @@ human/developer reference; the skill is the working checklist.
 ## Troubleshooting
 
 **My plugin doesn't appear.** Confirm the file is at
-`$HERMES_HOME/desktop-plugins/<id>/plugin.js` and the folder name matches the
+`$XHERMES_HOME/desktop-plugins/<id>/plugin.js` and the folder name matches the
 export `id`. Run ⌘K → **Reload desktop plugins**. Check the app for an error
 toast naming the failure, and tail `xhermes logs gui -f`.
 

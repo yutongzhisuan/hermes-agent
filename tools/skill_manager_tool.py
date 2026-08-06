@@ -152,8 +152,8 @@ import yaml
 
 
 # All skills live in ~/.xhermes/skills/ (single source of truth)
-HERMES_HOME = get_hermes_home()
-SKILLS_DIR = HERMES_HOME / "skills"
+XHERMES_HOME = get_hermes_home()
+SKILLS_DIR = XHERMES_HOME / "skills"
 _SKILLS_DIR_AT_IMPORT = SKILLS_DIR
 
 
@@ -161,10 +161,10 @@ def _skills_dir() -> Path:
     """Return the active profile's skills directory at call time.
 
     Long-lived multi-profile runtimes (Dashboard/TUI/Desktop backend, cron,
-    kanban workers) import this module once under the launch HERMES_HOME and
+    kanban workers) import this module once under the launch XHERMES_HOME and
     later bind a different profile per session (#40677). Honor an explicitly
     patched module-level ``SKILLS_DIR`` (tests), otherwise resolve from the
-    live profile-scoped HERMES_HOME on every call.
+    live profile-scoped XHERMES_HOME on every call.
     """
     configured = Path(SKILLS_DIR)
     if configured != _SKILLS_DIR_AT_IMPORT:

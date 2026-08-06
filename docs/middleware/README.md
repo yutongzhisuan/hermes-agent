@@ -118,12 +118,12 @@ Middleware only runs for enabled plugins. For a bundled plugin:
 xhermes plugins enable <plugin-name>
 ```
 
-For isolated local testing, use one `HERMES_HOME` for plugin enablement and the
+For isolated local testing, use one `XHERMES_HOME` for plugin enablement and the
 agent run:
 
 ```bash
-export HERMES_HOME=/tmp/xhermes-middleware-test
-mkdir -p "$HERMES_HOME"
+export XHERMES_HOME=/tmp/xhermes-middleware-test
+mkdir -p "$XHERMES_HOME"
 xhermes plugins enable <plugin-name>
 xhermes chat --query 'Reply exactly ok'
 ```

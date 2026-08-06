@@ -3,7 +3,7 @@
 ``tests/conftest.py::_wal_is_usable`` duplicates the SQLite WAL-reset version
 predicate instead of importing ``hermes_state``. That is deliberate: importing
 ``hermes_state`` during collection caches ``DEFAULT_DB_PATH`` from the real
-``~/.xhermes`` before the per-test ``HERMES_HOME`` redirect, which makes tests
+``~/.xhermes`` before the per-test ``XHERMES_HOME`` redirect, which makes tests
 read the developer's live production database.
 
 Duplication needs a guard, so these tests pin the two implementations in

@@ -297,7 +297,7 @@ do not set them by hand in `.env` or `config.yaml`.
 
 | Variable | Value | Effect |
 |----------|-------|--------|
-| `HERMES_ACP_SKIP_CONFIGURED_MCP` | `1` | Skip starting the **globally configured** MCP servers from `config.yaml` before the ACP JSON-RPC loop begins. |
+| `XHERMES_ACP_SKIP_CONFIGURED_MCP` | `1` | Skip starting the **globally configured** MCP servers from `config.yaml` before the ACP JSON-RPC loop begins. |
 
 XHermes normally starts every MCP server configured in `config.yaml` before it
 enters the ACP JSON-RPC loop. A host that owns MCP itself — passing the

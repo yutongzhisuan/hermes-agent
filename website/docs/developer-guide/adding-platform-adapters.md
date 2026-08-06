@@ -571,7 +571,7 @@ Six touchpoints:
 
 ### 8. Toolsets
 
-1. **`toolsets.py`** — Add `"xhermes-newplat"` toolset definition with `_HERMES_CORE_TOOLS`
+1. **`toolsets.py`** — Add `"xhermes-newplat"` toolset definition with `_XHERMES_CORE_TOOLS`
 2. **`toolsets.py`** — Add `"xhermes-newplat"` to the `"xhermes-gateway"` includes list
 
 ### 9. Optional: Platform Hints

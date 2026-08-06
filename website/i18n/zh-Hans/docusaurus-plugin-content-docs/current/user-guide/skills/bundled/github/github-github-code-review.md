@@ -49,7 +49,7 @@ else
     if [ -f ~/.xhermes/.env ] && grep -q "^GITHUB_TOKEN=" ~/.xhermes/.env; then
       GITHUB_TOKEN=$(grep "^GITHUB_TOKEN=" ~/.xhermes/.env | head -1 | cut -d= -f2 | tr -d '\n\r')
     elif grep -q "github.com" ~/.git-credentials 2>/dev/null; then
-      GITHUB_TOKEN=$(uv run python3 "${HERMES_HOME:-$HOME/.xhermes}/skills/github/github-auth/scripts/git-credential-token.py")
+      GITHUB_TOKEN=$(uv run python3 "${XHERMES_HOME:-$HOME/.xhermes}/skills/github/github-auth/scripts/git-credential-token.py")
     fi
   fi
 fi
@@ -353,7 +353,7 @@ curl -s -X POST \
 ### 第一步：设置环境
 
 ```bash
-source "${HERMES_HOME:-$HOME/.xhermes}/skills/github/github-auth/scripts/gh-env.sh"
+source "${XHERMES_HOME:-$HOME/.xhermes}/skills/github/github-auth/scripts/gh-env.sh"
 # 或运行本 skill 顶部的内联设置代码块
 ```
 

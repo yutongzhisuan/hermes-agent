@@ -7,7 +7,7 @@
 # The s6 image runs the supervised gateway/main process as the unprivileged
 # `xhermes` user (UID 10000). When an operator runs `docker exec <c> xhermes ...`
 # the default UID is root (0), and any file the command writes under
-# $HERMES_HOME — auth.json, .env, config.yaml — ends up root-owned and
+# $XHERMES_HOME — auth.json, .env, config.yaml — ends up root-owned and
 # unreadable to the supervised gateway. The most common manifestation: the
 # user runs `docker exec <c> xhermes login`, this writes
 # /opt/data/auth.json as root:root mode 0600, and from then on the gateway
@@ -22,7 +22,7 @@
 # This shim sits at /opt/xhermes/bin/xhermes and is placed earliest on PATH.
 # When invoked as root, it drops to the xhermes user (via s6-setuidgid)
 # before exec'ing the real venv binary, so anything that writes under
-# $HERMES_HOME is uid-aligned with the supervised processes. When invoked
+# $XHERMES_HOME is uid-aligned with the supervised processes. When invoked
 # as any non-root UID — including the supervised processes themselves,
 # `docker exec --user xhermes`, kanban subagents, etc. — it short-circuits
 # straight to the venv binary with no privilege change. Net: one extra
@@ -33,7 +33,7 @@
 # (/opt/xhermes/.venv/bin/xhermes), so the second hop cannot re-enter this
 # shim regardless of PATH state. No sentinel env var needed.
 #
-# Opt-out: set HERMES_DOCKER_EXEC_AS_ROOT=1 (1/true/yes, case-insensitive)
+# Opt-out: set XHERMES_DOCKER_EXEC_AS_ROOT=1 (1/true/yes, case-insensitive)
 # to keep running as root. Reserved for diagnostic sessions where the
 # operator deliberately wants root semantics — e.g. inspecting root-only
 # state via the xhermes CLI. Default is to drop.
@@ -56,7 +56,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 # Root, with opt-out set? Honor it.
-case "${HERMES_DOCKER_EXEC_AS_ROOT:-}" in
+case "${XHERMES_DOCKER_EXEC_AS_ROOT:-}" in
     1|true|TRUE|True|yes|YES|Yes)
         exec "$REAL" "$@"
         ;;
@@ -74,7 +74,7 @@ if [ ! -x "$S6_SUID" ]; then
     # Fail loud rather than silently re-execing as root and leaking the
     # bug this shim exists to prevent.
     echo "xhermes-shim: $S6_SUID not found; refusing to silently run as root." >&2
-    echo "xhermes-shim: re-run with --user xhermes or set HERMES_DOCKER_EXEC_AS_ROOT=1." >&2
+    echo "xhermes-shim: re-run with --user xhermes or set XHERMES_DOCKER_EXEC_AS_ROOT=1." >&2
     exit 126
 fi
 

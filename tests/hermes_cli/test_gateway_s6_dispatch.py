@@ -138,8 +138,8 @@ def test_redirect_falls_back_when_sleep_missing(
         "hermes_cli.gateway._block_until_terminated",
         lambda: block_calls.append(True),
     )
-    monkeypatch.delenv("HERMES_S6_SUPERVISED_CHILD", raising=False)
-    monkeypatch.delenv("HERMES_GATEWAY_NO_SUPERVISE", raising=False)
+    monkeypatch.delenv("XHERMES_S6_SUPERVISED_CHILD", raising=False)
+    monkeypatch.delenv("XHERMES_GATEWAY_NO_SUPERVISE", raising=False)
 
     # Must not raise FileNotFoundError — that was the #36208 crash.
     result = gw._maybe_redirect_run_to_s6_supervision(_Args())

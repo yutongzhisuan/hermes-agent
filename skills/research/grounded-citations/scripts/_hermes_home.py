@@ -1,4 +1,4 @@
-"""Resolve HERMES_HOME for standalone skill scripts.
+"""Resolve XHERMES_HOME for standalone skill scripts.
 
 Skill scripts may run outside the XHermes process (system Python, nix env,
 CI) where ``hermes_constants`` is not importable.  This module provides the
@@ -19,5 +19,5 @@ except (ModuleNotFoundError, ImportError):
 
     def get_hermes_home() -> Path:
         """Return the XHermes home directory (default: ``~/.xhermes``)."""
-        val = os.environ.get("HERMES_HOME", "").strip()
+        val = os.environ.get("XHERMES_HOME", "").strip()
         return Path(val) if val else Path.home() / ".xhermes"

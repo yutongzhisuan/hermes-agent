@@ -10,12 +10,12 @@ Rules:
   - test files    → delete immediately at task end (age >= 0)
   - temp files    → delete after 7 days
   - cron-output   → delete after 14 days
-  - empty dirs    → always delete (under HERMES_HOME)
+  - empty dirs    → always delete (under XHERMES_HOME)
   - research      → keep 10 newest, prompt for older (deep only)
   - chrome-profile→ prompt after 14 days (deep only)
   - >500 MB files → prompt always (deep only)
 
-Scope: strictly HERMES_HOME and /tmp/xhermes-*
+Scope: strictly XHERMES_HOME and /tmp/xhermes-*
 Never touches: ~/.xhermes/logs/ or any system directory.
 """
 
@@ -34,7 +34,7 @@ except Exception:  # pragma: no cover — plugin may load before constants resol
     import os
 
     def get_hermes_home() -> Path:  # type: ignore[no-redef]
-        val = (os.environ.get("HERMES_HOME") or "").strip()
+        val = (os.environ.get("XHERMES_HOME") or "").strip()
         return Path(val).resolve() if val else (Path.home() / ".xhermes").resolve()
 
 
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def get_state_dir() -> Path:
-    """State dir — separate from ``$HERMES_HOME/logs/``."""
+    """State dir — separate from ``$XHERMES_HOME/logs/``."""
     return get_hermes_home() / "disk-cleanup"
 
 
@@ -55,7 +55,7 @@ def get_tracked_file() -> Path:
 
 
 def get_log_file() -> Path:
-    """Audit log — intentionally NOT under ``$HERMES_HOME/logs/``."""
+    """Audit log — intentionally NOT under ``$XHERMES_HOME/logs/``."""
     return get_state_dir() / "cleanup.log"
 
 
@@ -64,7 +64,7 @@ def get_log_file() -> Path:
 # ---------------------------------------------------------------------------
 
 def is_safe_path(path: Path) -> bool:
-    """Accept only paths under HERMES_HOME or ``/tmp/xhermes-*``.
+    """Accept only paths under XHERMES_HOME or ``/tmp/xhermes-*``.
 
     Rejects Windows mounts (``/mnt/c`` etc.) and any system directory.
     """
@@ -159,7 +159,7 @@ _EMPTY_DIR_SWEEP_PRUNE_DIRS = frozenset({
 })
 
 
-# Paths under $HERMES_HOME that must NEVER be deleted by quick(),
+# Paths under $XHERMES_HOME that must NEVER be deleted by quick(),
 # regardless of what the stored category says.  This is a defense-in-depth
 # guard against stale tracked.json entries from before #34840.
 _PROTECTED_CRON_PATHS: set[str] = set()
@@ -177,7 +177,7 @@ def _is_protected_cron_path(p: Path) -> bool:
     protected, because deleting it wholesale erases every job's retained run
     history at once.
     """
-    # Lazily build the set once per process so HERMES_HOME is resolved
+    # Lazily build the set once per process so XHERMES_HOME is resolved
     # exactly once.
     if not _PROTECTED_CRON_PATHS:
         hermes_home = get_hermes_home()
@@ -216,7 +216,7 @@ def track(path_str: str, category: str, silent: bool = False) -> bool:
         return False
 
     if not is_safe_path(path):
-        _log(f"REJECT: {path} (outside HERMES_HOME)")
+        _log(f"REJECT: {path} (outside XHERMES_HOME)")
         return False
 
     size = path.stat().st_size if path.is_file() else 0
@@ -382,9 +382,9 @@ def quick() -> Dict[str, Any]:
         else:
             new_tracked.append(item)
 
-    # Remove empty dirs under HERMES_HOME, but never recurse into known
+    # Remove empty dirs under XHERMES_HOME, but never recurse into known
     # durable state trees.  Some installs place the XHermes checkout, venv,
-    # and desktop build under HERMES_HOME; a full rglob over that tree can
+    # and desktop build under XHERMES_HOME; a full rglob over that tree can
     # stall the gateway event loop for minutes.
     hermes_home = get_hermes_home()
     empty_removed = 0
@@ -600,7 +600,7 @@ def guess_category(path: Path) -> Optional[str]:
         if top == "cache":
             return "temp"
     except ValueError:
-        # Path isn't under HERMES_HOME (e.g. /tmp/xhermes-*) — fall through.
+        # Path isn't under XHERMES_HOME (e.g. /tmp/xhermes-*) — fall through.
         pass
 
     name = path.name

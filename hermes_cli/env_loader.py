@@ -43,7 +43,7 @@ _SECRET_SOURCES: dict[str, str] = {}
 # across profiles and may be overwritten by a later home's source apply.
 _SECRET_SOURCE_VALUES_BY_HOME: dict[str, dict[str, str]] = {}
 
-# HERMES_HOME paths we've already pulled external secrets for during this
+# XHERMES_HOME paths we've already pulled external secrets for during this
 # process.  ``load_hermes_dotenv()`` is called at module-import time from
 # several hot modules (cli.py, hermes_cli/main.py, run_agent.py,
 # trajectory_compressor.py, gateway/run.py, ...), so without this guard the
@@ -76,10 +76,10 @@ def _known_hermes_env_keys() -> set[str]:
 # documented way to supply them, and read-time secret-scope checks
 # (agent/secret_scope.py) own cross-profile credential isolation.
 _PROFILE_MANAGED_ENV_KEYS: frozenset[str] = frozenset({
-    "HERMES_ACP_AUTH_METHOD",
-    "HERMES_ACP_AUTO_APPROVE",
-    "HERMES_COPILOT_ACP_COMMAND",
-    "HERMES_COPILOT_ACP_ARGS",
+    "XHERMES_ACP_AUTH_METHOD",
+    "XHERMES_ACP_AUTO_APPROVE",
+    "XHERMES_COPILOT_ACP_COMMAND",
+    "XHERMES_COPILOT_ACP_ARGS",
     "COPILOT_CLI_PATH",
     "COPILOT_ACP_BASE_URL",
 })
@@ -217,7 +217,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
         if op_env.exists():
             for _name, _value in load_env_file(op_env).items():
                 local_env.setdefault(_name, _value)
-        local_env["HERMES_HOME"] = str(home)
+        local_env["XHERMES_HOME"] = str(home)
         report = apply_all(cfg, home, environ=local_env)
     except Exception:  # noqa: BLE001 — preserve fail-open startup behavior
         return {}
@@ -239,7 +239,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
 
 
 def reset_secret_source_cache() -> None:
-    """Forget which HERMES_HOME paths have already had external secrets applied.
+    """Forget which XHERMES_HOME paths have already had external secrets applied.
 
     The first call to ``_apply_external_secret_sources(home_path)`` in a
     process pulls from Bitwarden (or other configured backend), records the
@@ -475,7 +475,7 @@ def load_hermes_dotenv(
     """
     loaded: list[Path] = []
 
-    home_path = Path(hermes_home or os.getenv("HERMES_HOME") or get_hermes_home())
+    home_path = Path(hermes_home or os.getenv("XHERMES_HOME") or get_hermes_home())
     user_env = home_path / ".env"
     project_env_path = Path(project_env) if project_env else None
 
@@ -541,7 +541,7 @@ def _reapply_terminal_config_bridge(home_path: Path) -> None:
     config.yaml's ``terminal`` section override env values; a config.yaml
     without a terminal section leaves .env/shell selections untouched.
 
-    Scoped to the process HERMES_HOME: the shared bridge reads the
+    Scoped to the process XHERMES_HOME: the shared bridge reads the
     process-global config, so re-applying it for a *different* profile's
     ``load_hermes_dotenv(hermes_home=...)`` call would bridge the wrong
     profile's config. Fail-open — a config problem must never break dotenv
@@ -560,7 +560,7 @@ def _reapply_terminal_config_bridge(home_path: Path) -> None:
 def _apply_managed_env() -> None:
     """Apply the managed-scope .env last, with override, so it beats user/shell.
 
-    Managed scope is machine-global (independent of HERMES_HOME / profile). v1
+    Managed scope is machine-global (independent of XHERMES_HOME / profile). v1
     enforcement is "applied last with override=True" — at the end of startup load
     ``os.environ`` holds the managed value for every managed key, beating both the
     user ``.env`` and any pre-existing shell export. This deliberately inverts the
@@ -600,7 +600,7 @@ def _apply_external_secret_sources(home_path: Path) -> None:
     The heavy lifting (source ordering, mapped-beats-bulk precedence,
     first-claim-wins conflict handling, override semantics, provenance)
     lives in ``agent.secret_sources.registry.apply_all``; this wrapper
-    owns the once-per-HERMES_HOME guard, the post-apply ASCII
+    owns the once-per-XHERMES_HOME guard, the post-apply ASCII
     sanitization sweep, the ``_SECRET_SOURCES`` provenance map that
     UI surfaces read, and the startup status lines.
 
@@ -744,7 +744,7 @@ def _load_secrets_config(home_path: Path) -> dict:
 
 
 def _process_hermes_home() -> Path:
-    """The HERMES_HOME the shared config cache is keyed to."""
+    """The XHERMES_HOME the shared config cache is keyed to."""
     try:
         from hermes_constants import get_hermes_home
 

@@ -57,12 +57,12 @@ class TestInstallDependenciesRunner:
                 return run_behavior(cmd)
             return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-        # The hermetic conftest sets HERMES_DISABLE_LAZY_INSTALLS=1 so no test
+        # The hermetic conftest sets XHERMES_DISABLE_LAZY_INSTALLS=1 so no test
         # can trigger a real mid-run pip install. These tests exercise the
         # install ladder itself (against a fully mocked subprocess.run), so
         # they opt back in — the same both-directions override
         # tests/tools/test_lazy_deps.py uses.
-        with _patch.dict(os.environ, {"HERMES_DISABLE_LAZY_INSTALLS": "0"}), \
+        with _patch.dict(os.environ, {"XHERMES_DISABLE_LAZY_INSTALLS": "0"}), \
              patch("plugins.memory.find_provider_dir", return_value=tmp_path), \
              patch("hermes_cli.tools_config.shutil.which", side_effect=which_side_effect), \
              patch("hermes_cli.tools_config.subprocess.run", fake_run):

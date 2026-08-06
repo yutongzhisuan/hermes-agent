@@ -176,7 +176,7 @@ def _arguments() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=None,
-        help="Directory for the isolated HERMES_HOME and captured output",
+        help="Directory for the isolated XHERMES_HOME and captured output",
     )
     return parser.parse_args()
 
@@ -368,7 +368,7 @@ def main() -> int:
     try:
         _write_config(home, server.server_port)
         env = os.environ.copy()
-        env["HERMES_HOME"] = str(home)
+        env["XHERMES_HOME"] = str(home)
         if relay_python is not None:
             env["PYTHONPATH"] = os.pathsep.join([
                 str(relay_python),

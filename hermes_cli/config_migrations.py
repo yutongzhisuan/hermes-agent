@@ -44,7 +44,7 @@ from typing import Any, Callable, Dict, List, Tuple
 #: below this are NOT auto-migrated any more (policy decision, July 2026):
 #: v12 predates roughly two years of releases, and carrying the sub-v12
 #: migration steps (plus the env bridges they consumed, e.g.
-#: HERMES_TOOL_PROGRESS*) forever is not worth it. Below-floor configs are
+#: XHERMES_TOOL_PROGRESS*) forever is not worth it. Below-floor configs are
 #: left byte-for-byte untouched — the process continues with the config as-is
 #: (defaults deep-merged at read time, matching the non-fatal posture used
 #: for unparseable configs) and a clear message tells the user how to
@@ -336,7 +336,7 @@ def _migrate_to_21(results: Dict[str, Any], quiet: bool) -> None:
             disabled = []
         disabled_set = set(disabled)
 
-        # Scan ``$HERMES_HOME/plugins/`` for currently installed user plugins.
+        # Scan ``$XHERMES_HOME/plugins/`` for currently installed user plugins.
         grandfathered: List[str] = []
         try:
             user_plugins_dir = get_hermes_home() / "plugins"

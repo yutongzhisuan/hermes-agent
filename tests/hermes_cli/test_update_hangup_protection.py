@@ -82,11 +82,11 @@ class TestInstallHangupProtection:
 
 
     def test_wraps_stdout_and_stderr_with_mirror(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
         # Nuke any cached home path
         import hermes_cli.config as _cfg
-        if hasattr(_cfg, "_HERMES_HOME_CACHE"):
-            _cfg._HERMES_HOME_CACHE = None  # type: ignore[attr-defined]
+        if hasattr(_cfg, "_XHERMES_HOME_CACHE"):
+            _cfg._XHERMES_HOME_CACHE = None  # type: ignore[attr-defined]
 
         prev_out, prev_err = sys.stdout, sys.stderr
         state = _install_hangup_protection(gateway_mode=False)

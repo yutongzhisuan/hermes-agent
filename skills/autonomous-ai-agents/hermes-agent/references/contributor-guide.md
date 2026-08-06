@@ -25,7 +25,7 @@ xhermes-agent/
 └── website/              # Docusaurus docs site
 ```
 
-Config: `~/.xhermes/config.yaml` (settings), `~/.xhermes/.env` (API keys) — both under `$HERMES_HOME` when it is set.
+Config: `~/.xhermes/config.yaml` (settings), `~/.xhermes/.env` (API keys) — both under `$XHERMES_HOME` when it is set.
 
 ### Adding a Tool
 
@@ -56,7 +56,7 @@ registry.register(
 ```
 
 **2. Wire it into a toolset in `toolsets.py`** — add the name to
-`_HERMES_CORE_TOOLS` (every platform) or to a specific toolset.
+`_XHERMES_CORE_TOOLS` (every platform) or to a specific toolset.
 
 All handlers must return JSON strings. Use `get_hermes_home()` for paths,
 never hardcode `~/.xhermes`. For custom/local-only tools, write a plugin in
@@ -95,7 +95,7 @@ scripts/run_tests.sh tests/tools/test_x.py    # one file
 scripts/run_tests.sh -v --tb=long             # pass-through pytest flags
 ```
 
-- Tests auto-redirect `HERMES_HOME` to temp dirs — never touch real `~/.xhermes/`.
+- Tests auto-redirect `XHERMES_HOME` to temp dirs — never touch real `~/.xhermes/`.
 - The script probes `.venv`, then `venv`, then the shared worktree venv.
 - **Windows:** the wrapper is POSIX-only; see `references/windows-quirks.md`
   for the direct-pytest workaround.

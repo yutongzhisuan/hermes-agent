@@ -19,12 +19,12 @@ Full human reference (every export, area payloads, backend, security):
 ## Prerequisites
 
 - The XHermes desktop app (it loads plugins; the CLI/gateway alone does not).
-- Write access to `$HERMES_HOME/desktop-plugins/` (usually
+- Write access to `$XHERMES_HOME/desktop-plugins/` (usually
   `~/.xhermes/desktop-plugins/`).
 
 ## How to Run
 
-1. Create `$HERMES_HOME/desktop-plugins/<name>/plugin.js` from
+1. Create `$XHERMES_HOME/desktop-plugins/<name>/plugin.js` from
    `templates/plugin.js` (in this skill directory) — that's
    `~/.xhermes/...` by default, or `~/.xhermes/profiles/<profile>/...` under a
    named profile. Keep `<name>` equal to the plugin `id`.

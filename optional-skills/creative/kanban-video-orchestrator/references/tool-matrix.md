@@ -269,7 +269,7 @@ skills:
 ## API key requirements
 
 Track these in the project setup. The setup script should verify each required
-key is present in `${HERMES_HOME:-~/.xhermes}/.env` (or macOS Keychain) before firing the kanban.
+key is present in `${XHERMES_HOME:-~/.xhermes}/.env` (or macOS Keychain) before firing the kanban.
 
 | Service | Env var | Used by |
 |---------|---------|---------|
@@ -286,7 +286,7 @@ key is present in `${HERMES_HOME:-~/.xhermes}/.env` (or macOS Keychain) before f
 | Anthropic | `ANTHROPIC_API_KEY` | every XHermes profile (Claude) |
 
 If a key is missing, prompt the user to add it. Storage methods, in order of
-preference: macOS Keychain → `${HERMES_HOME:-~/.xhermes}/.env` → environment variable.
+preference: macOS Keychain → `${XHERMES_HOME:-~/.xhermes}/.env` → environment variable.
 
 ## Skill version pinning
 

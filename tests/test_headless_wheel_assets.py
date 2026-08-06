@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def _build_headless_wheel(tmp_path: Path) -> Path:
     env = os.environ.copy()
-    env["HERMES_HEADLESS_WHEEL_BUILD"] = "1"
+    env["XHERMES_HEADLESS_WHEEL_BUILD"] = "1"
     env["NIX_BUILD_TOP"] = "/build/devshell"
     scratch = tmp_path / "scratch"
     scratch.mkdir()

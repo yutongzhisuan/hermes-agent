@@ -5,7 +5,7 @@ prefix (e.g. ``mission-control.tilos.com/xhermes/*`` -> local Caddy ->
 :9119), injecting ``X-Forwarded-Prefix: /xhermes`` on every request.
 
 The dashboard already honours this for the SPA bundle (rewriting asset
-URLs and the bootstrap ``__HERMES_BASE_PATH__``). The OAuth gate must
+URLs and the bootstrap ``__XHERMES_BASE_PATH__``). The OAuth gate must
 honour it too:
 
   1. The gate's ``Location:`` redirect to /login (in
@@ -112,7 +112,7 @@ class TestForwardedPrefixNormalisation:
     ):
         """Home Assistant Supervisor ingress prefixes are 63 chars before
         add-ons append their own mount path. They must survive validation so
-        the SPA receives the correct __HERMES_BASE_PATH__ and asset prefix."""
+        the SPA receives the correct __XHERMES_BASE_PATH__ and asset prefix."""
         prefix_mod._warned_malformed_prefixes.clear()
         assert len(HA_INGRESS_DASHBOARD_PREFIX) > 64
 
@@ -253,13 +253,13 @@ class TestOAuthRedirectUriRespectsPrefix:
 
 
 # ---------------------------------------------------------------------------
-# HERMES_DASHBOARD_PUBLIC_URL / dashboard.public_url override
+# XHERMES_DASHBOARD_PUBLIC_URL / dashboard.public_url override
 # ---------------------------------------------------------------------------
 
 
 class TestPublicUrlOverride:
     """``dashboard.public_url`` (env override:
-    ``HERMES_DASHBOARD_PUBLIC_URL``) lets an operator force the absolute
+    ``XHERMES_DASHBOARD_PUBLIC_URL``) lets an operator force the absolute
     base URL the OAuth ``redirect_uri`` is built from.
 
     When set, it is the *complete authority* — scheme + host + optional
@@ -317,7 +317,7 @@ class TestPublicUrlOverride:
         """Precedence pin — env wins over config.yaml. Fly.io / CI
         secret injection depends on this ordering."""
         monkeypatch.setenv(
-            "HERMES_DASHBOARD_PUBLIC_URL", "https://from-env.example",
+            "XHERMES_DASHBOARD_PUBLIC_URL", "https://from-env.example",
         )
         patch_config("https://from-config.example")
         redirect_uri = self._redirect_uri(gated_app_direct)
@@ -347,7 +347,7 @@ class TestPublicUrlOverride:
             'https://example.com/"injected',       # quote char
             "https://example.com/\nhttps://evil",  # CRLF injection
         ]:
-            monkeypatch.setenv("HERMES_DASHBOARD_PUBLIC_URL", bad)
+            monkeypatch.setenv("XHERMES_DASHBOARD_PUBLIC_URL", bad)
             redirect_uri = self._redirect_uri(gated_app_direct)
             # Fell through to request reconstruction — netloc is the
             # bound host, NOT the hostile value.
@@ -363,7 +363,7 @@ class TestPublicUrlOverride:
         self, patch_config, monkeypatch, caplog
     ):
         """A non-empty env var that's missing its scheme (the #1 cause
-        of "I set HERMES_DASHBOARD_PUBLIC_URL but the callback is still
+        of "I set XHERMES_DASHBOARD_PUBLIC_URL but the callback is still
         http://") must emit an operator-facing WARNING rather than being
         silently discarded. Regression for #42780."""
         import logging
@@ -374,7 +374,7 @@ class TestPublicUrlOverride:
         # regardless of test ordering.
         prefix_mod._warned_malformed_public_urls.clear()
         patch_config(None)
-        monkeypatch.setenv("HERMES_DASHBOARD_PUBLIC_URL", "xhermes.domain.com")
+        monkeypatch.setenv("XHERMES_DASHBOARD_PUBLIC_URL", "xhermes.domain.com")
 
         with caplog.at_level(logging.WARNING, logger=prefix_mod.__name__):
             result = prefix_mod.resolve_public_url()
@@ -386,7 +386,7 @@ class TestPublicUrlOverride:
             if r.levelno == logging.WARNING
         ]
         assert any(
-            "HERMES_DASHBOARD_PUBLIC_URL" in m
+            "XHERMES_DASHBOARD_PUBLIC_URL" in m
             and "xhermes.domain.com" in m
             and "scheme" in m
             for m in warnings

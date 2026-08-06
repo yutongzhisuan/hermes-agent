@@ -6,13 +6,13 @@ remove the artifacts of both, on Linux, macOS, and Windows, WITHOUT touching
 the Python agent or the user's config/data:
 
   1. Source-built GUI (``xhermes desktop`` / ``xhermes gui``)
-     Built inside the agent checkout under ``$HERMES_HOME/xhermes-agent/``:
+     Built inside the agent checkout under ``$XHERMES_HOME/xhermes-agent/``:
        - ``apps/desktop/dist``      (compiled renderer)
        - ``apps/desktop/release``   (electron-builder unpacked app + installers)
        - ``apps/desktop/node_modules`` and the workspace-root ``node_modules``
          (Electron itself, ~200MB) — only removed on a GUI uninstall because
          the agent does not need them.
-       - ``$HERMES_HOME/desktop-build-stamp.json`` (the build freshness stamp)
+       - ``$XHERMES_HOME/desktop-build-stamp.json`` (the build freshness stamp)
 
   2. Packaged distributable (DMG / NSIS / AppImage / deb / rpm)
      Installed by the OS to a standard application location and carrying its
@@ -22,7 +22,7 @@ the Python agent or the user's config/data:
        - Linux:   ``~/.local/share/applications`` .desktop entry + AppImage
 
 In both shapes the Electron runtime keeps a ``userData`` directory keyed on
-the app name ("xHermes"), separate from ``$HERMES_HOME``:
+the app name ("xHermes"), separate from ``$XHERMES_HOME``:
   - macOS:   ``~/Library/Application Support/XHermes``
   - Windows: ``%APPDATA%\\XHermes``
   - Linux:   ``$XDG_CONFIG_HOME/XHermes`` (default ``~/.config/XHermes``)
@@ -152,7 +152,7 @@ def packaged_gui_app_paths() -> "list[Path]":
 
 
 def agent_is_installed(hermes_home: Path) -> bool:
-    """Return True when a usable Python agent install exists under HERMES_HOME.
+    """Return True when a usable Python agent install exists under XHERMES_HOME.
 
     Used by the desktop UI to decide which uninstall options to offer: if the
     agent isn't present (a future "lite" GUI-only client), the "remove agent"
@@ -235,7 +235,7 @@ def uninstall_gui(hermes_home: "Path | None" = None, *, remove_userdata: bool = 
       - the Electron ``userData`` directory (unless ``remove_userdata=False``)
 
     Never touches ``xhermes-agent/hermes_cli`` (agent source), ``venv/``, or any
-    config / sessions / .env under ``$HERMES_HOME``.
+    config / sessions / .env under ``$XHERMES_HOME``.
 
     Returns the list of paths actually removed.
     """

@@ -37,7 +37,7 @@ def _seed_config(tmp_path, monkeypatch):
     hh = tmp_path / ".xhermes"
     hh.mkdir()
     (hh / "config.yaml").write_text("display:\n  show_reasoning: true\n")
-    monkeypatch.setenv("HERMES_HOME", str(hh))
+    monkeypatch.setenv("XHERMES_HOME", str(hh))
     # cli captures _hermes_home at import; force it to the temp home.
     import cli
 

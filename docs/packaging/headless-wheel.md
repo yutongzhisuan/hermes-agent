@@ -48,7 +48,7 @@ asyncio.run(main())
 xhermes serve --host 127.0.0.1 --port 0
 ```
 
-Emits `HERMES_BACKEND_READY port=<n>` on stdout when the gateway is listening.
+Emits `XHERMES_BACKEND_READY port=<n>` on stdout when the gateway is listening.
 
 UI commands (`xhermes dashboard`, `xhermes desktop`, `xhermes --tui`) are disabled
 in the headless wheel distribution.
@@ -57,7 +57,7 @@ in the headless wheel distribution.
 
 - Config: `~/.xhermes/config.yaml`
 - Secrets: `~/.xhermes/.env` (API keys only)
-- Profiles: `xhermes --profile <name>` or separate `HERMES_HOME`
+- Profiles: `xhermes --profile <name>` or separate `XHERMES_HOME`
 
 ## Build (maintainers)
 
@@ -69,5 +69,5 @@ make dist-offline        # frozen venv + vendored wheels (offline)
 See [headless-wheel-offline.md](./headless-wheel-offline.md) for frozen/vendored bundle usage.
 
 ```bash
-HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
+XHERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 ```

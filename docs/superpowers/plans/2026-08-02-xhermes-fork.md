@@ -93,7 +93,7 @@ git commit -m "feat(xhermes): add single-source fork identity constants"
 - Modify: `hermes_constants.py`
 - Test: `tests/test_hermes_constants.py`（若不存在则创建）
 
-**目标**：`get_hermes_home()` 返回 `~/.xhermes`；`XHERMES_HOME` 优先于 `HERMES_HOME`；`get_default_hermes_root()` 同步走 `XHERMES_HOME` 优先（§3.2b-1 漏洞点）。
+**目标**：`get_hermes_home()` 返回 `~/.xhermes`；`XHERMES_HOME` 优先于 `XHERMES_HOME`；`get_default_hermes_root()` 同步走 `XHERMES_HOME` 优先（§3.2b-1 漏洞点）。
 
 - [ ] **Step 1: 修改 `_get_platform_default_hermes_home()`**
 
@@ -111,7 +111,7 @@ def _get_platform_default_hermes_home() -> Path:
 ```python
 def _hermes_home_from_env() -> Path:
     val = os.environ.get("XHERMES_HOME", "").strip() \
-        or os.environ.get("HERMES_HOME", "").strip()
+        or os.environ.get("XHERMES_HOME", "").strip()
     if val:
         return Path(val)
     return _get_platform_default_hermes_home()
@@ -119,19 +119,19 @@ def _hermes_home_from_env() -> Path:
 
 - [ ] **Step 3: 修改 `get_default_hermes_root()` 同步 XHERMES_HOME 优先（§3.2b-1）**
 
-`get_default_hermes_root()` 当前直接读 `os.environ.get("HERMES_HOME", "")`，改为走同一优先逻辑：
+`get_default_hermes_root()` 当前直接读 `os.environ.get("XHERMES_HOME", "")`，改为走同一优先逻辑：
 
 ```python
 def get_default_hermes_root() -> Path:
     native_home = _get_platform_default_hermes_home()
     env_home = os.environ.get("XHERMES_HOME", "").strip() \
-        or os.environ.get("HERMES_HOME", "").strip()
+        or os.environ.get("XHERMES_HOME", "").strip()
     if not env_home:
         return native_home
     # ... 后续逻辑不变（env_path / relative_to / profile 分支）
 ```
 
-**同时排查** `_profile_home_path()`（约 L830）等绕过 `_hermes_home_from_env()` 直接读 `HERMES_HOME` 的位置，统一改为 `XHERMES_HOME` 优先。
+**同时排查** `_profile_home_path()`（约 L830）等绕过 `_hermes_home_from_env()` 直接读 `XHERMES_HOME` 的位置，统一改为 `XHERMES_HOME` 优先。
 
 - [ ] **Step 4: 写测试覆盖泄漏场景**
 
@@ -141,21 +141,21 @@ def get_default_hermes_root() -> Path:
 def test_xhermes_home_precedence_over_legacy(monkeypatch, tmp_path):
     from hermes_constants import get_hermes_home, get_default_hermes_root
     monkeypatch.delenv("XHERMES_HOME", raising=False)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-    # HERMES_HOME 泄漏时，get_hermes_home 应 fallback 到 native（~/.xhermes）
+    # XHERMES_HOME 泄漏时，get_hermes_home 应 fallback 到 native（~/.xhermes）
     assert get_hermes_home() == tmp_path / ".xhermes"
 
 def test_xhermes_home_explicit_wins(monkeypatch, tmp_path):
     from hermes_constants import get_hermes_home
     monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "custom"))
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
     assert get_hermes_home() == tmp_path / "custom"
 
 def test_default_root_never_points_at_legacy_home(monkeypatch, tmp_path):
     from hermes_constants import get_default_hermes_root
     monkeypatch.delenv("XHERMES_HOME", raising=False)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     assert get_default_hermes_root() == tmp_path / ".xhermes"
 ```
@@ -247,7 +247,7 @@ cat /tmp/xhermes-hardcoded.txt
 
 | 类别 | 改法 |
 |---|---|
-| 可 import `hermes_constants` 的模块 | `Path.home() / ".xhermes"` → `get_hermes_home()`；`os.environ.get("HERMES_HOME", Path.home()/".xhermes")` → `os.environ.get("HERMES_HOME") or get_hermes_home()` |
+| 可 import `hermes_constants` 的模块 | `Path.home() / ".xhermes"` → `get_hermes_home()`；`os.environ.get("XHERMES_HOME", Path.home()/".xhermes")` → `os.environ.get("XHERMES_HOME") or get_hermes_home()` |
 | CLI 早期初始化（`hermes_cli/main.py` 的 `_apply_profile_override` 前） | `Path.home() / ".xhermes"` → `Path.home() / HOME_DIRNAME`（import 常量） |
 | Windows 路径 | `LOCALAPPDATA / "xhermes"` → `WIN_HOME_DIRNAME` |
 | 沙箱/安全路径段 | `agent/file_safety.py` 中 `.xhermes` 段 → `.xhermes` |
@@ -476,8 +476,8 @@ git commit -m "feat(xhermes): offset default listening ports from xhermes"
 
 - [ ] **Step 1: `scripts/install.sh`**
 
-- `HERMES_HOME` 默认 → `~/.xhermes`（`HOME_DIRNAME`）
-- `INSTALL_DIR=$HERMES_HOME/xhermes-agent`（原 `$HERMES_HOME/xhermes-agent`）
+- `XHERMES_HOME` 默认 → `~/.xhermes`（`HOME_DIRNAME`）
+- `INSTALL_DIR=$XHERMES_HOME/xhermes-agent`（原 `$XHERMES_HOME/xhermes-agent`）
 - 命令链接 → `xhermes`
 - bootstrap marker `.xhermes-bootstrap-complete` → `.xhermes-bootstrap-complete`
 - `REPO_URL` → 你的 fork
@@ -518,8 +518,8 @@ git commit -m "feat(xhermes): install tree under ~/.xhermes/xhermes-agent"
 
 - [ ] **Step 1: `apps/desktop/electron/main.ts`**
 
-- `path.join(home, '.xhermes')`（L565,576 `ACTIVE_HERMES_ROOT`）→ `path.join(home, '.xhermes')`
-- `ACTIVE_HERMES_ROOT = .../xhermes-agent`（原 `.../xhermes-agent`）
+- `path.join(home, '.xhermes')`（L565,576 `ACTIVE_XHERMES_ROOT`）→ `path.join(home, '.xhermes')`
+- `ACTIVE_XHERMES_ROOT = .../xhermes-agent`（原 `.../xhermes-agent`）
 - bootstrap marker `'.xhermes-bootstrap-complete'` → `'.xhermes-bootstrap-complete'`
 - `app.setAppUserModelId('com.nousresearch.xhermes')` → `'com.xhermes.app'`（L973）
 

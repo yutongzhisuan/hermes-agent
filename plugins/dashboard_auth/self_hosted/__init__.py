@@ -60,10 +60,10 @@ same precedence convention as the ``nous`` plugin)::
           # credential — prefer the env var / ~/.xhermes/.env over config.yaml.
 
     # Environment overrides (Docker/Fly secret injection)
-    HERMES_DASHBOARD_OIDC_ISSUER
-    HERMES_DASHBOARD_OIDC_CLIENT_ID
-    HERMES_DASHBOARD_OIDC_SCOPES        # optional; defaults to "openid profile email"
-    HERMES_DASHBOARD_OIDC_CLIENT_SECRET # optional; set for a confidential client
+    XHERMES_DASHBOARD_OIDC_ISSUER
+    XHERMES_DASHBOARD_OIDC_CLIENT_ID
+    XHERMES_DASHBOARD_OIDC_SCOPES        # optional; defaults to "openid profile email"
+    XHERMES_DASHBOARD_OIDC_CLIENT_SECRET # optional; set for a confidential client
                                         # (the .env file is the canonical home —
                                         # it's a secret, not a behavioural setting)
 
@@ -792,7 +792,7 @@ def register(ctx) -> None:
     """Plugin entry — called by the plugin loader at startup.
 
     Registers :class:`SelfHostedOIDCProvider` only when both an issuer and a
-    client_id are configured (via ``HERMES_DASHBOARD_OIDC_*`` env vars or the
+    client_id are configured (via ``XHERMES_DASHBOARD_OIDC_*`` env vars or the
     ``dashboard.oauth.self_hosted`` block in config.yaml). Operator-owned
     loopback / ``--insecure`` dashboards leave these unset, so the plugin is a
     no-op for them.
@@ -807,27 +807,27 @@ def register(ctx) -> None:
     oidc_cfg = _oidc_subsection(oauth_section)
 
     issuer = _resolve_setting(
-        "HERMES_DASHBOARD_OIDC_ISSUER", oidc_cfg.get("issuer")
+        "XHERMES_DASHBOARD_OIDC_ISSUER", oidc_cfg.get("issuer")
     )
     client_id = _resolve_setting(
-        "HERMES_DASHBOARD_OIDC_CLIENT_ID", oidc_cfg.get("client_id")
+        "XHERMES_DASHBOARD_OIDC_CLIENT_ID", oidc_cfg.get("client_id")
     )
     scopes = (
-        _resolve_setting("HERMES_DASHBOARD_OIDC_SCOPES", oidc_cfg.get("scopes"))
+        _resolve_setting("XHERMES_DASHBOARD_OIDC_SCOPES", oidc_cfg.get("scopes"))
         or _DEFAULT_SCOPES
     )
     # Optional — set only for a confidential client. A credential, so the
     # canonical home is the env var / ~/.xhermes/.env; config.yaml is supported
     # for precedence symmetry. Empty ⇒ public client (unchanged behaviour).
     client_secret = _resolve_setting(
-        "HERMES_DASHBOARD_OIDC_CLIENT_SECRET", oidc_cfg.get("client_secret")
+        "XHERMES_DASHBOARD_OIDC_CLIENT_SECRET", oidc_cfg.get("client_secret")
     )
 
     if not issuer or not client_id:
         LAST_SKIP_REASON = (
             "Self-hosted OIDC dashboard auth is not configured. Set both an "
             "issuer and a client_id — either as env vars "
-            "(HERMES_DASHBOARD_OIDC_ISSUER + HERMES_DASHBOARD_OIDC_CLIENT_ID) "
+            "(XHERMES_DASHBOARD_OIDC_ISSUER + XHERMES_DASHBOARD_OIDC_CLIENT_ID) "
             "or under dashboard.oauth.self_hosted.{issuer,client_id} in "
             "config.yaml — or pass --insecure to skip the OAuth gate "
             "entirely. (issuer set: %s; client_id set: %s)"

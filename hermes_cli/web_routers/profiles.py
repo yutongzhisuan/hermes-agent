@@ -432,7 +432,7 @@ async def create_profile_endpoint(body: ProfileCreate):
 
     # Optional skills-hub installs. Spawned async, scoped to the new profile
     # via `-p <name>` (a fresh subprocess re-binds skills_hub.SKILLS_DIR to the
-    # profile's HERMES_HOME at import). Returns PIDs for the UI to poll.
+    # profile's XHERMES_HOME at import). Returns PIDs for the UI to poll.
     hub_installs: List[Dict[str, Any]] = []
     for identifier in body.hub_skills:
         ident = (identifier or "").strip()
@@ -470,7 +470,7 @@ async def get_active_profile_endpoint():
 
     ``active`` is the sticky default written by ``xhermes profile use`` —
     the profile new CLI invocations pick up. ``current`` is the profile
-    the running dashboard/gateway is scoped to (derived from HERMES_HOME).
+    the running dashboard/gateway is scoped to (derived from XHERMES_HOME).
     """
     from hermes_cli import profiles as profiles_mod
     try:
@@ -646,7 +646,7 @@ async def update_profile_model_endpoint(name: str, body: ProfileModelUpdate):
     """Set the main model (``model.default`` + ``model.provider``) for a
     specific profile's config.yaml, without touching the dashboard's own
     active profile. Mirrors ``POST /api/model/set`` (main scope) but scoped
-    to the named profile via the HERMES_HOME override.
+    to the named profile via the XHERMES_HOME override.
     """
     profile_dir = _resolve_profile_dir(name)
     provider = (body.provider or "").strip()

@@ -329,7 +329,7 @@ To turn a log into an answer:
 python scripts/micro_compaction_report.py [--per-session] [LOGFILE ...]
 ```
 
-Defaults to `$HERMES_HOME/logs/agent.log`. It reports passes, outcome mix, net
+Defaults to `$XHERMES_HOME/logs/agent.log`. It reports passes, outcome mix, net
 tokens saved, mean absorbed-exchange size and pass durations.
 
 ### What it looks like when it is working

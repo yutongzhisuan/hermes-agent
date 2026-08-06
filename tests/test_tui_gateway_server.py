@@ -593,7 +593,7 @@ def _write_profile_cfg(home: Path, cwd: str | None) -> Path:
 
 
 def test_profile_scoped_mcp_discovery_uses_target_home(monkeypatch, tmp_path):
-    """MCP discovery must start under the selected profile's HERMES_HOME."""
+    """MCP discovery must start under the selected profile's XHERMES_HOME."""
     from hermes_cli import mcp_startup
     from hermes_constants import get_hermes_home
     from tui_gateway import entry
@@ -608,7 +608,7 @@ def test_profile_scoped_mcp_discovery_uses_target_home(monkeypatch, tmp_path):
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "default"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "default"))
     token = set_hermes_home_override(str(profile_home))
 
     seen = []
@@ -648,7 +648,7 @@ def test_profile_scoped_agent_build_starts_mcp_discovery_in_profile_home(
     profile_home = tmp_path / "profiles" / "sheepyr"
     profile_home.mkdir(parents=True)
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "default"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "default"))
 
     seen = []
     built = threading.Event()
@@ -703,7 +703,7 @@ def test_profile_scoped_agent_build_installs_secret_scope(monkeypatch, tmp_path)
         "PROXMOX_TOKEN=grace-secret\n", encoding="utf-8"
     )
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "default"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "default"))
 
     scopes = []
     built = threading.Event()
@@ -1187,12 +1187,12 @@ def test_voice_toggle_returns_configured_record_key(monkeypatch):
             check_voice_requirements=lambda: {"available": True, "details": ""}
         ),
     )
-    # ``voice.toggle`` action=on mutates ``os.environ["HERMES_VOICE"]``
+    # ``voice.toggle`` action=on mutates ``os.environ["XHERMES_VOICE"]``
     # directly (CLI parity, runtime-only flag). Take monkeypatch
     # ownership of the var so the change is reverted at teardown and
     # later tests don't inherit a stale ON state (Copilot round-5
     # review on #19835).
-    monkeypatch.setenv("HERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
 
     on_resp = server.dispatch(
         {"id": "voice-on", "method": "voice.toggle", "params": {"action": "on"}}
@@ -1218,7 +1218,7 @@ def test_voice_toggle_on_carries_stop_hint(monkeypatch):
             voice_stop_hint=lambda: 'Say "halt" to end the voice chat.',
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
 
     on_resp = server.dispatch(
         {"id": "voice-on", "method": "voice.toggle", "params": {"action": "on"}}
@@ -1320,7 +1320,7 @@ def test_voice_record_start_handles_non_dict_voice_cfg(monkeypatch):
             start_continuous=fake_start_continuous, stop_continuous=lambda: None
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
 
     for bad in (True, "cmd+b", None, 42, ["ctrl+b"], {"silence_threshold": "loud"}):
         captured.clear()
@@ -1400,8 +1400,8 @@ def test_prompt_submit_typed_stop_phrase_ends_voice_chat(monkeypatch):
         ),
     )
     monkeypatch.setattr(server, "_tts_stream_stop", lambda user_barge=False: None)
-    monkeypatch.setenv("HERMES_VOICE", "1")
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
 
     resp = server.dispatch(
         {
@@ -1412,8 +1412,8 @@ def test_prompt_submit_typed_stop_phrase_ends_voice_chat(monkeypatch):
     )
 
     assert resp["result"] == {"voice_stopped": True}
-    assert os.environ["HERMES_VOICE"] == "0"
-    assert os.environ["HERMES_VOICE_TTS"] == "0"
+    assert os.environ["XHERMES_VOICE"] == "0"
+    assert os.environ["XHERMES_VOICE_TTS"] == "0"
     assert calls["stop_continuous"] == 1
     assert ("voice.transcript", {"stop_phrase": True, "typed": True}) in emitted
 
@@ -1430,7 +1430,7 @@ def test_prompt_submit_typed_stop_passes_through_when_voice_off(monkeypatch):
             )
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
 
     resp = server.dispatch(
         {
@@ -1454,7 +1454,7 @@ def test_prompt_submit_longer_text_not_consumed_in_voice_mode(monkeypatch):
             is_voice_stop_phrase=lambda t: t.strip().lower().strip(".!?") == "stop"
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
 
     resp = server.dispatch(
         {
@@ -1534,7 +1534,7 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
             stop_continuous=lambda **_kwargs: None,
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
 
     first = types.SimpleNamespace(_closed=False)
     second = types.SimpleNamespace(_closed=False)
@@ -1803,7 +1803,7 @@ def test_voice_record_start_forwards_max_recording_seconds(monkeypatch):
             start_continuous=fake_start_continuous, stop_continuous=lambda: None
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
 
     for cfg, expected in (
         ({"max_recording_seconds": 45}, 45),        # explicit cap forwarded as-is
@@ -1890,7 +1890,7 @@ def test_voice_record_start_reports_busy_when_stop_is_in_progress(monkeypatch):
             stop_continuous=lambda **_kwargs: None,
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
     monkeypatch.setattr(server, "_load_cfg", lambda: {"voice": {}})
 
     resp = server.dispatch(
@@ -1925,11 +1925,11 @@ def test_voice_toggle_tts_branch_also_carries_record_key(monkeypatch):
             check_voice_requirements=lambda: {"available": True, "details": ""}
         ),
     )
-    monkeypatch.setenv("HERMES_VOICE", "1")
-    # setenv (not delenv) — the handler writes HERMES_VOICE_TTS directly, and
+    monkeypatch.setenv("XHERMES_VOICE", "1")
+    # setenv (not delenv) — the handler writes XHERMES_VOICE_TTS directly, and
     # delenv on an absent var registers no teardown, leaking TTS=1 into every
     # later test in the file (which now spins up the streaming TTS pipeline).
-    monkeypatch.setenv("HERMES_VOICE_TTS", "0")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "0")
 
     tts_resp = server.dispatch(
         {"id": "voice-tts", "method": "voice.toggle", "params": {"action": "tts"}}
@@ -1940,13 +1940,13 @@ def test_voice_toggle_tts_branch_also_carries_record_key(monkeypatch):
 
 
 def test_load_enabled_toolsets_prefers_tui_env(monkeypatch):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "web, terminal, ,memory")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "web, terminal, ,memory")
 
     assert server._load_enabled_toolsets() == ["web", "terminal", "memory"]
 
 
 def test_load_enabled_toolsets_filters_invalid_tui_env(monkeypatch, capsys):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "web, nope")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "web, nope")
     monkeypatch.setitem(
         sys.modules,
         "hermes_cli.plugins",
@@ -1958,7 +1958,7 @@ def test_load_enabled_toolsets_filters_invalid_tui_env(monkeypatch, capsys):
 
 
 def test_load_enabled_toolsets_accepts_plugin_env_after_discovery(monkeypatch):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "plugin_demo")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "plugin_demo")
 
     import toolsets
 
@@ -1984,7 +1984,7 @@ def test_load_enabled_toolsets_folds_project_into_focus_posture(monkeypatch):
     # Focus-mode coding posture returns before the config fallback, but it's
     # still a GUI-only resolver — `project` must come along so the desktop keeps
     # the project tools while sitting in a repo.
-    monkeypatch.delenv("HERMES_TUI_TOOLSETS", raising=False)
+    monkeypatch.delenv("XHERMES_TUI_TOOLSETS", raising=False)
 
     import agent.coding_context as cc
 
@@ -1994,7 +1994,7 @@ def test_load_enabled_toolsets_folds_project_into_focus_posture(monkeypatch):
 
 
 def test_load_enabled_toolsets_rejects_disabled_mcp_env(monkeypatch, capsys):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "mcp-off")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "mcp-off")
     monkeypatch.setitem(
         sys.modules,
         "hermes_cli.plugins",
@@ -2030,7 +2030,7 @@ def test_load_enabled_toolsets_rejects_disabled_mcp_env(monkeypatch, capsys):
 
 
 def test_load_enabled_toolsets_falls_back_when_tui_env_invalid(monkeypatch, capsys):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "nope")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "nope")
     monkeypatch.setitem(
         sys.modules,
         "hermes_cli.plugins",
@@ -2053,7 +2053,7 @@ def test_load_enabled_toolsets_falls_back_when_tui_env_invalid(monkeypatch, caps
 
 
 def test_load_enabled_toolsets_warns_when_config_fallback_fails(monkeypatch, capsys):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "nope")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "nope")
     monkeypatch.setitem(
         sys.modules,
         "hermes_cli.plugins",
@@ -2071,7 +2071,7 @@ def test_load_enabled_toolsets_warns_when_config_fallback_fails(monkeypatch, cap
 
 
 def test_load_enabled_toolsets_honors_builtin_env_if_config_fails(monkeypatch):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "web")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "web")
 
     import hermes_cli.config as config_mod
 
@@ -2083,7 +2083,7 @@ def test_load_enabled_toolsets_honors_builtin_env_if_config_fails(monkeypatch):
 
 
 def test_load_enabled_toolsets_all_env_means_all(monkeypatch):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "all")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "all")
 
     assert server._load_enabled_toolsets() is None
 
@@ -2091,14 +2091,14 @@ def test_load_enabled_toolsets_all_env_means_all(monkeypatch):
 def test_load_enabled_toolsets_all_env_warns_about_ignored_extra_entries(
     monkeypatch, capsys
 ):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "all,nope")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "all,nope")
 
     assert server._load_enabled_toolsets() is None
     assert "ignoring additional entries: nope" in capsys.readouterr().err
 
 
 def test_load_enabled_toolsets_reports_disabled_mcp_separately(monkeypatch, capsys):
-    monkeypatch.setenv("HERMES_TUI_TOOLSETS", "web,mcp-off,nope")
+    monkeypatch.setenv("XHERMES_TUI_TOOLSETS", "web,mcp-off,nope")
     monkeypatch.setitem(
         sys.modules,
         "hermes_cli.plugins",
@@ -2115,7 +2115,7 @@ def test_load_enabled_toolsets_reports_disabled_mcp_separately(monkeypatch, caps
 
     assert server._load_enabled_toolsets() == ["web"]
     err = capsys.readouterr().err
-    assert "ignoring unknown HERMES_TUI_TOOLSETS entries: nope" in err
+    assert "ignoring unknown XHERMES_TUI_TOOLSETS entries: nope" in err
     assert "ignoring disabled MCP servers" in err
     assert "mcp-off" in err
 
@@ -3130,15 +3130,15 @@ def test_status_callback_accepts_single_message_argument():
 
 
 def test_resolve_model_uses_inference_model_env(monkeypatch):
-    monkeypatch.delenv("HERMES_MODEL", raising=False)
-    monkeypatch.setenv("HERMES_INFERENCE_MODEL", " anthropic/claude-sonnet-4.6\n")
+    monkeypatch.delenv("XHERMES_MODEL", raising=False)
+    monkeypatch.setenv("XHERMES_INFERENCE_MODEL", " anthropic/claude-sonnet-4.6\n")
 
     assert server._resolve_model() == "anthropic/claude-sonnet-4.6"
 
 
 def test_resolve_model_strips_config_model(monkeypatch):
-    monkeypatch.delenv("HERMES_MODEL", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_MODEL", raising=False)
     monkeypatch.setattr(
         server, "_load_cfg", lambda: {"model": {"default": " nous/xhermes-test "}}
     )
@@ -3156,8 +3156,8 @@ def _sync_test_session(**extra):
 
 
 def _patch_config_model(monkeypatch, model, provider=""):
-    monkeypatch.delenv("HERMES_MODEL", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_MODEL", raising=False)
     cfg_model = {"default": model}
     if provider:
         cfg_model["provider"] = provider
@@ -3285,10 +3285,10 @@ def test_config_sync_failure_emits_error_once_per_edit(monkeypatch):
 
 
 def test_config_sync_config_wins_over_env_seed(monkeypatch):
-    # Hosted instances set HERMES_INFERENCE_MODEL as a provision-time seed;
+    # Hosted instances set XHERMES_INFERENCE_MODEL as a provision-time seed;
     # the per-turn sync must follow config.yaml edits, not stay pinned to it.
-    monkeypatch.setenv("HERMES_INFERENCE_MODEL", "seed/model")
-    monkeypatch.delenv("HERMES_MODEL", raising=False)
+    monkeypatch.setenv("XHERMES_INFERENCE_MODEL", "seed/model")
+    monkeypatch.delenv("XHERMES_MODEL", raising=False)
     monkeypatch.setattr(server, "_load_cfg", lambda: {"model": {"default": "new/model"}})
     session = _sync_test_session(config_model_seen=("seed/model", ""))
     calls = []
@@ -3305,14 +3305,14 @@ def test_config_sync_config_wins_over_env_seed(monkeypatch):
 
 
 def test_config_sync_ignores_env_seed_without_config_model(monkeypatch):
-    # `xhermes --tui -m <model>` sets HERMES_MODEL/HERMES_INFERENCE_MODEL as a
+    # `xhermes --tui -m <model>` sets XHERMES_MODEL/XHERMES_INFERENCE_MODEL as a
     # launch-scoped seed. When config.yaml has NO model.default (typical
     # custom-provider-only setup), the sync must NOT adopt the env seed as a
     # config target — doing so replayed the -m flag as a /model switch and
     # (with persist_switch_by_default=True) wrote it into config.yaml
     # permanently.
-    monkeypatch.setenv("HERMES_MODEL", "one-shot/model")
-    monkeypatch.setenv("HERMES_INFERENCE_MODEL", "one-shot/model")
+    monkeypatch.setenv("XHERMES_MODEL", "one-shot/model")
+    monkeypatch.setenv("XHERMES_INFERENCE_MODEL", "one-shot/model")
     monkeypatch.setattr(
         server, "_load_cfg", lambda: {"model": {"provider": "custom:mylocal"}}
     )
@@ -3327,8 +3327,8 @@ def test_config_sync_ignores_env_seed_without_config_model(monkeypatch):
 
 
 def test_config_model_target_never_reads_env(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "seed/model")
-    monkeypatch.setenv("HERMES_INFERENCE_MODEL", "seed/model")
+    monkeypatch.setenv("XHERMES_MODEL", "seed/model")
+    monkeypatch.setenv("XHERMES_INFERENCE_MODEL", "seed/model")
     monkeypatch.setattr(server, "_load_cfg", lambda: {"model": {"provider": "nous"}})
 
     assert server._config_model_target() == ("", "nous")
@@ -3377,17 +3377,17 @@ def test_apply_model_switch_persist_override_false_never_persists(monkeypatch):
 
 
 def test_startup_runtime_uses_tui_provider_env(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "nous/xhermes-test")
-    monkeypatch.setenv("HERMES_TUI_PROVIDER", "nous")
-    monkeypatch.delenv("HERMES_INFERENCE_PROVIDER", raising=False)
+    monkeypatch.setenv("XHERMES_MODEL", "nous/xhermes-test")
+    monkeypatch.setenv("XHERMES_TUI_PROVIDER", "nous")
+    monkeypatch.delenv("XHERMES_INFERENCE_PROVIDER", raising=False)
 
     assert server._resolve_startup_runtime() == ("nous/xhermes-test", "nous")
 
 
 def test_startup_runtime_does_not_treat_inference_provider_as_explicit(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "nous/xhermes-test")
-    monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
-    monkeypatch.setenv("HERMES_INFERENCE_PROVIDER", "nous")
+    monkeypatch.setenv("XHERMES_MODEL", "nous/xhermes-test")
+    monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
+    monkeypatch.setenv("XHERMES_INFERENCE_PROVIDER", "nous")
     monkeypatch.setattr(
         "hermes_cli.models.detect_static_provider_for_model",
         lambda model, provider: None,
@@ -3397,9 +3397,9 @@ def test_startup_runtime_does_not_treat_inference_provider_as_explicit(monkeypat
 
 
 def test_startup_runtime_detects_provider_for_model_env(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "sonnet")
-    monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_PROVIDER", raising=False)
+    monkeypatch.setenv("XHERMES_MODEL", "sonnet")
+    monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_PROVIDER", raising=False)
     monkeypatch.setattr(server, "_load_cfg", lambda: {"model": {"provider": "auto"}})
 
     def fake_detect(model, current_provider):
@@ -3451,11 +3451,11 @@ def test_make_agent_passes_configured_fallback_chain(monkeypatch):
         captured.update(kwargs)
         return types.SimpleNamespace(model=kwargs.get("model"))
 
-    monkeypatch.delenv("HERMES_MODEL", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
-    monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
-    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
-    monkeypatch.delenv("HERMES_DESKTOP_TERMINAL", raising=False)
+    monkeypatch.delenv("XHERMES_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
+    monkeypatch.delenv("XHERMES_DESKTOP", raising=False)
+    monkeypatch.delenv("XHERMES_DESKTOP_TERMINAL", raising=False)
     monkeypatch.setattr(
         server,
         "_load_cfg",
@@ -3529,9 +3529,9 @@ def test_background_agent_kwargs_preserves_empty_fallback_chain(monkeypatch):
 
 
 def test_startup_runtime_resolves_short_alias_without_network(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "sonnet")
-    monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_PROVIDER", raising=False)
+    monkeypatch.setenv("XHERMES_MODEL", "sonnet")
+    monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_PROVIDER", raising=False)
     monkeypatch.setattr(server, "_load_cfg", lambda: {"model": {"provider": "auto"}})
     monkeypatch.setattr(
         "hermes_cli.models.fetch_openrouter_models",
@@ -3547,9 +3547,9 @@ def test_startup_runtime_resolves_short_alias_without_network(monkeypatch):
 
 
 def test_startup_runtime_does_not_call_network_detector(monkeypatch):
-    monkeypatch.setenv("HERMES_MODEL", "sonnet")
-    monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_PROVIDER", raising=False)
+    monkeypatch.setenv("XHERMES_MODEL", "sonnet")
+    monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_PROVIDER", raising=False)
     monkeypatch.setattr(server, "_load_cfg", lambda: {"model": {"provider": "auto"}})
     monkeypatch.setattr(
         "hermes_cli.models.detect_provider_for_model",
@@ -5077,8 +5077,8 @@ def test_ensure_session_db_row_persists_explicit_cwd(monkeypatch, tmp_path):
 
     monkeypatch.setattr(server, "_get_db", lambda: _FakeDB())
     monkeypatch.setattr(server, "_resolve_model", lambda: "test-model")
-    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
-    monkeypatch.delenv("HERMES_DESKTOP_TERMINAL", raising=False)
+    monkeypatch.delenv("XHERMES_DESKTOP", raising=False)
+    monkeypatch.delenv("XHERMES_DESKTOP_TERMINAL", raising=False)
 
     server._ensure_session_db_row({"session_key": "k1", "cwd": str(tmp_path), "explicit_cwd": True})
 
@@ -5123,8 +5123,8 @@ def test_ensure_session_db_row_records_a_terminal_workspace(monkeypatch, tmp_pat
 
     monkeypatch.setattr(server, "_get_db", lambda: _FakeDB())
     monkeypatch.setattr(server, "_resolve_model", lambda: "test-model")
-    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
-    monkeypatch.delenv("HERMES_DESKTOP_TERMINAL", raising=False)
+    monkeypatch.delenv("XHERMES_DESKTOP", raising=False)
+    monkeypatch.delenv("XHERMES_DESKTOP_TERMINAL", raising=False)
 
     server._ensure_session_db_row({"session_key": "k1", "cwd": str(tmp_path)})
 
@@ -5591,10 +5591,10 @@ def test_config_get_approval_mode_uses_smart_default_when_key_is_missing(
     import yaml
 
     monkeypatch.setattr(server, "_hermes_home", tmp_path)
-    # Point the canonical resolver (load_config → env HERMES_HOME) at the
+    # Point the canonical resolver (load_config → env XHERMES_HOME) at the
     # temp home too, so the smart default is asserted against THIS config
     # rather than whatever the developer's real ~/.xhermes happens to hold.
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         yaml.safe_dump({"approvals": {"timeout": 15}})
     )
@@ -5613,9 +5613,9 @@ def test_config_get_approval_mode_fails_safe_to_manual_for_invalid_explicit_valu
     monkeypatch.setattr(server, "_hermes_home", tmp_path)
     # _load_approval_mode delegates to the canonical resolver in
     # tools.approval, which reads via hermes_cli.config.load_config —
-    # that path resolves HERMES_HOME from the environment, not
+    # that path resolves XHERMES_HOME from the environment, not
     # server._hermes_home.
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         yaml.safe_dump({"approvals": {"mode": "sometimes"}})
     )
@@ -5631,8 +5631,8 @@ def test_config_get_approval_mode_normalizes_yaml_off(tmp_path, monkeypatch):
 
     monkeypatch.setattr(server, "_hermes_home", tmp_path)
     # See fail-safe test above: the canonical resolver reads via
-    # load_config, which resolves HERMES_HOME from the environment.
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    # load_config, which resolves XHERMES_HOME from the environment.
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         yaml.safe_dump({"approvals": {"mode": False}})
     )
@@ -5651,8 +5651,8 @@ def test_config_set_approval_mode_persists_three_way_value_and_emits_live_status
     monkeypatch.setattr(server, "_hermes_home", tmp_path)
     # config.set writes via server._hermes_home, but the post-write
     # session.info emit resolves the effective mode through the canonical
-    # tools.approval resolver (load_config → env HERMES_HOME).
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    # tools.approval resolver (load_config → env XHERMES_HOME).
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     emitted = []
     monkeypatch.setattr(server, "_emit", lambda *args: emitted.append(args))
     server._sessions["sid"] = {"agent": object(), "session_key": "profile-session"}
@@ -5901,7 +5901,7 @@ def test_config_busy_get_and_set(monkeypatch):
 
 
 def test_config_set_yolo_process_scope_treats_false_like_env_as_disabled(monkeypatch):
-    monkeypatch.setenv("HERMES_YOLO_MODE", "false")
+    monkeypatch.setenv("XHERMES_YOLO_MODE", "false")
 
     resp = server.handle_request(
         {
@@ -5912,7 +5912,7 @@ def test_config_set_yolo_process_scope_treats_false_like_env_as_disabled(monkeyp
     )
 
     assert resp["result"]["value"] == "1"
-    assert os.environ.get("HERMES_YOLO_MODE") == "1"
+    assert os.environ.get("XHERMES_YOLO_MODE") == "1"
 
 
 def test_config_get_statusbar_survives_non_dict_display(monkeypatch):
@@ -6130,15 +6130,15 @@ def test_config_mouse_accepts_preset_strings_and_aliases(monkeypatch):
 
 
 def test_enable_gateway_prompts_sets_gateway_env(monkeypatch):
-    monkeypatch.delenv("HERMES_EXEC_ASK", raising=False)
-    monkeypatch.delenv("HERMES_GATEWAY_SESSION", raising=False)
-    monkeypatch.delenv("HERMES_INTERACTIVE", raising=False)
+    monkeypatch.delenv("XHERMES_EXEC_ASK", raising=False)
+    monkeypatch.delenv("XHERMES_GATEWAY_SESSION", raising=False)
+    monkeypatch.delenv("XHERMES_INTERACTIVE", raising=False)
 
     server._enable_gateway_prompts()
 
-    assert server.os.environ["HERMES_GATEWAY_SESSION"] == "1"
-    assert server.os.environ["HERMES_EXEC_ASK"] == "1"
-    assert server.os.environ["HERMES_INTERACTIVE"] == "1"
+    assert server.os.environ["XHERMES_GATEWAY_SESSION"] == "1"
+    assert server.os.environ["XHERMES_EXEC_ASK"] == "1"
+    assert server.os.environ["XHERMES_INTERACTIVE"] == "1"
 
 
 def test_setup_status_reports_provider_config(monkeypatch):
@@ -6844,7 +6844,7 @@ def test_config_set_model_explicit_provider_surfaces_selected_provider_errors(mo
 def test_config_set_model_does_not_leak_inference_provider_env(monkeypatch):
     """A /model switch must NOT mutate process-global env vars. The desktop /
     dashboard tui_gateway backend hosts every same-profile session in one
-    process; writing HERMES_INFERENCE_PROVIDER on a switch leaked the new
+    process; writing XHERMES_INFERENCE_PROVIDER on a switch leaked the new
     provider into every other live session's next agent rebuild. The switch
     must instead record a per-session override and leave shared env untouched.
 
@@ -6873,7 +6873,7 @@ def test_config_set_model_does_not_leak_inference_provider_env(monkeypatch):
 
     session = _session(agent=_Agent())
     server._sessions["sid"] = session
-    monkeypatch.setenv("HERMES_INFERENCE_PROVIDER", "openrouter")
+    monkeypatch.setenv("XHERMES_INFERENCE_PROVIDER", "openrouter")
     monkeypatch.setattr(
         "hermes_cli.model_switch.switch_model", lambda **_kwargs: result
     )
@@ -6894,7 +6894,7 @@ def test_config_set_model_does_not_leak_inference_provider_env(monkeypatch):
         )
 
         # Shared process env is UNCHANGED (the contamination vector is gone).
-        assert os.environ["HERMES_INFERENCE_PROVIDER"] == "openrouter"
+        assert os.environ["XHERMES_INFERENCE_PROVIDER"] == "openrouter"
         # The switch was recorded as a per-session override instead.
         assert session["model_override"]["provider"] == "anthropic"
         assert session["model_override"]["model"] == "claude-sonnet-4.6"
@@ -6933,8 +6933,8 @@ def test_config_set_model_records_per_session_override_not_env(monkeypatch):
 
     session = _session(agent=_Agent())
     server._sessions["sid"] = session
-    monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_PROVIDER", raising=False)
+    monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_PROVIDER", raising=False)
     monkeypatch.setattr(
         "hermes_cli.model_switch.switch_model", lambda **_kwargs: result
     )
@@ -6955,8 +6955,8 @@ def test_config_set_model_records_per_session_override_not_env(monkeypatch):
         )
 
         # No process-global env mutation.
-        assert "HERMES_TUI_PROVIDER" not in os.environ
-        assert "HERMES_INFERENCE_PROVIDER" not in os.environ
+        assert "XHERMES_TUI_PROVIDER" not in os.environ
+        assert "XHERMES_INFERENCE_PROVIDER" not in os.environ
         # The user's explicit provider + resolved endpoint live on the session,
         # carried into the next /new rebuild by _make_agent.
         override = session["model_override"]
@@ -6971,7 +6971,7 @@ def test_config_set_model_records_per_session_override_not_env(monkeypatch):
 
 def test_config_set_model_switches_agent_without_touching_env(monkeypatch):
     """A /model switch mutates the target session's agent in place and records
-    a per-session override; it does NOT write HERMES_MODEL / HERMES_TUI_PROVIDER
+    a per-session override; it does NOT write XHERMES_MODEL / XHERMES_TUI_PROVIDER
     etc. into the shared process environment.
 
     (Was test_config_set_model_syncs_tui_provider_env.)
@@ -7017,9 +7017,9 @@ def test_config_set_model_switches_agent_without_touching_env(monkeypatch):
     agent._session_db = db
     session = _session(agent=agent)
     server._sessions["sid"] = session
-    monkeypatch.setenv("HERMES_TUI_PROVIDER", "openai-codex")
-    monkeypatch.delenv("HERMES_MODEL", raising=False)
-    monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
+    monkeypatch.setenv("XHERMES_TUI_PROVIDER", "openai-codex")
+    monkeypatch.delenv("XHERMES_MODEL", raising=False)
+    monkeypatch.delenv("XHERMES_INFERENCE_MODEL", raising=False)
     monkeypatch.setattr(server, "_restart_slash_worker", lambda sid, session: None)
     monkeypatch.setattr(server, "_emit", lambda *args, **kwargs: None)
 
@@ -7072,9 +7072,9 @@ def test_config_set_model_switches_agent_without_touching_env(monkeypatch):
             "content": session["history"][-1]["content"],
         }
         # ...and the shared process env was NOT touched.
-        assert os.environ["HERMES_TUI_PROVIDER"] == "openai-codex"
-        assert "HERMES_MODEL" not in os.environ
-        assert "HERMES_INFERENCE_MODEL" not in os.environ
+        assert os.environ["XHERMES_TUI_PROVIDER"] == "openai-codex"
+        assert "XHERMES_MODEL" not in os.environ
+        assert "XHERMES_INFERENCE_MODEL" not in os.environ
     finally:
         server._sessions.clear()
 
@@ -7107,8 +7107,8 @@ def test_config_set_model_once_keeps_env_and_records_restore(monkeypatch):
     agent = Agent()
     session = _session(agent=agent)
     server._sessions["sid"] = session
-    monkeypatch.setenv("HERMES_INFERENCE_PROVIDER", "openrouter")
-    monkeypatch.setenv("HERMES_MODEL", "old/model")
+    monkeypatch.setenv("XHERMES_INFERENCE_PROVIDER", "openrouter")
+    monkeypatch.setenv("XHERMES_MODEL", "old/model")
     monkeypatch.setattr(
         "hermes_cli.model_switch.switch_model",
         lambda **kwargs: seen.update(kwargs) or result,
@@ -7133,8 +7133,8 @@ def test_config_set_model_once_keeps_env_and_records_restore(monkeypatch):
         assert seen["is_global"] is False
         assert agent.model == "claude-sonnet-4.6"
         assert session["one_turn_model_restore"]["model"] == "old/model"
-        assert os.environ["HERMES_INFERENCE_PROVIDER"] == "openrouter"
-        assert os.environ["HERMES_MODEL"] == "old/model"
+        assert os.environ["XHERMES_INFERENCE_PROVIDER"] == "openrouter"
+        assert os.environ["XHERMES_MODEL"] == "old/model"
     finally:
         server._sessions.clear()
 
@@ -11018,7 +11018,7 @@ def test_session_delete_success_returns_deleted_id(monkeypatch):
     assert captured["sid"] == "old-1"
     # sessions_dir must be forwarded so transcript files get cleaned up
     # too — not just the SQLite row.  The autouse _isolate_hermes_home
-    # fixture pins HERMES_HOME to a temp dir; the handler should append
+    # fixture pins XHERMES_HOME to a temp dir; the handler should append
     # /sessions to it.
     assert captured["sessions_dir"] is not None
     assert str(captured["sessions_dir"]).endswith("sessions")
@@ -11517,7 +11517,7 @@ def test_session_branch_writes_to_parent_profile_db(monkeypatch, tmp_path):
 def test_session_branch_installs_parent_profile_secret_scope(monkeypatch, tmp_path):
     """The branched agent must be built under the parent profile's secrets.
 
-    session.branch already binds the parent's HERMES_HOME and state.db, but the
+    session.branch already binds the parent's XHERMES_HOME and state.db, but the
     secret scope is what makes get_secret() resolve that profile's .env. Without
     it the build falls through to process os.environ — the LAUNCH profile's
     credentials — which is exactly the cross-profile resolution #67605 fixed for
@@ -13788,7 +13788,7 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
     """
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
 
     # Run from a different CWD to prove the snapshot does NOT leak there.
     work = tmp_path / "workspace"
@@ -15163,8 +15163,8 @@ def test_persist_model_switch_preserves_sibling_model_keys(tmp_path, monkeypatch
         "  system_prompt: keepme\n"
     )
     # save_config_value() resolves the config path from get_hermes_home() (live
-    # env var), always targeting HERMES_HOME/config.yaml — point it at tmp_path.
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    # env var), always targeting XHERMES_HOME/config.yaml — point it at tmp_path.
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     monkeypatch.setattr(cli, "_hermes_home", tmp_path)
 
     result = types.SimpleNamespace(
@@ -15197,7 +15197,7 @@ def test_persist_model_switch_clears_stale_base_url(tmp_path, monkeypatch):
         "  provider: custom:mylocal\n"
         "  base_url: http://localhost:1234/v1\n"
     )
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
     monkeypatch.setattr(cli, "_hermes_home", tmp_path)
 
     # Switch to a native provider with no base_url.
@@ -15409,9 +15409,9 @@ class TestResolveRuntimeWithFallback:
             captured.update(kwargs)
             return types.SimpleNamespace(model=kwargs.get("model"))
 
-        monkeypatch.delenv("HERMES_MODEL", raising=False)
-        monkeypatch.delenv("HERMES_INFERENCE_MODEL", raising=False)
-        monkeypatch.delenv("HERMES_TUI_PROVIDER", raising=False)
+        monkeypatch.delenv("XHERMES_MODEL", raising=False)
+        monkeypatch.delenv("XHERMES_INFERENCE_MODEL", raising=False)
+        monkeypatch.delenv("XHERMES_TUI_PROVIDER", raising=False)
         monkeypatch.setattr(
             server,
             "_load_cfg",
@@ -15552,20 +15552,20 @@ def _fake_tts_modules(monkeypatch, *, requirements=True, playback_stops=None, li
 
 
 def test_tts_stream_begin_requires_voice_tts(monkeypatch):
-    monkeypatch.setenv("HERMES_VOICE_TTS", "0")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "0")
     assert server._tts_stream_begin() is None
 
 
 def test_tts_stream_begin_requires_working_provider(monkeypatch):
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
     _fake_tts_modules(monkeypatch, requirements=False)
     assert server._tts_stream_begin() is None
 
 
 def test_tts_stream_begin_and_stop_lifecycle(monkeypatch):
     """begin() spawns the consumer; stop() cuts it and clears the slot."""
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
-    monkeypatch.setenv("HERMES_VOICE", "0")  # no barge-in monitor (no mic)
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "0")  # no barge-in monitor (no mic)
     playback_stops: list = []
     started = _fake_tts_modules(monkeypatch, playback_stops=playback_stops)
 
@@ -15586,8 +15586,8 @@ def test_tts_stream_begin_and_stop_lifecycle(monkeypatch):
 
 def test_tts_stream_begin_barges_in_on_previous_pipeline(monkeypatch):
     """A new turn's pipeline stops the previous turn's speech (one speaker)."""
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
-    monkeypatch.setenv("HERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
     _fake_tts_modules(monkeypatch)
 
     server._tts_stream_begin()
@@ -15604,8 +15604,8 @@ def test_tts_stream_stop_latches_interruption_for_next_turn(monkeypatch):
     import tools.tts_streaming as ts
 
     ts._interrupted_at = None
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
-    monkeypatch.setenv("HERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
     _fake_tts_modules(monkeypatch)
 
     server._tts_stream_begin()
@@ -15622,8 +15622,8 @@ def test_tts_stream_stop_after_natural_finish_does_not_latch(monkeypatch):
     import tools.tts_streaming as ts
 
     ts._interrupted_at = None
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
-    monkeypatch.setenv("HERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
     _fake_tts_modules(monkeypatch)
 
     server._tts_stream_begin()
@@ -15642,8 +15642,8 @@ def test_tts_stream_vad_barge_in_cuts_pipeline_and_submits_capture(monkeypatch, 
     import tools.tts_streaming as ts
 
     ts._interrupted_at = None
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
     monkeypatch.setattr(server, "_load_cfg", lambda: {"voice": {"barge_in": True}})
     events: list = []
     monkeypatch.setattr(
@@ -15682,8 +15682,8 @@ def test_full_duplex_generation_phase_interrupts_running_turn(monkeypatch, tmp_p
     import tools.tts_streaming as ts
 
     ts._interrupted_at = None
-    monkeypatch.setenv("HERMES_VOICE", "1")
-    monkeypatch.setenv("HERMES_VOICE_TTS", "0")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "0")
     monkeypatch.setattr(server, "_load_cfg", lambda: {"voice": {"barge_in": True}})
     events: list = []
     monkeypatch.setattr(
@@ -15723,7 +15723,7 @@ def test_full_duplex_generation_phase_interrupts_running_turn(monkeypatch, tmp_p
 def test_full_duplex_stop_phrase_mid_generation_ends_voice_chat(monkeypatch, tmp_path):
     """Bare 'stop' during generation = interrupt the turn AND end the voice
     chat ('stop everything'), emitted as the explicit stop_phrase signal."""
-    monkeypatch.setenv("HERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
     monkeypatch.setattr(server, "_load_cfg", lambda: {"voice": {"barge_in": True}})
     events: list = []
     monkeypatch.setattr(
@@ -15765,7 +15765,7 @@ def test_full_duplex_stop_phrase_mid_generation_ends_voice_chat(monkeypatch, tmp
         time.sleep(0.01)
     assert interrupted.is_set()
     assert ("voice.transcript", {"stop_phrase": True, "text": "stop"}) in events
-    assert os.environ.get("HERMES_VOICE") == "0"  # voice chat ended
+    assert os.environ.get("XHERMES_VOICE") == "0"  # voice chat ended
 
 
 def test_speak_text_with_barge_arms_monitor_and_cuts_playback(monkeypatch, tmp_path):
@@ -15777,8 +15777,8 @@ def test_speak_text_with_barge_arms_monitor_and_cuts_playback(monkeypatch, tmp_p
     import tools.tts_streaming as ts
 
     ts._interrupted_at = None
-    monkeypatch.setenv("HERMES_VOICE", "1")
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "1")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
     monkeypatch.setattr(
         server,
         "_load_cfg",
@@ -15838,8 +15838,8 @@ def test_speak_text_with_barge_arms_monitor_and_cuts_playback(monkeypatch, tmp_p
 
 def test_speak_text_with_barge_no_monitor_when_voice_mode_off(monkeypatch):
     """Auto-speak with voice mode off (no mic loop) must not open the mic."""
-    monkeypatch.setenv("HERMES_VOICE", "0")
-    monkeypatch.setenv("HERMES_VOICE_TTS", "1")
+    monkeypatch.setenv("XHERMES_VOICE", "0")
+    monkeypatch.setenv("XHERMES_VOICE_TTS", "1")
     monkeypatch.setattr(server, "_load_cfg", lambda: {"voice": {"barge_in": True}})
 
     listened = threading.Event()

@@ -118,7 +118,7 @@ def _disk_cache_path(home_path: Optional[Path] = None) -> Path:
     """Return the disk cache path under hermes_home/cache/.
 
     Thin wrapper over the shared DiskCache, kept for tests and any direct
-    callers; falls back to `$HERMES_HOME` / `~/.xhermes` when home is None.
+    callers; falls back to `$XHERMES_HOME` / `~/.xhermes` when home is None.
     """
     return _DISK_CACHE.path(home_path)
 

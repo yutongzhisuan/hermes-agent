@@ -25,7 +25,7 @@ main-checkout install):
     cd <worktree>
     PYTHONPATH="$PWD" ../../.venv/bin/python tests/manual/cron_inchannel_e2e.py
 
-Uses a throwaway HERMES_HOME so it never touches ~/.xhermes. No real names.
+Uses a throwaway XHERMES_HOME so it never touches ~/.xhermes. No real names.
 """
 
 import os
@@ -35,16 +35,16 @@ from pathlib import Path
 
 
 def _fresh_home():
-    """Point HERMES_HOME at a throwaway dir BEFORE importing gateway modules
+    """Point XHERMES_HOME at a throwaway dir BEFORE importing gateway modules
     (mirror.py binds _SESSIONS_INDEX from get_hermes_home() at import time)."""
     d = tempfile.mkdtemp(prefix="cron_inchannel_e2e_")
-    os.environ["HERMES_HOME"] = d
+    os.environ["XHERMES_HOME"] = d
     return Path(d)
 
 
 HOME = _fresh_home()
 
-# Import AFTER HERMES_HOME is set.
+# Import AFTER XHERMES_HOME is set.
 import cron.scheduler as sched  # noqa: E402
 import gateway.mirror as mirror  # noqa: E402
 from gateway.config import GatewayConfig, Platform  # noqa: E402
@@ -141,7 +141,7 @@ def _brief_in_transcript(store, sid):
 
 def main():
     print(f"scheduler module: {sched.__file__}")
-    print(f"HERMES_HOME (throwaway): {HOME}")
+    print(f"XHERMES_HOME (throwaway): {HOME}")
     if "cron-inchannel" not in sched.__file__:
         print("WARNING: not the worktree scheduler — set PYTHONPATH=$PWD", file=sys.stderr)
 

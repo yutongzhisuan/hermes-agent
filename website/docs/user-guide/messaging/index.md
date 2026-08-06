@@ -449,7 +449,7 @@ Setting `display.tool_progress: log` sends **no** progress bubbles to chat. Inst
 
 ### Configurable status phrases
 
-Long-running gateway status lines ("still working…"-style heartbeats) draw from a phrase catalog. Built-in defaults ship in `gateway/assets/status_phrases.yaml`; you can add your own with profile-portable files under `HERMES_HOME`:
+Long-running gateway status lines ("still working…"-style heartbeats) draw from a phrase catalog. Built-in defaults ship in `gateway/assets/status_phrases.yaml`; you can add your own with profile-portable files under `XHERMES_HOME`:
 
 - `~/.xhermes/status_phrases.yaml` or any `*.yaml` in `~/.xhermes/status_phrases/` (conventional paths, auto-loaded), or
 - point config at a relative path:
@@ -457,7 +457,7 @@ Long-running gateway status lines ("still working…"-style heartbeats) draw fro
 ```yaml
 display:
   status_phrases:
-    path: status_phrases/whatsapp.yaml  # relative to HERMES_HOME
+    path: status_phrases/whatsapp.yaml  # relative to XHERMES_HOME
     mode: append                        # append (default) or replace
 ```
 
@@ -533,7 +533,7 @@ display:
 You can also set this via environment variable:
 
 ```bash
-HERMES_BACKGROUND_NOTIFICATIONS=result
+XHERMES_BACKGROUND_NOTIFICATIONS=result
 ```
 
 ### Use Cases
@@ -594,7 +594,7 @@ xhermes ALL=(root) NOPASSWD: /usr/bin/systemctl --no-ask-password reset-failed x
 Avoid keeping both the user and system gateway units installed at once unless you really mean to. XHermes will warn if it detects both because start/stop/status behavior gets ambiguous.
 
 :::info Multiple installations
-If you run multiple XHermes installations on the same machine (with different `HERMES_HOME` directories), each gets its own systemd service name. The default `~/.xhermes` uses `xhermes-gateway`; other installations use `xhermes-gateway-<hash>`. The `xhermes gateway` commands automatically target the correct service for your current `HERMES_HOME`.
+If you run multiple XHermes installations on the same machine (with different `XHERMES_HOME` directories), each gets its own systemd service name. The default `~/.xhermes` uses `xhermes-gateway`; other installations use `xhermes-gateway-<hash>`. The `xhermes gateway` commands automatically target the correct service for your current `XHERMES_HOME`.
 :::
 
 ### macOS (launchd)
@@ -611,14 +611,14 @@ The generated plist lives at `~/Library/LaunchAgents/ai.xhermes.gateway.plist`. 
 
 - **PATH** — your full shell PATH at install time, with the venv `bin/` and `node_modules/.bin` prepended. This ensures user-installed tools (Node.js, ffmpeg, etc.) are available to gateway subprocesses like the WhatsApp bridge.
 - **VIRTUAL_ENV** — points to the Python virtualenv so tools can resolve packages correctly.
-- **HERMES_HOME** — scopes the gateway to your XHermes installation.
+- **XHERMES_HOME** — scopes the gateway to your XHermes installation.
 
 :::tip PATH changes after install
 launchd plists are static — if you install new tools (e.g. a new Node.js version via nvm, or ffmpeg via Homebrew) after setting up the gateway, run `xhermes gateway install` again to capture the updated PATH. The gateway will detect the stale plist and reload automatically.
 :::
 
 :::info Multiple installations
-Like the Linux systemd service, each `HERMES_HOME` directory gets its own launchd label. The default `~/.xhermes` uses `ai.xhermes.gateway`; other installations use `ai.xhermes.gateway-<suffix>`.
+Like the Linux systemd service, each `XHERMES_HOME` directory gets its own launchd label. The default `~/.xhermes` uses `ai.xhermes.gateway`; other installations use `ai.xhermes.gateway-<suffix>`.
 :::
 
 ## Platform-Specific Toolsets

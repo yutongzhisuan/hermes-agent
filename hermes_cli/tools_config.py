@@ -140,7 +140,7 @@ def gui_toolset_label(label: str) -> str:
 
 
 # Toolsets that are OFF by default for new installs.
-# They're still in _HERMES_CORE_TOOLS (available at runtime if enabled),
+# They're still in _XHERMES_CORE_TOOLS (available at runtime if enabled),
 # but the setup checklist won't pre-select them for first-time users.
 #
 # Video gen is off by default — it's a niche, paid, slow feature. Users
@@ -699,7 +699,7 @@ TOOL_CATEGORIES = {
                 ),
                 "env_vars": [
                     # cua-driver reads HOME/TMPDIR from the process env, no
-                    # extra keys required. Set HERMES_CUA_DRIVER_CMD to use a
+                    # extra keys required. Set XHERMES_CUA_DRIVER_CMD to use a
                     # specific binary (e.g. a local build); there is no
                     # version-pin env var.
                 ],
@@ -715,8 +715,8 @@ TOOL_CATEGORIES = {
                 "name": "Langfuse Cloud",
                 "tag": "Hosted Langfuse (cloud.langfuse.com)",
                 "env_vars": [
-                    {"key": "HERMES_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)", "url": "https://cloud.langfuse.com"},
-                    {"key": "HERMES_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)", "url": "https://cloud.langfuse.com"},
+                    {"key": "XHERMES_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)", "url": "https://cloud.langfuse.com"},
+                    {"key": "XHERMES_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)", "url": "https://cloud.langfuse.com"},
                 ],
                 "post_setup": "langfuse",
             },
@@ -724,9 +724,9 @@ TOOL_CATEGORIES = {
                 "name": "Langfuse Self-Hosted",
                 "tag": "Self-hosted Langfuse instance",
                 "env_vars": [
-                    {"key": "HERMES_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)"},
-                    {"key": "HERMES_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)"},
-                    {"key": "HERMES_LANGFUSE_BASE_URL", "prompt": "Langfuse server URL (e.g. http://localhost:3000)", "default": "http://localhost:3000"},
+                    {"key": "XHERMES_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)"},
+                    {"key": "XHERMES_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)"},
+                    {"key": "XHERMES_LANGFUSE_BASE_URL", "prompt": "Langfuse server URL (e.g. http://localhost:3000)", "default": "http://localhost:3000"},
                 ],
                 "post_setup": "langfuse",
             },
@@ -754,7 +754,7 @@ TOOLSET_ENV_REQUIREMENTS = {
 
 def _cua_driver_cmd() -> str:
     """Return the configured cua-driver override, or the bare default name."""
-    return os.environ.get("HERMES_CUA_DRIVER_CMD", "").strip() or "cua-driver"
+    return os.environ.get("XHERMES_CUA_DRIVER_CMD", "").strip() or "cua-driver"
 
 
 def _resolved_cua_driver_cmd() -> Optional[str]:
@@ -805,7 +805,7 @@ def _pip_install(
     venv_root = Path(sys.executable).parent.parent
     uv_env = {**os.environ, "VIRTUAL_ENV": str(venv_root)}
 
-    # Managed uv first: $HERMES_HOME/bin is never on PATH, so a bare which()
+    # Managed uv first: $XHERMES_HOME/bin is never on PATH, so a bare which()
     # misses the uv XHermes installed and prefers a system one when both exist.
     # ensure_uv() rather than a pure lookup because this runs during setup,
     # where installing uv is in scope — and tier 2 is a pip that the Windows
@@ -1635,7 +1635,7 @@ def _run_post_setup(post_setup_key: str):
 
     if post_setup_key in {"agent_browser", "browserbase"}:
         node_modules = PROJECT_ROOT / "node_modules" / "agent-browser"
-        # Managed Node first — $HERMES_HOME/node is not on PATH, so a bare
+        # Managed Node first — $XHERMES_HOME/node is not on PATH, so a bare
         # which() reports "no npm" on installs whose only Node is the one
         # XHermes installed for exactly this toolchain.
         npm_bin = find_node_executable("npm")
@@ -2257,7 +2257,7 @@ def _get_platform_tools(
     # If the saved list contains any configurable keys directly, the user
     # has explicitly configured this platform — use direct membership.
     # This avoids the subset-inference bug where composite toolsets like
-    # "xhermes-cli" (which include all _HERMES_CORE_TOOLS) cause disabled
+    # "xhermes-cli" (which include all _XHERMES_CORE_TOOLS) cause disabled
     # toolsets to re-appear as enabled.
     has_explicit_config = any(ts in configurable_keys for ts in toolset_names)
 

@@ -49,7 +49,7 @@ from hermes_cli.config import DEFAULT_CONFIG
 
 
 # ---------------------------------------------------------------------------
-# Shared fixture: redirect Path.home() and HERMES_HOME for profile tests
+# Shared fixture: redirect Path.home() and XHERMES_HOME for profile tests
 # ---------------------------------------------------------------------------
 
 
@@ -58,13 +58,13 @@ def profile_env(tmp_path, monkeypatch):
     """Set up an isolated environment for profile tests.
 
     * Path.home() -> tmp_path  (so _get_profiles_root() = tmp_path/.xhermes/profiles)
-    * HERMES_HOME  -> tmp_path/.xhermes  (so get_hermes_home() agrees)
+    * XHERMES_HOME  -> tmp_path/.xhermes  (so get_hermes_home() agrees)
     * Creates the bare-minimum ~/.xhermes directory.
     """
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     default_home = tmp_path / ".xhermes"
     default_home.mkdir(exist_ok=True)
-    monkeypatch.setenv("HERMES_HOME", str(default_home))
+    monkeypatch.setenv("XHERMES_HOME", str(default_home))
     return tmp_path
 
 
@@ -388,16 +388,16 @@ class TestGetActiveProfileName:
         tmp_path = profile_env
         create_profile("coder", no_alias=True)
         profile_dir = tmp_path / ".xhermes" / "profiles" / "coder"
-        monkeypatch.setenv("HERMES_HOME", str(profile_dir))
+        monkeypatch.setenv("XHERMES_HOME", str(profile_dir))
         assert get_active_profile_name() == "coder"
 
     def test_custom_path_returns_default(self, profile_env, monkeypatch):
-        """A custom HERMES_HOME (Docker, etc.) IS the default root."""
+        """A custom XHERMES_HOME (Docker, etc.) IS the default root."""
         tmp_path = profile_env
         custom = tmp_path / "some" / "other" / "path"
         custom.mkdir(parents=True)
-        monkeypatch.setenv("HERMES_HOME", str(custom))
-        # With Docker-aware roots, a custom HERMES_HOME is the default —
+        monkeypatch.setenv("XHERMES_HOME", str(custom))
+        # With Docker-aware roots, a custom XHERMES_HOME is the default —
         # not "custom".  The user is on the default profile of their
         # custom deployment.
         assert get_active_profile_name() == "default"
@@ -689,20 +689,20 @@ class TestInternalHelpers:
     """Tests for _get_profiles_root() and _get_default_hermes_home()."""
 
     def test_default_hermes_home_docker(self, tmp_path, monkeypatch):
-        """In Docker, _get_default_hermes_home() returns HERMES_HOME itself."""
+        """In Docker, _get_default_hermes_home() returns XHERMES_HOME itself."""
         docker_home = tmp_path / "opt" / "data"
         docker_home.mkdir(parents=True)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
-        monkeypatch.setenv("HERMES_HOME", str(docker_home))
+        monkeypatch.setenv("XHERMES_HOME", str(docker_home))
         home = _get_default_hermes_home()
         assert home == docker_home
 
     def test_create_profile_docker(self, tmp_path, monkeypatch):
-        """Profile created in Docker lands under HERMES_HOME/profiles/."""
+        """Profile created in Docker lands under XHERMES_HOME/profiles/."""
         docker_home = tmp_path / "opt" / "data"
         docker_home.mkdir(parents=True)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
-        monkeypatch.setenv("HERMES_HOME", str(docker_home))
+        monkeypatch.setenv("XHERMES_HOME", str(docker_home))
         result = create_profile("orchestrator", no_alias=True)
         expected = docker_home / "profiles" / "orchestrator"
         assert result == expected
@@ -790,10 +790,10 @@ class TestProfilesToServe:
     """profiles_to_serve(multiplex) — the gateway's profile-enumeration chokepoint."""
 
     def test_off_returns_only_active_named(self, profile_env, monkeypatch):
-        # A named profile's gateway runs with HERMES_HOME pointing at the
+        # A named profile's gateway runs with XHERMES_HOME pointing at the
         # profile dir; get_active_profile_name() infers the name from there.
         create_profile("coder", no_alias=True)
-        monkeypatch.setenv("HERMES_HOME", str(get_profile_dir("coder")))
+        monkeypatch.setenv("XHERMES_HOME", str(get_profile_dir("coder")))
         serve = profiles_to_serve(multiplex=False)
         assert len(serve) == 1
         assert serve[0][0] == "coder"

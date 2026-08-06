@@ -443,10 +443,10 @@ def _provider_metadata(provider: str) -> tuple[str, bool, bool]:
     """Resolve provider identity without refreshing remote provider metadata."""
     try:
         from hermes_cli.models import normalize_provider as normalize_model_provider
-        from hermes_cli.providers import HERMES_OVERLAYS, normalize_provider
+        from hermes_cli.providers import XHERMES_OVERLAYS, normalize_provider
 
         canonical = normalize_provider(normalize_model_provider(provider))
-        overlay = HERMES_OVERLAYS.get(canonical)
+        overlay = XHERMES_OVERLAYS.get(canonical)
         return (
             canonical,
             bool(overlay and overlay.is_aggregator),

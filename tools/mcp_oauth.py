@@ -184,8 +184,8 @@ _USER_SKIPPED_SENTINEL = "__hermes_user_skipped__"
 def _get_token_dir(hermes_home: str | Path | None = None) -> Path:
     """Return the directory for MCP OAuth token files.
 
-    Uses HERMES_HOME so each profile gets its own OAuth tokens.
-    Layout: ``HERMES_HOME/mcp-tokens/``
+    Uses XHERMES_HOME so each profile gets its own OAuth tokens.
+    Layout: ``XHERMES_HOME/mcp-tokens/``
     """
     from hermes_constants import get_hermes_home
 
@@ -431,9 +431,9 @@ class HermesTokenStorage:
 
     File layout::
 
-        HERMES_HOME/mcp-tokens/<server_name>.json         -- tokens
-        HERMES_HOME/mcp-tokens/<server_name>.client.json   -- client info
-        HERMES_HOME/mcp-tokens/<server_name>.meta.json     -- oauth server metadata
+        XHERMES_HOME/mcp-tokens/<server_name>.json         -- tokens
+        XHERMES_HOME/mcp-tokens/<server_name>.client.json   -- client info
+        XHERMES_HOME/mcp-tokens/<server_name>.meta.json     -- oauth server metadata
     """
 
     def __init__(self, server_name: str, *, hermes_home: str | Path | None = None):

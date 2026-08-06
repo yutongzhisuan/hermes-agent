@@ -66,7 +66,7 @@ Desktop is a **native chat surface**. It does **not** embed `xhermes --tui` over
 | `apps/desktop/electron/backend-command.ts` | Build `serve` argv; fall back to `dashboard --no-open` on old runtimes |
 | `apps/desktop/electron/main.ts` | Spawn backend, mint session token, expose `getConnection` / WS URL |
 | `apps/desktop/electron/connection-config.ts` | Local vs remote gateway URL construction |
-| `apps/desktop/electron/backend-ready.ts` | Wait for `HERMES_BACKEND_READY` (or legacy dashboard ready) |
+| `apps/desktop/electron/backend-ready.ts` | Wait for `XHERMES_BACKEND_READY` (or legacy dashboard ready) |
 
 ### Desktop renderer (experience)
 
@@ -105,7 +105,7 @@ On local Desktop boot, Electron resolves a Python runtime and starts a **headles
 xhermes [--profile <name>] serve --host 127.0.0.1 --port 0
 ```
 
-- `--port 0` → OS picks a free port; readiness announces it (e.g. `HERMES_BACKEND_READY`).
+- `--port 0` → OS picks a free port; readiness announces it (e.g. `XHERMES_BACKEND_READY`).
 - Auth for `/api/ws` uses a **session token** (query `?token=…`) or, for remote OAuth gateways, a **single-use ticket** (`?ticket=…`).
 - Older managed installs without `serve` fall back to `dashboard --no-open` — same headless JSON-RPC/WS surface, different CLI name.
 
@@ -454,7 +454,7 @@ Principle: **one agent core, multiple hosts.** Prefer extending gateway events/m
 
 | Symptom | Check |
 |---------|--------|
-| Composer stuck on “Starting…” | Backend spawn / `HERMES_BACKEND_READY`; WS connect; OAuth ticket expiry |
+| Composer stuck on “Starting…” | Backend spawn / `XHERMES_BACKEND_READY`; WS connect; OAuth ticket expiry |
 | Submit returns streaming but no UI | Events missing `session_id` routing; turn cancelled before `message.start`; disk-full errors on persist |
 | Tools never appear | `display.tool_progress: off`; filter for `tool.start` on the wire |
 | Duplicate prompts | Guard against double `prompt.submit` (queue / optimistic submit paths) |

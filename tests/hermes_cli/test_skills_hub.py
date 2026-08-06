@@ -107,9 +107,9 @@ def _capture_update(monkeypatch, results) -> tuple[str, list[tuple[str, str, boo
 
 def test_do_list_platform_env_is_ignored(three_source_env, monkeypatch):
     """`xhermes skills list` reads the active profile's config via
-    HERMES_HOME (swapped by -p), so it must NOT pass a platform arg to
+    XHERMES_HOME (swapped by -p), so it must NOT pass a platform arg to
     ``get_disabled_skill_names`` — otherwise per-platform overrides
-    would silently leak in from HERMES_PLATFORM env."""
+    would silently leak in from XHERMES_PLATFORM env."""
     from agent import skill_utils
 
     seen = {}

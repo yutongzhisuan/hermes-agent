@@ -45,7 +45,7 @@ function stagedFileMtimeMs(candidate: string): number | null {
 /**
  * Decide which staged installer binary — if any — may be handed an update.
  *
- * The Tauri installer self-copies into HERMES_HOME on *every* platform
+ * The Tauri installer self-copies into XHERMES_HOME on *every* platform
  * (`xhermes-setup.exe` on Windows, `xhermes-setup` elsewhere — see
  * apps/bootstrap-installer `paths::installer_dest` and
  * `bootstrap::copy_self_to_hermes_home`), so finding that binary on macOS or
@@ -96,7 +96,7 @@ export function resolveStagedUpdaterBinary(
  * pulls the permanent fixes. See shouldPrewriteUpdateMarker.
  *
  * We cannot ask the binary its version without executing it, so use its mtime:
- * the installer is written to HERMES_HOME at install/repair time, making mtime
+ * the installer is written to XHERMES_HOME at install/repair time, making mtime
  * a faithful stamp of which installer generation produced it.
  *
  * Unreadable mtime counts as UNSUPPORTED — the pre-write is a best-effort

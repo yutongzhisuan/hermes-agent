@@ -73,7 +73,7 @@ lint: ## ruff (blocking) + ty (advisory) on Python sources
 build: dist-wheel ## Alias: build headless pip wheel
 
 dist-wheel: ## Headless pip wheel -> dist/xhermes_agent-*.whl
-	HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
+	XHERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 
 dist-frozen: ## Offline frozen venv tarball (all deps pre-installed)
 	PYTHON=$(PYTHON) scripts/build_offline_bundle.sh frozen

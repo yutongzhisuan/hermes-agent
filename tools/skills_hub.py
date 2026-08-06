@@ -100,7 +100,7 @@ def _index_cache_dir() -> Path:
 
 
 _DYNAMIC_PATH_RESOLVERS = {
-    "HERMES_HOME": _hermes_home,
+    "XHERMES_HOME": _hermes_home,
     "SKILLS_DIR": _skills_dir,
     "HUB_DIR": _hub_dir,
     "LOCK_FILE": _lock_file,
@@ -3967,8 +3967,8 @@ def check_for_skill_updates(
 # XHermes centralized index source
 # ---------------------------------------------------------------------------
 
-HERMES_INDEX_URL = "https://xhermes-agent.nousresearch.com/docs/api/skills-index.json"
-HERMES_INDEX_TTL = 6 * 3600  # 6 hours
+XHERMES_INDEX_URL = "https://xhermes-agent.nousresearch.com/docs/api/skills-index.json"
+XHERMES_INDEX_TTL = 6 * 3600  # 6 hours
 
 
 def _hermes_index_cache_file() -> Path:
@@ -3979,7 +3979,7 @@ def _load_hermes_index() -> Optional[dict]:
     """Fetch the centralized skills index, with local cache.
 
     The index is a JSON file hosted on the docs site, rebuilt daily by CI.
-    We cache it locally for HERMES_INDEX_TTL seconds to avoid repeated
+    We cache it locally for XHERMES_INDEX_TTL seconds to avoid repeated
     downloads within a session.
     """
     # Check local cache
@@ -3987,7 +3987,7 @@ def _load_hermes_index() -> Optional[dict]:
     if hermes_index_cache_file.exists():
         try:
             age = time.time() - hermes_index_cache_file.stat().st_mtime
-            if age < HERMES_INDEX_TTL:
+            if age < XHERMES_INDEX_TTL:
                 return json.loads(hermes_index_cache_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
@@ -4009,7 +4009,7 @@ def _load_hermes_index() -> Optional[dict]:
     for accept_encoding in ("gzip, deflate", "identity"):
         try:
             resp = httpx.get(
-                HERMES_INDEX_URL,
+                XHERMES_INDEX_URL,
                 timeout=15,
                 follow_redirects=True,
                 headers={"Accept-Encoding": accept_encoding},

@@ -33,10 +33,10 @@ from hermes_cli.kanban import run_slash
 def kanban_home(tmp_path, monkeypatch):
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
     # Existing crash-detection tests pre-date the grace window; pin to 0
     # so they keep their immediate-reclaim semantics.
-    monkeypatch.setenv("HERMES_KANBAN_CRASH_GRACE_SECONDS", "0")
+    monkeypatch.setenv("XHERMES_KANBAN_CRASH_GRACE_SECONDS", "0")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     # Disable the detect_crashed_workers grace period for legacy tests in
     # this file that claim a task and immediately expect
@@ -46,7 +46,7 @@ def kanban_home(tmp_path, monkeypatch):
     # restores the pre-fix instant-reclaim semantics these tests were
     # written against. The grace-period itself is covered by dedicated
     # tests in tests/hermes_cli/test_kanban_db.py.
-    monkeypatch.setenv("HERMES_KANBAN_CRASH_GRACE_SECONDS", "0")
+    monkeypatch.setenv("XHERMES_KANBAN_CRASH_GRACE_SECONDS", "0")
     kb.init_db()
     return home
 
@@ -341,7 +341,7 @@ def test_migration_renames_legacy_event_kinds(tmp_path, monkeypatch):
     in place on init_db()."""
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     # Init fresh.
     kb.init_db()
@@ -611,7 +611,7 @@ def test_migration_backfill_idempotent_under_re_run(tmp_path, monkeypatch):
     dispatcher is simultaneously claiming."""
     home = tmp_path / ".xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     # Fresh DB, one task left in 'running' with a claim but no run row.
@@ -739,8 +739,8 @@ def test_default_spawn_does_not_auto_load_any_skill(kanban_home, monkeypatch):
     # Assignee + task env are still present
     assert "some-profile" in cmd
     env = captured["env"]
-    assert env.get("HERMES_KANBAN_TASK") == tid
-    assert env.get("HERMES_PROFILE") == "some-profile"
+    assert env.get("XHERMES_KANBAN_TASK") == tid
+    assert env.get("XHERMES_PROFILE") == "some-profile"
 
 
 # ---------------------------------------------------------------------------

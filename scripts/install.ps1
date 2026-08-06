@@ -29,8 +29,8 @@ param(
     # existing tree pass -ForceCommit.
     [switch]$ForceCommit,
     [string]$Tag = "",
-    [string]$HermesHome = $(if ($env:HERMES_HOME) { $env:HERMES_HOME } else { "$env:LOCALAPPDATA\xhermes" }),
-    [string]$InstallDir = $(if ($env:HERMES_HOME) { "$env:HERMES_HOME\xhermes-agent" } else { "$env:LOCALAPPDATA\xhermes\xhermes-agent" }),
+    [string]$HermesHome = $(if ($env:XHERMES_HOME) { $env:XHERMES_HOME } else { "$env:LOCALAPPDATA\xhermes" }),
+    [string]$InstallDir = $(if ($env:XHERMES_HOME) { "$env:XHERMES_HOME\xhermes-agent" } else { "$env:LOCALAPPDATA\xhermes\xhermes-agent" }),
 
     # --- Stage protocol (additive; default invocation behaves as before) ----
     # See the "Stage protocol" section near the bottom of the file for the
@@ -694,7 +694,7 @@ function Resolve-UvCmd {
     }
 
     # Fall back to PATH (covers edge cases where the installer ran in a
-    # sibling process and HERMES_HOME wasn't propagated).
+    # sibling process and XHERMES_HOME wasn't propagated).
     if (Get-Command uv -ErrorAction SilentlyContinue) {
         $script:UvCmd = "uv"
         return
@@ -970,7 +970,7 @@ function Install-Git {
     and re-running this installer fully recovers.
 
     After install we locate ``bash.exe`` and persist the path in
-    ``HERMES_GIT_BASH_PATH`` (User scope) so XHermes can find it in a fresh
+    ``XHERMES_GIT_BASH_PATH`` (User scope) so XHermes can find it in a fresh
     shell without a second PATH refresh.
     #>
     $script:GitInstallFailureReason = $null
@@ -1140,7 +1140,7 @@ function Set-GitBashEnvVar {
     <#
     .SYNOPSIS
     Locate ``bash.exe`` from an already-installed Git and persist the path in
-    ``HERMES_GIT_BASH_PATH`` (User env scope) so XHermes can find it even before
+    ``XHERMES_GIT_BASH_PATH`` (User env scope) so XHermes can find it even before
     PATH propagation completes in a newly-spawned shell.
     #>
     $script:GitBashPath = $null
@@ -1178,16 +1178,16 @@ function Set-GitBashEnvVar {
 
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path $candidate)) {
-            [Environment]::SetEnvironmentVariable("HERMES_GIT_BASH_PATH", $candidate, "User")
-            $env:HERMES_GIT_BASH_PATH = $candidate
+            [Environment]::SetEnvironmentVariable("XHERMES_GIT_BASH_PATH", $candidate, "User")
+            $env:XHERMES_GIT_BASH_PATH = $candidate
             $script:GitBashPath = $candidate
-            Write-Info "Set HERMES_GIT_BASH_PATH=$candidate"
+            Write-Info "Set XHERMES_GIT_BASH_PATH=$candidate"
             return
         }
     }
 
     Write-Warn "Could not locate bash.exe -- XHermes may not find Git Bash."
-    Write-Info "If needed, set HERMES_GIT_BASH_PATH manually to your bash.exe path."
+    Write-Info "If needed, set XHERMES_GIT_BASH_PATH manually to your bash.exe path."
 }
 
 # The dependency tree's real Node floor is >=22.22.0, set by react-router 8.3.0
@@ -2439,15 +2439,15 @@ function Set-PathVariable {
         Write-Info "PATH already configured"
     }
     
-    # Set HERMES_HOME so the Python code finds config/data in the right place.
+    # Set XHERMES_HOME so the Python code finds config/data in the right place.
     # Only needed on Windows where we install to %LOCALAPPDATA%\xhermes instead
     # of the Unix default ~/.xhermes
-    $currentHermesHome = [Environment]::GetEnvironmentVariable("HERMES_HOME", "User")
+    $currentHermesHome = [Environment]::GetEnvironmentVariable("XHERMES_HOME", "User")
     if (-not $currentHermesHome -or $currentHermesHome -ne $HermesHome) {
-        [Environment]::SetEnvironmentVariable("HERMES_HOME", $HermesHome, "User")
-        Write-Success "Set HERMES_HOME=$HermesHome"
+        [Environment]::SetEnvironmentVariable("XHERMES_HOME", $HermesHome, "User")
+        Write-Success "Set XHERMES_HOME=$HermesHome"
     }
-    $env:HERMES_HOME = $HermesHome
+    $env:XHERMES_HOME = $HermesHome
     
     # Update current session
     $env:Path = "$hermesBin;$env:Path"
@@ -2535,7 +2535,7 @@ function Write-BootstrapMarker {
 function Copy-ConfigTemplates {
     Write-Info "Setting up configuration files..."
     
-    # Create the HERMES_HOME directory structure ($HermesHome, default %LOCALAPPDATA%\xhermes)
+    # Create the XHERMES_HOME directory structure ($HermesHome, default %LOCALAPPDATA%\xhermes)
     New-Item -ItemType Directory -Force -Path "$HermesHome\cron" | Out-Null
     New-Item -ItemType Directory -Force -Path "$HermesHome\sessions" | Out-Null
     New-Item -ItemType Directory -Force -Path "$HermesHome\logs" | Out-Null

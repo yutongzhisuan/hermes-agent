@@ -1257,7 +1257,7 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 #     /xhermes update on Slack. Demoted to free the native slot /approvals now
 #     claims — without this entry /approvals tips the registry past the 50-cap
 #     and silently clamps /update off, breaking Telegram parity.
-_SLACK_VIA_HERMES_ONLY = frozenset({"topup", "moa", "debug", "egress", "init", "version", "diff", "update"})
+_SLACK_VIA_XHERMES_ONLY = frozenset({"topup", "moa", "debug", "egress", "init", "version", "diff", "update"})
 
 
 def _sanitize_slack_name(raw: str) -> str:
@@ -1307,8 +1307,8 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
             return
         if slack_name in _SLACK_RESERVED_COMMANDS:
             return
-        if slack_name in _SLACK_VIA_HERMES_ONLY:
-            # Intentionally Slack-via-/xhermes only (see _SLACK_VIA_HERMES_ONLY).
+        if slack_name in _SLACK_VIA_XHERMES_ONLY:
+            # Intentionally Slack-via-/xhermes only (see _SLACK_VIA_XHERMES_ONLY).
             return
         if len(entries) >= _SLACK_MAX_SLASH_COMMANDS:
             return

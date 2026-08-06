@@ -355,7 +355,7 @@ display:
 也可通过环境变量设置：
 
 ```bash
-HERMES_BACKGROUND_NOTIFICATIONS=result
+XHERMES_BACKGROUND_NOTIFICATIONS=result
 ```
 
 ### 使用场景
@@ -395,7 +395,7 @@ journalctl -u xhermes-gateway -f
 除非你确实有此需要，否则避免同时安装用户和系统网关单元。XHermes 检测到两者同时存在时会发出警告，因为 start/stop/status 行为会变得不明确。
 
 :::info 多个安装
-如果你在同一台机器上运行多个 XHermes 安装（使用不同的 `HERMES_HOME` 目录），每个安装都有自己的 systemd 服务名称。默认的 `~/.xhermes` 使用 `xhermes-gateway`；其他安装使用 `xhermes-gateway-<hash>`。`xhermes gateway` 命令会自动针对当前 `HERMES_HOME` 对应的正确服务。
+如果你在同一台机器上运行多个 XHermes 安装（使用不同的 `XHERMES_HOME` 目录），每个安装都有自己的 systemd 服务名称。默认的 `~/.xhermes` 使用 `xhermes-gateway`；其他安装使用 `xhermes-gateway-<hash>`。`xhermes gateway` 命令会自动针对当前 `XHERMES_HOME` 对应的正确服务。
 :::
 
 ### macOS（launchd）
@@ -412,14 +412,14 @@ tail -f ~/.xhermes/logs/gateway.log   # 查看日志
 
 - **PATH** — 安装时你的完整 shell PATH，并在前面添加了 venv `bin/` 和 `node_modules/.bin`。这确保用户安装的工具（Node.js、ffmpeg 等）可供网关子进程（如 WhatsApp 桥接）使用。
 - **VIRTUAL_ENV** — 指向 Python 虚拟环境，使工具能正确解析包。
-- **HERMES_HOME** — 将网关限定到你的 XHermes 安装。
+- **XHERMES_HOME** — 将网关限定到你的 XHermes 安装。
 
 :::tip 安装后 PATH 变更
 launchd plist 是静态的——如果你在配置网关后安装了新工具（例如通过 nvm 安装新版 Node.js，或通过 Homebrew 安装 ffmpeg），请重新运行 `xhermes gateway install` 以捕获更新后的 PATH。网关会检测到过时的 plist 并自动重新加载。
 :::
 
 :::info 多个安装
-与 Linux systemd 服务类似，每个 `HERMES_HOME` 目录都有自己的 launchd 标签。默认的 `~/.xhermes` 使用 `ai.xhermes.gateway`；其他安装使用 `ai.xhermes.gateway-<suffix>`。
+与 Linux systemd 服务类似，每个 `XHERMES_HOME` 目录都有自己的 launchd 标签。默认的 `~/.xhermes` 使用 `ai.xhermes.gateway`；其他安装使用 `ai.xhermes.gateway-<suffix>`。
 :::
 
 ## 平台专属工具集

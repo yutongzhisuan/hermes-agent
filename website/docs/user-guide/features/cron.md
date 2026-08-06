@@ -458,7 +458,7 @@ cron:
   script_timeout_seconds: 1800   # 30 minutes
 ```
 
-Or set the `HERMES_CRON_SCRIPT_TIMEOUT` environment variable. The resolution order is: env var → config.yaml → 3600s default.
+Or set the `XHERMES_CRON_SCRIPT_TIMEOUT` environment variable. The resolution order is: env var → config.yaml → 3600s default.
 
 ## No-agent mode (script-only jobs)
 
@@ -480,7 +480,7 @@ Semantics:
 - `{"wakeAgent": false}` on the last line → silent tick (same gate LLM jobs use).
 - No tokens, no model, no provider fallback — the job never touches the inference layer.
 
-`.sh` / `.bash` files run under `bash` from `PATH` when available, otherwise `/bin/bash` (important on Windows Git Bash). Anything else runs under the current Python interpreter (`sys.executable`). Scripts must resolve inside `$HERMES_HOME/scripts/` — relative names, absolute paths, and `~`-prefixed paths are accepted when the resolved target stays in that directory; paths that escape it are rejected. Subprocess env is sanitized (`_sanitize_subprocess_env`): provider API credentials and other XHermes-managed secrets are **not** inherited by cron scripts.
+`.sh` / `.bash` files run under `bash` from `PATH` when available, otherwise `/bin/bash` (important on Windows Git Bash). Anything else runs under the current Python interpreter (`sys.executable`). Scripts must resolve inside `$XHERMES_HOME/scripts/` — relative names, absolute paths, and `~`-prefixed paths are accepted when the resolved target stays in that directory; paths that escape it are rejected. Subprocess env is sanitized (`_sanitize_subprocess_env`): provider API credentials and other XHermes-managed secrets are **not** inherited by cron scripts.
 
 ### The agent sets these up for you
 
@@ -780,7 +780,7 @@ The referenced jobs' most recent completed outputs are injected above the prompt
 Jobs are stored in `~/.xhermes/cron/jobs.json`. Output from job runs is saved to `~/.xhermes/cron/output/{job_id}/{timestamp}.md`.
 
 :::tip
-Ask the agent to manage jobs through the `cronjob` tool, `xhermes cron edit`, or `/cron` — not by patching `jobs.json` directly. Direct edits can fail silently when [file write safety](../security.md#file-write-safety) blocks the path (for example when `HERMES_WRITE_SAFE_ROOT` is set), and the [file-mutation verifier](../configuration.md#file-mutation-verifier) footer is the authoritative signal that nothing was saved.
+Ask the agent to manage jobs through the `cronjob` tool, `xhermes cron edit`, or `/cron` — not by patching `jobs.json` directly. Direct edits can fail silently when [file write safety](../security.md#file-write-safety) blocks the path (for example when `XHERMES_WRITE_SAFE_ROOT` is set), and the [file-mutation verifier](../configuration.md#file-mutation-verifier) footer is the authoritative signal that nothing was saved.
 :::
 
 Jobs may store `model` and `provider` as `null`. When those fields are omitted, XHermes resolves them at execution time from the global configuration. They only appear in the job record when a per-job override is set.

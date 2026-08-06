@@ -175,21 +175,21 @@ def test_write_json(capture):
 
 
 def test_disable_flush_env_var_actually_wires_to_module_constant(monkeypatch):
-    """End-to-end: setting `HERMES_TUI_GATEWAY_NO_FLUSH=1` and importing
+    """End-to-end: setting `XHERMES_TUI_GATEWAY_NO_FLUSH=1` and importing
     `tui_gateway.transport` fresh actually flips `_DISABLE_FLUSH` true.
 
     Reloads only the transport module — server.py is untouched so its
     atexit hooks/worker pool stay intact."""
     import importlib
 
-    monkeypatch.setenv("HERMES_TUI_GATEWAY_NO_FLUSH", "1")
+    monkeypatch.setenv("XHERMES_TUI_GATEWAY_NO_FLUSH", "1")
     transport_mod = importlib.reload(importlib.import_module("tui_gateway.transport"))
 
     try:
         assert transport_mod._DISABLE_FLUSH is True
     finally:
         # Restore the env-disabled state so other tests see the default.
-        monkeypatch.delenv("HERMES_TUI_GATEWAY_NO_FLUSH", raising=False)
+        monkeypatch.delenv("XHERMES_TUI_GATEWAY_NO_FLUSH", raising=False)
         importlib.reload(transport_mod)
 
 
@@ -395,7 +395,7 @@ def test_sync_session_key_after_compress_reanchors_active_session_lease(
     server, monkeypatch, tmp_path
 ):
     home = tmp_path / ".xhermes"
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
 
     from hermes_cli.active_sessions import (
         active_session_registry_snapshot,

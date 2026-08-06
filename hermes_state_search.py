@@ -1322,7 +1322,7 @@ class SessionSearchMixin:
         production latency stays attributable per query shape (the 2026-07
         session_search investigation needed trace archaeology to discover
         the LIKE full scans; this makes the next regression a grep).
-        Threshold: HERMES_SEARCH_SLOW_MS (default 1000; 0 logs every call).
+        Threshold: XHERMES_SEARCH_SLOW_MS (default 1000; 0 logs every call).
         """
         started = time.time()
         rows = None
@@ -1341,7 +1341,7 @@ class SessionSearchMixin:
             return rows
         finally:
             try:
-                threshold = float(os.getenv("HERMES_SEARCH_SLOW_MS", "1000"))
+                threshold = float(os.getenv("XHERMES_SEARCH_SLOW_MS", "1000"))
             except (TypeError, ValueError):
                 threshold = 1000.0
             elapsed_ms = (time.time() - started) * 1000.0
@@ -2103,7 +2103,7 @@ class SessionSearchMixin:
         index internally, then VACUUM returns the freed pages to the OS.
 
         Skips any FTS table that does not exist (e.g. the trigram index when
-        disabled via ``HERMES_DISABLE_FTS_TRIGRAM`` or not yet created), so
+        disabled via ``XHERMES_DISABLE_FTS_TRIGRAM`` or not yet created), so
         it is safe to call unconditionally.
 
         Returns the number of FTS indexes that were optimized.

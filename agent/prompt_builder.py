@@ -92,11 +92,11 @@ def _find_git_root(start: Path) -> Optional[Path]:
     return None
 
 
-_HERMES_MD_NAMES = (".xhermes.md", "HERMES.md")
+_XHERMES_MD_NAMES = (".xhermes.md", "XHERMES.md")
 
 
 def _find_hermes_md(cwd: Path) -> Optional[Path]:
-    """Discover the nearest ``.xhermes.md`` or ``HERMES.md``.
+    """Discover the nearest ``.xhermes.md`` or ``XHERMES.md``.
 
     Search order: *cwd* first, then each parent directory up to (and
     including) the git repository root.  Returns the first match, or
@@ -110,7 +110,7 @@ def _find_hermes_md(cwd: Path) -> Optional[Path]:
     search_dirs = [current, *current.parents] if stop_at else [current]
 
     for directory in search_dirs:
-        for name in _HERMES_MD_NAMES:
+        for name in _XHERMES_MD_NAMES:
             candidate = directory / name
             if candidate.is_file():
                 return candidate
@@ -151,7 +151,7 @@ DEFAULT_AGENT_IDENTITY = (
     "Be targeted and efficient in your exploration and investigations."
 )
 
-HERMES_AGENT_HELP_GUIDANCE = (
+XHERMES_AGENT_HELP_GUIDANCE = (
     "You run on xHermes Agent (by Nous Research). When the user needs help with "
     "XHermes itself — configuring, setting up, using, extending, or troubleshooting "
     "it — or when you need to understand your own features, tools, or capabilities, "
@@ -210,7 +210,7 @@ KANBAN_GUIDANCE = (
     "# Kanban task execution protocol\n"
     "You have been assigned ONE task from "
     "the shared board at `~/.xhermes/kanban.db`. Your task id is in "
-    "`$HERMES_KANBAN_TASK`; your workspace is `$HERMES_KANBAN_WORKSPACE`. "
+    "`$XHERMES_KANBAN_TASK`; your workspace is `$XHERMES_KANBAN_WORKSPACE`. "
     "The `kanban_*` tools in your schema are your primary coordination surface — "
     "they write directly to the shared SQLite DB and work regardless of terminal "
     "backend (local/docker/modal/ssh).\n"
@@ -222,7 +222,7 @@ KANBAN_GUIDANCE = (
     "metadata), any prior attempts on this task if you're a retry, the full "
     "comment thread, and a pre-formatted `worker_context` you can treat as "
     "ground truth.\n"
-    "2. **Work inside the workspace.** `cd $HERMES_KANBAN_WORKSPACE` before "
+    "2. **Work inside the workspace.** `cd $XHERMES_KANBAN_WORKSPACE` before "
     "any file operations. The workspace is yours for this run. Don't modify "
     "files outside it unless the task explicitly asks.\n"
     "3. **Heartbeat on long operations.** Call `kanban_heartbeat(note=...)` "
@@ -267,11 +267,11 @@ KANBAN_GUIDANCE = (
     "\n"
     "## Reference details that change outcomes\n"
     "\n"
-    "- **Workspace.** `cd $HERMES_KANBAN_WORKSPACE` first. For a `worktree` kind "
+    "- **Workspace.** `cd $XHERMES_KANBAN_WORKSPACE` first. For a `worktree` kind "
     "with no `.git`, `git worktree add <path> "
-    "${HERMES_KANBAN_BRANCH:-wt/$HERMES_KANBAN_TASK}` from the main repo, then "
+    "${XHERMES_KANBAN_BRANCH:-wt/$XHERMES_KANBAN_TASK}` from the main repo, then "
     "cd there. For a project-linked task the workspace is a fresh "
-    "`<repo>/.worktrees/<task-id>` and `$HERMES_KANBAN_BRANCH` a deterministic "
+    "`<repo>/.worktrees/<task-id>` and `$XHERMES_KANBAN_BRANCH` a deterministic "
     "`<project-slug>/<task-id>` — the main repo is two levels up, so run "
     "`git worktree add` from there.\n"
     "- **Deliverables.** Files a human wants go in "
@@ -1245,7 +1245,7 @@ def build_environment_hints() -> str:
     # it's part of the stable, cache-safe system prompt. The env var is the
     # build-time/embedder mechanism (set in a container ENV); config.yaml
     # ``agent.environment_hint`` is the user-facing surface. Env var wins.
-    extra = (os.getenv("HERMES_ENVIRONMENT_HINT") or "").strip()
+    extra = (os.getenv("XHERMES_ENVIRONMENT_HINT") or "").strip()
     if not extra:
         try:
             from hermes_cli.config import load_config_readonly
@@ -1567,7 +1567,7 @@ def _skill_should_show(
 
 def _current_session_platform_hint() -> str:
     """Return the active platform without importing the gateway package on CLI startup."""
-    platform = os.environ.get("HERMES_PLATFORM") or os.environ.get("HERMES_SESSION_PLATFORM")
+    platform = os.environ.get("XHERMES_PLATFORM") or os.environ.get("XHERMES_SESSION_PLATFORM")
     if platform:
         return platform
 
@@ -1576,7 +1576,7 @@ def _current_session_platform_hint() -> str:
     if get_session_env is None:
         return ""
     try:
-        return get_session_env("HERMES_SESSION_PLATFORM") or ""
+        return get_session_env("XHERMES_SESSION_PLATFORM") or ""
     except Exception:
         return ""
 
@@ -1984,7 +1984,7 @@ def _truncate_content(
 
 
 def load_soul_md(context_length: Optional[int] = None) -> Optional[str]:
-    """Load SOUL.md from HERMES_HOME and return its content, or None.
+    """Load SOUL.md from XHERMES_HOME and return its content, or None.
 
     Used as the agent identity (slot #1 in the system prompt).  When this
     returns content, ``build_context_files_prompt`` should be called with
@@ -1994,7 +1994,7 @@ def load_soul_md(context_length: Optional[int] = None) -> Optional[str]:
         from hermes_cli.config import ensure_hermes_home
         ensure_hermes_home()
     except Exception as e:
-        logger.debug("Could not ensure HERMES_HOME before loading SOUL.md: %s", e)
+        logger.debug("Could not ensure XHERMES_HOME before loading SOUL.md: %s", e)
 
     soul_path = get_hermes_home() / "SOUL.md"
     if not soul_path.exists():
@@ -2015,7 +2015,7 @@ def load_soul_md(context_length: Optional[int] = None) -> Optional[str]:
 
 
 def _load_hermes_md(cwd_path: Path, context_length: Optional[int] = None) -> str:
-    """.xhermes.md / HERMES.md — walk to git root."""
+    """.xhermes.md / XHERMES.md — walk to git root."""
     hermes_md_path = _find_hermes_md(cwd_path)
     if not hermes_md_path:
         return ""
@@ -2120,12 +2120,12 @@ def build_context_files_prompt(
     """Discover and load context files for the system prompt.
 
     Priority (first found wins — only ONE project context type is loaded):
-      1. .xhermes.md / HERMES.md  (walk to git root)
+      1. .xhermes.md / XHERMES.md  (walk to git root)
       2. AGENTS.md / agents.md   (cwd only)
       3. CLAUDE.md / claude.md   (cwd only)
       4. .cursorrules / .cursor/rules/*.mdc  (cwd only)
 
-    SOUL.md from HERMES_HOME is independent and always included when present.
+    SOUL.md from XHERMES_HOME is independent and always included when present.
 
     Each context source is capped before injection. The cap defaults to the
     model's context window (scaled — see ``_dynamic_context_file_max_chars``)
@@ -2177,7 +2177,7 @@ def build_context_files_prompt(
     if project_context:
         sections.append(project_context)
 
-    # SOUL.md from HERMES_HOME only — skip when already loaded as identity
+    # SOUL.md from XHERMES_HOME only — skip when already loaded as identity
     if not skip_soul:
         soul_content = load_soul_md(context_length)
         if soul_content:

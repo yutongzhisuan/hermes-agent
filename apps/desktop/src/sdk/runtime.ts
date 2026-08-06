@@ -14,10 +14,10 @@ import * as jsxRuntime from 'react/jsx-runtime'
 import * as sdk from './index'
 
 const GLOBALS = {
-  __HERMES_PLUGIN_SDK__: sdk,
-  __HERMES_REACT__: React,
-  __HERMES_REACT_JSX__: jsxRuntime,
-  __HERMES_REACT_JSX_DEV__: jsxDevRuntime
+  __XHERMES_PLUGIN_SDK__: sdk,
+  __XHERMES_REACT__: React,
+  __XHERMES_REACT_JSX__: jsxRuntime,
+  __XHERMES_REACT_JSX_DEV__: jsxDevRuntime
 } as const
 
 export function installPluginSdk(): void {
@@ -44,10 +44,10 @@ let cached: Record<string, string> | null = null
 /** Specifier -> shim URL map for the runtime loader (longest keys first). */
 export function sdkImportMap(): Record<string, string> {
   cached ??= {
-    '@xhermes/plugin-sdk': shimUrl('__HERMES_PLUGIN_SDK__'),
-    'react/jsx-dev-runtime': shimUrl('__HERMES_REACT_JSX_DEV__'),
-    'react/jsx-runtime': shimUrl('__HERMES_REACT_JSX__'),
-    react: shimUrl('__HERMES_REACT__')
+    '@xhermes/plugin-sdk': shimUrl('__XHERMES_PLUGIN_SDK__'),
+    'react/jsx-dev-runtime': shimUrl('__XHERMES_REACT_JSX_DEV__'),
+    'react/jsx-runtime': shimUrl('__XHERMES_REACT_JSX__'),
+    react: shimUrl('__XHERMES_REACT__')
   }
 
   return cached

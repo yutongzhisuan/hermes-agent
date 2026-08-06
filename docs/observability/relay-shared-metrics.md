@@ -87,8 +87,8 @@ conversation session during context compression.
 Local state is written under:
 
 ```text
-$HERMES_HOME/telemetry/shared_metrics/metrics.sqlite3
-$HERMES_HOME/telemetry/shared_metrics/outbox/*.json
+$XHERMES_HOME/telemetry/shared_metrics/metrics.sqlite3
+$XHERMES_HOME/telemetry/shared_metrics/outbox/*.json
 ```
 
 The database keeps transactional aggregate and package-outbox state. Package
@@ -98,11 +98,11 @@ successfully exported package rows and files are retained locally for 30 days.
 Pending package rows and counters with unexported deltas are never pruned.
 
 Each package contains an `install_id` generated as a random UUID. Despite the
-schema field name, its current scope is one `HERMES_HOME`, so it is more
+schema field name, its current scope is one `XHERMES_HOME`, so it is more
 precisely a persistent pseudonymous profile identifier. It is not derived from
 hardware, account, host, path, or credential data. It remains stable across
 packages from that profile and can therefore link those local packages.
-Deleting `$HERMES_HOME/telemetry/shared_metrics` resets the identifier together
+Deleting `$XHERMES_HOME/telemetry/shared_metrics` resets the identifier together
 with all aggregates and package files.
 
 This slice has no remote-delivery path. A future remote exporter must not reuse

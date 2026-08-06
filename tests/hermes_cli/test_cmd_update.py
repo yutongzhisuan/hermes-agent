@@ -141,10 +141,10 @@ class TestCmdUpdateNpmLockfileCache:
             "_npm_lockfile_changed",
             side_effect=lambda root: cache_roots.append(root) or False,
         ):
-            monkeypatch.setenv("HERMES_HOME", str(shared_root))
+            monkeypatch.setenv("XHERMES_HOME", str(shared_root))
             hm._update_node_dependencies()
 
-            monkeypatch.setenv("HERMES_HOME", str(named_profile))
+            monkeypatch.setenv("XHERMES_HOME", str(named_profile))
             hm._update_node_dependencies()
 
         assert cache_roots == [shared_root, shared_root]
@@ -186,7 +186,7 @@ class TestCmdUpdateTermuxUvBootstrap:
 
         pkg_uv = "/data/data/com.termux/files/usr/bin/uv"
         monkeypatch.setattr(hm, "_is_termux_env", lambda env=None: True)
-        # Production resolve_uv only checks $HERMES_HOME/bin/uv; model an empty
+        # Production resolve_uv only checks $XHERMES_HOME/bin/uv; model an empty
         # managed dir so the PATH probe is what surfaces the packaged uv.
         monkeypatch.setattr("hermes_cli.managed_uv.resolve_uv", lambda: None)
         monkeypatch.setattr(

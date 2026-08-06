@@ -131,7 +131,7 @@ def test_reset_aux_to_auto_resets_plugin_tasks(tmp_path, monkeypatch, patched_ma
     from hermes_cli.config import load_config, save_config
     from hermes_cli.main import _reset_aux_to_auto
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".xhermes"))
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     (tmp_path / ".xhermes").mkdir(exist_ok=True)
 

@@ -80,9 +80,9 @@ class HermesRuntime:
 
         env = os.environ.copy()
         env.update(self._extra_env)
-        env["HERMES_HOME"] = self._hermes_home
-        env["HERMES_SERVE_HEADLESS"] = "1"
-        env["HERMES_DASHBOARD_SESSION_TOKEN"] = token
+        env["XHERMES_HOME"] = self._hermes_home
+        env["XHERMES_SERVE_HEADLESS"] = "1"
+        env["XHERMES_DASHBOARD_SESSION_TOKEN"] = token
         env["PYTHONUNBUFFERED"] = "1"
 
         popen_kwargs: dict[str, Any] = {

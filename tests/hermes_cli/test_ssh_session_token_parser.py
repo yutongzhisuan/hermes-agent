@@ -59,7 +59,7 @@ def test_token_anchor_is_os_home_not_active_profile(tmp_path, monkeypatch):
     ``$HOME/.xhermes/desktop-ssh`` (a literal ``~/.xhermes/desktop-ssh`` in
     apps/desktop/electron/remote-lifecycle.ts, expanded against the account's
     $HOME). A non-default sticky profile re-homes ``get_hermes_home()`` to
-    ``<root>/profiles/<name>``, and a Docker-style ``HERMES_HOME`` can point
+    ``<root>/profiles/<name>``, and a Docker-style ``XHERMES_HOME`` can point
     elsewhere entirely — neither must move the validator off
     ``$HOME/.xhermes/desktop-ssh``, or the token is wrongly rejected."""
     home = tmp_path / "home"
@@ -144,6 +144,6 @@ def test_windows_runtime_root_stays_at_machine_root_for_named_profile(tmp_path, 
     from hermes_cli import windows_ssh_runtime
 
     machine_root = tmp_path / "custom-xhermes-root"
-    monkeypatch.setenv("HERMES_HOME", str(machine_root / "profiles" / "writer_2"))
+    monkeypatch.setenv("XHERMES_HOME", str(machine_root / "profiles" / "writer_2"))
 
     assert windows_ssh_runtime._root() == machine_root / "desktop-ssh"

@@ -146,7 +146,7 @@ def _allowlist_migrator(mod, tmp_path: Path, existing_config: str):
     ), target / "config.yaml"
 
 
-MALFORMED_HERMES_CONFIG = """\
+MALFORMED_XHERMES_CONFIG = """\
 model: xhermes-4-405b
 api_key_env: OPENROUTER_API_KEY
 command_allowlist:
@@ -169,7 +169,7 @@ def test_unreadable_config_is_refused_not_overwritten(tmp_path: Path):
     """
     mod = load_module()
     migrator, config_path = _allowlist_migrator(
-        mod, tmp_path, MALFORMED_HERMES_CONFIG)
+        mod, tmp_path, MALFORMED_XHERMES_CONFIG)
     before = config_path.read_bytes()
 
     report = migrator.migrate()
@@ -185,7 +185,7 @@ def test_unreadable_config_blocks_later_config_steps_instead_of_partial_writes(
     """One refusal flips the existing _config_apply_blocked short-circuit."""
     mod = load_module()
     migrator, config_path = _allowlist_migrator(
-        mod, tmp_path, MALFORMED_HERMES_CONFIG)
+        mod, tmp_path, MALFORMED_XHERMES_CONFIG)
 
     report = migrator.migrate()
 
@@ -196,7 +196,7 @@ def test_unreadable_config_blocks_later_config_steps_instead_of_partial_writes(
     }
     # Nothing claimed a successful config write.
     assert "migrated" not in statuses
-    assert config_path.read_text(encoding="utf-8") == MALFORMED_HERMES_CONFIG
+    assert config_path.read_text(encoding="utf-8") == MALFORMED_XHERMES_CONFIG
 
 
 def test_readable_config_keeps_every_pre_existing_key(tmp_path: Path):
@@ -282,7 +282,7 @@ def test_unreadable_config_refused_by_model_config_too(tmp_path: Path):
         encoding="utf-8",
     )
     config_path = target / "config.yaml"
-    config_path.write_text(MALFORMED_HERMES_CONFIG, encoding="utf-8")
+    config_path.write_text(MALFORMED_XHERMES_CONFIG, encoding="utf-8")
 
     report = mod.Migrator(
         source_root=source, target_root=target, execute=True,
@@ -290,7 +290,7 @@ def test_unreadable_config_refused_by_model_config_too(tmp_path: Path):
         output_dir=None, selected_options={"model-config"},
     ).migrate()
 
-    assert config_path.read_text(encoding="utf-8") == MALFORMED_HERMES_CONFIG
+    assert config_path.read_text(encoding="utf-8") == MALFORMED_XHERMES_CONFIG
     items = [i for i in report["items"] if i["kind"] == "model-config"]
     assert items and items[0]["status"] == mod.STATUS_ERROR
 

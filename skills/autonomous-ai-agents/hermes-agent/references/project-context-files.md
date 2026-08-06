@@ -4,18 +4,18 @@ XHermes injects project-level instructions into the system prompt by reading con
 
 | File (in priority order) | Discovery | Use when |
 |---|---|---|
-| `.xhermes.md` / `HERMES.md` | Walks parents up to the git root, stops at git root | You want hierarchical project rules (root + per-package overrides) |
+| `.xhermes.md` / `XHERMES.md` | Walks parents up to the git root, stops at git root | You want hierarchical project rules (root + per-package overrides) |
 | `AGENTS.md` / `agents.md` | **Cwd only** — subdirectory and parent copies are ignored | You want portable agent instructions that work the same in XHermes, Claude Code, Codex, etc. |
 | `CLAUDE.md` / `claude.md` | Cwd only | Same as AGENTS.md, Claude-flavored |
 | `.cursorrules` / `.cursor/rules/*.mdc` | Cwd only | Migrating from Cursor |
 
-`SOUL.md` (in `$HERMES_HOME`) is independent and always loaded when present — it sets the agent's identity, not project rules.
+`SOUL.md` (in `$XHERMES_HOME`) is independent and always loaded when present — it sets the agent's identity, not project rules.
 
 ### Pick the right one
 
 - **Use `.xhermes.md`** when you want XHermes-specific behavior that lives above the cwd (root + subtree), or when you want rules to inherit from a parent directory. The parent walk stops at the git root, so a home-level `.xhermes.md` won't leak into every project (a git repo's root is the boundary).
 - **Use `AGENTS.md`** when the same project will also be worked on by other agents (Codex, Claude Code, OpenCode). Those tools all have their own conventions for `AGENTS.md`, and the "cwd only" contract keeps the file portable.
-- **Don't put project rules in `~/.xhermes/AGENTS.md`** (or any other home-level location). When XHermes runs with that directory as cwd, the file loads — but only for that one directory. For cross-project context, use `SOUL.md` (in `$HERMES_HOME`, identity-only) or install a skill via `xhermes skills install`.
+- **Don't put project rules in `~/.xhermes/AGENTS.md`** (or any other home-level location). When XHermes runs with that directory as cwd, the file loads — but only for that one directory. For cross-project context, use `SOUL.md` (in `$XHERMES_HOME`, identity-only) or install a skill via `xhermes skills install`.
 
 ### Size and truncation
 

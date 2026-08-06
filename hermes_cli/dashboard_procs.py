@@ -47,7 +47,7 @@ def _scan_dashboard_processes(
     backend child process: when the desktop spawns ``xhermes serve`` as
     a backend and triggers an auto-update, the update must not kill the
     backend that the desktop itself manages.  The desktop sets the
-    environment variable ``HERMES_DESKTOP_CHILD_PID`` on the spawned
+    environment variable ``XHERMES_DESKTOP_CHILD_PID`` on the spawned
     backend process; ``_kill_stale_dashboard_processes`` reads it and
     passes it here.  (#37532)
 
@@ -176,10 +176,10 @@ def _kill_stale_dashboard_processes(
         return {"matched": [], "killed": [], "failed": []}
 
     # When the XHermes Desktop Electron app spawns this dashboard as a
-    # backend child, it sets HERMES_DESKTOP_CHILD_PID so that the update
+    # backend child, it sets XHERMES_DESKTOP_CHILD_PID so that the update
     # path can skip killing the desktop-managed process.  (#37532)
     exclude: set[int] | None = None
-    raw_pid = os.environ.get("HERMES_DESKTOP_CHILD_PID")
+    raw_pid = os.environ.get("XHERMES_DESKTOP_CHILD_PID")
     if raw_pid:
         # The desktop may manage several backends (one per active profile) and
         # passes them comma-separated; a lone int still parses for back-compat.

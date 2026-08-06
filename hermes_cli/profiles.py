@@ -1,7 +1,7 @@
 """
 Profile management for multiple isolated XHermes instances.
 
-Each profile is a fully independent HERMES_HOME directory with its own
+Each profile is a fully independent XHERMES_HOME directory with its own
 config.yaml, .env, memory, sessions, skills, gateway, cron, and logs.
 Profiles live under ``~/.xhermes/profiles/<name>/`` by default.
 
@@ -237,11 +237,11 @@ _DEFAULT_EXPORT_EXCLUDE_ROOT = frozenset({
     "logs",  # gateway logs
 })
 
-# Allow-list for ``export_profile("default")``: when HERMES_HOME equals the
+# Allow-list for ``export_profile("default")``: when XHERMES_HOME equals the
 # cwd (Docker/custom deployments), the default profile home is the working
 # directory and contains arbitrary user files that should NOT be bundled
 # into the export. The set below identifies the *known XHermes profile
-# artifacts* at the root of HERMES_HOME; everything else is excluded.
+# artifacts* at the root of XHERMES_HOME; everything else is excluded.
 # Sensitive runtime infrastructure (``state.db``, ``logs/``, ``auth.*``,
 # other profiles) is intentionally *not* in this list so the export stays
 # a portable, credential-free snapshot of the user-facing surface
@@ -280,7 +280,7 @@ _RESERVED_NAMES = frozenset({
 })
 
 # XHermes subcommands that cannot be used as profile names/aliases
-_HERMES_SUBCOMMANDS = frozenset({
+_XHERMES_SUBCOMMANDS = frozenset({
     "chat",
     "model",
     "gateway",
@@ -317,23 +317,23 @@ _HERMES_SUBCOMMANDS = frozenset({
 def _get_profiles_root() -> Path:
     """Return the directory where named profiles are stored.
 
-    Anchored to the xhermes root, NOT to the current HERMES_HOME
+    Anchored to the xhermes root, NOT to the current XHERMES_HOME
     (which may itself be a profile).  This ensures ``coder profile list``
     can see all profiles.
 
-    In Docker/custom deployments where HERMES_HOME points outside
-    ``~/.xhermes``, profiles live under ``HERMES_HOME/profiles/`` so
+    In Docker/custom deployments where XHERMES_HOME points outside
+    ``~/.xhermes``, profiles live under ``XHERMES_HOME/profiles/`` so
     they persist on the mounted volume.
     """
     return _get_default_hermes_home() / "profiles"
 
 
 def _get_default_hermes_home() -> Path:
-    """Return the default (pre-profile) HERMES_HOME path.
+    """Return the default (pre-profile) XHERMES_HOME path.
 
     In standard deployments this is ``~/.xhermes``.
-    In Docker/custom deployments where HERMES_HOME is outside ``~/.xhermes``
-    (e.g. ``/opt/data``), returns HERMES_HOME directly.
+    In Docker/custom deployments where XHERMES_HOME is outside ``~/.xhermes``
+    (e.g. ``/opt/data``), returns XHERMES_HOME directly.
     """
     from hermes_constants import get_default_hermes_root
 
@@ -418,7 +418,7 @@ def validate_alias_name(name: str) -> None:
 
 
 def get_profile_dir(name: str) -> Path:
-    """Resolve a profile name to its HERMES_HOME directory."""
+    """Resolve a profile name to its XHERMES_HOME directory."""
     canon = normalize_profile_name(name)
     if canon == "default":
         return _get_default_hermes_home()
@@ -451,7 +451,7 @@ def check_alias_collision(name: str) -> Optional[str]:
         return str(exc)
     if canon in _RESERVED_NAMES:
         return f"'{canon}' is a reserved name"
-    if canon in _HERMES_SUBCOMMANDS:
+    if canon in _XHERMES_SUBCOMMANDS:
         return f"'{canon}' conflicts with a xhermes subcommand"
 
     # Check existing commands in PATH
@@ -782,7 +782,7 @@ def _check_gateway_running(profile_dir: Path) -> bool:
     no live PID file.  In those cases fall back to validating the PID recorded
     in the profile's own ``gateway_state.json`` against the live process table,
     mirroring the ``/api/status`` sidebar's liveness logic so the two surfaces
-    agree.  Parameterized by ``profile_dir`` so it never mutates ``HERMES_HOME``.
+    agree.  Parameterized by ``profile_dir`` so it never mutates ``XHERMES_HOME``.
     """
     try:
         from gateway.status import get_running_pid
@@ -1048,7 +1048,7 @@ def profiles_to_serve(multiplex: bool) -> List[Tuple[str, Path]]:
       always had. The name is ``"default"`` for the default profile or the
       active named profile's id.
     - ``multiplex=True``: returns the default profile plus every valid named
-      profile under ``profiles/``, each paired with its own HERMES_HOME.
+      profile under ``profiles/``, each paired with its own XHERMES_HOME.
 
     Intentionally lightweight (a directory scan + name validation only): no
     per-profile config reads, gateway-running probes, or skill counts like
@@ -1281,7 +1281,7 @@ def create_profile(
 def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict]:
     """Seed bundled skills into a profile via subprocess.
 
-    Uses subprocess because sync_skills() caches HERMES_HOME at module level.
+    Uses subprocess because sync_skills() caches XHERMES_HOME at module level.
     Returns the sync result dict, or None on failure.
 
     Profiles that opted out of bundled skills (via ``xhermes profile create
@@ -1305,7 +1305,7 @@ def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict
                 "import json; from tools.skills_sync import sync_skills; "
                 "r = sync_skills(quiet=True); print(json.dumps(r))",
             ],
-            env={**os.environ, "HERMES_HOME": str(profile_dir)},
+            env={**os.environ, "XHERMES_HOME": str(profile_dir)},
             cwd=str(project_root),
             capture_output=True,
             text=True,
@@ -1392,7 +1392,7 @@ def _profile_bound_backend_pids(canon: str, profile_dir: Path) -> list[int]:
     ``ENOTEMPTY`` (and, pre-fix, resurrected the tree).  ``gateway.pid`` never
     names it, so find it by inspection: a XHermes backend subcommand
     (``serve``/``dashboard``/``gateway``) that is bound to *this* profile either
-    by a ``--profile <canon>`` / ``-p <canon>`` selector or by a ``HERMES_HOME``
+    by a ``--profile <canon>`` / ``-p <canon>`` selector or by a ``XHERMES_HOME``
     that resolves to ``profile_dir``.
 
     Best-effort and tightly scoped: current-user processes only, backend
@@ -1473,10 +1473,10 @@ def _profile_bound_backend_pids(canon: str, profile_dir: Path) -> list[int]:
                         bound = True
                         break
 
-            # ...or by HERMES_HOME env pointing at this profile dir.
+            # ...or by XHERMES_HOME env pointing at this profile dir.
             if not bound:
                 try:
-                    env_home = (proc.environ() or {}).get("HERMES_HOME", "")
+                    env_home = (proc.environ() or {}).get("XHERMES_HOME", "")
                     if env_home and Path(env_home).resolve() == resolved_dir:
                         bound = True
                 except Exception:
@@ -1733,7 +1733,7 @@ def _maybe_register_gateway_service(profile_name: str) -> None:
     which goes through the same dispatch path.
 
     Port selection: each supervised profile gateway loads its own
-    ``HERMES_HOME`` and binds the port resolved by ``gateway/config.py``
+    ``XHERMES_HOME`` and binds the port resolved by ``gateway/config.py``
     from that profile's environment — ``API_SERVER_PORT`` (or
     ``platforms.api_server.extra.port`` in the profile's
     ``config.yaml``), defaulting to 8642. There is no ``[gateway] port``
@@ -1815,10 +1815,10 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
     import platform as _platform
 
     # Derive service name for this profile
-    # Temporarily set HERMES_HOME so _profile_suffix resolves correctly
-    old_home = os.environ.get("HERMES_HOME")
+    # Temporarily set XHERMES_HOME so _profile_suffix resolves correctly
+    old_home = os.environ.get("XHERMES_HOME")
     try:
-        os.environ["HERMES_HOME"] = str(profile_dir)
+        os.environ["XHERMES_HOME"] = str(profile_dir)
         from hermes_cli.gateway import get_service_name, get_launchd_plist_path
 
         if _platform.system() == "Linux":
@@ -1863,9 +1863,9 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
         print(f"⚠ Service cleanup: {e}")
     finally:
         if old_home is not None:
-            os.environ["HERMES_HOME"] = old_home
-        elif "HERMES_HOME" in os.environ:
-            del os.environ["HERMES_HOME"]
+            os.environ["XHERMES_HOME"] = old_home
+        elif "XHERMES_HOME" in os.environ:
+            del os.environ["XHERMES_HOME"]
 
 
 def _stop_gateway_process(profile_dir: Path) -> None:
@@ -1954,11 +1954,11 @@ def set_active_profile(name: str) -> None:
 
 
 def get_active_profile_name() -> str:
-    """Infer the current profile name from HERMES_HOME.
+    """Infer the current profile name from XHERMES_HOME.
 
-    Returns ``"default"`` if HERMES_HOME is not set or points to ``~/.xhermes``.
-    Returns the profile name if HERMES_HOME points into ``~/.xhermes/profiles/<name>``.
-    Returns ``"custom"`` if HERMES_HOME is set to an unrecognized path.
+    Returns ``"default"`` if XHERMES_HOME is not set or points to ``~/.xhermes``.
+    Returns the profile name if XHERMES_HOME points into ``~/.xhermes/profiles/<name>``.
+    Returns ``"custom"`` if XHERMES_HOME is set to an unrecognized path.
     """
     from hermes_constants import get_hermes_home
 
@@ -1994,9 +1994,9 @@ def _default_export_ignore(root_dir: Path):
     * **Root-level allow-list** — only entries whose name appears in
       ``_DEFAULT_EXPORT_INCLUDE_ROOT`` survive. Everything else (such as
       an unrelated ``x11-dev/`` directory in a Docker deployment where
-      HERMES_HOME equals the cwd) is excluded. Blacklisting was tried
+      XHERMES_HOME equals the cwd) is excluded. Blacklisting was tried
       first and proved unable to anticipate every non-XHermes file the
-      user may have lying alongside HERMES_HOME (#58394).
+      user may have lying alongside XHERMES_HOME (#58394).
     * **Universal exclusions at any depth** — ``__pycache__``, sockets,
       temp files; plus npm lockfiles, which may appear at the root.
 
@@ -2339,10 +2339,10 @@ def rename_profile(old_name: str, new_name: str) -> Path:
 
 
 def resolve_profile_env(profile_name: str) -> str:
-    """Resolve a profile name to a HERMES_HOME path string.
+    """Resolve a profile name to a XHERMES_HOME path string.
 
     Called early in the CLI entry point, before any xhermes modules
-    are imported, to set the HERMES_HOME environment variable.
+    are imported, to set the XHERMES_HOME environment variable.
     """
     canon = normalize_profile_name(profile_name)
     validate_profile_name(canon)

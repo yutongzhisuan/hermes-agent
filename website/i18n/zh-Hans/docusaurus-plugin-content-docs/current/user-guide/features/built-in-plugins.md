@@ -17,7 +17,7 @@ XHermes 随仓库附带了一小组插件。它们位于 `<repo>/plugins/<name>/
 
 1. **内置（Bundled）** — `<repo>/plugins/<name>/`（本页所记录的内容）
 2. **用户（User）** — `~/.xhermes/plugins/<name>/`
-3. **项目（Project）** — `./.xhermes/plugins/<name>/`（需要 `HERMES_ENABLE_PROJECT_PLUGINS=1`）
+3. **项目（Project）** — `./.xhermes/plugins/<name>/`（需要 `XHERMES_ENABLE_PROJECT_PLUGINS=1`）
 4. **Pip 入口点（Entry points）** — `hermes_agent.plugins`
 
 名称冲突时，后面的来源优先——名为 `disk-cleanup` 的用户插件会替换内置版本。
@@ -75,7 +75,7 @@ xhermes plugins disable disk-cleanup
 
 | Hook | 行为 |
 |---|---|
-| `post_tool_call` | 当 `write_file` / `terminal` / `patch` 在 `HERMES_HOME` 或 `/tmp/xhermes-*` 内创建匹配 `test_*`、`tmp_*` 或 `*.test.*` 的文件时，静默追踪为 `test` / `temp` / `cron-output`。 |
+| `post_tool_call` | 当 `write_file` / `terminal` / `patch` 在 `XHERMES_HOME` 或 `/tmp/xhermes-*` 内创建匹配 `test_*`、`tmp_*` 或 `*.test.*` 的文件时，静默追踪为 `test` / `temp` / `cron-output`。 |
 | `on_session_end` | 如果本轮中有任何测试文件被自动追踪，则执行安全的 `quick` 清理并记录一行摘要。否则保持静默。 |
 
 **删除规则：**
@@ -85,7 +85,7 @@ xhermes plugins disable disk-cleanup
 | `test` | 每次会话结束 | 从不 |
 | `temp` | 追踪后超过 7 天 | 从不 |
 | `cron-output` | 追踪后超过 14 天 | 从不 |
-| HERMES_HOME 下的空目录 | 始终 | 从不 |
+| XHERMES_HOME 下的空目录 | 始终 | 从不 |
 | `research` | 超过 30 天，且超出最新 10 个 | 始终（仅 deep 模式） |
 | `chrome-profile` | 追踪后超过 14 天 | 始终（仅 deep 模式） |
 | 超过 500 MB 的文件 | 从不自动删除 | 始终（仅 deep 模式） |
@@ -101,7 +101,7 @@ xhermes plugins disable disk-cleanup
 /disk-cleanup forget <path>              # 停止追踪（不删除）
 ```
 
-**状态** — 所有内容存储在 `$HERMES_HOME/disk-cleanup/`：
+**状态** — 所有内容存储在 `$XHERMES_HOME/disk-cleanup/`：
 
 | 文件 | 内容 |
 |---|---|
@@ -109,7 +109,7 @@ xhermes plugins disable disk-cleanup
 | `tracked.json.bak` | 上述文件的原子写入备份 |
 | `cleanup.log` | 每次追踪 / 跳过 / 拒绝 / 删除操作的仅追加审计日志 |
 
-**安全性** — 清理操作仅涉及 `HERMES_HOME` 或 `/tmp/xhermes-*` 下的路径。Windows 挂载点（`/mnt/c/...`）会被拒绝。已知的顶级状态目录（`logs/`、`memories/`、`sessions/`、`cron/`、`cache/`、`skills/`、`plugins/`、`disk-cleanup/` 本身）即使为空也不会被删除——全新安装不会在第一次会话结束时被清空。
+**安全性** — 清理操作仅涉及 `XHERMES_HOME` 或 `/tmp/xhermes-*` 下的路径。Windows 挂载点（`/mnt/c/...`）会被拒绝。已知的顶级状态目录（`logs/`、`memories/`、`sessions/`、`cron/`、`cache/`、`skills/`、`plugins/`、`disk-cleanup/` 本身）即使为空也不会被删除——全新安装不会在第一次会话结束时被清空。
 
 **启用：** `xhermes plugins enable disk-cleanup`（或在 `xhermes plugins` 中勾选复选框）。
 
@@ -131,9 +131,9 @@ xhermes plugins enable observability/langfuse
 或在交互式 `xhermes plugins` UI 中勾选复选框。然后将凭据写入 `~/.xhermes/.env`：
 
 ```bash
-HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
-HERMES_LANGFUSE_SECRET_KEY=sk-lf-...
-HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 或你的自托管 URL
+XHERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
+XHERMES_LANGFUSE_SECRET_KEY=sk-lf-...
+XHERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 或你的自托管 URL
 ```
 
 **工作原理：**
@@ -143,7 +143,7 @@ HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 或你的自托管 URL
 | `pre_api_request` / `pre_llm_call` | 打开（或复用）每轮的根 span "XHermes turn"。为本次 API 调用启动一个 `generation` 子 observation，将最近的消息序列化为输入。 |
 | `post_api_request` / `post_llm_call` | 关闭 generation，附加 `usage_details`、`cost_details`、`finish_reason`、助手输出和工具调用。如果没有工具调用且内容非空，则关闭本轮。 |
 | `pre_tool_call` | 启动一个带有经过清理的 `args` 的 `tool` 子 observation。 |
-| `post_tool_call` | 关闭 tool observation，附加经过清理的 `result`。`read_file` 的内容会被摘要化（头部 + 尾部 + 省略行数），以使大文件读取保持在 `HERMES_LANGFUSE_MAX_CHARS` 以内。 |
+| `post_tool_call` | 关闭 tool observation，附加经过清理的 `result`。`read_file` 的内容会被摘要化（头部 + 尾部 + 省略行数），以使大文件读取保持在 `XHERMES_LANGFUSE_MAX_CHARS` 以内。 |
 
 会话分组基于 XHermes 会话 ID（或子 agent 的任务 ID），通过 `langfuse.propagate_attributes` 实现，因此单次 `xhermes chat` 会话中的所有内容都归属于同一个 Langfuse session。
 
@@ -158,11 +158,11 @@ xhermes chat -q "hello"              # 在 Langfuse UI 中检查是否有 "XHerm
 
 | 变量 | 默认值 | 用途 |
 |---|---|---|
-| `HERMES_LANGFUSE_ENV` | — | trace 上的环境标签（`production`、`staging` 等） |
-| `HERMES_LANGFUSE_RELEASE` | — | 发布/版本标签 |
-| `HERMES_LANGFUSE_SAMPLE_RATE` | `1.0` | 传递给 SDK 的采样率（0.0–1.0） |
-| `HERMES_LANGFUSE_MAX_CHARS` | `12000` | 消息内容 / 工具参数 / 工具结果的单字段截断长度 |
-| `HERMES_LANGFUSE_DEBUG` | `false` | 向 `agent.log` 输出详细插件日志 |
+| `XHERMES_LANGFUSE_ENV` | — | trace 上的环境标签（`production`、`staging` 等） |
+| `XHERMES_LANGFUSE_RELEASE` | — | 发布/版本标签 |
+| `XHERMES_LANGFUSE_SAMPLE_RATE` | `1.0` | 传递给 SDK 的采样率（0.0–1.0） |
+| `XHERMES_LANGFUSE_MAX_CHARS` | `12000` | 消息内容 / 工具参数 / 工具结果的单字段截断长度 |
+| `XHERMES_LANGFUSE_DEBUG` | `false` | 向 `agent.log` 输出详细插件日志 |
 
 XHermes 前缀的环境变量和标准 SDK 环境变量（`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`）均被接受——两者同时设置时，XHermes 前缀的优先。
 
@@ -209,7 +209,7 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 - 在仪表盘后端扫描你的整个 `~/.xhermes/state.db` 会话历史
 - 每个会话的统计数据按 `(started_at, last_active)` 指纹缓存，因此后续扫描只重新分析新增或变更的会话
 - 首次扫描在后台线程中运行——即使数据库有数千个会话，仪表盘也不会阻塞等待
-- 解锁状态持久化到 `$HERMES_HOME/plugins/xhermes-achievements/state.json`
+- 解锁状态持久化到 `$XHERMES_HOME/plugins/xhermes-achievements/state.json`
 
 **等级进阶：** 铜 → 银 → 金 → 钻石 → 奥林匹斯。每张卡片都有"计算方式"部分，列出所追踪的确切指标。
 
@@ -232,7 +232,7 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 | `POST /rescan` | 手动同步重新扫描（阻塞；在用户点击重新扫描按钮时使用） |
 | `POST /reset-state` | 清除解锁历史和缓存快照 |
 
-**状态文件** — 位于 `$HERMES_HOME/plugins/xhermes-achievements/`：
+**状态文件** — 位于 `$XHERMES_HOME/plugins/xhermes-achievements/`：
 
 | 文件 | 内容 |
 |---|---|
@@ -249,7 +249,7 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 
 **启用：** 无需启用——`xhermes-achievements` 是一个仅限仪表盘的插件（无生命周期 hook，无模型可见工具）。它在 `xhermes dashboard` 首次启动时自动注册为标签页。`plugins.enabled` 配置仅控制生命周期/工具插件；仪表盘插件完全通过其 `dashboard/manifest.json` 发现。
 
-**退出：** 删除或重命名 `plugins/xhermes-achievements/dashboard/manifest.json`，或在 `~/.xhermes/plugins/xhermes-achievements/` 中用同名用户插件覆盖它（该插件不包含仪表盘）。`$HERMES_HOME/plugins/xhermes-achievements/` 下的插件状态文件会保留——重新安装后你的解锁历史依然存在。
+**退出：** 删除或重命名 `plugins/xhermes-achievements/dashboard/manifest.json`，或在 `~/.xhermes/plugins/xhermes-achievements/` 中用同名用户插件覆盖它（该插件不包含仪表盘）。`$XHERMES_HOME/plugins/xhermes-achievements/` 下的插件状态文件会保留——重新安装后你的解锁历史依然存在。
 
 ## 添加内置插件
 

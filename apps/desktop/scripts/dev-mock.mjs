@@ -204,17 +204,17 @@ async function main() {
 
   const sandbox = createSandbox()
   writeMockConfig(sandbox.hermesHome, mock.url)
-  console.log(`  HERMES_HOME: ${sandbox.hermesHome}`)
+  console.log(`  XHERMES_HOME: ${sandbox.hermesHome}`)
 
   const electronBin = findElectron()
 
   const env = {
     ...process.env,
-    HERMES_HOME: sandbox.hermesHome,
-    HERMES_DESKTOP_USER_DATA_DIR: sandbox.userDataDir,
-    HERMES_DESKTOP_IGNORE_EXISTING: '1',
-    HERMES_DESKTOP_HERMES_ROOT: REPO_ROOT,
-    HERMES_DESKTOP_APP_NAME: `HermesDevMock-${Date.now()}`,
+    XHERMES_HOME: sandbox.hermesHome,
+    XHERMES_DESKTOP_USER_DATA_DIR: sandbox.userDataDir,
+    XHERMES_DESKTOP_IGNORE_EXISTING: '1',
+    XHERMES_DESKTOP_XHERMES_ROOT: REPO_ROOT,
+    XHERMES_DESKTOP_APP_NAME: `HermesDevMock-${Date.now()}`,
   }
 
   console.log('Launching Electron...')

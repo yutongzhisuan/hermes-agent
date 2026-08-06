@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-export HERMES_HEADLESS_WHEEL_BUILD=1
+export XHERMES_HEADLESS_WHEEL_BUILD=1
 
 if command -v uv >/dev/null 2>&1; then
   PYTHON=(uv run python)

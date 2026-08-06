@@ -941,7 +941,7 @@ def do_list(source_filter: str = "all",
 
     Enabled/disabled state is resolved against the currently active profile's
     config — ``xhermes -p <profile> skills list`` reads that profile's
-    ``skills.disabled`` list because ``-p`` swaps ``HERMES_HOME`` at process
+    ``skills.disabled`` list because ``-p`` swaps ``XHERMES_HOME`` at process
     start.  No explicit profile flag needed here.
     """
     from tools.skills_hub import HubLockFile, ensure_hub_dirs

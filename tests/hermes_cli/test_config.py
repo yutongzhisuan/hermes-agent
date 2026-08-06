@@ -34,7 +34,7 @@ from hermes_cli.config import (
 class TestGetHermesHome:
     def test_default_path(self):
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("HERMES_HOME", None)
+            os.environ.pop("XHERMES_HOME", None)
             home = get_hermes_home()
             assert home == Path.home() / ".xhermes"
 
@@ -42,7 +42,7 @@ class TestGetHermesHome:
 class TestEnsureHermesHome:
 
     def test_creates_default_soul_md_if_missing(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             ensure_hermes_home()
             soul_path = tmp_path / "SOUL.md"
             assert soul_path.exists()
@@ -55,7 +55,7 @@ class TestEnsureHermesHome:
         # user persona and should be upgraded in place to DEFAULT_SOUL_MD.
         from hermes_cli.default_soul import DEFAULT_SOUL_MD, _LEGACY_TEMPLATE_SOULS
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             soul_path = tmp_path / "SOUL.md"
             soul_path.write_text(_LEGACY_TEMPLATE_SOULS[0] + "\n", encoding="utf-8")
             ensure_hermes_home()
@@ -67,7 +67,7 @@ class TestEnsureHermesHome:
 
 class TestLoadConfigDefaults:
     def test_returns_defaults_when_no_file(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             config = load_config()
             assert config["model"] == DEFAULT_CONFIG["model"]
             assert config["agent"]["max_turns"] == DEFAULT_CONFIG["agent"]["max_turns"]
@@ -77,7 +77,7 @@ class TestLoadConfigDefaults:
             assert config["display"]["interim_assistant_messages"] is True
 
     def test_legacy_root_level_max_turns_migrates_to_agent_config(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             config_path = tmp_path / "config.yaml"
             config_path.write_text("max_turns: 42\n")
 
@@ -112,7 +112,7 @@ class TestLoadConfigParseFailure:
         from hermes_cli import config as cfg_mod
         cfg_mod._CONFIG_PARSE_WARNED.clear()
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             broken = "\tmodel: test/custom\nbroken indent:\n"
             (tmp_path / "config.yaml").write_text(broken)
 
@@ -145,7 +145,7 @@ class TestLoadConfigParseFailure:
         from hermes_cli import config as cfg_mod
         cfg_mod._CONFIG_PARSE_WARNED.clear()
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             cfg = tmp_path / "config.yaml"
             cfg.write_text(
                 "model:\n  default: test/custom-model\n"
@@ -178,7 +178,7 @@ class TestEmptyConfigSections:
     and must not replace the default dict for that section (#58277)."""
 
     def test_null_section_keeps_defaults_in_load_config(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             (tmp_path / "config.yaml").write_text(
                 "model:\n  default: test/custom\n"
                 "terminal:\n"
@@ -214,7 +214,7 @@ class TestSaveAndLoadRoundtrip:
         return fake_open
 
     def test_roundtrip(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             config = load_config()
             config["model"] = "test/custom-model"
             config["agent"]["max_turns"] = 42
@@ -233,7 +233,7 @@ class TestSaveAndLoadRoundtrip:
         original = "model: test/original\n"
         config_path.write_text(original, encoding="utf-8")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             with patch("builtins.open", side_effect=self._deny_config_reads(config_path)):
                 with pytest.raises(RuntimeError, match="Refusing to overwrite"):
                     save_config({"model": "test/replacement"})
@@ -249,7 +249,7 @@ class TestSaveAndLoadRoundtrip:
 class TestSaveEnvValueSecure:
 
     def test_secure_save_returns_metadata_only(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             result = save_env_value_secure("GITHUB_TOKEN", "ghp_test_secret")
             assert result == {
                 "success": True,
@@ -273,7 +273,7 @@ class TestSaveEnvValueSecure:
         env_path.write_text("EXISTING=value\n")
         os.chmod(env_path, 0o640)
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             save_env_value("TENOR_API_KEY", "sk-test-secret")
 
         env_mode = env_path.stat().st_mode & 0o777
@@ -283,7 +283,7 @@ class TestSaveEnvValueSecure:
         """Regression test for #30355."""
         from dotenv import dotenv_values
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}, clear=False):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}, clear=False):
             os.environ.pop("ANTHROPIC_TOKEN", None)
             token = "sk-ant-oat01-abc#xyz#more"
             save_env_value("ANTHROPIC_TOKEN", token)
@@ -305,7 +305,7 @@ class TestSaveEnvValueSecure:
         """
         # User-typed value that already includes surrounding quotes as data.
         raw = '"/Users/me/Application Support/key"'
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}, clear=False):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}, clear=False):
             os.environ.pop("TERMINAL_SSH_KEY", None)
             save_env_value("TERMINAL_SSH_KEY", raw)
             first = (tmp_path / ".env").read_text(encoding="utf-8")
@@ -327,7 +327,7 @@ class TestRemoveEnvValue:
     def test_removes_key_from_env_file(self, tmp_path):
         env_path = tmp_path / ".env"
         env_path.write_text("KEY_A=value_a\nKEY_B=value_b\nKEY_C=value_c\n")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path), "KEY_B": "value_b"}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path), "KEY_B": "value_b"}):
             result = remove_env_value("KEY_B")
             assert result is True
             content = env_path.read_text()
@@ -339,7 +339,7 @@ class TestRemoveEnvValue:
     def test_clears_os_environ_even_when_not_in_file(self, tmp_path):
         env_path = tmp_path / ".env"
         env_path.write_text("OTHER=stuff\n")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path), "ORPHAN_KEY": "orphan"}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path), "ORPHAN_KEY": "orphan"}):
             remove_env_value("ORPHAN_KEY")
             assert "ORPHAN_KEY" not in os.environ
 
@@ -357,7 +357,7 @@ class TestRemoveEnvValue:
         env_path.write_text("KEEP=value\nDROP=gone\n")
         os.chmod(env_path, 0o640)
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path), "DROP": "gone"}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path), "DROP": "gone"}):
             removed = remove_env_value("DROP")
 
         assert removed is True
@@ -371,7 +371,7 @@ class TestSaveConfigAtomicity:
 
     def test_no_partial_write_on_crash(self, tmp_path):
         """If save_config crashes mid-write, the previous file stays intact."""
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             # Write an initial config
             config = load_config()
             config["model"] = "original-model"
@@ -395,7 +395,7 @@ class TestSaveConfigAtomicity:
 
     def test_no_leftover_temp_files(self, tmp_path):
         """Failed writes must clean up their temp files."""
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             config = load_config()
             save_config(config)
 
@@ -411,7 +411,7 @@ class TestSaveConfigAtomicity:
 
     def test_atomic_write_creates_valid_yaml(self, tmp_path):
         """The written file must be valid YAML matching the input."""
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             config = load_config()
             config["model"] = "test/atomic-model"
             config["agent"]["max_turns"] = 77
@@ -475,7 +475,7 @@ class TestSanitizeEnvLines:
             "FAL_KEY=good\n"
             "OPENROUTER_API_KEY=valFIRECRAWL_API_KEY=val2\n"
         )
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             fixes = sanitize_env_file()
             assert fixes == 0
 
@@ -489,7 +489,7 @@ class TestSanitizeEnvLines:
         """No changes when file is already clean."""
         env_file = tmp_path / ".env"
         env_file.write_text("GOOD_KEY=good\nOTHER_KEY=other\n")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             fixes = sanitize_env_file()
             assert fixes == 0
 
@@ -517,16 +517,16 @@ class TestOptionalEnvVarsRegistry:
         assert "TAVILY_API_KEY" in all_vars
 
     def test_max_iterations_not_offered_as_env_var(self):
-        """HERMES_MAX_ITERATIONS must NOT be in OPTIONAL_ENV_VARS (issue #17534).
+        """XHERMES_MAX_ITERATIONS must NOT be in OPTIONAL_ENV_VARS (issue #17534).
 
         Offering it as an editable env var (dashboard, `xhermes setup`) lets a
         user write it to .env, recreating the stale ghost that shadows
         config.yaml's agent.max_turns. The iteration budget is configured ONLY
-        via config.yaml; HERMES_MAX_ITERATIONS remains a read-only backward-compat
+        via config.yaml; XHERMES_MAX_ITERATIONS remains a read-only backward-compat
         fallback in the gateway/CLI, never a promoted write target.
         """
         from hermes_cli.config import OPTIONAL_ENV_VARS
-        assert "HERMES_MAX_ITERATIONS" not in OPTIONAL_ENV_VARS
+        assert "XHERMES_MAX_ITERATIONS" not in OPTIONAL_ENV_VARS
 
 
 class TestMemoryProviderEnvVarsRegistry:
@@ -598,7 +598,7 @@ class TestConfigMigrationSecretPrompts:
             lambda name, value: saved.update({name: value}),
         )
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             results = cfg_mod.migrate_config(interactive=True, quiet=True)
 
         assert saved["prompt"] == "  Test API key: "
@@ -611,7 +611,7 @@ class TestConfigVersionDetection:
         config_path = tmp_path / "config.yaml"
         config_path.write_text("model: {}\n", encoding="utf-8")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             assert load_config()["_config_version"] == DEFAULT_CONFIG["_config_version"]
             assert check_config_version() == (0, DEFAULT_CONFIG["_config_version"])
 
@@ -644,7 +644,7 @@ class TestConfigSupportFloor:
             },
         )
         (tmp_path / ".env").write_text("ANTHROPIC_TOKEN=old-token\n")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             results = migrate_config(interactive=False, quiet=False)
 
             # File untouched — no migration, no version bump, no rewrite.
@@ -669,7 +669,7 @@ class TestConfigSupportFloor:
         config_path, original = self._write_config(
             tmp_path, {"_config_version": 11}
         )
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             results = migrate_config(interactive=False, quiet=True)
         assert config_path.read_text(encoding="utf-8") == original
         captured = capsys.readouterr()
@@ -767,7 +767,7 @@ class TestConfigSupportFloor:
     ):
         config_path, _ = self._write_config(tmp_path, fixture)
         (tmp_path / ".env").write_text(self._ENV_FIXTURE, encoding="utf-8")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             migrate_config(interactive=False, quiet=True)
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         # Pin the golden version the fixtures were captured at, then compare
@@ -802,7 +802,7 @@ class TestCustomProviderCompatibility:
         return results
 
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             self._run_ladder(11)
             raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
@@ -852,7 +852,7 @@ class TestCustomProviderCompatibility:
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             self._run_ladder(11)
             raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
             compatible = get_compatible_custom_providers(raw)
@@ -903,7 +903,7 @@ class TestCustomProviderCompatibility:
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             compatible = get_compatible_custom_providers()
 
         assert len(compatible) == 1
@@ -933,7 +933,7 @@ class TestCustomProviderCompatibility:
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             compatible = get_compatible_custom_providers()
 
         assert compatible == [
@@ -958,7 +958,7 @@ class TestInterimAssistantMessageConfig:
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             migrate_config(interactive=False, quiet=True)
             raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
             loaded = load_config()
@@ -1011,7 +1011,7 @@ class TestDiscordChannelPromptsConfig:
 
         results = {"env_added": [], "config_added": [], "warnings": []}
         from hermes_cli.config_migrations import run_migrations
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             # Drive the ladder directly: migrate_config() refuses sub-v12
             # configs since the support floor, but the write-invariant this
             # test guards (#40821) lives in the steps themselves.
@@ -1037,7 +1037,7 @@ class TestDiscordChannelPromptsConfig:
 class TestEnvWriteDenylist:
     """``save_env_value`` refuses to persist env-var names that
     influence how subprocesses execute — ``LD_PRELOAD``, ``PYTHONPATH``,
-    ``PATH``, ``EDITOR``, etc. — or any ``HERMES_*`` runtime flag.
+    ``PATH``, ``EDITOR``, etc. — or any ``XHERMES_*`` runtime flag.
 
     The dashboard exposes ``PUT /api/env`` to any authed caller (and
     the session token lives in the SPA's HTML where any future plugin
@@ -1053,23 +1053,23 @@ class TestEnvWriteDenylist:
 
     @pytest.fixture(autouse=True)
     def _hermes_home(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
         ensure_hermes_home()
 
 
     @pytest.mark.parametrize(
         "allowed_key",
         [
-            "HERMES_LANGFUSE_PUBLIC_KEY",
-            "HERMES_SPOTIFY_CLIENT_ID",
-            "HERMES_QWEN_BASE_URL",
-            "HERMES_MAX_ITERATIONS",
+            "XHERMES_LANGFUSE_PUBLIC_KEY",
+            "XHERMES_SPOTIFY_CLIENT_ID",
+            "XHERMES_QWEN_BASE_URL",
+            "XHERMES_MAX_ITERATIONS",
         ],
     )
     def test_hermes_integration_keys_still_writable(self, allowed_key):
-        """``HERMES_*`` overall is NOT blocked — only the four runtime
+        """``XHERMES_*`` overall is NOT blocked — only the four runtime
         location names (HOME/PROFILE/CONFIG/ENV) are. Integration
-        credentials following the ``HERMES_*`` convention must keep
+        credentials following the ``XHERMES_*`` convention must keep
         working or we'd regress every provider setup wizard that
         currently writes one of these (auth.py, Spotify, Langfuse, …)."""
         save_env_value(allowed_key, "test-value-123")
@@ -1098,7 +1098,7 @@ class TestWriteApprovalMigration:
         (tmp_path / "config.yaml").write_text(body)
 
     def test_approve_maps_to_true(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             self._write(tmp_path,
                         "_config_version: 28\nmemory:\n  write_mode: approve\n"
                         "skills:\n  write_mode: approve\n")
@@ -1110,7 +1110,7 @@ class TestWriteApprovalMigration:
             assert "write_mode" not in raw["skills"]
 
     def test_on_and_off_map_to_false(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             # YAML 1.1 parses bare on/off as bools — write_mode could be either
             # the string or the bool; both legacy "not gating" values → False.
             self._write(tmp_path,
@@ -1162,7 +1162,7 @@ class TestMigrationWriteInvariant:
             }, sort_keys=False),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             migrate_config(interactive=False, quiet=True)
             raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
             loaded = load_config()
@@ -1206,7 +1206,7 @@ feishu:
   require_mention: true
 """
         (tmp_path / "config.yaml").write_text(body, encoding="utf-8")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             save_config(
                 {
                     "_config_version": 30,
@@ -1239,7 +1239,7 @@ platforms:
       app_secret: xxx
 """
         (tmp_path / "config.yaml").write_text(body, encoding="utf-8")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             config = read_raw_config()
             config.setdefault("agent", {})["verify_on_stop"] = False
             config["_config_version"] = 32
@@ -1269,7 +1269,7 @@ feishu:
   require_mention: true
 """
         (tmp_path / "config.yaml").write_text(body, encoding="utf-8")
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             migrate_config(interactive=False, quiet=True)
             raw = yaml.safe_load((tmp_path / "config.yaml").read_text(encoding="utf-8"))
 
@@ -1292,7 +1292,7 @@ class TestDelegationCapUnificationMigration:
 
 
     def test_no_delegation_section_is_noop(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             self._write(tmp_path, "_config_version: 32\nmodel:\n  provider: openrouter\n")
             migrate_config(interactive=False, quiet=True)
             raw = yaml.safe_load((tmp_path / "config.yaml").read_text())
@@ -1315,7 +1315,7 @@ class TestConfigNormalizationDoesNotOverwriteUserValues:
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             save_config(load_config())
             raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
@@ -1344,7 +1344,7 @@ class TestCodexAppServerAutoConfig:
         assert DEFAULT_CONFIG["compression"]["codex_gpt55_autoraise"] is True
 
     def test_preserves_existing_codex_app_server_auto_value(self, tmp_path):
-        with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
+        with patch.dict(os.environ, {"XHERMES_HOME": str(tmp_path)}):
             self._write(
                 tmp_path,
                 "_config_version: 31\n"
@@ -1400,7 +1400,7 @@ class TestProviderEnabledRuntimeGate:
         }
         config_path = tmp_path / "config.yaml"
         config_path.write_text(yaml.safe_dump(cfg))
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
         # Bust the in-process config cache so the override picks up.
         from hermes_cli import config as cfg_mod
         cfg_mod._cached_config = None  # type: ignore[attr-defined]

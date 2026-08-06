@@ -184,7 +184,7 @@ You can interrupt the agent at ANY point in its turn — the microphone stays li
 - **Type or press the record key** — sending a new message or hitting the push-to-talk key stops playback instantly on every surface.
 - **Say "stop"** — the stop phrase works in both phases: mid-generation it interrupts the turn AND ends the voice chat; mid-playback it cuts the speech and ends the chat.
 
-Tuning (config.yaml): `voice.barge_in: false` disables it; `voice.barge_in_threshold_multiplier` (default `3.0`) scales the speech trigger over the quiet-room floor; `voice.barge_in_grace_seconds` (default `0.5`) suppresses trips right after playback starts. Set `HERMES_VOICE_DEBUG=1` to stream per-block VAD diagnostics (calibrated floor, RMS, trip decisions) to stderr for live tuning.
+Tuning (config.yaml): `voice.barge_in: false` disables it; `voice.barge_in_threshold_multiplier` (default `3.0`) scales the speech trigger over the quiet-room floor; `voice.barge_in_grace_seconds` (default `0.5`) suppresses trips right after playback starts. Set `XHERMES_VOICE_DEBUG=1` to stream per-block VAD diagnostics (calibrated floor, RMS, trip decisions) to stderr for live tuning.
 
 The agent **knows** it was interrupted: the next message carries a short note telling the model its spoken reply was cut off, so it can react naturally ("rude!") or pick up where it left off instead of being oblivious.
 
@@ -427,9 +427,9 @@ stt:
   provider: "local"                  # "local" (free) | "groq" | "openai" | "mistral" | "xai"
   local:
     model: "base"                    # tiny, base, small, medium, large-v3
-    language: ""                     # optional ISO-639-1 hint; blank = use HERMES_LOCAL_STT_LANGUAGE if set, else auto-detect
+    language: ""                     # optional ISO-639-1 hint; blank = use XHERMES_LOCAL_STT_LANGUAGE if set, else auto-detect
   groq:
-    language: ""                     # optional ISO-639-1 hint; blank = use HERMES_LOCAL_STT_LANGUAGE if set, else auto-detect
+    language: ""                     # optional ISO-639-1 hint; blank = use XHERMES_LOCAL_STT_LANGUAGE if set, else auto-detect
   # model: "whisper-1"              # Legacy: used when provider is not set
 
 # Text-to-Speech

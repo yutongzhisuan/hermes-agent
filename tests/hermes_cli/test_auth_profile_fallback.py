@@ -1,6 +1,6 @@
 """Tests for cross-profile auth fallback.
 
-When ``HERMES_HOME`` points to a named profile, ``read_credential_pool()``
+When ``XHERMES_HOME`` points to a named profile, ``read_credential_pool()``
 and ``get_provider_auth_state()`` fall back to the global-root
 ``auth.json`` per-provider when the profile has no entries for that
 provider.  Writes still target the profile only.
@@ -34,7 +34,7 @@ def profile_env(tmp_path, monkeypatch):
 
     * Path.home() -> tmp_path
     * Global root -> tmp_path/.xhermes            (has its own auth.json fixture)
-    * Profile     -> tmp_path/.xhermes/profiles/coder   (active, HERMES_HOME points here)
+    * Profile     -> tmp_path/.xhermes/profiles/coder   (active, XHERMES_HOME points here)
 
     This mirrors the real "named profile mounted under the default root"
     layout that profile users actually have on disk.
@@ -44,7 +44,7 @@ def profile_env(tmp_path, monkeypatch):
     global_root.mkdir()
     profile_dir = global_root / "profiles" / "coder"
     profile_dir.mkdir(parents=True)
-    monkeypatch.setenv("HERMES_HOME", str(profile_dir))
+    monkeypatch.setenv("XHERMES_HOME", str(profile_dir))
     return {"global": global_root, "profile": profile_dir}
 
 
@@ -238,13 +238,13 @@ def test_auth_lock_reentrancy_is_scoped_after_profile_context_switch(profile_env
 
 @pytest.fixture()
 def classic_env(tmp_path, monkeypatch):
-    """Classic single-root layout (HERMES_HOME != ~/.xhermes, no profiles)."""
+    """Classic single-root layout (XHERMES_HOME != ~/.xhermes, no profiles)."""
     fake_home = tmp_path / "home"
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", lambda: fake_home)
     hermes_home = tmp_path / "classic"
     hermes_home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("XHERMES_HOME", str(hermes_home))
     return hermes_home
 
 

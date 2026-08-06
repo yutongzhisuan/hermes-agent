@@ -90,7 +90,7 @@ class TestCompactBannerSkinIntegration:
             banner = _build_compact_banner()
 
         assert "Poseidon Agent" in banner
-        assert "NOUS HERMES" not in banner
+        assert "NOUS XHERMES" not in banner
 
     def test_poseidon_compact_banner_uses_skin_colors(self):
         set_active_skin("poseidon")

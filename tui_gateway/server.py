@@ -156,7 +156,7 @@ _cfg_mtime: float | None = None
 _cfg_path = None
 _session_resume_lock = threading.Lock()
 try:
-    _slash_timeout = float(os.environ.get("HERMES_TUI_SLASH_TIMEOUT_S") or "45")
+    _slash_timeout = float(os.environ.get("XHERMES_TUI_SLASH_TIMEOUT_S") or "45")
 except (ValueError, TypeError):
     _slash_timeout = 45.0
 _SLASH_WORKER_TIMEOUT_S = max(5.0, _slash_timeout)
@@ -173,7 +173,7 @@ _SLASH_WORKER_TIMEOUT_S = max(5.0, _slash_timeout)
 # Set to 0 to disable (park forever, pre-fix behaviour).
 try:
     _ws_orphan_reap_grace = float(
-        os.environ.get("HERMES_TUI_WS_ORPHAN_REAP_GRACE_S") or "20"
+        os.environ.get("XHERMES_TUI_WS_ORPHAN_REAP_GRACE_S") or "20"
     )
 except (ValueError, TypeError):
     _ws_orphan_reap_grace = 20.0
@@ -282,7 +282,7 @@ _LONG_HANDLERS = frozenset(
 
 try:
     _rpc_pool_workers = max(
-        2, int(os.environ.get("HERMES_TUI_RPC_POOL_WORKERS") or "8")
+        2, int(os.environ.get("XHERMES_TUI_RPC_POOL_WORKERS") or "8")
     )
 except (ValueError, TypeError):
     _rpc_pool_workers = 8
@@ -346,15 +346,15 @@ class _SlashWorker:
         # Tier-1 secrets (gateway/GitHub/infra) are still stripped (#29157).
         # Global-remote / multi-profile sessions: the worker must resolve
         # config/skills/state against the session's profile home, not the
-        # gateway's launch HERMES_HOME (#40677). The override goes through the
+        # gateway's launch XHERMES_HOME (#40677). The override goes through the
         # build_subprocess_env factory's `extra` (applied last, always wins)
-        # instead of a hand-rolled env["HERMES_HOME"] assignment.
+        # instead of a hand-rolled env["XHERMES_HOME"] assignment.
         from tools.environments.local import build_subprocess_env
         env = build_subprocess_env(
             hermes_subprocess_env(inherit_credentials=True),
             scrub_secrets=False,
             inherit_profile_home=False,  # base already carries the HOME contract
-            extra={"HERMES_HOME": str(profile_home)} if profile_home else None,
+            extra={"XHERMES_HOME": str(profile_home)} if profile_home else None,
         )
 
         # start_new_session=True detaches the slash worker into its own
@@ -1114,7 +1114,7 @@ def _shutdown_sessions() -> None:
 # hours-scale because last_active freezes during a long turn and on passive
 # viewing — running/pending/starting/live-transport are hard exemptions instead.
 try:
-    _SESSION_TTL_S = float(os.environ.get("HERMES_TUI_SESSION_TTL_S") or 6 * 3600)
+    _SESSION_TTL_S = float(os.environ.get("XHERMES_TUI_SESSION_TTL_S") or 6 * 3600)
 except (TypeError, ValueError):
     _SESSION_TTL_S = float(6 * 3600)
 _SESSION_TTL_S = max(0.0, _SESSION_TTL_S)
@@ -1379,7 +1379,7 @@ def _db_unavailable_error(rid, *, code: int):
 # One dashboard normally serves its launch profile. But the desktop's app-global
 # remote mode points every profile at this single backend, so resume/prompt must
 # be able to act on ANOTHER local profile's state.db + home. The desktop passes
-# ``profile`` on those calls; we open that profile's db and bind its HERMES_HOME
+# ``profile`` on those calls; we open that profile's db and bind its XHERMES_HOME
 # (a ContextVar override) for the duration of the call so config/skills/model and
 # message persistence all resolve to the right profile. Omitted/own profile → the
 # launch profile (unchanged for single-profile and per-profile-remote setups).
@@ -1401,7 +1401,7 @@ def _profile_home(profile: str | None) -> Path | None:
 
 
 def _profile_scoped(handler):
-    """Bind ``params['profile']``'s HERMES_HOME around a pet RPC handler.
+    """Bind ``params['profile']``'s XHERMES_HOME around a pet RPC handler.
 
     Pets are per-profile: ``display.pet.*`` lives in the profile's config.yaml and
     sprites install under its ``pets/`` dir (both resolve via ``get_hermes_home``).
@@ -1588,7 +1588,7 @@ _compute_host_supervisor_lock = threading.Lock()
 
 
 def _inside_compute_host_child() -> bool:
-    return os.environ.get("HERMES_COMPUTE_HOST_CHILD") == "1"
+    return os.environ.get("XHERMES_COMPUTE_HOST_CHILD") == "1"
 
 
 def _turn_isolation_enabled(cfg: dict | None = None) -> bool:
@@ -2109,7 +2109,7 @@ def _start_agent_build(sid: str, session: dict) -> None:
         try:
             tokens = _set_session_context(key)
             # Build against the session's profile (global-remote): bind its
-            # HERMES_HOME so config/skills/model resolve to it, and hand the
+            # XHERMES_HOME so config/skills/model resolve to it, and hand the
             # agent that profile's db so turns persist to the right state.db.
             session_db = None
             if profile_home:
@@ -3040,11 +3040,11 @@ def _set_session_context(
         resolved = cwd if cwd is not None else _cwd_for_session_key(session_key)
         source = _resolve_session_platform()
         # Derive the live conversation id so terminal/execute_code subprocesses
-        # can read HERMES_SESSION_ID. Without this, set_session_vars leaves the
+        # can read XHERMES_SESSION_ID. Without this, set_session_vars leaves the
         # session-id contextvar as "" (explicitly empty), and the subprocess-env
         # bridge treats that as authoritative — NOT falling back to os.environ —
         # so every command in a dashboard/TUI/web session saw an empty
-        # HERMES_SESSION_ID even though agent_init set it via
+        # XHERMES_SESSION_ID even though agent_init set it via
         # set_current_session_id(). Prefer the agent's durable session_id, then
         # fall back to the session_key (matching the id derivation used at
         # session-finalize), so an identified session is never left blank.
@@ -3082,9 +3082,9 @@ def _clear_session_context(tokens: list) -> None:
 
 def _enable_gateway_prompts() -> None:
     """Route approvals through gateway callbacks instead of CLI input()."""
-    os.environ["HERMES_GATEWAY_SESSION"] = "1"
-    os.environ["HERMES_EXEC_ASK"] = "1"
-    os.environ["HERMES_INTERACTIVE"] = "1"
+    os.environ["XHERMES_GATEWAY_SESSION"] = "1"
+    os.environ["XHERMES_EXEC_ASK"] = "1"
+    os.environ["XHERMES_INTERACTIVE"] = "1"
 
 
 # ── Blocking prompt factory ──────────────────────────────────────────
@@ -3440,8 +3440,8 @@ def _ensure_skin_watcher() -> None:
 
 def _resolve_model() -> str:
     env = (
-        os.environ.get("HERMES_MODEL", "")
-        or os.environ.get("HERMES_INFERENCE_MODEL", "")
+        os.environ.get("XHERMES_MODEL", "")
+        or os.environ.get("XHERMES_INFERENCE_MODEL", "")
     ).strip()
     if env:
         return env
@@ -3471,17 +3471,17 @@ def _resolve_session_platform() -> str:
     TUI-only slash commands (``/reload-mcp``, …) to chat-panel users.
 
     Resolution:
-      * ``HERMES_DESKTOP=1`` and ``HERMES_DESKTOP_TERMINAL`` unset → "desktop"
+      * ``XHERMES_DESKTOP=1`` and ``XHERMES_DESKTOP_TERMINAL`` unset → "desktop"
         (the chat-panel backend — a graphical React surface, not a terminal).
-      * ``HERMES_DESKTOP_TERMINAL=1`` → "tui"
+      * ``XHERMES_DESKTOP_TERMINAL=1`` → "tui"
         (``xhermes --tui`` running in the desktop's embedded terminal pane;
         it IS a TUI, just embedded. The clarifier attached to the tui hint
         in system_prompt.py tells the agent about the embedding.)
       * neither set → "tui"
         (standalone ``xhermes --tui``.)
     """
-    if is_truthy_value(os.environ.get("HERMES_DESKTOP")) and not is_truthy_value(
-        os.environ.get("HERMES_DESKTOP_TERMINAL")
+    if is_truthy_value(os.environ.get("XHERMES_DESKTOP")) and not is_truthy_value(
+        os.environ.get("XHERMES_DESKTOP_TERMINAL")
     ):
         return "desktop"
     return "tui"
@@ -3507,8 +3507,8 @@ def _resolve_agent_platform(source: str | None) -> str:
 def _config_model_target() -> tuple[str, str]:
     """(model, provider) currently selected by config.yaml — and ONLY config.
 
-    Unlike `_resolve_model()`, this never reads HERMES_MODEL /
-    HERMES_INFERENCE_MODEL. Those env vars are a launch-scoped seed
+    Unlike `_resolve_model()`, this never reads XHERMES_MODEL /
+    XHERMES_INFERENCE_MODEL. Those env vars are a launch-scoped seed
     (`xhermes --tui -m <model>`, hosted-instance provisioning); if they
     fed the per-turn sync, the seed would be replayed as a /model switch
     and persisted globally, or would pin the session so dashboard/CLI
@@ -3524,8 +3524,8 @@ def _config_model_target() -> tuple[str, str]:
             provider = ""
     elif isinstance(cfg_model, str):
         model = cfg_model.strip()
-    # No fallback to _resolve_model() here: that reads HERMES_MODEL /
-    # HERMES_INFERENCE_MODEL, which `xhermes --tui -m <model>` sets as a
+    # No fallback to _resolve_model() here: that reads XHERMES_MODEL /
+    # XHERMES_INFERENCE_MODEL, which `xhermes --tui -m <model>` sets as a
     # session-scoped seed for THIS launch. When config.yaml has no
     # model.default (custom-provider-only setups), falling back to the env
     # seed made the per-turn sync treat the -m flag as "the configured
@@ -3538,13 +3538,13 @@ def _config_model_target() -> tuple[str, str]:
 
 def _resolve_startup_runtime() -> tuple[str, str | None]:
     model = _resolve_model()
-    explicit_provider = os.environ.get("HERMES_TUI_PROVIDER", "").strip()
+    explicit_provider = os.environ.get("XHERMES_TUI_PROVIDER", "").strip()
     if explicit_provider:
         return model, explicit_provider
 
     explicit_model = (
-        os.environ.get("HERMES_MODEL", "")
-        or os.environ.get("HERMES_INFERENCE_MODEL", "")
+        os.environ.get("XHERMES_MODEL", "")
+        or os.environ.get("XHERMES_INFERENCE_MODEL", "")
     ).strip()
     if not explicit_model:
         return model, None
@@ -3559,7 +3559,7 @@ def _resolve_startup_runtime() -> tuple[str, str | None]:
                 if isinstance(cfg, dict)
                 else ""
             )
-            or os.environ.get("HERMES_INFERENCE_PROVIDER", "").strip().lower()
+            or os.environ.get("XHERMES_INFERENCE_PROVIDER", "").strip().lower()
             or "auto"
         )
         detected = detect_static_provider_for_model(explicit_model, current_provider)
@@ -4029,7 +4029,7 @@ def _load_memory_notifications() -> str:
 
 
 def _load_tool_progress_mode() -> str:
-    env = os.environ.get("HERMES_TUI_TOOL_PROGRESS", "").strip().lower()
+    env = os.environ.get("XHERMES_TUI_TOOL_PROGRESS", "").strip().lower()
     if env in {"off", "new", "all", "verbose"}:
         return env
     raw = (_load_cfg().get("display") or {}).get("tool_progress", "all")
@@ -4044,7 +4044,7 @@ def _load_tool_progress_mode() -> str:
 def _load_enabled_toolsets() -> list[str] | None:
     explicit = [
         item.strip()
-        for item in os.environ.get("HERMES_TUI_TOOLSETS", "").split(",")
+        for item in os.environ.get("XHERMES_TUI_TOOLSETS", "").split(",")
         if item.strip()
     ]
     cfg = None
@@ -4096,7 +4096,7 @@ def _load_enabled_toolsets() -> list[str] | None:
             ignored = [name for name in explicit if name not in {"all", "*"}]
             if ignored:
                 print(
-                    "[tui] HERMES_TUI_TOOLSETS=all enables every toolset; "
+                    "[tui] XHERMES_TUI_TOOLSETS=all enables every toolset; "
                     f"ignoring additional entries: {', '.join(ignored)}",
                     file=sys.stderr,
                     flush=True,
@@ -4140,13 +4140,13 @@ def _load_enabled_toolsets() -> list[str] | None:
 
         if unknown:
             print(
-                f"[tui] ignoring unknown HERMES_TUI_TOOLSETS entries: {', '.join(unknown)}",
+                f"[tui] ignoring unknown XHERMES_TUI_TOOLSETS entries: {', '.join(unknown)}",
                 file=sys.stderr,
                 flush=True,
             )
         if disabled:
             print(
-                "[tui] ignoring disabled MCP servers in HERMES_TUI_TOOLSETS "
+                "[tui] ignoring disabled MCP servers in XHERMES_TUI_TOOLSETS "
                 "(set enabled: true in config.yaml to use): "
                 f"{', '.join(disabled)}",
                 file=sys.stderr,
@@ -4157,7 +4157,7 @@ def _load_enabled_toolsets() -> list[str] | None:
             return valid
 
         fallback_notice = (
-            "[tui] no valid HERMES_TUI_TOOLSETS entries; using configured CLI toolsets"
+            "[tui] no valid XHERMES_TUI_TOOLSETS entries; using configured CLI toolsets"
         )
 
     try:
@@ -4177,7 +4177,7 @@ def _load_enabled_toolsets() -> list[str] | None:
             print(fallback_notice, file=sys.stderr, flush=True)
         if not enabled:
             return None
-        # The desktop Project tools are off _HERMES_CORE_TOOLS (every other
+        # The desktop Project tools are off _XHERMES_CORE_TOOLS (every other
         # platform would carry their schema for nothing), so the platform
         # recovery above — which keys off xhermes-cli's tool universe — can't
         # surface them. This resolver runs ONLY in the desktop/TUI gateway, so
@@ -4187,7 +4187,7 @@ def _load_enabled_toolsets() -> list[str] | None:
     except Exception:
         if fallback_notice is not None:
             print(
-                "[tui] no valid HERMES_TUI_TOOLSETS entries and configured CLI toolsets could not be loaded; enabling all toolsets",
+                "[tui] no valid XHERMES_TUI_TOOLSETS entries and configured CLI toolsets could not be loaded; enabling all toolsets",
                 file=sys.stderr,
                 flush=True,
             )
@@ -4485,8 +4485,8 @@ def _apply_model_switch(
     # session (e.g. /new via _reset_session_agent, or resume) re-derives the
     # user's chosen model/provider instead of falling back to global config.
     #
-    # We deliberately do NOT write process-global env vars (HERMES_MODEL /
-    # HERMES_INFERENCE_MODEL / HERMES_TUI_PROVIDER / HERMES_INFERENCE_PROVIDER)
+    # We deliberately do NOT write process-global env vars (XHERMES_MODEL /
+    # XHERMES_INFERENCE_MODEL / XHERMES_TUI_PROVIDER / XHERMES_INFERENCE_PROVIDER)
     # here. The desktop backend hosts every same-profile session in ONE process,
     # so mutating os.environ on a /model switch leaked the new model/provider
     # into every OTHER live session's next agent rebuild — switching the model
@@ -4871,8 +4871,8 @@ def _get_usage(agent) -> dict:
     except Exception:
         pass
     # Dev-only live credits-spent readout (L0 usage-aware-credits). Gated on
-    # HERMES_DEV_CREDITS so the payload stays clean when the flag is off.
-    if is_truthy_value(os.environ.get("HERMES_DEV_CREDITS")):
+    # XHERMES_DEV_CREDITS so the payload stays clean when the flag is off.
+    if is_truthy_value(os.environ.get("XHERMES_DEV_CREDITS")):
         try:
             spent = agent.get_credits_spent_micros()
             if spent is not None:
@@ -5878,7 +5878,7 @@ def _apply_personality_to_session(
 
 def _cfg_max_turns(cfg: dict, default: int) -> int:
     try:
-        env_max = int(os.environ.get("HERMES_TUI_MAX_TURNS", "") or 0)
+        env_max = int(os.environ.get("XHERMES_TUI_MAX_TURNS", "") or 0)
         if env_max > 0:
             return env_max
     except (TypeError, ValueError):
@@ -5888,7 +5888,7 @@ def _cfg_max_turns(cfg: dict, default: int) -> int:
 
 
 def _parse_tui_skills_env() -> list[str]:
-    raw = os.environ.get("HERMES_TUI_SKILLS", "")
+    raw = os.environ.get("XHERMES_TUI_SKILLS", "")
     skills: list[str] = []
     seen: set[str] = set()
     for part in raw.replace("\n", ",").split(","):
@@ -6444,10 +6444,10 @@ def _make_agent(
         session_id=session_id or key,
         session_db=session_db if session_db is not None else _get_db(),
         ephemeral_system_prompt=system_prompt or None,
-        checkpoints_enabled=is_truthy_value(os.environ.get("HERMES_TUI_CHECKPOINTS")),
-        pass_session_id=is_truthy_value(os.environ.get("HERMES_TUI_PASS_SESSION_ID")),
-        skip_context_files=is_truthy_value(os.environ.get("HERMES_IGNORE_RULES")),
-        skip_memory=is_truthy_value(os.environ.get("HERMES_IGNORE_RULES")),
+        checkpoints_enabled=is_truthy_value(os.environ.get("XHERMES_TUI_CHECKPOINTS")),
+        pass_session_id=is_truthy_value(os.environ.get("XHERMES_TUI_PASS_SESSION_ID")),
+        skip_context_files=is_truthy_value(os.environ.get("XHERMES_IGNORE_RULES")),
+        skip_memory=is_truthy_value(os.environ.get("XHERMES_IGNORE_RULES")),
         fallback_model=_load_fallback_model(),
         **_agent_cbs(sid),
     )
@@ -6486,7 +6486,7 @@ def _init_session(
             "tool_progress_mode": _load_tool_progress_mode(),
             "edit_snapshots": {},
             "tool_started_at": {},
-            # Profile-scoped HERMES_HOME for app-global remote mode; None =
+            # Profile-scoped XHERMES_HOME for app-global remote mode; None =
             # launch profile. SessionBranch copies the parent's value so the
             # child stays on the same state.db.
             "profile_home": profile_home,
@@ -6642,7 +6642,7 @@ def _enrich_with_attached_images(user_text: str, image_paths: list[str]) -> str:
 def _build_persist_message_with_image_refs(user_text: str, image_paths: list[str]) -> str:
     """Build the clean, UI-recognizable version of the user's message for
     persisting to session history. Uses ``@image:<path>`` directives — the
-    format the desktop client (directive-text.tsx / HERMES_DIRECTIVE_RE)
+    format the desktop client (directive-text.tsx / XHERMES_DIRECTIVE_RE)
     actually parses and renders as an image — unlike
     ``_enrich_with_attached_images``, which embeds a vision description and
     an ``image_url:`` hint meant only for the model and must never be
@@ -7179,7 +7179,7 @@ def _auto_continue_config() -> tuple[bool, float, int]:
 
 
 def _session_home(session: dict) -> Path:
-    """The HERMES_HOME the session's durable state lives in (profile-aware)."""
+    """The XHERMES_HOME the session's durable state lives in (profile-aware)."""
     profile_home = session.get("profile_home")
     return Path(profile_home) if profile_home else Path(_hermes_home)
 
@@ -8209,7 +8209,7 @@ _PET_REFERENCE_MIME_EXT = {
 try:
     _PET_REFERENCE_MAX_BYTES = max(
         1,
-        int(os.environ.get("HERMES_PET_REFERENCE_MAX_BYTES") or str(16 * 1024 * 1024)),
+        int(os.environ.get("XHERMES_PET_REFERENCE_MAX_BYTES") or str(16 * 1024 * 1024)),
     )
 except (TypeError, ValueError):
     _PET_REFERENCE_MAX_BYTES = 16 * 1024 * 1024
@@ -8579,7 +8579,7 @@ def _serialize_subscription_preview(p) -> dict:
 # from the event stream).  On turn-complete it posts the final tree here;
 # /replay and /replay-diff fetch past snapshots by session_id + filename.
 #
-# Layout:  $HERMES_HOME/spawn-trees/<session_id>/<timestamp>.json
+# Layout:  $XHERMES_HOME/spawn-trees/<session_id>/<timestamp>.json
 # Each file contains { session_id, started_at, finished_at, subagents: [...] }.
 
 
@@ -8868,7 +8868,7 @@ def _collect_kanban_notifications(session: dict) -> list:
     """Claim unseen terminal kanban events for this TUI session's subscriptions.
 
     ``kanban_create`` auto-subscribes TUI/desktop sessions with
-    ``platform="tui"`` and ``chat_id=HERMES_SESSION_KEY`` (see
+    ``platform="tui"`` and ``chat_id=XHERMES_SESSION_KEY`` (see
     tools/kanban_tools.py ``_maybe_auto_subscribe``). The gateway notifier
     can't deliver those — there is no "tui" messaging adapter — so this
     poller is the delivery path for them (issue #59890). Uses the same
@@ -8894,7 +8894,7 @@ def _collect_kanban_notifications(session: dict) -> list:
         except Exception:
             return []
     # Poll each resolved DB path once — multiple slugs can point at the same
-    # DB when HERMES_KANBAN_DB pins the board path (same guard as the gateway
+    # DB when XHERMES_KANBAN_DB pins the board path (same guard as the gateway
     # notifier).
     seen_db_paths: set = set()
     for board_meta in boards:
@@ -9281,7 +9281,7 @@ _desktop_ui_wired = False
 def _wire_desktop_ui() -> None:
     """Bridge desktop-only tools (open_preview, focus_pane) to renderer events.
 
-    Idempotent. The tool hands back the turn's ``HERMES_UI_SESSION_ID`` as
+    Idempotent. The tool hands back the turn's ``XHERMES_UI_SESSION_ID`` as
     ``sid`` so the event routes to the window that asked (``_emit`` /
     ``write_json`` is ``_stdout_lock``-guarded, so calling it from the tool's
     thread is safe)."""
@@ -9350,7 +9350,7 @@ def _run_prompt_submit(
     def run():
         approval_token = None
         session_tokens = []
-        home_token = None  # per-turn HERMES_HOME override for a resumed remote profile
+        home_token = None  # per-turn XHERMES_HOME override for a resumed remote profile
         secret_token = None
         goal_followup = None  # set by the post-turn goal hook below
         result = None  # turn outcome; read after the finally for leftover /steer
@@ -10013,7 +10013,7 @@ def _run_prompt_submit(
             if isinstance(local_run_kwargs, dict):
                 local_run_kwargs.clear()
 
-            # Run while any profile-specific HERMES_HOME override is still active
+            # Run while any profile-specific XHERMES_HOME override is still active
             # so context.memory_trim is resolved from the session's own config.
             try:
                 from hermes_cli.mem_trim import trim_memory
@@ -10237,7 +10237,7 @@ def _session_images_dir(session: dict) -> Path:
     """Resolve the uploads ``images/`` dir against the session's effective home.
 
     Attach RPCs (``image.attach_bytes``, ``clipboard.paste``, ``pdf.attach``)
-    run BEFORE ``prompt.submit`` installs the session's profile HERMES_HOME
+    run BEFORE ``prompt.submit`` installs the session's profile XHERMES_HOME
     override, so ``get_hermes_home()`` here would return the gateway's launch
     home. In a multi-profile / root-gateway deployment that writes the upload to
     the launch home's ``images/`` while the sandbox mount and the vision host-
@@ -10804,13 +10804,13 @@ def _(rid, params: dict) -> dict:
                         _session_info(agent, session),
                     )
             else:
-                current = is_truthy_value(os.environ.get("HERMES_YOLO_MODE"))
+                current = is_truthy_value(os.environ.get("XHERMES_YOLO_MODE"))
                 enable = _resolve_toggle(current)
                 if enable:
-                    os.environ["HERMES_YOLO_MODE"] = "1"
+                    os.environ["XHERMES_YOLO_MODE"] = "1"
                     nv = "1"
                 else:
-                    os.environ.pop("HERMES_YOLO_MODE", None)
+                    os.environ.pop("XHERMES_YOLO_MODE", None)
                     nv = "0"
             return _ok(rid, {"key": key, "value": nv, "scope": "session"})
         except Exception as e:
@@ -11295,7 +11295,7 @@ def _(rid, params, pdb, conn) -> dict:
 
 def _is_repo_junk(root: str) -> bool:
     """A git root we never auto-surface as a project: the bare home dir or
-    anything under HERMES_HOME (~/.xhermes by default) — config/sessions/skills,
+    anything under XHERMES_HOME (~/.xhermes by default) — config/sessions/skills,
     not a workspace. User-created projects pointing there are still honored."""
     if not root:
         return True
@@ -11313,7 +11313,7 @@ def _is_session_cwd_junk(cwd: str) -> bool:
     """A non-git cwd that should stay in flat Recents rather than auto-group.
 
     Unlike discovered git roots, an explicitly selected descendant of
-    HERMES_HOME may be an intentional prose/data workspace. The pre-Projects
+    XHERMES_HOME may be an intentional prose/data workspace. The pre-Projects
     desktop surfaced every such cwd, so exclude only the two broad defaults
     that would create catch-all projects.
     """
@@ -12628,12 +12628,12 @@ def _voice_mode_enabled() -> bool:
     avoids the TUI auto-starting in REC the next time the user opens it
     just because they happened to enable voice in a prior session.
     """
-    return os.environ.get("HERMES_VOICE", "").strip() == "1"
+    return os.environ.get("XHERMES_VOICE", "").strip() == "1"
 
 
 def _voice_tts_enabled() -> bool:
     """Whether agent replies should be spoken back via TTS (runtime only)."""
-    return os.environ.get("HERMES_VOICE_TTS", "").strip() == "1"
+    return os.environ.get("XHERMES_VOICE_TTS", "").strip() == "1"
 
 
 def _any_session_running() -> bool:
@@ -12882,8 +12882,8 @@ def _full_duplex_listener() -> None:
                     # Bare stop phrase — in EITHER phase the user means
                     # "stop everything": the turn was already interrupted /
                     # TTS cut at trip time; now end the voice chat.
-                    os.environ["HERMES_VOICE"] = "0"
-                    os.environ["HERMES_VOICE_TTS"] = "0"
+                    os.environ["XHERMES_VOICE"] = "0"
+                    os.environ["XHERMES_VOICE_TTS"] = "0"
                     try:
                         from hermes_cli.voice import stop_continuous
 
@@ -13350,7 +13350,7 @@ def _(rid, params: dict) -> dict:
         # Runtime-only flag (CLI parity) — no _write_config_key, so the
         # next TUI launch starts with voice OFF instead of auto-REC from a
         # persisted stale toggle.
-        os.environ["HERMES_VOICE"] = "1" if enabled else "0"
+        os.environ["XHERMES_VOICE"] = "1" if enabled else "0"
 
         stop_hint = ""
         if enabled:
@@ -13378,7 +13378,7 @@ def _(rid, params: dict) -> dict:
 
             # Clear TTS so it can be toggled independently after voice is off,
             # and silence any in-flight streaming speech.
-            os.environ["HERMES_VOICE_TTS"] = "0"
+            os.environ["XHERMES_VOICE_TTS"] = "0"
             _tts_stream_stop(user_barge=False)
 
         return _ok(
@@ -13396,7 +13396,7 @@ def _(rid, params: dict) -> dict:
             return _err(rid, 4014, "enable voice mode first: /voice on")
         new_value = not _voice_tts_enabled()
         # Runtime-only flag (CLI parity) — see voice.toggle on/off above.
-        os.environ["HERMES_VOICE_TTS"] = "1" if new_value else "0"
+        os.environ["XHERMES_VOICE_TTS"] = "1" if new_value else "0"
         if not new_value:
             _tts_stream_stop(user_barge=False)
         # Include ``record_key`` on every branch so a /voice tts toggle
@@ -13509,8 +13509,8 @@ def _(rid, params: dict) -> dict:
                 # (TUI, desktop) end the conversation instead of treating
                 # it as a no-speech timeout. The continuous loop has
                 # already halted before this callback fires.
-                os.environ["HERMES_VOICE"] = "0"
-                os.environ["HERMES_VOICE_TTS"] = "0"
+                os.environ["XHERMES_VOICE"] = "0"
+                os.environ["XHERMES_VOICE_TTS"] = "0"
                 try:
                     _tts_stream_stop(user_barge=False)
                 except Exception:
