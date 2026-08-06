@@ -1,35 +1,26 @@
 """
 setup.py — wheel/sdist build guard.
 
-pip/PyPI and Homebrew are no longer supported distribution methods for
-xHermes Agent (see website/docs/getting-started/platform-support.md). The
-wheel would ship without bundled assets (locales, skills, optional-mcps,
-web_dist, tui_dist, plugin manifests) since those are resolved at runtime
-via env-var overrides set by the nix wrapper or the source-checkout layout.
+pip/PyPI distribution is gated: only Nix (uv2nix) or an explicit headless-wheel
+release build (``HERMES_HEADLESS_WHEEL_BUILD=1``) may produce artifacts.
 
-This file overrides the ``bdist_wheel`` and ``sdist`` setuptools commands
-to raise an error when run outside a Nix build. The PEP 517
-``build_wheel`` / ``build_sdist`` hooks in
-``setuptools.build_meta`` call these commands internally, so the guard
-fires for ``uv build``, ``pip wheel``, ``python -m build``, and direct
-``setup.py`` invocations alike.
-
-The one legitimate consumer of ``build_wheel`` is uv2nix, which calls
-``setuptools.build_meta.build_wheel`` (→ ``bdist_wheel``) inside a Nix
-build sandbox. ``nix/python.nix`` sets ``HERMES_NIX_BUILD=1`` on the
-XHermes package derivation, so only that build may create an artifact.
-
-Editable installs (``uv sync``, ``pip install -e .``, ``nix develop``)
-use ``build_editable``, which does NOT call ``bdist_wheel`` — it calls
-``build_ext`` in editable mode. So the guard does not affect development.
+Editable installs (``uv sync``, ``pip install -e .``) use ``build_editable`` and
+are unaffected.
 """
 
+from __future__ import annotations
+
 import os
+import shutil
+from pathlib import Path
 
 from setuptools import setup
 from setuptools.command.sdist import sdist
 
+_REPO_ROOT = Path(__file__).resolve().parent
 _IN_NIX_BUILD = os.environ.get("HERMES_NIX_BUILD") == "1"
+_IN_HEADLESS_WHEEL_BUILD = os.environ.get("HERMES_HEADLESS_WHEEL_BUILD") == "1"
+_ALLOWED = _IN_NIX_BUILD or _IN_HEADLESS_WHEEL_BUILD
 
 _BLOCK_MESSAGE = (
     "Building wheels or sdists for xhermes-agent is not supported.\n"
@@ -39,32 +30,51 @@ _BLOCK_MESSAGE = (
     "If you are developing, use an editable install instead:\n"
     "  uv sync          # or: uv pip install -e .\n"
     "\n"
-    "If you are building with Nix (uv2nix), this error should not fire —\n"
-    "the XHermes Nix derivation sets HERMES_NIX_BUILD=1. If it does, file a bug."
+    "If you are building with Nix (uv2nix), set HERMES_NIX_BUILD=1.\n"
+    "For the headless pip wheel release, set HERMES_HEADLESS_WHEEL_BUILD=1\n"
+    "and run scripts/build_headless_wheel.sh."
 )
+
+_HEADLESS_DATA_DIRS = ("skills", "optional-skills", "locales", "optional-mcps")
+_HEADLESS_MARKER = ".headless_wheel_dist"
+
+
+def _stage_headless_data_assets() -> None:
+    """Copy runtime data trees into xhermes_agent_data/ for the pip wheel."""
+    data_root = _REPO_ROOT / "xhermes_agent_data"
+    data_root.mkdir(exist_ok=True)
+    (_REPO_ROOT / "xhermes_agent_data" / "__init__.py").touch(exist_ok=True)
+    for name in _HEADLESS_DATA_DIRS:
+        src = _REPO_ROOT / name
+        dest = data_root / name
+        if not src.is_dir():
+            raise RuntimeError(f"headless wheel build missing data directory: {src}")
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest, symlinks=False)
+    (data_root / _HEADLESS_MARKER).write_text("1\n", encoding="utf-8")
 
 
 class _GuardedSdist(sdist):
     def run(self, *args, **kwargs):
-        if not _IN_NIX_BUILD:
+        if not _ALLOWED:
             raise RuntimeError(_BLOCK_MESSAGE)
+        if _IN_HEADLESS_WHEEL_BUILD:
+            _stage_headless_data_assets()
         return super().run(*args, **kwargs)
 
 
 cmdclass = {"sdist": _GuardedSdist}
 
-# bdist_wheel is only available when the `wheel` package is installed.
-# setuptools.build_meta.build_wheel() calls it internally, so the guard
-# fires for all PEP 517 wheel build paths. Define the subclass only when
-# the import succeeds — otherwise a None base class raises TypeError at
-# class-definition time, before the cmdclass guard can run.
 try:
     from setuptools.command.bdist_wheel import bdist_wheel
 
     class _GuardedBdistWheel(bdist_wheel):
         def run(self, *args, **kwargs):
-            if not _IN_NIX_BUILD:
+            if not _ALLOWED:
                 raise RuntimeError(_BLOCK_MESSAGE)
+            if _IN_HEADLESS_WHEEL_BUILD:
+                _stage_headless_data_assets()
             return super().run(*args, **kwargs)
 
     cmdclass["bdist_wheel"] = _GuardedBdistWheel

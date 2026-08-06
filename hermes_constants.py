@@ -256,6 +256,33 @@ def get_default_hermes_root() -> Path:
     return env_path
 
 
+def get_package_data_root() -> Path | None:
+    """Return the headless wheel data root when bundled assets are installed.
+
+    Resolution: ``xhermes_agent_data/`` with ``.headless_wheel_dist`` marker
+    and a populated ``skills/`` subtree. Returns None in source checkouts and
+    Nix installs that use env-var overrides instead.
+    """
+    try:
+        from xhermes_agent_data import DATA_ROOT, is_headless_wheel_install
+    except ImportError:
+        return None
+    if not is_headless_wheel_install():
+        return None
+    skills = DATA_ROOT / "skills"
+    if skills.is_dir():
+        return DATA_ROOT
+    return None
+
+
+def _package_data_subdir(name: str) -> Path | None:
+    root = get_package_data_root()
+    if root is None:
+        return None
+    candidate = root / name
+    return candidate if candidate.is_dir() else None
+
+
 def get_optional_skills_dir(default: Path | None = None) -> Path:
     """Return the optional-skills directory, honoring package-manager wrappers.
 
@@ -265,6 +292,9 @@ def get_optional_skills_dir(default: Path | None = None) -> Path:
     override = os.getenv("HERMES_OPTIONAL_SKILLS", "").strip()
     if override:
         return Path(override)
+    packaged = _package_data_subdir("optional-skills")
+    if packaged is not None:
+        return packaged
     if default is not None:
         return default
     return get_hermes_home() / "optional-skills"
@@ -281,6 +311,9 @@ def get_optional_mcps_dir(default: Path | None = None) -> Path:
     override = os.getenv("HERMES_OPTIONAL_MCPS", "").strip()
     if override:
         return Path(override)
+    packaged = _package_data_subdir("optional-mcps")
+    if packaged is not None:
+        return packaged
     if default is not None:
         return default
     return get_hermes_home() / "optional-mcps"
@@ -291,12 +324,16 @@ def get_bundled_skills_dir(default: Path | None = None) -> Path:
 
     Resolution order:
         1. ``HERMES_BUNDLED_SKILLS`` env var (Nix wrapper / explicit override)
-        2. Caller-supplied ``default`` (typically the source-checkout path)
-        3. ``<HERMES_HOME>/skills`` last-resort
+        2. Headless wheel ``xhermes_agent_data/skills`` when present
+        3. Caller-supplied ``default`` (typically the source-checkout path)
+        4. ``<HERMES_HOME>/skills`` last-resort
     """
     override = os.getenv("HERMES_BUNDLED_SKILLS", "").strip()
     if override:
         return Path(override)
+    packaged = _package_data_subdir("skills")
+    if packaged is not None:
+        return packaged
     if default is not None:
         return default
     return get_hermes_home() / "skills"

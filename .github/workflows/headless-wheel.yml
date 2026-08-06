@@ -1,0 +1,53 @@
+name: Headless wheel
+
+# Build the headless pip wheel and run packaging + gateway smoke tests.
+# Gated on python_prod changes (packaging / runtime code, not tests-only).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: headless-wheel-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    name: Build headless wheel + smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # 8.2.0
+        with:
+          version: "0.9.28"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dev dependencies
+        uses: ./.github/actions/retry
+        with:
+          command: uv sync --locked --python 3.11 --extra dev
+
+      - name: Build headless wheel
+        run: HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
+
+      - name: Run headless wheel integration tests
+        run: |
+          scripts/run_tests.sh \
+            tests/test_headless_wheel_assets.py \
+            tests/hermes_runtime/test_wheel_smoke.py \
+            -m integration -q
+
+      - name: Run GatewayRpcClient unit tests
+        run: scripts/run_tests.sh tests/hermes_runtime/test_rpc.py -q

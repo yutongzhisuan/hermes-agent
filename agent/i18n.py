@@ -113,6 +113,17 @@ def _locales_dir() -> Path:
             override,
         )
 
+    try:
+        from hermes_constants import get_package_data_root
+
+        root = get_package_data_root()
+        if root is not None:
+            packaged = root / "locales"
+            if packaged.is_dir():
+                return packaged
+    except ImportError:
+        pass
+
     # agent/i18n.py -> agent/ -> repo root (source checkout, editable install)
     source_dir = Path(__file__).resolve().parent.parent / "locales"
     return source_dir

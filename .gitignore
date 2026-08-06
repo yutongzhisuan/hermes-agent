@@ -194,3 +194,11 @@ native/fts5_cjk/*.so
 # interrupted; consumed by launch-time recovery. Never commit it (was tracked
 # by accident via 3a69e34702, removed in the #72002 salvage).
 .lazy-refresh-incomplete
+
+# Headless wheel build staging (copied from skills/, locales/, … at package time).
+xhermes_agent_data/skills/
+xhermes_agent_data/optional-skills/
+xhermes_agent_data/locales/
+xhermes_agent_data/optional-mcps/
+xhermes_agent_data/.headless_wheel_dist
+xhermes_agent_data/dev

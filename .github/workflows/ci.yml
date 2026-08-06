@@ -73,6 +73,12 @@ jobs:
     with:
       slice_count: 8
 
+  headless-wheel:
+    name: Headless wheel
+    needs: detect
+    if: needs.detect.outputs.python_prod == 'true'
+    uses: ./.github/workflows/headless-wheel.yml
+
   lint:
     name: Python lints
     needs: detect
@@ -273,6 +279,7 @@ jobs:
     needs:
       - detect
       - tests
+      - headless-wheel
       - lint
       - js-tests
       - e2e-desktop

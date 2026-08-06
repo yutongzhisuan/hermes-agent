@@ -2756,6 +2756,9 @@ def cmd_chat(args):
     _pin_kanban_board_env()
 
     if use_tui:
+        from hermes_cli.headless_dist import exit_if_ui_unavailable
+
+        exit_if_ui_unavailable(feature="tui")
         _launch_tui(
             getattr(args, "resume", None),
             tui_dev=getattr(args, "tui_dev", False),
@@ -7124,6 +7127,10 @@ def _desktop_launch_options() -> tuple[list[str], str]:
 
 def cmd_gui(args: argparse.Namespace):
     """Build and launch the native Electron desktop GUI."""
+    from hermes_cli.headless_dist import exit_if_ui_unavailable
+
+    exit_if_ui_unavailable(feature="desktop")
+
     desktop_dir = PROJECT_ROOT / "apps" / "desktop"
     if not (desktop_dir / "package.json").exists():
         print(f"Desktop GUI source not found at: {desktop_dir}")
@@ -10442,10 +10449,15 @@ def cmd_dashboard(args):
         remaining = _find_stale_dashboard_pids()
         sys.exit(1 if remaining else 0)
 
+    _headless_backend = getattr(args, "headless_backend", False)
+    if not _headless_backend:
+        from hermes_cli.headless_dist import exit_if_ui_unavailable
+
+        exit_if_ui_unavailable(feature="dashboard")
+
     # `serve` is the headless backend: no UI build, no SPA mount, neutral
     # ready sentinel. Resolved once and threaded through the re-exec, the
     # build gate, and start_server.
-    _headless_backend = getattr(args, "headless_backend", False)
     _ssh_owner_nonce = getattr(args, "ssh_owner_nonce", None)
     if _ssh_owner_nonce and not re.fullmatch(r"[0-9a-f]{16}", _ssh_owner_nonce):
         raise SystemExit("--ssh-owner-nonce must be 16 lowercase hex characters")
