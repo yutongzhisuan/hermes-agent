@@ -7,7 +7,10 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/schema"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/infa/task_relay/master/client"
@@ -60,6 +63,11 @@ type Config struct {
 	// SubAgents registers additional local subagents available through the "task" tool.
 	SubAgents []adk.Agent
 
+	// ChatModel injects a model and skips OpenAI construction (primarily for tests).
+	ChatModel model.BaseModel[*schema.Message]
+	// Tools injects tools and skips Hub RelayTools construction (primarily for tests).
+	Tools []tool.BaseTool
+
 	HubTLS        client.TLSConfig
 	EnableMetrics bool
 	MetricsAddr   string
@@ -75,14 +83,93 @@ type Master struct {
 }
 
 // New dials the Hub, builds Relay tools, and returns a DeepAgent or ReAct agent runner.
+// ChatModel / Tools may be injected for tests to skip OpenAI and Hub construction.
 func New(ctx context.Context, cfg Config) (*Master, error) {
-	if cfg.HubAddr == "" {
+	useInjectedTools := len(cfg.Tools) > 0
+	useInjectedModel := cfg.ChatModel != nil
+
+	if !useInjectedTools && cfg.HubAddr == "" {
 		return nil, fmt.Errorf("hub address is required")
 	}
-	var err error
-	if cfg.OpenAIAPIKey == "" {
+	if !useInjectedModel && cfg.OpenAIAPIKey == "" {
 		return nil, fmt.Errorf("openai api key is required")
 	}
+	cfg = applyConfigDefaults(cfg)
+
+	var err error
+	shutdownTracing := func(context.Context) error { return nil }
+	if cfg.EnableTracing {
+		shutdownTracing, err = client.InitTracing(ctx, "task-relay-master", cfg.OTelEndpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg.EnableMetrics && cfg.MetricsAddr != "" {
+		go func() {
+			_ = client.StartMetricsServer(ctx, cfg.MetricsAddr, prometheus.DefaultGatherer)
+		}()
+	}
+
+	var hub *client.Client
+	if !useInjectedTools {
+		hub, err = client.New(ctx, client.Config{
+			Addr:          cfg.HubAddr,
+			MasterJWT:     cfg.MasterJWT,
+			TLS:           cfg.HubTLS,
+			EnableMetrics: cfg.EnableMetrics,
+			EnableTracing: cfg.EnableTracing,
+		})
+		if err != nil {
+			_ = shutdownTracing(context.Background())
+			return nil, err
+		}
+	}
+
+	chatModel := cfg.ChatModel
+	if chatModel == nil {
+		modelCfg := &openai.ChatModelConfig{
+			APIKey: cfg.OpenAIAPIKey,
+			Model:  cfg.OpenAIModel,
+		}
+		if cfg.OpenAIBaseURL != "" {
+			modelCfg.BaseURL = cfg.OpenAIBaseURL
+		}
+		chatModel, err = openai.NewChatModel(ctx, modelCfg)
+		if err != nil {
+			_ = closeHub(hub)
+			_ = shutdownTracing(context.Background())
+			return nil, fmt.Errorf("openai chat model: %w", err)
+		}
+	}
+
+	tools := cfg.Tools
+	if !useInjectedTools {
+		tools, err = (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
+		if err != nil {
+			_ = closeHub(hub)
+			_ = shutdownTracing(context.Background())
+			return nil, err
+		}
+	}
+	toolsConfig := adk.ToolsConfig{
+		ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
+	}
+
+	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig)
+	if err != nil {
+		_ = closeHub(hub)
+		_ = shutdownTracing(context.Background())
+		return nil, err
+	}
+
+	return &Master{
+		Runner:          adk.NewRunner(ctx, adk.RunnerConfig{Agent: agentImpl}),
+		Hub:             hub,
+		shutdownTracing: shutdownTracing,
+	}, nil
+}
+
+func applyConfigDefaults(cfg Config) Config {
 	if cfg.OpenAIModel == "" {
 		cfg.OpenAIModel = "gpt-4o-mini"
 	}
@@ -98,74 +185,20 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	if cfg.Mode == "" {
 		cfg.Mode = ModeDeep
 	}
+	return cfg
+}
 
-	shutdownTracing := func(context.Context) error { return nil }
-	if cfg.EnableTracing {
-		shutdownTracing, err = client.InitTracing(ctx, "task-relay-master", cfg.OTelEndpoint)
-		if err != nil {
-			return nil, err
-		}
+func closeHub(hub *client.Client) error {
+	if hub == nil {
+		return nil
 	}
-	if cfg.EnableMetrics && cfg.MetricsAddr != "" {
-		go func() {
-			_ = client.StartMetricsServer(ctx, cfg.MetricsAddr, prometheus.DefaultGatherer)
-		}()
-	}
-
-	hub, err := client.New(ctx, client.Config{
-		Addr:          cfg.HubAddr,
-		MasterJWT:     cfg.MasterJWT,
-		TLS:           cfg.HubTLS,
-		EnableMetrics: cfg.EnableMetrics,
-		EnableTracing: cfg.EnableTracing,
-	})
-	if err != nil {
-		_ = shutdownTracing(context.Background())
-		return nil, err
-	}
-
-	modelCfg := &openai.ChatModelConfig{
-		APIKey: cfg.OpenAIAPIKey,
-		Model:  cfg.OpenAIModel,
-	}
-	if cfg.OpenAIBaseURL != "" {
-		modelCfg.BaseURL = cfg.OpenAIBaseURL
-	}
-	chatModel, err := openai.NewChatModel(ctx, modelCfg)
-	if err != nil {
-		_ = hub.Close()
-		_ = shutdownTracing(context.Background())
-		return nil, fmt.Errorf("openai chat model: %w", err)
-	}
-
-	tools, err := (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
-	if err != nil {
-		_ = hub.Close()
-		_ = shutdownTracing(context.Background())
-		return nil, err
-	}
-	toolsConfig := adk.ToolsConfig{
-		ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
-	}
-
-	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig)
-	if err != nil {
-		_ = hub.Close()
-		_ = shutdownTracing(context.Background())
-		return nil, err
-	}
-
-	return &Master{
-		Runner:          adk.NewRunner(ctx, adk.RunnerConfig{Agent: agentImpl}),
-		Hub:             hub,
-		shutdownTracing: shutdownTracing,
-	}, nil
+	return hub.Close()
 }
 
 func buildAgent(
 	ctx context.Context,
 	cfg Config,
-	chatModel *openai.ChatModel,
+	chatModel model.BaseModel[*schema.Message],
 	toolsConfig adk.ToolsConfig,
 ) (adk.Agent, error) {
 	switch cfg.Mode {

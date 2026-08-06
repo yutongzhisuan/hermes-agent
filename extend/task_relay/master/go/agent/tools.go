@@ -7,10 +7,10 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 	toolutils "github.com/cloudwego/eino/components/tool/utils"
+	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 
 	"github.com/infa/task_relay/master/client"
 	"github.com/infa/task_relay/master/join"
-	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 )
 
 // RelayTools wraps the framework-agnostic Hub client as Eino InvokableTools.
