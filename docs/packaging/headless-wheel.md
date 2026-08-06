@@ -62,5 +62,12 @@ in the headless wheel distribution.
 ## Build (maintainers)
 
 ```bash
+make dist-wheel          # online pip wheel
+make dist-offline        # frozen venv + vendored wheels (offline)
+```
+
+See [headless-wheel-offline.md](./headless-wheel-offline.md) for frozen/vendored bundle usage.
+
+```bash
 HERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 ```
