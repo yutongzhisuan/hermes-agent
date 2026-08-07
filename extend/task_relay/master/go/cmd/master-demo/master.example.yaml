@@ -109,3 +109,20 @@ search:
     # ddgs:
     #   base_url: https://html.duckduckgo.com
     #   timeout_seconds: 30
+
+# Controlled shell execution (disabled by default).
+exec:
+  enabled: false   # 设为 true 启用 bash 工具
+  default_backend: local
+  policy:
+    mode: deny_by_default
+    allow_list: ["ls", "cat", "grep", "git status", "go test", "make"]
+    deny_list: ["rm -rf", "sudo", "curl | sh"]
+    approval_list: ["git push", "kubectl"]
+    env_allow_keys: ["PATH", "HOME", "GOPATH"]
+  limits:
+    timeout_default: 60s
+    timeout_max: 10m
+    max_output_bytes: 1048576
+  audit:
+    path: ~/.task-relay/exec-audit.jsonl
