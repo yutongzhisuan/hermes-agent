@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 // Deps wires the web tools' collaborators.
 type Deps struct {
 	Audit                *policy.AuditLogger
+	Paths                policy.PathEvaluator
 	DomainAllowList      []string // suffix match; empty = all allowed
 	DomainDenyList       []string // suffix match, always wins
 	AllowPrivateNetworks bool
@@ -121,6 +123,16 @@ func secureTransport(allowPrivate bool) *http.Transport {
 		return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
 	}
 	return transport
+}
+
+// resolveIn joins relative paths against root; absolute paths pass through
+// (the policy evaluator already validated them). Duplicated from filetools
+// to avoid a webtools→filetools dependency.
+func resolveIn(root, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(root, path)
 }
 
 // auditDenied records a policy denial.
