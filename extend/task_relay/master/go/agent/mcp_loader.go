@@ -15,8 +15,9 @@ import (
 
 // MCPToolkit holds tools loaded from one or more MCP servers and their sessions.
 type MCPToolkit struct {
-	Tools    []tool.BaseTool
-	sessions []*mcp.ClientSession
+	Tools        []tool.BaseTool
+	Instructions map[string]string
+	sessions     []*mcp.ClientSession
 }
 
 // Close closes all MCP client sessions.
@@ -46,13 +47,19 @@ func LoadMCPTools(ctx context.Context, servers map[string]MCPServerConfig) (*MCP
 		if srv.Disabled {
 			continue
 		}
-		session, tools, err := connectMCPServer(ctx, client, name, srv)
+		session, tools, instructions, err := connectMCPServer(ctx, client, name, srv)
 		if err != nil {
 			_ = out.Close()
 			return nil, err
 		}
 		out.sessions = append(out.sessions, session)
 		out.Tools = append(out.Tools, tools...)
+		if instructions != "" {
+			if out.Instructions == nil {
+				out.Instructions = make(map[string]string)
+			}
+			out.Instructions[name] = instructions
+		}
 	}
 	return out, nil
 }
@@ -62,14 +69,18 @@ func connectMCPServer(
 	client *mcp.Client,
 	name string,
 	srv MCPServerConfig,
-) (*mcp.ClientSession, []tool.BaseTool, error) {
+) (*mcp.ClientSession, []tool.BaseTool, string, error) {
 	transport, err := buildMCPTransport(name, srv)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("mcp server %q connect: %w", name, err)
+		return nil, nil, "", fmt.Errorf("mcp server %q connect: %w", name, err)
+	}
+	var instructions string
+	if initResult := session.InitializeResult(); initResult != nil {
+		instructions = initResult.Instructions
 	}
 	tools, err := omcp.GetTools(ctx, &omcp.Config{
 		Cli:          session,
@@ -77,9 +88,9 @@ func connectMCPServer(
 	})
 	if err != nil {
 		_ = session.Close()
-		return nil, nil, fmt.Errorf("mcp server %q list tools: %w", name, err)
+		return nil, nil, "", fmt.Errorf("mcp server %q list tools: %w", name, err)
 	}
-	return session, tools, nil
+	return session, tools, instructions, nil
 }
 
 func buildMCPTransport(name string, srv MCPServerConfig) (mcp.Transport, error) {

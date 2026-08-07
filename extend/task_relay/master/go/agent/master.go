@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -232,6 +234,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		if mcpToolkit != nil {
 			mcpClose = mcpToolkit.Close
 			tools = append(tools, mcpToolkit.Tools...)
+			cfg.Instruction = mergeMCPInstructions(cfg.Instruction, mcpToolkit.Instructions)
 		}
 		searchTools, searchErr := BuildSearchTools(cfg.Search)
 		if searchErr != nil {
@@ -367,6 +370,28 @@ func applyConfigDefaults(cfg Config, localOnly bool) Config {
 		cfg.Mode = ModeDeep
 	}
 	return cfg
+}
+
+// mergeMCPInstructions appends per-server MCP instructions to the base
+// instruction with server names sorted for a deterministic system prompt.
+func mergeMCPInstructions(base string, instructions map[string]string) string {
+	names := make([]string, 0, len(instructions))
+	for name, text := range instructions {
+		if text != "" {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return base
+	}
+	sort.Strings(names)
+	var b strings.Builder
+	b.WriteString(base)
+	b.WriteString("\n\n## MCP Server Instructions")
+	for _, name := range names {
+		fmt.Fprintf(&b, "\n### %s\n%s", name, instructions[name])
+	}
+	return b.String()
 }
 
 func closeHub(hub *client.Client) error {
