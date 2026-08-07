@@ -1,0 +1,40 @@
+# Unified master config for master-demo:
+#   master-demo -goal "..." -config master.example.yaml
+#
+# Sections:
+#   mcpServers — Cursor-compatible MCP tool servers
+#   search     — web_search / web_extract (Tavily or Perplexity API shape)
+#
+# ${ENV_VAR} in string fields is expanded from the process environment.
+
+mcpServers:
+  # Disabled placeholder so this example parses; replace with real servers.
+  _example:
+    disabled: true
+    command: echo
+    args: ["mcp-example-disabled"]
+
+  # filesystem:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+  # webextend:
+  #   type: http
+  #   url: http://127.0.0.1:8000/mcp
+  #   headers:
+  #     Authorization: Bearer ${GATEWAY_API_KEY}
+
+# Set enabled: true and real base_url/api_key to register web_search + web_extract.
+search:
+  enabled: true
+  provider: tavily # tavily (default) | perplexity
+  base_url: http://100.118.227.59:8000
+  api_key: 4a89ecd6295b5b95f29ec7e10e274fd74370980797714425
+  max_results: 5
+  timeout_seconds: 30
+  # search_depth: basic
+
+  # Perplexity-compatible:
+  # provider: perplexity
+  # base_url: http://127.0.0.1:8000
+  # api_key: ${GATEWAY_API_KEY}

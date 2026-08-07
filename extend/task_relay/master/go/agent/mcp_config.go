@@ -11,12 +11,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// MCPFileConfig is a Cursor/Claude-compatible MCP servers file.
-type MCPFileConfig struct {
+// MasterFileConfig is the unified master agent config (MCP + search).
+type MasterFileConfig struct {
 	MCPServers map[string]MCPServerConfig `json:"mcpServers" yaml:"mcpServers"`
 	// Servers is an optional alias for mcpServers.
 	Servers map[string]MCPServerConfig `json:"servers" yaml:"servers"`
+	Search  *SearchConfig              `json:"search" yaml:"search"`
 }
+
+// MCPFileConfig is an alias kept for callers that only care about MCP servers.
+type MCPFileConfig = MasterFileConfig
 
 // MCPServerConfig describes one MCP server entry.
 type MCPServerConfig struct {
@@ -33,56 +37,65 @@ type MCPServerConfig struct {
 
 var envRefPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
-// LoadMCPConfigFile reads YAML or JSON MCP server definitions from path.
-func LoadMCPConfigFile(path string) (*MCPFileConfig, error) {
+// LoadMasterConfigFile reads the unified YAML/JSON master config.
+func LoadMasterConfigFile(path string) (*MasterFileConfig, error) {
 	if strings.TrimSpace(path) == "" {
-		return nil, fmt.Errorf("mcp config path is empty")
+		return nil, fmt.Errorf("master config path is empty")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read mcp config: %w", err)
+		return nil, fmt.Errorf("read master config: %w", err)
 	}
-	cfg, err := parseMCPConfig(data, filepath.Ext(path))
+	cfg, err := parseMasterConfig(data, filepath.Ext(path))
 	if err != nil {
 		return nil, err
 	}
-	expandMCPConfigEnv(cfg)
+	expandMasterConfigEnv(cfg)
+	normalizeSearchConfig(cfg.Search)
+	if err := validateSearchConfig(cfg.Search); err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 
-func parseMCPConfig(data []byte, ext string) (*MCPFileConfig, error) {
-	var cfg MCPFileConfig
+// LoadMCPConfigFile reads a config file and returns MCP-focused view (unified format).
+func LoadMCPConfigFile(path string) (*MCPFileConfig, error) {
+	return LoadMasterConfigFile(path)
+}
+
+func parseMasterConfig(data []byte, ext string) (*MasterFileConfig, error) {
+	var cfg MasterFileConfig
 	ext = strings.ToLower(ext)
 	switch ext {
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
-			return nil, fmt.Errorf("parse mcp yaml: %w", err)
+			return nil, fmt.Errorf("parse master yaml: %w", err)
 		}
 	case ".json":
 		if err := json.Unmarshal(data, &cfg); err != nil {
-			return nil, fmt.Errorf("parse mcp json: %w", err)
+			return nil, fmt.Errorf("parse master json: %w", err)
 		}
 	default:
-		if err := yaml.Unmarshal(data, &cfg); err == nil && hasMCPServers(&cfg) {
+		if err := yaml.Unmarshal(data, &cfg); err == nil && hasMasterContent(&cfg) {
 			return &cfg, nil
 		}
-		cfg = MCPFileConfig{}
+		cfg = MasterFileConfig{}
 		if err := json.Unmarshal(data, &cfg); err != nil {
-			return nil, fmt.Errorf("parse mcp config: unsupported format %q", ext)
+			return nil, fmt.Errorf("parse master config: unsupported format %q", ext)
 		}
 	}
-	if !hasMCPServers(&cfg) {
-		return nil, fmt.Errorf("mcp config has no mcpServers entries")
+	if !hasMasterContent(&cfg) {
+		return nil, fmt.Errorf("master config has no mcpServers or search section")
 	}
 	return &cfg, nil
 }
 
-func hasMCPServers(cfg *MCPFileConfig) bool {
-	return cfg != nil && (len(cfg.MCPServers) > 0 || len(cfg.Servers) > 0)
+func hasMasterContent(cfg *MasterFileConfig) bool {
+	return cfg != nil && (len(cfg.MCPServers) > 0 || len(cfg.Servers) > 0 || cfg.Search != nil)
 }
 
 // ServersMap returns the effective server map (mcpServers preferred, else servers).
-func (c *MCPFileConfig) ServersMap() map[string]MCPServerConfig {
+func (c *MasterFileConfig) ServersMap() map[string]MCPServerConfig {
 	if c == nil {
 		return nil
 	}
@@ -92,7 +105,7 @@ func (c *MCPFileConfig) ServersMap() map[string]MCPServerConfig {
 	return c.Servers
 }
 
-func expandMCPConfigEnv(cfg *MCPFileConfig) {
+func expandMasterConfigEnv(cfg *MasterFileConfig) {
 	if cfg == nil {
 		return
 	}
@@ -109,6 +122,12 @@ func expandMCPConfigEnv(cfg *MCPFileConfig) {
 			srv.Headers[k] = expandEnvRefs(v)
 		}
 		cfg.ServersMap()[name] = srv
+	}
+	if cfg.Search != nil {
+		cfg.Search.BaseURL = expandEnvRefs(cfg.Search.BaseURL)
+		cfg.Search.APIKey = expandEnvRefs(cfg.Search.APIKey)
+		cfg.Search.Provider = expandEnvRefs(cfg.Search.Provider)
+		cfg.Search.SearchDepth = expandEnvRefs(cfg.Search.SearchDepth)
 	}
 }
 

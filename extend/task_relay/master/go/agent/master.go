@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -81,13 +82,17 @@ type Config struct {
 
 	// ChatModel injects a model and skips OpenAI construction (primarily for tests).
 	ChatModel model.BaseModel[*schema.Message]
-	// Tools injects tools and skips Hub RelayTools / MCP construction (primarily for tests).
+	// Tools injects tools and skips Hub RelayTools / MCP / search construction (primarily for tests).
 	Tools []tool.BaseTool
 
-	// MCPConfigPath loads Cursor-compatible mcpServers from a YAML/JSON file.
+	// ConfigPath loads the unified master YAML/JSON (mcpServers + search).
+	ConfigPath string
+	// MCPConfigPath is deprecated; prefer ConfigPath. Still loads MCP-only when ConfigPath is empty.
 	MCPConfigPath string
-	// MCPServers registers MCP servers inline (used when MCPConfigPath is empty).
+	// MCPServers registers MCP servers inline (merged after file config).
 	MCPServers map[string]MCPServerConfig
+	// Search configures web_search / web_extract (overrides file search section when non-nil).
+	Search *SearchConfig
 
 	HubTLS        client.TLSConfig
 	EnableMetrics bool
@@ -126,9 +131,13 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	if !useInjectedModel && cfg.OpenAIAPIKey == "" {
 		return nil, fmt.Errorf("openai api key is required")
 	}
+	var err error
+	cfg, err = applyFileConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	cfg = applyConfigDefaults(cfg, localOnly && !useInjectedTools)
 
-	var err error
 	shutdownTracing := func(context.Context) error { return nil }
 	if cfg.EnableTracing {
 		shutdownTracing, err = client.InitTracing(ctx, "task-relay-master", cfg.OTelEndpoint)
@@ -195,6 +204,16 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			mcpClose = mcpToolkit.Close
 			tools = append(tools, mcpToolkit.Tools...)
 		}
+		searchTools, searchErr := BuildSearchTools(cfg.Search)
+		if searchErr != nil {
+			if mcpClose != nil {
+				_ = mcpClose()
+			}
+			_ = closeHub(hub)
+			_ = shutdownTracing(context.Background())
+			return nil, searchErr
+		}
+		tools = append(tools, searchTools...)
 		if err = ensureUniqueToolNames(ctx, tools); err != nil {
 			if mcpClose != nil {
 				_ = mcpClose()
@@ -227,19 +246,37 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	}, nil
 }
 
-func loadConfiguredMCP(ctx context.Context, cfg Config) (*MCPToolkit, error) {
-	servers := cfg.MCPServers
-	if cfg.MCPConfigPath != "" {
-		fileCfg, err := LoadMCPConfigFile(cfg.MCPConfigPath)
-		if err != nil {
-			return nil, err
-		}
-		servers = fileCfg.ServersMap()
+func applyFileConfig(cfg Config) (Config, error) {
+	path := cfg.ConfigPath
+	if path == "" {
+		path = cfg.MCPConfigPath
 	}
-	if len(servers) == 0 {
+	if path == "" {
+		return cfg, nil
+	}
+	fileCfg, err := LoadMasterConfigFile(path)
+	if err != nil {
+		return cfg, err
+	}
+	if len(cfg.MCPServers) == 0 {
+		cfg.MCPServers = fileCfg.ServersMap()
+	} else if servers := fileCfg.ServersMap(); len(servers) > 0 {
+		merged := make(map[string]MCPServerConfig, len(servers)+len(cfg.MCPServers))
+		maps.Copy(merged, servers)
+		maps.Copy(merged, cfg.MCPServers)
+		cfg.MCPServers = merged
+	}
+	if cfg.Search == nil {
+		cfg.Search = fileCfg.Search
+	}
+	return cfg, nil
+}
+
+func loadConfiguredMCP(ctx context.Context, cfg Config) (*MCPToolkit, error) {
+	if len(cfg.MCPServers) == 0 {
 		return nil, nil
 	}
-	return LoadMCPTools(ctx, servers)
+	return LoadMCPTools(ctx, cfg.MCPServers)
 }
 
 func ensureUniqueToolNames(ctx context.Context, tools []tool.BaseTool) error {
