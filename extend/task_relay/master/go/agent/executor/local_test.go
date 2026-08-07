@@ -101,7 +101,43 @@ func TestLocalSandboxProbe(t *testing.T) {
 func TestLocalSandboxedFlag(t *testing.T) {
 	l, err := executor.NewLocal(executor.LocalOptions{})
 	require.NoError(t, err)
-	_ = l.(interface{ Sandboxed() bool }).Sandboxed()
+	_ = l.Sandboxed()
+}
+
+func TestLocalEnvMinimalBase(t *testing.T) {
+	t.Setenv("EXEC_SECRET_LEAK_TEST", "topsecret")
+	res, err := localExec(t).Run(context.Background(), executor.Spec{
+		Command: "echo $EXEC_SECRET_LEAK_TEST",
+	}.WithDefaults(10*time.Second, time.Minute, 1<<20))
+	require.NoError(t, err)
+	require.Equal(t, "\n", res.Stdout)
+}
+
+func requireBwrap(t *testing.T) executor.Executor {
+	t.Helper()
+	e, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	if !e.Sandboxed() {
+		t.Skip("bwrap not available or probe failed")
+	}
+	return e
+}
+
+func TestSandboxGroupKill(t *testing.T) {
+	res, err := requireBwrap(t).Run(context.Background(), executor.Spec{
+		Command: "sleep 60 & wait",
+		Timeout: 300 * time.Millisecond,
+	}.WithDefaults(10*time.Second, time.Minute, 1<<20))
+	require.NoError(t, err)
+	require.True(t, res.TimedOut)
+}
+
+func TestSandboxWriteIsolation(t *testing.T) {
+	res, err := requireBwrap(t).Run(context.Background(), executor.Spec{
+		Command: "touch /usr/exec-sandbox-test 2>&1; echo exit=$?",
+	}.WithDefaults(10*time.Second, time.Minute, 1<<20))
+	require.NoError(t, err)
+	require.Contains(t, res.Stdout, "exit=1")
 }
 
 func TestLocalSetsidEscapeDoesNotHang(t *testing.T) {

@@ -27,8 +27,32 @@ func NewLocal(opts LocalOptions) (Executor, error) {
 	if _, err := exec.LookPath(shell); err != nil {
 		return nil, fmt.Errorf("shell %q: %w", shell, err)
 	}
-	bwrapPath, _ := exec.LookPath("bwrap")
+	bwrapPath := probeBwrap(shell)
 	return &localBackend{shell: shell, bwrapPath: bwrapPath}, nil
+}
+
+func probeBwrap(shell string) string {
+	path, err := exec.LookPath("bwrap")
+	if err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	probe := exec.CommandContext(ctx, path,
+		"--ro-bind", "/", "/",
+		"--dev", "/dev",
+		"--proc", "/proc",
+		"--unshare-pid",
+		"--unshare-ipc",
+		"--cap-drop", "ALL",
+		"--die-with-parent",
+		"--tmpfs", "/tmp",
+		"--new-session",
+		"--", shell, "-c", "true")
+	if err := probe.Run(); err != nil {
+		return ""
+	}
+	return path
 }
 
 func (l *localBackend) Name() string { return "local" }
@@ -43,6 +67,7 @@ func (l *localBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	args := []string{"-c", spec.Command}
 	bin := l.shell
 	if l.bwrapPath != "" {
+		// 隔离范围：文件系统完整性 + capability；不含网络隔离（保留 curl/git 等联网命令能力）
 		bwrapArgs := []string{
 			"--ro-bind", "/", "/",
 			"--dev", "/dev",
@@ -50,6 +75,8 @@ func (l *localBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 			"--unshare-pid",
 			"--unshare-ipc",
 			"--cap-drop", "ALL",
+			"--tmpfs", "/tmp",
+			"--new-session",
 			"--die-with-parent",
 		}
 		if spec.WorkDir != "" {
@@ -100,6 +127,8 @@ func (l *localBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	return res, nil
 }
 
+var baseEnvKeys = []string{"PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "USER", "LOGNAME", "SHELL", "TERM", "GOPATH", "GOROOT", "GOPROXY", "GOSUMDB", "GOFLAGS"}
+
 func mergeEnv(overrides map[string]string) []string {
 	base := map[string]string{}
 	for _, kv := range syscall.Environ() {
@@ -110,11 +139,17 @@ func mergeEnv(overrides map[string]string) []string {
 			}
 		}
 	}
-	for k, v := range overrides {
-		base[k] = v
+	minimal := make(map[string]string, len(baseEnvKeys))
+	for _, k := range baseEnvKeys {
+		if v, ok := base[k]; ok {
+			minimal[k] = v
+		}
 	}
-	out := make([]string, 0, len(base))
-	for k, v := range base {
+	for k, v := range overrides {
+		minimal[k] = v
+	}
+	out := make([]string, 0, len(minimal))
+	for k, v := range minimal {
 		out = append(out, k+"="+v)
 	}
 	return out

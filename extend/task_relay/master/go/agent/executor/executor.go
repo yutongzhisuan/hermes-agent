@@ -42,4 +42,5 @@ type JobResult struct {
 type Executor interface {
 	Run(ctx context.Context, spec Spec) (JobResult, error)
 	Name() string
+	Sandboxed() bool
 }
