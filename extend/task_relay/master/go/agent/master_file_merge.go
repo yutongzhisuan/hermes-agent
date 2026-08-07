@@ -24,9 +24,10 @@ type HubTLSConfig struct {
 
 // OpenAIFileConfig is the LLM section of master.yaml.
 type OpenAIFileConfig struct {
-	APIKey  string `json:"api_key" yaml:"api_key"`
-	Model   string `json:"model" yaml:"model"`
-	BaseURL string `json:"base_url" yaml:"base_url"`
+	APIKey     string `json:"api_key" yaml:"api_key"`
+	Model      string `json:"model" yaml:"model"`
+	BaseURL    string `json:"base_url" yaml:"base_url"`
+	SmallModel string `json:"small_model" yaml:"small_model"`
 }
 
 // AgentFileConfig is the agent behavior section of master.yaml.
@@ -111,6 +112,9 @@ func MergeFileIntoConfig(cfg Config, file *MasterFileConfig) (Config, FileRuntim
 		}
 		if cfg.OpenAIBaseURL == "" {
 			cfg.OpenAIBaseURL = file.OpenAI.BaseURL
+		}
+		if cfg.OpenAISmallModel == "" {
+			cfg.OpenAISmallModel = file.OpenAI.SmallModel
 		}
 	}
 	if file.Agent != nil {

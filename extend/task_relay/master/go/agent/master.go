@@ -69,15 +69,16 @@ const (
 type Config struct {
 	// HubAddr is the Relay Hub gRPC address. Empty enables local-only mode
 	// (no remote workers; requests are handled in this process).
-	HubAddr       string
-	MasterJWT     string
-	MasterSession string
-	OpenAIAPIKey  string
-	OpenAIModel   string
-	OpenAIBaseURL string
-	Instruction   string
-	MaxIterations int
-	Mode          Mode
+	HubAddr          string
+	MasterJWT        string
+	MasterSession    string
+	OpenAIAPIKey     string
+	OpenAIModel      string
+	OpenAIBaseURL    string
+	OpenAISmallModel string
+	Instruction      string
+	MaxIterations    int
+	Mode             Mode
 
 	// DisableLocalSubAgents turns off DeepAgent's general-purpose "task" subagent.
 	DisableLocalSubAgents bool
@@ -194,6 +195,23 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		}
 	}
 
+	plannerModel := chatModel
+	if cfg.OpenAISmallModel != "" {
+		smallCfg := &openai.ChatModelConfig{
+			APIKey: cfg.OpenAIAPIKey,
+			Model:  cfg.OpenAISmallModel,
+		}
+		if cfg.OpenAIBaseURL != "" {
+			smallCfg.BaseURL = cfg.OpenAIBaseURL
+		}
+		plannerModel, err = openai.NewChatModel(ctx, smallCfg)
+		if err != nil {
+			_ = closeHub(hub)
+			_ = shutdownTracing(context.Background())
+			return nil, fmt.Errorf("openai small chat model: %w", err)
+		}
+	}
+
 	tools := cfg.Tools
 	var mcpClose func() error
 	if !useInjectedTools {
@@ -264,7 +282,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		ToolsNodeConfig: compose.ToolsNodeConfig{Tools: tools},
 	}
 
-	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig, localOnly && !useInjectedTools)
+	agentImpl, err := buildAgent(ctx, cfg, chatModel, plannerModel, toolsConfig, localOnly && !useInjectedTools)
 	if err != nil {
 		if mcpClose != nil {
 			_ = mcpClose()
@@ -433,6 +451,7 @@ func buildAgent(
 	ctx context.Context,
 	cfg Config,
 	chatModel model.BaseModel[*schema.Message],
+	plannerModel model.BaseModel[*schema.Message],
 	toolsConfig adk.ToolsConfig,
 	localOnly bool,
 ) (adk.Agent, error) {
@@ -451,7 +470,7 @@ func buildAgent(
 			MaxIterations: cfg.MaxIterations,
 		})
 	case ModeDeep:
-		localSubAgents, err := buildLocalSubAgents(ctx, cfg, chatModel)
+		localSubAgents, err := buildLocalSubAgents(ctx, cfg, plannerModel)
 		if err != nil {
 			return nil, err
 		}

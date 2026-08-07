@@ -166,6 +166,7 @@ func expandMasterConfigEnv(cfg *MasterFileConfig) {
 		cfg.OpenAI.APIKey = expandEnvRefs(cfg.OpenAI.APIKey)
 		cfg.OpenAI.Model = expandEnvRefs(cfg.OpenAI.Model)
 		cfg.OpenAI.BaseURL = expandEnvRefs(cfg.OpenAI.BaseURL)
+		cfg.OpenAI.SmallModel = expandEnvRefs(cfg.OpenAI.SmallModel)
 	}
 	if cfg.Agent != nil {
 		cfg.Agent.Mode = expandEnvRefs(cfg.Agent.Mode)
