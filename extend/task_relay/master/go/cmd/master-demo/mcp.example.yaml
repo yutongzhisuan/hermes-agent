@@ -1,0 +1,33 @@
+# Cursor-compatible MCP servers for master-demo:
+#   master-demo -goal "..." -mcp-config mcp.example.yaml
+#
+# Supported transports:
+#   - stdio: command + args (+ env)
+#   - sse:   type: sse + url (+ headers)
+#   - http:  type: http|streamable-http + url (+ headers)
+#
+# ${ENV_VAR} in string fields is expanded from the process environment.
+
+mcpServers:
+  # Disabled placeholder so this example file parses; replace with real servers.
+  _example:
+    disabled: true
+    command: echo
+    args: ["mcp-example-disabled"]
+
+  # filesystem:
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+  #   env:
+  #     FOO: bar
+
+  # remote-sse:
+  #   type: sse
+  #   url: https://example.com/sse
+  #   headers:
+  #     Authorization: Bearer ${MCP_TOKEN}
+
+  # remote-http:
+  #   type: http
+  #   url: https://example.com/mcp
+  #   tools: []   # optional allowlist; empty/omitted = all tools

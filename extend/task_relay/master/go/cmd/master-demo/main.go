@@ -34,10 +34,11 @@ func main() {
 	verbose := flag.Bool("verbose", false, "Print full agent interaction flow to stderr")
 	logLevel := flag.String("log-level", "info", "slog level: debug|info|warn|error|off")
 	logJSON := flag.Bool("log-json", false, "Emit JSON slog to stderr")
+	mcpConfig := flag.String("mcp-config", envOr("MASTER_MCP_CONFIG", ""), "MCP servers YAML/JSON config (Cursor mcpServers format)")
 	flag.Parse()
 
 	if *goal == "" {
-		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-hub-grpc addr] [-master-jwt token] [-verbose] [-log-level info] [-log-json]")
+		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-hub-grpc addr] [-master-jwt token] [-mcp-config path] [-verbose] [-log-level info] [-log-json]")
 		fmt.Fprintln(os.Stderr, "omit -hub-grpc/-master-jwt to handle the goal locally in this process")
 		os.Exit(2)
 	}
@@ -74,6 +75,7 @@ func main() {
 		MetricsAddr:   *metricsAddr,
 		EnableTracing: *enableTracing,
 		OTelEndpoint:  *otelEndpoint,
+		MCPConfigPath: *mcpConfig,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "init master: %v\n", err)
@@ -84,6 +86,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, "mode: local-only (no Hub / remote workers)")
 	} else {
 		fmt.Fprintln(os.Stderr, "mode: remote Relay via Hub")
+	}
+	if *mcpConfig != "" {
+		fmt.Fprintf(os.Stderr, "mcp: loaded config %s\n", *mcpConfig)
 	}
 
 	opts, err := runOpts(*verbose, *logLevel, *logJSON)

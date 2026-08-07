@@ -81,8 +81,13 @@ type Config struct {
 
 	// ChatModel injects a model and skips OpenAI construction (primarily for tests).
 	ChatModel model.BaseModel[*schema.Message]
-	// Tools injects tools and skips Hub RelayTools construction (primarily for tests).
+	// Tools injects tools and skips Hub RelayTools / MCP construction (primarily for tests).
 	Tools []tool.BaseTool
+
+	// MCPConfigPath loads Cursor-compatible mcpServers from a YAML/JSON file.
+	MCPConfigPath string
+	// MCPServers registers MCP servers inline (used when MCPConfigPath is empty).
+	MCPServers map[string]MCPServerConfig
 
 	HubTLS        client.TLSConfig
 	EnableMetrics bool
@@ -97,6 +102,7 @@ type Master struct {
 	Hub             *client.Client
 	LocalOnly       bool
 	shutdownTracing func(context.Context) error
+	mcpClose        func() error
 }
 
 // New builds a Master agent.
@@ -169,9 +175,30 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 	}
 
 	tools := cfg.Tools
-	if !useInjectedTools && !localOnly {
-		tools, err = (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
-		if err != nil {
+	var mcpClose func() error
+	if !useInjectedTools {
+		if !localOnly {
+			tools, err = (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
+			if err != nil {
+				_ = closeHub(hub)
+				_ = shutdownTracing(context.Background())
+				return nil, err
+			}
+		}
+		mcpToolkit, mcpErr := loadConfiguredMCP(ctx, cfg)
+		if mcpErr != nil {
+			_ = closeHub(hub)
+			_ = shutdownTracing(context.Background())
+			return nil, mcpErr
+		}
+		if mcpToolkit != nil {
+			mcpClose = mcpToolkit.Close
+			tools = append(tools, mcpToolkit.Tools...)
+		}
+		if err = ensureUniqueToolNames(ctx, tools); err != nil {
+			if mcpClose != nil {
+				_ = mcpClose()
+			}
 			_ = closeHub(hub)
 			_ = shutdownTracing(context.Background())
 			return nil, err
@@ -183,6 +210,9 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 
 	agentImpl, err := buildAgent(ctx, cfg, chatModel, toolsConfig, localOnly && !useInjectedTools)
 	if err != nil {
+		if mcpClose != nil {
+			_ = mcpClose()
+		}
 		_ = closeHub(hub)
 		_ = shutdownTracing(context.Background())
 		return nil, err
@@ -193,7 +223,44 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		Hub:             hub,
 		LocalOnly:       localOnly && !useInjectedTools,
 		shutdownTracing: shutdownTracing,
+		mcpClose:        mcpClose,
 	}, nil
+}
+
+func loadConfiguredMCP(ctx context.Context, cfg Config) (*MCPToolkit, error) {
+	servers := cfg.MCPServers
+	if cfg.MCPConfigPath != "" {
+		fileCfg, err := LoadMCPConfigFile(cfg.MCPConfigPath)
+		if err != nil {
+			return nil, err
+		}
+		servers = fileCfg.ServersMap()
+	}
+	if len(servers) == 0 {
+		return nil, nil
+	}
+	return LoadMCPTools(ctx, servers)
+}
+
+func ensureUniqueToolNames(ctx context.Context, tools []tool.BaseTool) error {
+	seen := make(map[string]struct{}, len(tools))
+	for _, t := range tools {
+		if t == nil {
+			continue
+		}
+		info, err := t.Info(ctx)
+		if err != nil {
+			return fmt.Errorf("tool info: %w", err)
+		}
+		if info == nil || info.Name == "" {
+			return fmt.Errorf("tool has empty name")
+		}
+		if _, ok := seen[info.Name]; ok {
+			return fmt.Errorf("duplicate tool name %q", info.Name)
+		}
+		seen[info.Name] = struct{}{}
+	}
+	return nil
 }
 
 func applyConfigDefaults(cfg Config, localOnly bool) Config {
@@ -271,14 +338,19 @@ func buildAgent(
 	}
 }
 
-// Close releases Hub and tracing resources.
+// Close releases Hub, MCP, and tracing resources.
 func (m *Master) Close() error {
 	if m == nil {
 		return nil
 	}
 	var err error
+	if m.mcpClose != nil {
+		err = m.mcpClose()
+	}
 	if m.Hub != nil {
-		err = m.Hub.Close()
+		if hubErr := m.Hub.Close(); err == nil {
+			err = hubErr
+		}
 	}
 	if m.shutdownTracing != nil {
 		_ = m.shutdownTracing(context.Background())
