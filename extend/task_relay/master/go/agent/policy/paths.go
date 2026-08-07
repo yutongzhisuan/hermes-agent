@@ -8,7 +8,8 @@ import (
 )
 
 // PathRules gates filesystem access by glob patterns.
-// Patterns match against both the root-relative and absolute forms of the path.
+// Allow patterns match the root-relative and symlink-resolved absolute forms
+// only; deny patterns additionally match the raw (unresolved) absolute form.
 type PathRules struct {
 	AllowList []string `json:"allow_list" yaml:"allow_list"`
 	DenyList  []string `json:"deny_list" yaml:"deny_list"`
@@ -52,7 +53,7 @@ func (e *pathEvaluator) EvaluatePath(path string) Decision {
 	insideRoot := relErr == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 
 	for _, d := range e.rules.DenyList {
-		if matchAny(d, rel, abs, raw) {
+		if matchDeny(d, rel, abs, raw) {
 			return Deny
 		}
 	}
@@ -60,7 +61,7 @@ func (e *pathEvaluator) EvaluatePath(path string) Decision {
 	if !insideRoot {
 		// Outside root: only an absolute allow glob may grant access.
 		for _, a := range e.rules.AllowList {
-			if filepath.IsAbs(a) && matchAny(a, rel, abs, raw) {
+			if filepath.IsAbs(a) && matchAllow(a, rel, abs) {
 				return Allow
 			}
 		}
@@ -71,7 +72,7 @@ func (e *pathEvaluator) EvaluatePath(path string) Decision {
 		return Allow
 	}
 	for _, a := range e.rules.AllowList {
-		if !filepath.IsAbs(a) && matchAny(a, rel, abs, raw) {
+		if !filepath.IsAbs(a) && matchAllow(a, rel, abs) {
 			return Allow
 		}
 	}
@@ -92,13 +93,22 @@ func resolveSymlinks(p string) string {
 	return p
 }
 
-// matchAny tries the pattern against the root-relative form, the symlink-resolved
-// absolute form, and the raw absolute form (rules may carry unresolved prefixes).
-func matchAny(pattern string, forms ...string) bool {
-	for _, f := range forms {
-		if ok, _ := doublestar.Match(pattern, f); ok {
-			return true
-		}
-	}
-	return false
+// matchDeny tries the pattern against the root-relative form, the symlink-resolved
+// absolute form, and the raw absolute form. Deny matches as widely as possible
+// (fail-closed): a wider deny can only over-restrict, never over-grant.
+func matchDeny(pattern, rel, abs, raw string) bool {
+	return globMatch(pattern, rel) || globMatch(pattern, abs) || globMatch(pattern, raw)
+}
+
+// matchAllow tries the pattern against the root-relative form and the
+// symlink-resolved absolute form only. The raw (unresolved) form is never used
+// for Allow decisions: an allow glob written against a symlinked prefix must not
+// grant access to the resolved target outside that prefix.
+func matchAllow(pattern, rel, abs string) bool {
+	return globMatch(pattern, rel) || globMatch(pattern, abs)
+}
+
+func globMatch(pattern, form string) bool {
+	ok, _ := doublestar.Match(pattern, form)
+	return ok
 }

@@ -58,6 +58,10 @@ func TestPathAllowListWhitelistMode(t *testing.T) {
 func TestPathAllowListAbsoluteOverride(t *testing.T) {
 	root := newRoot(t)
 	shared := t.TempDir()
+	// Allow globs match the symlink-resolved path form, so resolve first
+	// (on macOS t.TempDir() returns /var/... which resolves to /private/var/...).
+	shared, err := filepath.EvalSymlinks(shared)
+	require.NoError(t, err)
 	e := eval(t, root, policy.PathRules{AllowList: []string{"src/**", shared + "/**"}})
 	require.Equal(t, policy.Allow, e.EvaluatePath(filepath.Join(shared, "data.json")))
 	require.Equal(t, policy.Deny, e.EvaluatePath("/etc/passwd"))
@@ -75,4 +79,19 @@ func TestPathSymlinkEscapeDenied(t *testing.T) {
 func TestPathNonexistentFileAllowed(t *testing.T) {
 	e := eval(t, newRoot(t), policy.PathRules{})
 	require.Equal(t, policy.Allow, e.EvaluatePath("new/dir/file.txt"))
+}
+
+func TestPathAllowListSymlinkPrefixNotBypassed(t *testing.T) {
+	root := newRoot(t)
+	target := t.TempDir() // will be symlinked
+	require.NoError(t, os.WriteFile(filepath.Join(target, "secret.txt"), []byte("x"), 0o644))
+	shared := filepath.Join(t.TempDir(), "shared")
+	require.NoError(t, os.Symlink(target, shared))
+
+	// Allow glob written against the symlinked (raw) path form.
+	e := eval(t, root, policy.PathRules{AllowList: []string{"src/**", shared + "/**"}})
+	// The glob matches the raw form but the resolved path escapes to target.
+	// Allow must NOT honor the raw form: the resolved target/secret.txt is
+	// outside every allowed prefix, so the decision must be Deny.
+	require.Equal(t, policy.Deny, e.EvaluatePath(filepath.Join(shared, "secret.txt")))
 }
