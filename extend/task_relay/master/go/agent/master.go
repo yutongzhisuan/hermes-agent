@@ -105,6 +105,7 @@ type Master struct {
 	Runner          *adk.Runner
 	Hub             *client.Client
 	LocalOnly       bool
+	Model           string
 	shutdownTracing func(context.Context) error
 	mcpClose        func() error
 }
@@ -240,6 +241,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		Runner:          adk.NewRunner(ctx, adk.RunnerConfig{Agent: agentImpl}),
 		Hub:             hub,
 		LocalOnly:       localOnly && !useInjectedTools,
+		Model:           cfg.OpenAIModel,
 		shutdownTracing: shutdownTracing,
 		mcpClose:        mcpClose,
 	}, nil
@@ -389,12 +391,17 @@ func (m *Master) Close() error {
 // ChatModel/Tool slog callbacks; both may be enabled together.
 func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (string, error) {
 	cfg := applyRunOptions(opts)
+	ctx, trace := withRunTrace(ctx)
+	trace.setModel(m.Model)
 	started := time.Now()
 	if cfg.verbose != nil {
-		fmt.Fprintf(cfg.verbose, "=== master run start local_only=%v goal=%q ===\n", m.LocalOnly, goal)
+		fmt.Fprintf(cfg.verbose, "=== master run start run_id=%s model=%s local_only=%v goal=%q ===\n",
+			trace.runID, trace.Model(), m.LocalOnly, goal)
 	}
 	if cfg.slog != nil {
 		cfg.slog.InfoContext(ctx, "master run start",
+			"run_id", trace.runID,
+			"model", trace.Model(),
 			"local_only", m.LocalOnly,
 			"goal", goal,
 		)
@@ -419,7 +426,11 @@ func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (strin
 		if event.Err != nil {
 			if cfg.slog != nil {
 				cfg.slog.ErrorContext(ctx, "master run error",
+					"run_id", trace.runID,
+					"model", trace.Model(),
 					"steps", step,
+					"llm_calls", trace.llmCalls(),
+					"tool_calls", trace.toolCalls(),
 					"duration", time.Since(started).String(),
 					"err", event.Err,
 				)
@@ -438,11 +449,16 @@ func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (strin
 		}
 	}
 	if cfg.verbose != nil {
-		fmt.Fprintf(cfg.verbose, "=== master run end steps=%d ===\n", step)
+		fmt.Fprintf(cfg.verbose, "=== master run end run_id=%s model=%s steps=%d llm_calls=%d tool_calls=%d ===\n",
+			trace.runID, trace.Model(), step, trace.llmCalls(), trace.toolCalls())
 	}
 	if cfg.slog != nil {
 		cfg.slog.InfoContext(ctx, "master run end",
+			"run_id", trace.runID,
+			"model", trace.Model(),
 			"steps", step,
+			"llm_calls", trace.llmCalls(),
+			"tool_calls", trace.toolCalls(),
 			"duration", time.Since(started).String(),
 			"answer_len", len(last),
 		)
