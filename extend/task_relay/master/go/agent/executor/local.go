@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"syscall"
 	"time"
@@ -28,6 +29,9 @@ func NewLocal(opts LocalOptions) (Executor, error) {
 		return nil, fmt.Errorf("shell %q: %w", shell, err)
 	}
 	bwrapPath := probeBwrap(shell)
+	if bwrapPath == "" {
+		slog.Warn("bwrap unavailable or probe failed; executor running in degraded process-level isolation")
+	}
 	return &localBackend{shell: shell, bwrapPath: bwrapPath}, nil
 }
 

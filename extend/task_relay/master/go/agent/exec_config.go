@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -63,9 +64,9 @@ func (c ExecConfig) WithDefaults() ExecConfig {
 	return c
 }
 
-func execConfigFromFile(f *ExecFileConfig) *ExecConfig {
+func execConfigFromFile(f *ExecFileConfig) (*ExecConfig, error) {
 	if f == nil {
-		return nil
+		return nil, nil
 	}
 	cfg := &ExecConfig{Enabled: f.Enabled, DefaultBackend: f.DefaultBackend}
 	if f.Policy != nil {
@@ -78,10 +79,18 @@ func execConfigFromFile(f *ExecFileConfig) *ExecConfig {
 		cfg.EnvAllowKeys = f.Policy.EnvAllowKeys
 	}
 	if f.Limits != nil {
-		if d, err := time.ParseDuration(f.Limits.TimeoutDefault); err == nil {
+		if f.Limits.TimeoutDefault != "" {
+			d, err := time.ParseDuration(f.Limits.TimeoutDefault)
+			if err != nil {
+				return nil, fmt.Errorf("exec.limits.timeout_default %q: %w", f.Limits.TimeoutDefault, err)
+			}
 			cfg.Limits.TimeoutDefault = d
 		}
-		if d, err := time.ParseDuration(f.Limits.TimeoutMax); err == nil {
+		if f.Limits.TimeoutMax != "" {
+			d, err := time.ParseDuration(f.Limits.TimeoutMax)
+			if err != nil {
+				return nil, fmt.Errorf("exec.limits.timeout_max %q: %w", f.Limits.TimeoutMax, err)
+			}
 			cfg.Limits.TimeoutMax = d
 		}
 		cfg.Limits.MaxOutputBytes = f.Limits.MaxOutputBytes
@@ -89,5 +98,5 @@ func execConfigFromFile(f *ExecFileConfig) *ExecConfig {
 	if f.Audit != nil {
 		cfg.AuditPath = f.Audit.Path
 	}
-	return cfg
+	return cfg, nil
 }

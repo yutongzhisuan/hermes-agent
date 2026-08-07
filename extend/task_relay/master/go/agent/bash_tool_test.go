@@ -2,6 +2,8 @@ package agent_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
@@ -132,6 +134,18 @@ func TestBashToolAuditsSuccessWithHashes(t *testing.T) {
 	s := string(data)
 	require.Contains(t, s, `"decision":"allow"`)
 	require.Contains(t, s, "sha256:")
+	sum := sha256.Sum256([]byte("audited\n"))
+	require.Contains(t, s, "sha256:"+hex.EncodeToString(sum[:]))
 	require.NotContains(t, s, `"stdout":"`) // stdout 不落盘，只落哈希
 	require.NotContains(t, s, `"stderr":"`)
+}
+
+func TestBashToolDangerousEnvStripped(t *testing.T) {
+	tool := buildBashTool(t, policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}})
+	out, err := tool.Run(context.Background(), agent.BashInput{
+		Command: "echo $PATH",
+		Env:     map[string]string{"PATH": "/tmp/evil"},
+	})
+	require.NoError(t, err)
+	require.NotContains(t, out.Stdout, "/tmp/evil") // PATH override 被剥离，保留最小 base env 的 PATH
 }

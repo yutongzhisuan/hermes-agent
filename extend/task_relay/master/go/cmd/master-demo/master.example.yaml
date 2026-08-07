@@ -119,7 +119,7 @@ exec:
     allow_list: ["ls", "cat", "grep", "git status", "go test", "make"]
     deny_list: ["rm -rf", "sudo", "curl | sh"]
     approval_list: ["git push", "kubectl"]
-    env_allow_keys: ["PATH", "HOME", "GOPATH"]
+    env_allow_keys: ["HOME", "GOPATH"]   # PATH/LD_*/BASH_ENV 等危险键由代码硬编码永远剥离，配置不生效
   limits:
     timeout_default: 60s
     timeout_max: 10m

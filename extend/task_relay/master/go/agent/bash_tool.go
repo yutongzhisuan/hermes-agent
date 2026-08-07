@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/infa/task_relay/master/agent/executor"
 	"github.com/infa/task_relay/master/agent/policy"
@@ -61,6 +63,7 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	spec = spec.WithDefaults(d.Limits.TimeoutDefault, d.Limits.TimeoutMax, d.Limits.MaxOutputBytes)
 
 	decision := d.Evaluator.Evaluate(spec.Command)
+	span := trace.SpanFromContext(ctx)
 	entry := policy.AuditEntry{
 		JobID:    uuid.NewString(),
 		Command:  spec.Command,
@@ -71,12 +74,24 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 
 	switch decision {
 	case policy.Deny:
+		span.SetAttributes(
+			attribute.String("exec.backend", "none"),
+			attribute.String("exec.decision", decision.String()),
+		)
 		return b.deny(entry, "denied by policy")
 	case policy.NeedsApproval:
+		span.SetAttributes(
+			attribute.String("exec.backend", "none"),
+			attribute.String("exec.decision", decision.String()),
+		)
 		return b.deny(entry, "needs approval (approval workflow not yet enabled)")
 	}
 
 	entry.Backend = d.Executor.Name()
+	span.SetAttributes(
+		attribute.String("exec.backend", entry.Backend),
+		attribute.String("exec.decision", decision.String()),
+	)
 	res, err := d.Executor.Run(ctx, spec)
 	if err != nil {
 		entry.ExitCode = -1
@@ -89,6 +104,10 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 
 	entry.ExitCode = res.ExitCode
 	entry.DurationMs = res.FinishedAt.Sub(res.StartedAt).Milliseconds()
+	span.SetAttributes(
+		attribute.Int("exec.exit_code", res.ExitCode),
+		attribute.Int64("exec.duration_ms", entry.DurationMs),
+	)
 	entry.Stdout = res.Stdout
 	entry.Stderr = res.Stderr
 	if logErr := d.Audit.Log(entry); logErr != nil {
@@ -110,6 +129,12 @@ func (b *BashTool) deny(entry policy.AuditEntry, reason string) (BashOutput, err
 	return BashOutput{ExitCode: -1, Stderr: reason}, nil
 }
 
+var dangerousEnvKeys = map[string]struct{}{
+	"PATH": {}, "LD_PRELOAD": {}, "LD_LIBRARY_PATH": {}, "DYLD_INSERT_LIBRARIES": {},
+	"DYLD_LIBRARY_PATH": {}, "BASH_ENV": {}, "ENV": {}, "SHELLOPTS": {}, "IFS": {},
+	"CDPATH": {}, "GLOBIGNORE": {}, "PROMPT_COMMAND": {},
+}
+
 func filterEnv(env map[string]string, allowKeys []string) map[string]string {
 	if len(env) == 0 {
 		return nil
@@ -120,6 +145,9 @@ func filterEnv(env map[string]string, allowKeys []string) map[string]string {
 	}
 	out := make(map[string]string, len(env))
 	for k, v := range env {
+		if _, bad := dangerousEnvKeys[k]; bad {
+			continue
+		}
 		if _, ok := allow[k]; ok {
 			out[k] = v
 		}

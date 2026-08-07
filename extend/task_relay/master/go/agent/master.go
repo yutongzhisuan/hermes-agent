@@ -342,9 +342,9 @@ func closeHub(hub *client.Client) error {
 }
 
 func buildBashTool(cfg Config) (tool.BaseTool, error) {
-	execCfg := *cfg.Exec
+	execCfg := cfg.Exec.WithDefaults()
 	if execCfg.DefaultBackend == "remote" {
-		return nil, nil
+		return nil, fmt.Errorf("exec default_backend=remote is not yet implemented (remote backend is phase 2)")
 	}
 	exec, err := executor.NewLocal(executor.LocalOptions{})
 	if err != nil {

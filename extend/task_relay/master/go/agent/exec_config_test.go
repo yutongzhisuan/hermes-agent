@@ -34,3 +34,16 @@ func TestExecConfigDefaults(t *testing.T) {
 	require.Equal(t, int64(1<<20), cfg.Limits.MaxOutputBytes)
 	require.Contains(t, cfg.AuditPath, "exec-audit.jsonl")
 }
+
+func TestExecConfigBadDurationFails(t *testing.T) {
+	file := &agent.MasterFileConfig{
+		Exec: &agent.ExecFileConfig{
+			Enabled: true,
+			Limits:  &agent.ExecLimitsFileConfig{TimeoutDefault: "not-a-duration"},
+		},
+	}
+	_, _, err := agent.MergeFileIntoConfig(agent.Config{}, file)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout_default")
+	require.Contains(t, err.Error(), "not-a-duration")
+}
