@@ -2,70 +2,33 @@ package agent
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"log/slog"
-	"strings"
+	"sync/atomic"
 	"time"
-	"unicode/utf8"
 
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
 	ucallbacks "github.com/cloudwego/eino/utils/callbacks"
 )
 
 type timingKey struct{}
 
-const maxLogPayloadRunes = 512
-
-// NewSlogLogger builds a slog.Logger writing to w.
-// level is debug|info|warn|error (case-insensitive). When json is true, use JSONHandler.
-func NewSlogLogger(w io.Writer, level string, json bool) (*slog.Logger, error) {
-	if w == nil {
-		return nil, fmt.Errorf("slog writer is required")
-	}
-	lvl, err := ParseSlogLevel(level)
-	if err != nil {
-		return nil, err
-	}
-	opts := &slog.HandlerOptions{Level: lvl}
-	var h slog.Handler
-	if json {
-		h = slog.NewJSONHandler(w, opts)
-	} else {
-		h = slog.NewTextHandler(w, opts)
-	}
-	return slog.New(h), nil
-}
-
-// ParseSlogLevel maps CLI level names to slog.Level.
-func ParseSlogLevel(level string) (slog.Level, error) {
-	switch strings.ToLower(strings.TrimSpace(level)) {
-	case "debug":
-		return slog.LevelDebug, nil
-	case "info", "":
-		return slog.LevelInfo, nil
-	case "warn", "warning":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
-		return 0, fmt.Errorf("unsupported log level %q (use debug|info|warn|error|off)", level)
-	}
-}
-
 // NewSlogCallbackHandler returns an Eino callback handler that logs ChatModel and Tool
-// lifecycle events via slog (start/end/error, duration, token usage when present).
+// lifecycle with call index (round), model, duration, tokens, and truncated payloads.
 func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	var llmN, toolN atomic.Int64
 	return ucallbacks.NewHandlerHelper().
 		ChatModel(&ucallbacks.ModelCallbackHandler{
 			OnStart: func(ctx context.Context, info *callbacks.RunInfo, input *model.CallbackInput) context.Context {
+				n := llmN.Add(1)
 				attrs := []any{
 					"component", "chat_model",
+					"llm_n", n,
 					"name", runName(info),
 					"messages", messageCount(input),
 				}
@@ -81,31 +44,18 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 			OnEnd: func(ctx context.Context, info *callbacks.RunInfo, output *model.CallbackOutput) context.Context {
 				attrs := []any{
 					"component", "chat_model",
+					"llm_n", llmN.Load(),
 					"name", runName(info),
 					"duration", elapsed(ctx).String(),
 				}
-				if output != nil && output.TokenUsage != nil {
-					u := output.TokenUsage
-					attrs = append(attrs,
-						"prompt_tokens", u.PromptTokens,
-						"completion_tokens", u.CompletionTokens,
-						"total_tokens", u.TotalTokens,
-					)
-				}
-				if output != nil && output.Message != nil {
-					if output.Message.ResponseMeta != nil && output.Message.ResponseMeta.FinishReason != "" {
-						attrs = append(attrs, "finish_reason", output.Message.ResponseMeta.FinishReason)
-					}
-					if logger.Enabled(ctx, slog.LevelDebug) && output.Message.Content != "" {
-						attrs = append(attrs, "content", truncateRunes(output.Message.Content, maxLogPayloadRunes))
-					}
-				}
+				attrs = append(attrs, chatModelEndAttrs(output)...)
 				logger.InfoContext(ctx, "chat_model end", attrs...)
 				return ctx
 			},
 			OnError: func(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
 				logger.ErrorContext(ctx, "chat_model error",
 					"component", "chat_model",
+					"llm_n", llmN.Load(),
 					"name", runName(info),
 					"duration", elapsed(ctx).String(),
 					"err", err,
@@ -115,11 +65,14 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 		}).
 		Tool(&ucallbacks.ToolCallbackHandler{
 			OnStart: func(ctx context.Context, info *callbacks.RunInfo, input *tool.CallbackInput) context.Context {
+				n := toolN.Add(1)
 				attrs := []any{
 					"component", "tool",
+					"tool_n", n,
+					"llm_n", llmN.Load(),
 					"name", runName(info),
 				}
-				if input != nil && input.ArgumentsInJSON != "" && logger.Enabled(ctx, slog.LevelDebug) {
+				if input != nil && input.ArgumentsInJSON != "" {
 					attrs = append(attrs, "arguments", truncateRunes(input.ArgumentsInJSON, maxLogPayloadRunes))
 				}
 				logger.InfoContext(ctx, "tool start", attrs...)
@@ -128,10 +81,12 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 			OnEnd: func(ctx context.Context, info *callbacks.RunInfo, output *tool.CallbackOutput) context.Context {
 				attrs := []any{
 					"component", "tool",
+					"tool_n", toolN.Load(),
+					"llm_n", llmN.Load(),
 					"name", runName(info),
 					"duration", elapsed(ctx).String(),
 				}
-				if output != nil && output.Response != "" && logger.Enabled(ctx, slog.LevelDebug) {
+				if output != nil && output.Response != "" {
 					attrs = append(attrs, "response", truncateRunes(output.Response, maxLogPayloadRunes))
 				}
 				logger.InfoContext(ctx, "tool end", attrs...)
@@ -140,6 +95,8 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 			OnError: func(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
 				logger.ErrorContext(ctx, "tool error",
 					"component", "tool",
+					"tool_n", toolN.Load(),
+					"llm_n", llmN.Load(),
 					"name", runName(info),
 					"duration", elapsed(ctx).String(),
 					"err", err,
@@ -148,6 +105,49 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 			},
 		}).
 		Handler()
+}
+
+func chatModelEndAttrs(output *model.CallbackOutput) []any {
+	if output == nil {
+		return nil
+	}
+	var attrs []any
+	if u := output.TokenUsage; u != nil {
+		attrs = append(attrs,
+			"prompt_tokens", u.PromptTokens,
+			"completion_tokens", u.CompletionTokens,
+			"total_tokens", u.TotalTokens,
+		)
+	}
+	msg := output.Message
+	if msg == nil {
+		return attrs
+	}
+	if msg.ResponseMeta != nil && msg.ResponseMeta.FinishReason != "" {
+		attrs = append(attrs, "finish_reason", msg.ResponseMeta.FinishReason)
+	}
+	if names := toolCallNames(msg.ToolCalls); len(names) > 0 {
+		attrs = append(attrs, "tool_calls", names)
+	}
+	if msg.Content != "" {
+		attrs = append(attrs, "content", truncateRunes(msg.Content, maxLogPayloadRunes))
+	}
+	return attrs
+}
+
+func toolCallNames(calls []schema.ToolCall) []string {
+	if len(calls) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(calls))
+	for _, c := range calls {
+		name := c.Function.Name
+		if name == "" {
+			name = c.ID
+		}
+		names = append(names, name)
+	}
+	return names
 }
 
 func runName(info *callbacks.RunInfo) string {
@@ -178,15 +178,4 @@ func elapsed(ctx context.Context) time.Duration {
 		return time.Since(v)
 	}
 	return 0
-}
-
-func truncateRunes(s string, max int) string {
-	if max <= 0 || s == "" {
-		return s
-	}
-	if utf8.RuneCountInString(s) <= max {
-		return s
-	}
-	runes := []rune(s)
-	return string(runes[:max]) + "…"
 }

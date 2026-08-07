@@ -17,6 +17,7 @@ type RunOption func(*runOptions)
 type runOptions struct {
 	verbose   io.Writer
 	callbacks []callbacks.Handler
+	slog      *slog.Logger
 }
 
 // WithVerbose prints every agent interaction event to w (typically os.Stderr).
@@ -33,9 +34,13 @@ func WithCallbacks(handlers ...callbacks.Handler) RunOption {
 	}
 }
 
-// WithSlog logs ChatModel and Tool lifecycle via slog (coexists with WithVerbose).
+// WithSlog logs run boundaries plus ChatModel/Tool lifecycle via slog
+// (coexists with WithVerbose).
 func WithSlog(logger *slog.Logger) RunOption {
-	return WithCallbacks(NewSlogCallbackHandler(logger))
+	return func(o *runOptions) {
+		o.slog = logger
+		o.callbacks = append(o.callbacks, NewSlogCallbackHandler(logger))
+	}
 }
 
 func applyRunOptions(opts []RunOption) runOptions {

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/adk"
@@ -290,8 +291,15 @@ func (m *Master) Close() error {
 // ChatModel/Tool slog callbacks; both may be enabled together.
 func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (string, error) {
 	cfg := applyRunOptions(opts)
+	started := time.Now()
 	if cfg.verbose != nil {
 		fmt.Fprintf(cfg.verbose, "=== master run start local_only=%v goal=%q ===\n", m.LocalOnly, goal)
+	}
+	if cfg.slog != nil {
+		cfg.slog.InfoContext(ctx, "master run start",
+			"local_only", m.LocalOnly,
+			"goal", goal,
+		)
 	}
 
 	var queryOpts []adk.AgentRunOption
@@ -311,6 +319,13 @@ func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (strin
 			logAgentEvent(cfg.verbose, step, event)
 		}
 		if event.Err != nil {
+			if cfg.slog != nil {
+				cfg.slog.ErrorContext(ctx, "master run error",
+					"steps", step,
+					"duration", time.Since(started).String(),
+					"err", event.Err,
+				)
+			}
 			return last, event.Err
 		}
 		if event.Output == nil || event.Output.MessageOutput == nil {
@@ -326,6 +341,13 @@ func (m *Master) Run(ctx context.Context, goal string, opts ...RunOption) (strin
 	}
 	if cfg.verbose != nil {
 		fmt.Fprintf(cfg.verbose, "=== master run end steps=%d ===\n", step)
+	}
+	if cfg.slog != nil {
+		cfg.slog.InfoContext(ctx, "master run end",
+			"steps", step,
+			"duration", time.Since(started).String(),
+			"answer_len", len(last),
+		)
 	}
 	if last == "" {
 		return "", fmt.Errorf("agent produced no final message")
