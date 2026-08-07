@@ -96,6 +96,8 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	if err != nil {
 		entry.ExitCode = -1
 		entry.Error = err.Error()
+		span.SetAttributes(attribute.Int("exec.exit_code", -1))
+		span.RecordError(err)
 		if logErr := d.Audit.Log(entry); logErr != nil {
 			return BashOutput{}, fmt.Errorf("execution failed (%v) and audit failed: %w", err, logErr)
 		}
