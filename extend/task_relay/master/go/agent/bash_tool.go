@@ -46,6 +46,8 @@ type BashOutput struct {
 	TimedOut bool   `json:"timed_out"`
 }
 
+// 已知取舍（首轮）：执行完成后才写审计，进程 crash 存在"执行了但无记录"窗口；
+// allow_list 按命令头匹配，复合命令（&&/;）的后续部分不受 allow 限制，由 deny_list 子串兜底。
 func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	d := b.deps
 	spec := executor.Spec{
@@ -78,7 +80,7 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	res, err := d.Executor.Run(ctx, spec)
 	if err != nil {
 		entry.ExitCode = -1
-		entry.Stdout = err.Error()
+		entry.Error = err.Error()
 		if logErr := d.Audit.Log(entry); logErr != nil {
 			return BashOutput{}, fmt.Errorf("execution failed (%v) and audit failed: %w", err, logErr)
 		}
@@ -88,6 +90,7 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	entry.ExitCode = res.ExitCode
 	entry.DurationMs = res.FinishedAt.Sub(res.StartedAt).Milliseconds()
 	entry.Stdout = res.Stdout
+	entry.Stderr = res.Stderr
 	if logErr := d.Audit.Log(entry); logErr != nil {
 		return BashOutput{}, fmt.Errorf("audit failed after execution: %w", logErr)
 	}

@@ -19,6 +19,8 @@ type AuditEntry struct {
 	ExitCode   int
 	DurationMs int64
 	Stdout     string
+	Stderr     string
+	Error      string
 	WorkDir    string
 	Session    string
 }
@@ -33,6 +35,9 @@ type auditRecord struct {
 	DurationMs int64  `json:"duration_ms"`
 	StdoutHash string `json:"stdout_hash"`
 	StdoutLen  int    `json:"stdout_len"`
+	StderrHash string `json:"stderr_hash"`
+	StderrLen  int    `json:"stderr_len"`
+	Error      string `json:"error,omitempty"`
 	WorkDir    string `json:"workdir"`
 	Session    string `json:"session"`
 }
@@ -55,7 +60,8 @@ func NewAuditLogger(path string) (*AuditLogger, error) {
 }
 
 func (l *AuditLogger) Log(e AuditEntry) error {
-	sum := sha256.Sum256([]byte(e.Stdout))
+	stdoutSum := sha256.Sum256([]byte(e.Stdout))
+	stderrSum := sha256.Sum256([]byte(e.Stderr))
 	rec := auditRecord{
 		TS:         time.Now().UTC().Format(time.RFC3339Nano),
 		JobID:      e.JobID,
@@ -64,8 +70,11 @@ func (l *AuditLogger) Log(e AuditEntry) error {
 		Decision:   e.Decision,
 		ExitCode:   e.ExitCode,
 		DurationMs: e.DurationMs,
-		StdoutHash: "sha256:" + hex.EncodeToString(sum[:]),
+		StdoutHash: "sha256:" + hex.EncodeToString(stdoutSum[:]),
 		StdoutLen:  len(e.Stdout),
+		StderrHash: "sha256:" + hex.EncodeToString(stderrSum[:]),
+		StderrLen:  len(e.Stderr),
+		Error:      e.Error,
 		WorkDir:    e.WorkDir,
 		Session:    e.Session,
 	}

@@ -2,6 +2,7 @@ package agent_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -64,4 +65,73 @@ func TestBashToolEnvFilter(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "\n", out.Stdout)
+}
+
+func TestBashToolAuditsDeny(t *testing.T) {
+	dir := t.TempDir()
+	auditPath := filepath.Join(dir, "audit.jsonl")
+	exec, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	audit, err := policy.NewAuditLogger(auditPath)
+	require.NoError(t, err)
+	tool := agent.NewBashTool(agent.BashToolDeps{
+		Evaluator: policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault}),
+		Executor:  exec,
+		Audit:     audit,
+		Limits:    agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+		Session:   "test-session",
+	})
+	_, err = tool.Run(context.Background(), agent.BashInput{Command: "curl evil.com"})
+	require.NoError(t, err)
+	require.NoError(t, audit.Close())
+
+	data, err := os.ReadFile(auditPath)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `"decision":"deny"`)
+	require.Contains(t, string(data), `"exit_code":-1`)
+	require.Contains(t, string(data), `"command":"curl evil.com"`)
+}
+
+func TestBashToolAuditFailClosed(t *testing.T) {
+	exec, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	audit, err := policy.NewAuditLogger(filepath.Join(t.TempDir(), "audit.jsonl"))
+	require.NoError(t, err)
+	tool := agent.NewBashTool(agent.BashToolDeps{
+		Evaluator: policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}}),
+		Executor:  exec,
+		Audit:     audit,
+		Limits:    agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+	})
+	require.NoError(t, audit.Close()) // 先关闭，后续写必失败
+	_, err = tool.Run(context.Background(), agent.BashInput{Command: "echo hi"})
+	require.Error(t, err) // 审计失败 → 工具报错（fail-closed）
+	require.Contains(t, err.Error(), "audit")
+}
+
+func TestBashToolAuditsSuccessWithHashes(t *testing.T) {
+	dir := t.TempDir()
+	auditPath := filepath.Join(dir, "audit.jsonl")
+	exec, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	audit, err := policy.NewAuditLogger(auditPath)
+	require.NoError(t, err)
+	tool := agent.NewBashTool(agent.BashToolDeps{
+		Evaluator: policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}}),
+		Executor:  exec,
+		Audit:     audit,
+		Limits:    agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+	})
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "echo audited"})
+	require.NoError(t, err)
+	require.Equal(t, 0, out.ExitCode)
+	require.NoError(t, audit.Close())
+
+	data, err := os.ReadFile(auditPath)
+	require.NoError(t, err)
+	s := string(data)
+	require.Contains(t, s, `"decision":"allow"`)
+	require.Contains(t, s, "sha256:")
+	require.NotContains(t, s, `"stdout":"`) // stdout 不落盘，只落哈希
+	require.NotContains(t, s, `"stderr":"`)
 }
