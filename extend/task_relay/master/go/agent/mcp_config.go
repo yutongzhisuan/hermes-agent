@@ -136,10 +136,18 @@ func expandMasterConfigEnv(cfg *MasterFileConfig) {
 		cfg.ServersMap()[name] = srv
 	}
 	if cfg.Search != nil {
+		cfg.Search.SearchBackend = expandEnvRefs(cfg.Search.SearchBackend)
+		cfg.Search.ExtractBackend = expandEnvRefs(cfg.Search.ExtractBackend)
+		cfg.Search.Backend = expandEnvRefs(cfg.Search.Backend)
 		cfg.Search.BaseURL = expandEnvRefs(cfg.Search.BaseURL)
 		cfg.Search.APIKey = expandEnvRefs(cfg.Search.APIKey)
 		cfg.Search.Provider = expandEnvRefs(cfg.Search.Provider)
-		cfg.Search.SearchDepth = expandEnvRefs(cfg.Search.SearchDepth)
+		for name, pc := range cfg.Search.Providers {
+			pc.BaseURL = expandEnvRefs(pc.BaseURL)
+			pc.APIKey = expandEnvRefs(pc.APIKey)
+			pc.SearchDepth = expandEnvRefs(pc.SearchDepth)
+			cfg.Search.Providers[name] = pc
+		}
 	}
 	if cfg.Hub != nil {
 		cfg.Hub.GRPCAddr = expandEnvRefs(cfg.Hub.GRPCAddr)

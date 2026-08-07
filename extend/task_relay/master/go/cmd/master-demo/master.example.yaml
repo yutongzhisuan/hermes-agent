@@ -57,8 +57,43 @@ mcpServers:
 
 search:
   enabled: true
-  provider: tavily # tavily | perplexity
-  base_url: http://100.118.227.59:8000
-  api_key: 4a89ecd6295b5b95f29ec7e10e274fd74370980797714425
+  # Per-capability backends. Leave empty to use the priority fallback.
+  search_backend: ""
+  extract_backend: ""
+  backend: ""
   max_results: 5
   timeout_seconds: 30
+
+  providers:
+    # Legacy self-hosted Tavily-compatible gateway (matches older single-provider configs).
+    gateway:
+      base_url: http://100.118.227.59:8000
+      api_key: 4a89ecd6295b5b95f29ec7e10e274fd74370980797714425
+      timeout_seconds: 30
+
+    # tavily:
+    #   base_url: ${TAVILY_BASE_URL}
+    #   api_key: ${TAVILY_API_KEY}
+    #   search_depth: basic
+    #   timeout_seconds: 30
+
+    # perplexity:
+    #   base_url: ${PERPLEXITY_BASE_URL}
+    #   api_key: ${PERPLEXITY_API_KEY}
+    #   timeout_seconds: 30
+
+    # exa:
+    #   base_url: https://api.exa.ai
+    #   api_key: ${EXA_API_KEY}
+    #   timeout_seconds: 30
+
+    # searxng:
+    #   base_url: http://localhost:8080
+    #   timeout_seconds: 30
+
+    # brave_free:
+    #   base_url: https://api.search.brave.com
+    #   api_key: ${BRAVE_SEARCH_API_KEY}
+    #   timeout_seconds: 30
+
+    # Note: firecrawl, parallel and ddgs are planned for Phase 2.

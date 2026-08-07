@@ -7,152 +7,212 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
-// SearchClient calls a Tavily- or Perplexity-compatible search/extract HTTP API.
-type SearchClient struct {
-	provider    string
-	baseURL     string
-	apiKey      string
-	maxResults  int
-	searchDepth string
-	http        *http.Client
+// tavilyClient calls a Tavily- or Perplexity-compatible search/extract HTTP API.
+// It is used directly by the tavily, perplexity and gateway providers.
+type tavilyClient struct {
+	baseURL string
+	apiKey  string
+	bearer  bool
+	http    *http.Client
 }
 
-func NewSearchClient(cfg *SearchConfig) (*SearchClient, error) {
-	if cfg == nil || !cfg.IsEnabled() {
-		return nil, fmt.Errorf("search config is disabled or incomplete")
-	}
-	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
-	if provider == "" {
-		provider = searchProviderTavily
-	}
-	switch provider {
-	case searchProviderTavily, searchProviderPerplexity:
-	default:
-		return nil, fmt.Errorf("unsupported search provider %q (use tavily|perplexity)", cfg.Provider)
-	}
-	timeout := time.Duration(cfg.TimeoutSeconds) * time.Second
+func newTavilyClient(baseURL, apiKey string, bearer bool, timeout time.Duration) *tavilyClient {
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
-	return &SearchClient{
-		provider:    provider,
-		baseURL:     strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/"),
-		apiKey:      strings.TrimSpace(cfg.APIKey),
-		maxResults:  cfg.MaxResults,
-		searchDepth: cfg.SearchDepth,
-		http:        &http.Client{Timeout: timeout},
-	}, nil
+	return &tavilyClient{
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		bearer:  bearer,
+		http:    &http.Client{Timeout: timeout},
+	}
 }
 
-type searchRequestOpts struct {
-	MaxResults  int
-	SearchDepth string
-	TimeRange   string
-	Lang        string
+// SearchResultTavily is the raw result shape returned by Tavily/Perplexity /search.
+type SearchResultTavily struct {
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Content string `json:"content"`
 }
 
-func (c *SearchClient) Search(ctx context.Context, query string, opts searchRequestOpts) (string, error) {
+// ExtractResultTavily is the raw result shape returned by Tavily /extract.
+type ExtractResultTavily struct {
+	URL     string `json:"url"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+func (c *tavilyClient) Search(ctx context.Context, query string, limit int, searchDepth, timeRange, lang string) (*SearchResponse, error) {
 	if c == nil {
-		return "", fmt.Errorf("search client is nil")
-	}
-	query = strings.TrimSpace(query)
-	if query == "" {
-		return "", fmt.Errorf("query is required")
-	}
-	maxResults := opts.MaxResults
-	if maxResults <= 0 {
-		maxResults = c.maxResults
-	}
-	if maxResults <= 0 {
-		maxResults = 5
+		return nil, fmt.Errorf("tavily client is nil")
 	}
 	body := map[string]any{
 		"query":       query,
-		"max_results": maxResults,
+		"max_results": limit,
 	}
-	depth := opts.SearchDepth
-	if depth == "" {
-		depth = c.searchDepth
+	if searchDepth != "" {
+		body["search_depth"] = searchDepth
 	}
-	if depth != "" {
-		body["search_depth"] = depth
+	if timeRange != "" {
+		body["time_range"] = timeRange
 	}
-	if opts.TimeRange != "" {
-		body["time_range"] = opts.TimeRange
+	if lang != "" {
+		body["lang"] = lang
 	}
-	if opts.Lang != "" {
-		body["lang"] = opts.Lang
-	}
-	if c.provider == searchProviderTavily {
+	if !c.bearer {
 		body["api_key"] = c.apiKey
 	}
-	return c.postJSON(ctx, c.baseURL+"/search", body, c.provider == searchProviderPerplexity)
+
+	data, err := c.postJSON(ctx, c.baseURL+"/search", body)
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := extractTavilySearchResults(data)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]SearchResult, len(results))
+	for i, r := range results {
+		out[i] = SearchResult{
+			Title:       r.Title,
+			URL:         r.URL,
+			Description: r.Content,
+			Position:    i + 1,
+		}
+	}
+	return &SearchResponse{Success: true, Results: out}, nil
 }
 
-type extractRequestOpts struct {
-	URLs     []string
-	URL      string
-	Size     string
-	Renderer string
+func extractTavilySearchResults(data map[string]any) ([]SearchResultTavily, error) {
+	// Tavily returns {"results": [...]}. Perplexity returns the same shape.
+	raw, ok := data["results"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("search api response missing results list")
+	}
+	out := make([]SearchResultTavily, 0, len(raw))
+	for _, item := range raw {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		out = append(out, SearchResultTavily{
+			Title:   stringOf(m["title"]),
+			URL:     stringOf(m["url"]),
+			Content: stringOf(m["content"]),
+		})
+	}
+	return out, nil
 }
 
-func (c *SearchClient) Extract(ctx context.Context, opts extractRequestOpts) (string, error) {
+func (c *tavilyClient) Extract(ctx context.Context, urls []string, size, renderer string) (*ExtractResponse, error) {
 	if c == nil {
-		return "", fmt.Errorf("search client is nil")
+		return nil, fmt.Errorf("tavily client is nil")
 	}
-	body := map[string]any{}
-	if len(opts.URLs) > 0 {
-		body["urls"] = opts.URLs
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("urls is required")
 	}
-	if strings.TrimSpace(opts.URL) != "" {
-		body["url"] = strings.TrimSpace(opts.URL)
+	body := map[string]any{
+		"urls":    urls,
+		"api_key": c.apiKey,
 	}
-	if len(body) == 0 {
-		return "", fmt.Errorf("urls or url is required")
+	if size != "" {
+		body["size"] = size
 	}
-	if opts.Size != "" {
-		body["size"] = opts.Size
+	if renderer != "" {
+		body["renderer"] = renderer
 	}
-	if opts.Renderer != "" {
-		body["renderer"] = opts.Renderer
+
+	data, err := c.postJSON(ctx, c.baseURL+"/extract", body)
+	if err != nil {
+		return nil, err
 	}
-	// Extract API is Tavily-shaped; always send body api_key. Perplexity provider
-	// also sends Bearer for gateways that key off the Authorization header.
-	body["api_key"] = c.apiKey
-	return c.postJSON(ctx, c.baseURL+"/extract", body, c.provider == searchProviderPerplexity)
+
+	results, err := extractTavilyExtractResults(data)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]ExtractResult, len(results))
+	for i, r := range results {
+		out[i] = ExtractResult{
+			URL:     r.URL,
+			Title:   r.Title,
+			Content: r.Content,
+		}
+	}
+	return &ExtractResponse{Success: true, Results: out}, nil
 }
 
-func (c *SearchClient) postJSON(ctx context.Context, url string, body map[string]any, bearer bool) (string, error) {
+func extractTavilyExtractResults(data map[string]any) ([]ExtractResultTavily, error) {
+	raw, ok := data["results"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("extract api response missing results list")
+	}
+	out := make([]ExtractResultTavily, 0, len(raw))
+	for _, item := range raw {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		out = append(out, ExtractResultTavily{
+			URL:     stringOf(m["url"]),
+			Title:   stringOf(m["title"]),
+			Content: stringOf(m["content"]),
+		})
+	}
+	return out, nil
+}
+
+func (c *tavilyClient) postJSON(ctx context.Context, url string, body map[string]any) (map[string]any, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if bearer {
+	if c.bearer {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("http request: %w", err)
+		return nil, fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
+
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("search api status %d: %s", resp.StatusCode, truncateRunes(string(raw), 512))
+		return nil, fmt.Errorf("search api status %d: %s", resp.StatusCode, truncateRunes(string(raw), 512))
 	}
 	if !json.Valid(raw) {
-		return "", fmt.Errorf("search api returned non-json body")
+		return nil, fmt.Errorf("search api returned non-json body")
 	}
-	return string(raw), nil
+	var data map[string]any
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+	return data, nil
+}
+
+// stringOf coerces a JSON-decoded scalar to string.
+func stringOf(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case nil:
+		return ""
+	default:
+		b, _ := json.Marshal(x)
+		return string(b)
+	}
 }

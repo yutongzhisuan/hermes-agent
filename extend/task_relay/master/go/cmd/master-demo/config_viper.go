@@ -42,6 +42,13 @@ func setupViper(cmd *cobra.Command) error {
 		{"search.api_key", []string{"GATEWAY_API_KEY", "TAVILY_API_KEY", "MASTER_SEARCH_API_KEY"}},
 		{"search.base_url", []string{"SEARCH_BASE_URL", "TAVILY_BASE_URL", "MASTER_SEARCH_BASE_URL"}},
 		{"search.provider", []string{"MASTER_SEARCH_PROVIDER"}},
+		{"search.search_backend", []string{"MASTER_SEARCH_SEARCH_BACKEND", "SEARCH_BACKEND"}},
+		{"search.extract_backend", []string{"MASTER_SEARCH_EXTRACT_BACKEND", "SEARCH_EXTRACT_BACKEND"}},
+		{"search.backend", []string{"MASTER_WEB_BACKEND", "WEB_BACKEND"}},
+		{"search.enabled", []string{"MASTER_SEARCH_ENABLED"}},
+	}
+	for _, b := range providerEnvBindings() {
+		bindEnvs = append(bindEnvs, b)
 	}
 	for _, b := range bindEnvs {
 		if err := viper.BindEnv(append([]string{b.key}, b.env...)...); err != nil {
@@ -49,6 +56,41 @@ func setupViper(cmd *cobra.Command) error {
 		}
 	}
 	return nil
+}
+
+func providerEnvBindings() []struct {
+	key string
+	env []string
+} {
+	providers := []string{"tavily", "perplexity", "gateway", "exa", "searxng", "brave-free"}
+	var bindings []struct {
+		key string
+		env []string
+	}
+	for _, p := range providers {
+		suffix := strings.ReplaceAll(strings.ToUpper(p), "-", "_")
+		bindings = append(bindings,
+			struct {
+				key string
+				env []string
+			}{
+				key: fmt.Sprintf("search.providers.%s.base_url", p),
+				env: []string{
+					fmt.Sprintf("MASTER_SEARCH_PROVIDERS_%s_BASE_URL", suffix),
+				},
+			},
+			struct {
+				key string
+				env []string
+			}{
+				key: fmt.Sprintf("search.providers.%s.api_key", p),
+				env: []string{
+					fmt.Sprintf("MASTER_SEARCH_PROVIDERS_%s_API_KEY", suffix),
+				},
+			},
+		)
+	}
+	return bindings
 }
 
 func loadMasterFromViper(cmd *cobra.Command) (*agent.MasterFileConfig, agent.Config, agent.FileRuntime, error) {
@@ -113,6 +155,22 @@ func applyViperToFile(file *agent.MasterFileConfig) {
 		if v := viper.GetString("search.provider"); viper.IsSet("search.provider") && v != "" {
 			file.Search.Provider = v
 		}
+		if v := viper.GetString("search.search_backend"); viper.IsSet("search.search_backend") && v != "" {
+			file.Search.SearchBackend = v
+		}
+		if v := viper.GetString("search.extract_backend"); viper.IsSet("search.extract_backend") && v != "" {
+			file.Search.ExtractBackend = v
+		}
+		if v := viper.GetString("search.backend"); viper.IsSet("search.backend") && v != "" {
+			file.Search.Backend = v
+		}
+		if viper.IsSet("search.enabled") {
+			enabled := viper.GetBool("search.enabled")
+			file.Search.Enabled = &enabled
+		}
+		for _, p := range []string{"tavily", "perplexity", "gateway", "exa", "searxng", "brave-free"} {
+			applyViperToProvider(file.Search, p)
+		}
 	}
 	if viper.IsSet("log.level") || viper.IsSet("log.json") || viper.IsSet("log.verbose") {
 		if file.Log == nil {
@@ -134,6 +192,30 @@ func applyViperToFile(file *agent.MasterFileConfig) {
 		}
 		file.Runtime.Timeout = v
 	}
+}
+
+func applyViperToProvider(s *agent.SearchConfig, provider string) {
+	if s == nil {
+		return
+	}
+	baseURLKey := fmt.Sprintf("search.providers.%s.base_url", provider)
+	apiKeyKey := fmt.Sprintf("search.providers.%s.api_key", provider)
+	hasBaseURL := viper.IsSet(baseURLKey)
+	hasAPIKey := viper.IsSet(apiKeyKey)
+	if !hasBaseURL && !hasAPIKey {
+		return
+	}
+	if s.Providers == nil {
+		s.Providers = make(map[string]agent.SearchProviderConfig)
+	}
+	pc := s.Providers[provider]
+	if hasBaseURL {
+		pc.BaseURL = viper.GetString(baseURLKey)
+	}
+	if hasAPIKey {
+		pc.APIKey = viper.GetString(apiKeyKey)
+	}
+	s.Providers[provider] = pc
 }
 
 func applyViperToRuntime(cmd *cobra.Command, rt *agent.FileRuntime) {
