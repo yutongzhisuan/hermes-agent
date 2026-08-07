@@ -12,6 +12,7 @@ import (
 )
 
 type AuditEntry struct {
+	Operation  string
 	JobID      string
 	Command    string
 	Backend    string
@@ -26,6 +27,7 @@ type AuditEntry struct {
 }
 
 type auditRecord struct {
+	Operation  string `json:"op"`
 	TS         string `json:"ts"`
 	JobID      string `json:"job_id"`
 	Command    string `json:"command"`
@@ -63,6 +65,7 @@ func (l *AuditLogger) Log(e AuditEntry) error {
 	stdoutSum := sha256.Sum256([]byte(e.Stdout))
 	stderrSum := sha256.Sum256([]byte(e.Stderr))
 	rec := auditRecord{
+		Operation:  e.Operation,
 		TS:         time.Now().UTC().Format(time.RFC3339Nano),
 		JobID:      e.JobID,
 		Command:    e.Command,

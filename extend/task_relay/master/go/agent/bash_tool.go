@@ -65,11 +65,12 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	decision := d.Evaluator.Evaluate(spec.Command)
 	span := trace.SpanFromContext(ctx)
 	entry := policy.AuditEntry{
-		JobID:    uuid.NewString(),
-		Command:  spec.Command,
-		Decision: decision.String(),
-		WorkDir:  spec.WorkDir,
-		Session:  d.Session,
+		Operation: "bash",
+		JobID:     uuid.NewString(),
+		Command:   spec.Command,
+		Decision:  decision.String(),
+		WorkDir:   spec.WorkDir,
+		Session:   d.Session,
 	}
 
 	switch decision {
