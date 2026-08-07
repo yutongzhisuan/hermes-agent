@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -16,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/infa/task_relay/master/agent/executor"
+	"github.com/infa/task_relay/master/agent/filetools"
 	"github.com/infa/task_relay/master/agent/policy"
 	"github.com/infa/task_relay/master/agent/search"
 	"github.com/infa/task_relay/master/client"
@@ -98,6 +101,8 @@ type Config struct {
 	Search *search.Config
 	// Exec configures the bash tool (overrides file exec section when non-nil).
 	Exec *ExecConfig
+	// File configures the file tools (overrides file section when non-nil).
+	File *FileToolsConfig
 
 	HubTLS        client.TLSConfig
 	EnableMetrics bool
@@ -233,6 +238,18 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			if bashTool != nil {
 				tools = append(tools, bashTool)
 			}
+		}
+		if cfg.File != nil && cfg.File.Enabled {
+			fileTools, fileErr := buildFileTools(cfg)
+			if fileErr != nil {
+				if mcpClose != nil {
+					_ = mcpClose()
+				}
+				_ = closeHub(hub)
+				_ = shutdownTracing(context.Background())
+				return nil, fileErr
+			}
+			tools = append(tools, fileTools...)
 		}
 		if err = ensureUniqueToolNames(ctx, tools); err != nil {
 			if mcpClose != nil {
@@ -371,6 +388,45 @@ func buildBashTool(cfg Config) (tool.BaseTool, error) {
 		return nil, fmt.Errorf("bash tool: %w", err)
 	}
 	return t, nil
+}
+
+func buildFileTools(cfg Config) ([]tool.BaseTool, error) {
+	wd, _ := os.Getwd()
+	fileCfg := cfg.File.WithDefaults(wd)
+	paths, err := policy.NewPathEvaluator(fileCfg.Root, fileCfg.Policy)
+	if err != nil {
+		return nil, fmt.Errorf("file root: %w", err)
+	}
+	auditPath := filepath.Join(filepath.Dir(fileCfg.Root), ".task-relay", "file-audit.jsonl")
+	if cfg.Exec != nil && cfg.Exec.AuditPath != "" {
+		auditPath = cfg.Exec.AuditPath
+	}
+	audit, err := policy.NewAuditLogger(auditPath)
+	if err != nil {
+		return nil, fmt.Errorf("file audit: %w", err)
+	}
+	deps := &filetools.Deps{
+		Paths: paths, Audit: audit,
+		MaxReadBytes: fileCfg.MaxReadBytes, MaxWriteBytes: fileCfg.MaxWriteBytes,
+		Session: cfg.MasterSession,
+	}
+	viewT, err := toolutils.InferTool("view", "Read a file with line numbers (policy-gated, audited)", filetools.NewViewTool(deps).Run)
+	if err != nil {
+		return nil, fmt.Errorf("view tool: %w", err)
+	}
+	writeT, err := toolutils.InferTool("write", "Write a file, creating parent dirs (policy-gated, audited)", filetools.NewWriteTool(deps).Run)
+	if err != nil {
+		return nil, fmt.Errorf("write tool: %w", err)
+	}
+	editT, err := toolutils.InferTool("edit", "Replace exact text in a file; old_string must match uniquely unless replace_all (policy-gated, audited)", filetools.NewEditTool(deps).Run)
+	if err != nil {
+		return nil, fmt.Errorf("edit tool: %w", err)
+	}
+	multieditT, err := toolutils.InferTool("multiedit", "Apply multiple exact replacements atomically; all-or-nothing (policy-gated, audited)", filetools.NewMultiEditTool(deps).Run)
+	if err != nil {
+		return nil, fmt.Errorf("multiedit tool: %w", err)
+	}
+	return []tool.BaseTool{viewT, writeT, editT, multieditT}, nil
 }
 
 func buildAgent(

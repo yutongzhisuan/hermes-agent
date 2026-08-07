@@ -126,3 +126,14 @@ exec:
     max_output_bytes: 1048576
   audit:
     path: ~/.task-relay/exec-audit.jsonl
+
+# Controlled file operations (disabled by default).
+file:
+  enabled: false   # set true to enable view/write/edit/multiedit
+  root: ""         # default: master working directory; ops confined here unless allow_paths grants absolute globs
+  policy:
+    allow_paths: []                 # relative globs; empty = everything under root allowed (deny_paths still applies)
+    deny_paths: [".ssh/**", "**/*.pem", "**/.env", "**/id_rsa*"]
+  limits:
+    max_read_bytes: 1048576
+    max_write_bytes: 1048576
