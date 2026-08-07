@@ -149,6 +149,12 @@ func MergeFileIntoConfig(cfg Config, file *MasterFileConfig) (Config, FileRuntim
 	if cfg.Search == nil {
 		cfg.Search = file.Search
 	}
+	if cfg.Exec == nil {
+		cfg.Exec = execConfigFromFile(file.Exec)
+	}
+	if cfg.Exec != nil {
+		*cfg.Exec = cfg.Exec.WithDefaults()
+	}
 	return cfg, rt, nil
 }
 

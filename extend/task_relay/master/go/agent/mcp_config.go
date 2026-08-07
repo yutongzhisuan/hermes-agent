@@ -25,6 +25,7 @@ type MasterFileConfig struct {
 	// Servers is an optional alias for mcpServers.
 	Servers map[string]MCPServerConfig `json:"servers" yaml:"servers"`
 	Search  *search.Config             `json:"search" yaml:"search"`
+	Exec    *ExecFileConfig            `json:"exec" yaml:"exec"`
 }
 
 // MCPFileConfig is an alias kept for callers that only care about MCP servers.
@@ -104,7 +105,7 @@ func hasMasterContent(cfg *MasterFileConfig) bool {
 	}
 	return cfg.Hub != nil || cfg.OpenAI != nil || cfg.Agent != nil ||
 		cfg.Log != nil || cfg.Runtime != nil || cfg.Metrics != nil || cfg.Tracing != nil ||
-		len(cfg.MCPServers) > 0 || len(cfg.Servers) > 0 || cfg.Search != nil
+		len(cfg.MCPServers) > 0 || len(cfg.Servers) > 0 || cfg.Search != nil || cfg.Exec != nil
 }
 
 // ServersMap returns the effective server map (mcpServers preferred, else servers).

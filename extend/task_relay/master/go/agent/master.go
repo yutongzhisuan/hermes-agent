@@ -10,10 +10,13 @@ import (
 	"github.com/cloudwego/eino/adk/prebuilt/deep"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	toolutils "github.com/cloudwego/eino/components/tool/utils"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/infa/task_relay/master/agent/executor"
+	"github.com/infa/task_relay/master/agent/policy"
 	"github.com/infa/task_relay/master/agent/search"
 	"github.com/infa/task_relay/master/client"
 )
@@ -93,6 +96,8 @@ type Config struct {
 	MCPServers map[string]MCPServerConfig
 	// Search configures web_search / web_extract (overrides file search section when non-nil).
 	Search *search.Config
+	// Exec configures the bash tool (overrides file exec section when non-nil).
+	Exec *ExecConfig
 
 	HubTLS        client.TLSConfig
 	EnableMetrics bool
@@ -215,6 +220,20 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			return nil, searchErr
 		}
 		tools = append(tools, searchTools...)
+		if cfg.Exec != nil && cfg.Exec.Enabled {
+			bashTool, bashErr := buildBashTool(cfg)
+			if bashErr != nil {
+				if mcpClose != nil {
+					_ = mcpClose()
+				}
+				_ = closeHub(hub)
+				_ = shutdownTracing(context.Background())
+				return nil, bashErr
+			}
+			if bashTool != nil {
+				tools = append(tools, bashTool)
+			}
+		}
 		if err = ensureUniqueToolNames(ctx, tools); err != nil {
 			if mcpClose != nil {
 				_ = mcpClose()
@@ -320,6 +339,38 @@ func closeHub(hub *client.Client) error {
 		return nil
 	}
 	return hub.Close()
+}
+
+func buildBashTool(cfg Config) (tool.BaseTool, error) {
+	execCfg := *cfg.Exec
+	if execCfg.DefaultBackend == "remote" {
+		return nil, nil
+	}
+	exec, err := executor.NewLocal(executor.LocalOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("exec local backend: %w", err)
+	}
+	audit, err := policy.NewAuditLogger(execCfg.AuditPath)
+	if err != nil {
+		return nil, fmt.Errorf("exec audit: %w", err)
+	}
+	bash := NewBashTool(BashToolDeps{
+		Evaluator:    policy.NewEvaluator(execCfg.Policy),
+		Executor:     exec,
+		Audit:        audit,
+		Limits:       execCfg.Limits,
+		EnvAllowKeys: execCfg.EnvAllowKeys,
+		Session:      cfg.MasterSession,
+	})
+	t, err := toolutils.InferTool(
+		"bash",
+		"Execute a shell command under policy control (allow-list, audit). Use for local system commands.",
+		bash.Run,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("bash tool: %w", err)
+	}
+	return t, nil
 }
 
 func buildAgent(
