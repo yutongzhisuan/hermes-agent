@@ -86,15 +86,15 @@ func isPrivateIP(ip netip.Addr) bool {
 func secureTransport(allowPrivate bool) *http.Transport {
 	dialer := &net.Dialer{Timeout: 30 * time.Second}
 	transport := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
+		// Proxies are intentionally unsupported: the SSRF guard validates
+		// the dial target, and a proxy would make the guard validate the
+		// proxy address instead of the target. An enterprise egress proxy
+		// can be added later as an explicit, audited config knob.
+		Proxy:                 nil,
 		MaxIdleConns:          10,
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-	}
-	if allowPrivate {
-		transport.DialContext = dialer.DialContext
-		return transport
 	}
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
@@ -105,12 +105,20 @@ func secureTransport(allowPrivate bool) *http.Transport {
 		if err != nil {
 			return nil, fmt.Errorf("resolve %q: %w", host, err)
 		}
-		for _, ip := range ips {
-			if isPrivateIP(ip) {
-				return nil, fmt.Errorf("dial to private address %s denied by policy", ip)
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("resolve %q: no addresses", host)
+		}
+		if !allowPrivate {
+			for _, ip := range ips {
+				if isPrivateIP(ip) {
+					return nil, fmt.Errorf("dial to private address %s denied by policy", ip)
+				}
 			}
 		}
-		return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+		// Dial the validated IP to close the DNS-rebinding window between
+		// validation and connect. TLS ServerName still derives from the
+		// request URL host, not from this dial address.
+		return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
 	}
 	return transport
 }

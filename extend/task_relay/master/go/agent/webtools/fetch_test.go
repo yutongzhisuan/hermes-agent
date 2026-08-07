@@ -128,3 +128,12 @@ func TestFetchRedirectRevalidated(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "denied")
 }
+
+func TestFetchTransportDialsValidatedIP(t *testing.T) {
+	tool := NewFetchTool(newTestDeps(t, func(d *Deps) {
+		d.AllowPrivateNetworks = false
+	}))
+	_, err := tool.Run(context.Background(), FetchInput{URL: "http://localhost:1/"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "private")
+}

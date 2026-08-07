@@ -33,7 +33,9 @@ type FetchOutput struct {
 func (f *FetchTool) Run(ctx context.Context, in FetchInput) (FetchOutput, error) {
 	u, err := f.deps.validateURL(in.URL)
 	if err != nil {
-		_ = f.deps.auditDenied("web_fetch", in.URL, policy.Deny.String())
+		if auditErr := f.deps.auditDenied("web_fetch", in.URL, policy.Deny.String()); auditErr != nil {
+			return FetchOutput{}, auditErr
+		}
 		return FetchOutput{}, err
 	}
 
