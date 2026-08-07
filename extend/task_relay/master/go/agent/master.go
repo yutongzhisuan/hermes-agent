@@ -14,6 +14,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/infa/task_relay/master/agent/search"
 	"github.com/infa/task_relay/master/client"
 )
 
@@ -91,7 +92,7 @@ type Config struct {
 	// MCPServers registers MCP servers inline (merged after file config).
 	MCPServers map[string]MCPServerConfig
 	// Search configures web_search / web_extract (overrides file search section when non-nil).
-	Search *SearchConfig
+	Search *search.Config
 
 	HubTLS        client.TLSConfig
 	EnableMetrics bool

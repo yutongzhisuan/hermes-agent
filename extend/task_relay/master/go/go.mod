@@ -6,6 +6,7 @@ require (
 	github.com/cloudwego/eino v0.9.13
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/cloudwego/eino-ext/components/tool/mcp/officialmcp v0.1.0
+	github.com/go-resty/resty/v2 v2.17.2
 	github.com/google/uuid v1.6.0
 	github.com/infa/xhermes-agent/extend/task_relay/gen/go v0.0.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1

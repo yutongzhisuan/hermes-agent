@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/infa/task_relay/master/agent"
+	"github.com/infa/task_relay/master/agent/search"
 )
 
 // setupViper binds Cobra flags and environment variables.
@@ -194,7 +195,7 @@ func applyViperToFile(file *agent.MasterFileConfig) {
 	}
 }
 
-func applyViperToProvider(s *agent.SearchConfig, provider string) {
+func applyViperToProvider(s *search.Config, provider string) {
 	if s == nil {
 		return
 	}
@@ -206,7 +207,7 @@ func applyViperToProvider(s *agent.SearchConfig, provider string) {
 		return
 	}
 	if s.Providers == nil {
-		s.Providers = make(map[string]agent.SearchProviderConfig)
+		s.Providers = make(map[string]search.ProviderConfig)
 	}
 	pc := s.Providers[provider]
 	if hasBaseURL {

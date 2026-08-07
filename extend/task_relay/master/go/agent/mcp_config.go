@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/infa/task_relay/master/agent/search"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +24,7 @@ type MasterFileConfig struct {
 	MCPServers map[string]MCPServerConfig `json:"mcpServers" yaml:"mcpServers"`
 	// Servers is an optional alias for mcpServers.
 	Servers map[string]MCPServerConfig `json:"servers" yaml:"servers"`
-	Search  *SearchConfig              `json:"search" yaml:"search"`
+	Search  *search.Config             `json:"search" yaml:"search"`
 }
 
 // MCPFileConfig is an alias kept for callers that only care about MCP servers.
@@ -58,8 +59,8 @@ func LoadMasterConfigFile(path string) (*MasterFileConfig, error) {
 		return nil, err
 	}
 	expandMasterConfigEnv(cfg)
-	normalizeSearchConfig(cfg.Search)
-	if err := validateSearchConfig(cfg.Search); err != nil {
+	search.Normalize(cfg.Search)
+	if err := search.Validate(cfg.Search); err != nil {
 		return nil, err
 	}
 	return cfg, nil

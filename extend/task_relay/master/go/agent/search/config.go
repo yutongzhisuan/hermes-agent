@@ -1,4 +1,4 @@
-package agent
+package search
 
 import (
 	"fmt"
@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	capabilitySearch  = "search"
-	capabilityExtract = "extract"
+	CapabilitySearch  = "search"
+	CapabilityExtract = "extract"
 )
 
-// knownProviderNames lists every provider that the Go master understands.
-var knownProviderNames = []string{
+// KnownProviders lists every provider the Go master understands.
+var KnownProviders = []string{
 	"firecrawl",
 	"parallel",
 	"tavily",
@@ -25,9 +25,20 @@ var knownProviderNames = []string{
 	"ddgs",
 }
 
-// SearchProviderConfig holds provider-specific settings.
+// LegacyPreference matches the Python side in web_search_registry.py.
+var LegacyPreference = []string{
+	"firecrawl",
+	"parallel",
+	"tavily",
+	"exa",
+	"searxng",
+	"brave-free",
+	"ddgs",
+}
+
+// ProviderConfig holds provider-specific settings.
 // Every provider has the same shape; unused provider-specific fields are ignored.
-type SearchProviderConfig struct {
+type ProviderConfig struct {
 	Enabled        *bool  `json:"enabled" yaml:"enabled"`
 	BaseURL        string `json:"base_url" yaml:"base_url"`
 	APIKey         string `json:"api_key" yaml:"api_key"`
@@ -38,8 +49,8 @@ type SearchProviderConfig struct {
 	IsBearer    *bool  `json:"is_bearer" yaml:"is_bearer"`       // gateway only: true for Perplexity-shaped gateway
 }
 
-// SearchConfig configures web_search / web_extract backends.
-type SearchConfig struct {
+// Config configures web_search / web_extract backends.
+type Config struct {
 	// Per-capability explicit selection.
 	SearchBackend  string `json:"search_backend" yaml:"search_backend"`
 	ExtractBackend string `json:"extract_backend" yaml:"extract_backend"`
@@ -49,19 +60,20 @@ type SearchConfig struct {
 	MaxResults     int `json:"max_results" yaml:"max_results"`
 	TimeoutSeconds int `json:"timeout_seconds" yaml:"timeout_seconds"`
 
-	Providers map[string]SearchProviderConfig `json:"providers" yaml:"providers"`
+	Providers map[string]ProviderConfig `json:"providers" yaml:"providers"`
 
 	// Global on/off switch. nil means infer from presence of providers.
 	Enabled *bool `json:"enabled" yaml:"enabled"`
 
-	// Legacy single-provider fields. normalizeSearchConfig maps these into
-	// Providers for backward compatibility with existing master.example.yaml.
+	// Legacy single-provider fields. Normalize maps these into Providers for
+	// backward compatibility with existing master.example.yaml.
 	Provider string `json:"provider" yaml:"provider"`
 	BaseURL  string `json:"base_url" yaml:"base_url"`
 	APIKey   string `json:"api_key" yaml:"api_key"`
 }
 
-func normalizeSearchConfig(s *SearchConfig) {
+// Normalize applies defaults and legacy field mapping in place.
+func Normalize(s *Config) {
 	if s == nil {
 		return
 	}
@@ -72,9 +84,9 @@ func normalizeSearchConfig(s *SearchConfig) {
 	// Tavily-compatible gateway working unchanged.
 	if len(s.Providers) == 0 && (strings.TrimSpace(s.BaseURL) != "" || strings.TrimSpace(s.APIKey) != "" || strings.TrimSpace(s.Provider) != "") {
 		if s.Providers == nil {
-			s.Providers = make(map[string]SearchProviderConfig)
+			s.Providers = make(map[string]ProviderConfig)
 		}
-		legacy := SearchProviderConfig{
+		legacy := ProviderConfig{
 			BaseURL:        strings.TrimSpace(s.BaseURL),
 			APIKey:         strings.TrimSpace(s.APIKey),
 			TimeoutSeconds: s.TimeoutSeconds,
@@ -110,7 +122,7 @@ func normalizeSearchConfig(s *SearchConfig) {
 	}
 
 	// Normalize provider map keys to lower-case and trim each provider config.
-	normalized := make(map[string]SearchProviderConfig, len(s.Providers))
+	normalized := make(map[string]ProviderConfig, len(s.Providers))
 	for name, pc := range s.Providers {
 		key := strings.ToLower(strings.TrimSpace(name))
 		pc.BaseURL = strings.TrimRight(strings.TrimSpace(pc.BaseURL), "/")
@@ -125,7 +137,7 @@ func normalizeSearchConfig(s *SearchConfig) {
 }
 
 // IsEnabled reports whether search tools should be registered.
-func (s *SearchConfig) IsEnabled() bool {
+func (s *Config) IsEnabled() bool {
 	if s == nil {
 		return false
 	}
@@ -134,7 +146,7 @@ func (s *SearchConfig) IsEnabled() bool {
 	}
 	// When not explicitly disabled/enabled, infer from provider presence.
 	for name, pc := range s.Providers {
-		if !providerEnabled(name, pc) {
+		if !ProviderEnabled(name, pc) {
 			continue
 		}
 		if pc.BaseURL != "" {
@@ -147,7 +159,8 @@ func (s *SearchConfig) IsEnabled() bool {
 	return false
 }
 
-func validateSearchConfig(s *SearchConfig) error {
+// Validate checks the normalized config for unknown backends and incomplete providers.
+func Validate(s *Config) error {
 	if s == nil {
 		return nil
 	}
@@ -162,22 +175,22 @@ func validateSearchConfig(s *SearchConfig) error {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
-		if !isKnownProvider(strings.ToLower(strings.TrimSpace(path))) {
-			return fmt.Errorf("unknown search backend %q (known: %s)", path, strings.Join(knownProviderNames, ", "))
+		if !IsKnownProvider(strings.ToLower(strings.TrimSpace(path))) {
+			return fmt.Errorf("unknown search backend %q (known: %s)", path, strings.Join(KnownProviders, ", "))
 		}
 	}
 
 	for name, pc := range s.Providers {
-		if !providerEnabled(name, pc) {
+		if !ProviderEnabled(name, pc) {
 			continue
 		}
 		if strings.Contains(pc.BaseURL, "${") || strings.Contains(pc.APIKey, "${") {
 			return fmt.Errorf("search.providers.%s contains unresolved ${ENV} reference", name)
 		}
-		if pc.BaseURL == "" && requiresBaseURL(name) {
+		if pc.BaseURL == "" && RequiresBaseURL(name) {
 			return fmt.Errorf("search.providers.%s requires base_url", name)
 		}
-		if pc.APIKey == "" && requiresAPIKey(name) {
+		if pc.APIKey == "" && RequiresAPIKey(name) {
 			return fmt.Errorf("search.providers.%s requires api_key", name)
 		}
 	}
@@ -185,14 +198,14 @@ func validateSearchConfig(s *SearchConfig) error {
 	return nil
 }
 
-// providerConfig returns the provider-specific config with global defaults applied.
-func providerConfig(s *SearchConfig, name string) SearchProviderConfig {
+// ProviderConfigFor returns the provider-specific config with global defaults applied.
+func ProviderConfigFor(s *Config, name string) ProviderConfig {
 	if s == nil {
-		return SearchProviderConfig{TimeoutSeconds: 30}
+		return ProviderConfig{TimeoutSeconds: 30}
 	}
 	pc, ok := s.Providers[strings.ToLower(strings.TrimSpace(name))]
 	if !ok {
-		return SearchProviderConfig{TimeoutSeconds: s.TimeoutSeconds}
+		return ProviderConfig{TimeoutSeconds: s.TimeoutSeconds}
 	}
 	if pc.TimeoutSeconds <= 0 {
 		pc.TimeoutSeconds = s.TimeoutSeconds
@@ -200,9 +213,10 @@ func providerConfig(s *SearchConfig, name string) SearchProviderConfig {
 	return pc
 }
 
-func providerTimeout(cfg *SearchConfig, pc SearchProviderConfig) time.Duration {
+// ProviderTimeout resolves the effective timeout for a provider config.
+func ProviderTimeout(cfg *Config, pc ProviderConfig) time.Duration {
 	d := pc.TimeoutSeconds
-	if d <= 0 {
+	if d <= 0 && cfg != nil {
 		d = cfg.TimeoutSeconds
 	}
 	if d <= 0 {
@@ -211,24 +225,28 @@ func providerTimeout(cfg *SearchConfig, pc SearchProviderConfig) time.Duration {
 	return time.Duration(d) * time.Second
 }
 
-func providerEnabled(name string, pc SearchProviderConfig) bool {
+// ProviderEnabled reports whether a provider block is enabled.
+func ProviderEnabled(name string, pc ProviderConfig) bool {
 	if pc.Enabled != nil {
 		return *pc.Enabled
 	}
 	return true
 }
 
-func isKnownProvider(name string) bool {
-	return slices.Contains(knownProviderNames, name)
+// IsKnownProvider reports whether name is a supported provider.
+func IsKnownProvider(name string) bool {
+	return slices.Contains(KnownProviders, name)
 }
 
-func requiresBaseURL(name string) bool {
+// RequiresBaseURL reports whether a provider needs an explicit base URL.
+func RequiresBaseURL(name string) bool {
 	// All current providers require a base URL. Gateway may use an empty base
 	// only in test scenarios; still require it explicitly.
 	return true
 }
 
-func requiresAPIKey(name string) bool {
+// RequiresAPIKey reports whether a provider needs an API key.
+func RequiresAPIKey(name string) bool {
 	switch name {
 	case "searxng", "ddgs":
 		return false
@@ -237,7 +255,7 @@ func requiresAPIKey(name string) bool {
 	}
 }
 
-//go:fix inline
-func boolPtr(v bool) *bool {
+// BoolPtr returns a pointer to v.
+func BoolPtr(v bool) *bool {
 	return new(v)
 }

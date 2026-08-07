@@ -7,6 +7,9 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 	toolutils "github.com/cloudwego/eino/components/tool/utils"
+
+	"github.com/infa/task_relay/master/agent/search"
+	"github.com/infa/task_relay/master/agent/search/providers"
 )
 
 // WebSearchInput is the agent tool input for web_search.
@@ -27,18 +30,18 @@ type WebExtractInput struct {
 }
 
 type searchToolHost struct {
-	cfg       *SearchConfig
-	providers []Provider
+	cfg       *search.Config
+	providers []search.Provider
 }
 
 // BuildSearchTools registers web_search and web_extract for an enabled SearchConfig.
-func BuildSearchTools(cfg *SearchConfig) ([]tool.BaseTool, error) {
+func BuildSearchTools(cfg *search.Config) ([]tool.BaseTool, error) {
 	if cfg == nil || !cfg.IsEnabled() {
 		return nil, nil
 	}
 	host := &searchToolHost{
 		cfg:       cfg,
-		providers: BuildProviderRegistry(cfg),
+		providers: providers.BuildRegistry(cfg),
 	}
 	if len(host.providers) == 0 {
 		return nil, nil
@@ -46,7 +49,7 @@ func BuildSearchTools(cfg *SearchConfig) ([]tool.BaseTool, error) {
 
 	searchDesc := fmt.Sprintf(
 		"Search the web via the configured provider (%s). Set search.search_backend to pick a specific provider.",
-		supportedList(host.providers, capabilitySearch),
+		supportedList(host.providers, search.CapabilitySearch),
 	)
 	searchTool, err := toolutils.InferTool("web_search", searchDesc, host.webSearch)
 	if err != nil {
@@ -55,7 +58,7 @@ func BuildSearchTools(cfg *SearchConfig) ([]tool.BaseTool, error) {
 
 	extractDesc := fmt.Sprintf(
 		"Extract webpage content via the configured extract-capable provider (%s). Set search.extract_backend to pick a specific provider.",
-		supportedList(host.providers, capabilityExtract),
+		supportedList(host.providers, search.CapabilityExtract),
 	)
 	extractTool, err := toolutils.InferTool("web_extract", extractDesc, host.webExtract)
 	if err != nil {
@@ -66,12 +69,12 @@ func BuildSearchTools(cfg *SearchConfig) ([]tool.BaseTool, error) {
 }
 
 func (h *searchToolHost) webSearch(ctx context.Context, in WebSearchInput) (string, error) {
-	provider, err := ResolveProvider(h.cfg.SearchBackend, capabilitySearch, h.providers)
+	provider, err := search.ResolveProvider(h.cfg.SearchBackend, search.CapabilitySearch, h.providers)
 	if err != nil {
-		return marshalSearchResponse(&SearchResponse{Success: false, Error: err.Error()})
+		return marshalSearchResponse(search.SearchErr(err))
 	}
 	if provider == nil {
-		return marshalSearchResponse(&SearchResponse{Success: false, Error: "no search provider configured"})
+		return marshalSearchResponse(search.SearchErr(fmt.Errorf("no search provider configured")))
 	}
 
 	limit := in.MaxResults
@@ -84,24 +87,24 @@ func (h *searchToolHost) webSearch(ctx context.Context, in WebSearchInput) (stri
 
 	resp, err := provider.Search(ctx, in.Query, limit)
 	if err != nil {
-		return marshalSearchResponse(&SearchResponse{Success: false, Error: err.Error()})
+		return marshalSearchResponse(search.SearchErr(err))
 	}
 	return marshalSearchResponse(resp)
 }
 
 func (h *searchToolHost) webExtract(ctx context.Context, in WebExtractInput) (string, error) {
-	provider, err := ResolveProvider(h.cfg.ExtractBackend, capabilityExtract, h.providers)
+	provider, err := search.ResolveProvider(h.cfg.ExtractBackend, search.CapabilityExtract, h.providers)
 	if err != nil {
 		// Fallback to shared backend when extract_backend is unset.
 		if h.cfg.Backend != "" {
-			provider, err = ResolveProvider(h.cfg.Backend, capabilityExtract, h.providers)
+			provider, err = search.ResolveProvider(h.cfg.Backend, search.CapabilityExtract, h.providers)
 		}
 	}
 	if err != nil {
-		return marshalExtractResponse(&ExtractResponse{Success: false, Error: err.Error()})
+		return marshalExtractResponse(search.ExtractErr(err))
 	}
 	if provider == nil {
-		return marshalExtractResponse(&ExtractResponse{Success: false, Error: "no extract provider configured"})
+		return marshalExtractResponse(search.ExtractErr(fmt.Errorf("no extract provider configured")))
 	}
 
 	urls := in.URLs
@@ -109,17 +112,17 @@ func (h *searchToolHost) webExtract(ctx context.Context, in WebExtractInput) (st
 		urls = append(urls, in.URL)
 	}
 	if len(urls) == 0 {
-		return marshalExtractResponse(&ExtractResponse{Success: false, Error: "urls or url is required"})
+		return marshalExtractResponse(search.ExtractErr(fmt.Errorf("urls or url is required")))
 	}
 
 	resp, err := provider.Extract(ctx, urls)
 	if err != nil {
-		return marshalExtractResponse(&ExtractResponse{Success: false, Error: err.Error()})
+		return marshalExtractResponse(search.ExtractErr(err))
 	}
 	return marshalExtractResponse(resp)
 }
 
-func marshalSearchResponse(resp *SearchResponse) (string, error) {
+func marshalSearchResponse(resp *search.SearchResponse) (string, error) {
 	out := struct {
 		Success bool        `json:"success"`
 		Data    *searchData `json:"data,omitempty"`
@@ -139,14 +142,14 @@ func marshalSearchResponse(resp *SearchResponse) (string, error) {
 }
 
 type searchData struct {
-	Web []SearchResult `json:"web"`
+	Web []search.SearchResult `json:"web"`
 }
 
-func marshalExtractResponse(resp *ExtractResponse) (string, error) {
+func marshalExtractResponse(resp *search.ExtractResponse) (string, error) {
 	out := struct {
-		Success bool            `json:"success"`
-		Results []ExtractResult `json:"results,omitempty"`
-		Error   string          `json:"error,omitempty"`
+		Success bool                   `json:"success"`
+		Results []search.ExtractResult `json:"results,omitempty"`
+		Error   string                 `json:"error,omitempty"`
 	}{
 		Success: resp.Success,
 		Results: resp.Results,
@@ -159,23 +162,10 @@ func marshalExtractResponse(resp *ExtractResponse) (string, error) {
 	return string(raw), nil
 }
 
-func supportedList(providers []Provider, capability string) string {
-	names := supportingNames(capability, providers)
+func supportedList(providers []search.Provider, capability string) string {
+	names := search.SupportingNames(capability, providers)
 	if len(names) == 0 {
 		return "none"
 	}
-	return joinNames(names)
-}
-
-func joinNames(names []string) string {
-	if len(names) == 0 {
-		return ""
-	}
-	if len(names) == 1 {
-		return names[0]
-	}
-	if len(names) == 2 {
-		return names[0] + " and " + names[1]
-	}
-	return fmt.Sprintf("%s, and %s", joinNames(names[:len(names)-1]), names[len(names)-1])
+	return search.JoinNames(names)
 }
