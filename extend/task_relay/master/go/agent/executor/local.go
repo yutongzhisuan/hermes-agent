@@ -45,6 +45,7 @@ func (l *localBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	cmd.Cancel = func() error {
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
+	cmd.WaitDelay = 5 * time.Second
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &limitedWriter{w: &stdout, max: spec.MaxOutputBytes}
