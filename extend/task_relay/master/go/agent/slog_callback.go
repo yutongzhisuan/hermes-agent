@@ -73,7 +73,7 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 					"name", runName(info),
 				}
 				if input != nil && input.ArgumentsInJSON != "" {
-					attrs = append(attrs, "arguments", truncateRunes(input.ArgumentsInJSON, maxLogPayloadRunes))
+					attrs = append(attrs, "arguments", logPayloadValue(input.ArgumentsInJSON))
 				}
 				logger.InfoContext(ctx, "tool start", attrs...)
 				return context.WithValue(ctx, timingKey{}, time.Now())
@@ -87,7 +87,7 @@ func NewSlogCallbackHandler(logger *slog.Logger) callbacks.Handler {
 					"duration", elapsed(ctx).String(),
 				}
 				if output != nil && output.Response != "" {
-					attrs = append(attrs, "response", truncateRunes(output.Response, maxLogPayloadRunes))
+					attrs = append(attrs, "response", logPayloadValue(output.Response))
 				}
 				logger.InfoContext(ctx, "tool end", attrs...)
 				return ctx
@@ -130,7 +130,7 @@ func chatModelEndAttrs(output *model.CallbackOutput) []any {
 		attrs = append(attrs, "tool_calls", names)
 	}
 	if msg.Content != "" {
-		attrs = append(attrs, "content", truncateRunes(msg.Content, maxLogPayloadRunes))
+		attrs = append(attrs, "content", logPayloadValue(msg.Content))
 	}
 	return attrs
 }
