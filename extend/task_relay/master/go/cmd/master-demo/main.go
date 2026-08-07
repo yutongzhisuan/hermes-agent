@@ -2,127 +2,129 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
-	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/infa/task_relay/master/agent"
-	"github.com/infa/task_relay/master/client"
 )
 
 func main() {
-	goal := flag.String("goal", "", "User goal for the Task Relay Master agent")
-	hubAddr := flag.String("hub-grpc", envOr("HUB_GRPC_ADDR", ""), "Hub gRPC address host:port")
-	masterJWT := flag.String("master-jwt", envOr("MASTER_JWT", ""), "Master JWT for Hub auth")
-	sessionID := flag.String("session", "master-demo", "Master session id")
-	mode := flag.String("mode", "deep", "Agent mode: deep (DeepAgent) or react (ChatModelAgent ReAct)")
-	disableLocalSub := flag.Bool("disable-local-subagents", false, "Disable DeepAgent general-purpose local subagent")
-	disableLocalPlanner := flag.Bool("disable-local-planner", false, "Disable built-in local-planner subagent")
-	model := flag.String("model", envOr("OPENAI_MODEL", "gpt-4o-mini"), "OpenAI model name")
-	baseURL := flag.String("openai-base-url", envOr("OPENAI_BASE_URL", ""), "Optional OpenAI-compatible base URL")
-	tlsCA := flag.String("tls-ca", envOr("HUB_TLS_CA", ""), "Hub TLS CA file")
-	tlsCert := flag.String("tls-cert", envOr("HUB_TLS_CERT", ""), "Master mTLS client certificate")
-	tlsKey := flag.String("tls-key", envOr("HUB_TLS_KEY", ""), "Master mTLS client private key")
-	tlsSkipVerify := flag.Bool("tls-skip-hostname-verify", false, "Skip TLS hostname verification")
-	enableMetrics := flag.Bool("metrics", false, "Enable Prometheus client metrics")
-	metricsAddr := flag.String("metrics-addr", envOr("MASTER_METRICS_ADDR", ""), "Prometheus metrics listen address")
-	enableTracing := flag.Bool("tracing", false, "Enable OpenTelemetry gRPC tracing")
-	otelEndpoint := flag.String("otel-endpoint", envOr("OTEL_EXPORTER_OTLP_ENDPOINT", ""), "OTLP trace exporter endpoint")
-	timeout := flag.Duration("timeout", 2*time.Minute, "Overall execution timeout")
-	verbose := flag.Bool("verbose", false, "Print full agent interaction flow to stderr")
-	logLevel := flag.String("log-level", "info", "slog level: debug|info|warn|error|off")
-	logJSON := flag.Bool("log-json", false, "Emit JSON slog to stderr")
-	configPath := flag.String("config", envOr("MASTER_CONFIG", ""), "Unified master YAML/JSON (mcpServers + search)")
-	flag.Parse()
-
-	if *goal == "" {
-		fmt.Fprintln(os.Stderr, "usage: master-demo -goal \"...\" [-config master.yaml] [-hub-grpc addr] [-master-jwt token] [-verbose] [-log-level info] [-log-json]")
-		fmt.Fprintln(os.Stderr, "omit -hub-grpc/-master-jwt to handle the goal locally in this process")
-		os.Exit(2)
-	}
-	if (*hubAddr == "") != (*masterJWT == "") {
-		fmt.Fprintln(os.Stderr, "HUB_GRPC_ADDR and MASTER_JWT must both be set for remote mode, or both omitted for local-only mode")
-		os.Exit(2)
-	}
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		fmt.Fprintln(os.Stderr, "OPENAI_API_KEY is required")
-		os.Exit(2)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	defer cancel()
-
-	master, err := agent.New(ctx, agent.Config{
-		HubAddr:               *hubAddr,
-		MasterJWT:             *masterJWT,
-		MasterSession:         *sessionID,
-		OpenAIAPIKey:          apiKey,
-		OpenAIModel:           *model,
-		OpenAIBaseURL:         *baseURL,
-		Mode:                  agent.Mode(*mode),
-		DisableLocalSubAgents: *disableLocalSub,
-		DisableLocalPlanner:   *disableLocalPlanner,
-		HubTLS: client.TLSConfig{
-			CAFile:             *tlsCA,
-			CertFile:           *tlsCert,
-			KeyFile:            *tlsKey,
-			SkipHostnameVerify: *tlsSkipVerify,
-		},
-		EnableMetrics: *enableMetrics,
-		MetricsAddr:   *metricsAddr,
-		EnableTracing: *enableTracing,
-		OTelEndpoint:  *otelEndpoint,
-		ConfigPath:    *configPath,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "init master: %v\n", err)
+	cmd := newRootCommand()
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func newRootCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "master-demo",
+		Short: "Task Relay Master agent (config-driven)",
+		Long: `Run the Task Relay Master agent.
+
+Settings come from a YAML/JSON config file, with Cobra flags and
+environment variables (Viper) as overrides.
+
+Env examples:
+  MASTER_CONFIG, MASTER_GOAL, MASTER_VERBOSE, MASTER_LOG_LEVEL
+  OPENAI_API_KEY, OPENAI_MODEL, HUB_GRPC_ADDR, MASTER_JWT`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "completion" {
+				return nil
+			}
+			return setupViper(cmd)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMaster(cmd, args)
+		},
+	}
+
+	cmd.Flags().StringP("config", "c", "", "master config file (YAML/JSON) [MASTER_CONFIG]")
+	cmd.Flags().StringP("goal", "g", "", "user goal (or pass as args) [MASTER_GOAL]")
+	cmd.Flags().BoolP("verbose", "v", false, "AgentEvent trace on stderr [MASTER_VERBOSE]")
+	cmd.Flags().String("log-level", "", "slog level override [MASTER_LOG_LEVEL]")
+	_ = cmd.MarkFlagFilename("config", "yaml", "yml", "json")
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print version",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("master-demo dev")
+		},
+	})
+	return cmd
+}
+
+func runMaster(cmd *cobra.Command, args []string) error {
+	_, cfg, rt, err := loadMasterFromViper(cmd)
+	if err != nil {
+		return err
+	}
+
+	goal := strings.TrimSpace(viper.GetString("goal"))
+	if goal == "" && len(args) > 0 {
+		goal = strings.Join(args, " ")
+	}
+	if goal == "" {
+		return fmt.Errorf("goal is required (--goal/-g, args, or MASTER_GOAL)")
+	}
+	if (cfg.HubAddr == "") != (cfg.MasterJWT == "") {
+		return fmt.Errorf("hub.grpc_addr and hub.jwt must both be set for remote mode, or both omitted for local-only mode")
+	}
+	if cfg.OpenAIAPIKey == "" {
+		return fmt.Errorf("openai.api_key is required (config, OPENAI_API_KEY, or ${OPENAI_API_KEY})")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), rt.Timeout)
+	defer cancel()
+
+	master, err := agent.New(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("init master: %w", err)
+	}
 	defer master.Close()
+
 	if master.LocalOnly {
 		fmt.Fprintln(os.Stderr, "mode: local-only (no Hub / remote workers)")
 	} else {
 		fmt.Fprintln(os.Stderr, "mode: remote Relay via Hub")
 	}
-	if *configPath != "" {
-		fmt.Fprintf(os.Stderr, "config: %s\n", *configPath)
-	}
+	fmt.Fprintf(os.Stderr, "config: %s\n", viper.GetString("config"))
 
-	opts, err := runOpts(*verbose, *logLevel, *logJSON)
+	opts, err := buildRunOpts(rt)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "log config: %v\n", err)
-		os.Exit(2)
+		return err
 	}
-	answer, err := master.Run(ctx, *goal, opts...)
+	answer, err := master.Run(ctx, goal, opts...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "run master: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("run master: %w", err)
 	}
 	fmt.Println(answer)
+	return nil
 }
 
-func runOpts(verbose bool, logLevel string, logJSON bool) ([]agent.RunOption, error) {
+func buildRunOpts(rt agent.FileRuntime) ([]agent.RunOption, error) {
 	var opts []agent.RunOption
-	if verbose {
+	if rt.Verbose {
 		opts = append(opts, agent.WithVerbose(os.Stderr))
 	}
-	if strings.EqualFold(strings.TrimSpace(logLevel), "off") {
+	if strings.EqualFold(strings.TrimSpace(rt.LogLevel), "off") {
 		return opts, nil
 	}
-	logger, err := agent.NewSlogLogger(os.Stderr, logLevel, logJSON)
+	level := rt.LogLevel
+	if level == "" {
+		level = "info"
+	}
+	logger, err := agent.NewSlogLogger(os.Stderr, level, rt.LogJSON)
 	if err != nil {
 		return nil, err
 	}
 	opts = append(opts, agent.WithSlog(logger))
 	return opts, nil
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

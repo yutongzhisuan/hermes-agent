@@ -1,22 +1,53 @@
 # Unified master config for master-demo:
-#   master-demo -goal "..." -config master.example.yaml
+#   master-demo --config master.example.yaml --goal "..."
+#   MASTER_CONFIG=master.example.yaml master-demo --goal "..."
 #
-# Sections:
-#   mcpServers — Cursor-compatible MCP tool servers
-#   search     — web_search / web_extract (Tavily or Perplexity API shape)
-#
-# ${ENV_VAR} in string fields is expanded from the process environment.
+# String fields support ${ENV_VAR} expansion.
+
+hub:
+  # Omit both grpc_addr and jwt for local-only mode.
+  grpc_addr: ${HUB_GRPC_ADDR}
+  jwt: ${MASTER_JWT}
+  session: master-demo
+  # tls:
+  #   ca_file: ${HUB_TLS_CA}
+  #   cert_file: ${HUB_TLS_CERT}
+  #   key_file: ${HUB_TLS_KEY}
+  #   skip_hostname_verify: false
+
+openai:
+  api_key: ${OPENAI_API_KEY}
+  model: clint
+  base_url: ${OPENAI_BASE_URL}
+
+agent:
+  mode: deep # deep | react
+  max_iterations: 20
+  # instruction: ""
+  disable_local_subagents: false
+  disable_local_planner: false
+
+log:
+  level: debug # debug|info|warn|error|off
+  json: false
+  verbose: false
+
+runtime:
+  timeout: 2m
+
+metrics:
+  enabled: false
+  # addr: ":9090"
+
+tracing:
+  enabled: false
+  # otel_endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
 
 mcpServers:
-  # Disabled placeholder so this example parses; replace with real servers.
   _example:
     disabled: true
     command: echo
     args: ["mcp-example-disabled"]
-
-  # filesystem:
-  #   command: npx
-  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
 
   # webextend:
   #   type: http
@@ -24,17 +55,10 @@ mcpServers:
   #   headers:
   #     Authorization: Bearer ${GATEWAY_API_KEY}
 
-# Set enabled: true and real base_url/api_key to register web_search + web_extract.
 search:
   enabled: true
-  provider: tavily # tavily (default) | perplexity
+  provider: tavily # tavily | perplexity
   base_url: http://100.118.227.59:8000
   api_key: 4a89ecd6295b5b95f29ec7e10e274fd74370980797714425
   max_results: 5
   timeout_seconds: 30
-  # search_depth: basic
-
-  # Perplexity-compatible:
-  # provider: perplexity
-  # base_url: http://127.0.0.1:8000
-  # api_key: ${GATEWAY_API_KEY}

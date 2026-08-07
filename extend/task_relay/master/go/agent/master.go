@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"maps"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -258,18 +257,8 @@ func applyFileConfig(cfg Config) (Config, error) {
 	if err != nil {
 		return cfg, err
 	}
-	if len(cfg.MCPServers) == 0 {
-		cfg.MCPServers = fileCfg.ServersMap()
-	} else if servers := fileCfg.ServersMap(); len(servers) > 0 {
-		merged := make(map[string]MCPServerConfig, len(servers)+len(cfg.MCPServers))
-		maps.Copy(merged, servers)
-		maps.Copy(merged, cfg.MCPServers)
-		cfg.MCPServers = merged
-	}
-	if cfg.Search == nil {
-		cfg.Search = fileCfg.Search
-	}
-	return cfg, nil
+	merged, _, err := MergeFileIntoConfig(cfg, fileCfg)
+	return merged, err
 }
 
 func loadConfiguredMCP(ctx context.Context, cfg Config) (*MCPToolkit, error) {

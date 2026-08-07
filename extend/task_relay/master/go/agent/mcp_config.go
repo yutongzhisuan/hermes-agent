@@ -11,8 +11,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// MasterFileConfig is the unified master agent config (MCP + search).
+// MasterFileConfig is the unified master agent config file.
 type MasterFileConfig struct {
+	Hub        *HubFileConfig             `json:"hub" yaml:"hub"`
+	OpenAI     *OpenAIFileConfig          `json:"openai" yaml:"openai"`
+	Agent      *AgentFileConfig           `json:"agent" yaml:"agent"`
+	Log        *LogFileConfig             `json:"log" yaml:"log"`
+	Runtime    *RuntimeFileConfig         `json:"runtime" yaml:"runtime"`
+	Metrics    *MetricsFileConfig         `json:"metrics" yaml:"metrics"`
+	Tracing    *TracingFileConfig         `json:"tracing" yaml:"tracing"`
 	MCPServers map[string]MCPServerConfig `json:"mcpServers" yaml:"mcpServers"`
 	// Servers is an optional alias for mcpServers.
 	Servers map[string]MCPServerConfig `json:"servers" yaml:"servers"`
@@ -85,13 +92,18 @@ func parseMasterConfig(data []byte, ext string) (*MasterFileConfig, error) {
 		}
 	}
 	if !hasMasterContent(&cfg) {
-		return nil, fmt.Errorf("master config has no mcpServers or search section")
+		return nil, fmt.Errorf("master config is empty")
 	}
 	return &cfg, nil
 }
 
 func hasMasterContent(cfg *MasterFileConfig) bool {
-	return cfg != nil && (len(cfg.MCPServers) > 0 || len(cfg.Servers) > 0 || cfg.Search != nil)
+	if cfg == nil {
+		return false
+	}
+	return cfg.Hub != nil || cfg.OpenAI != nil || cfg.Agent != nil ||
+		cfg.Log != nil || cfg.Runtime != nil || cfg.Metrics != nil || cfg.Tracing != nil ||
+		len(cfg.MCPServers) > 0 || len(cfg.Servers) > 0 || cfg.Search != nil
 }
 
 // ServersMap returns the effective server map (mcpServers preferred, else servers).
@@ -129,6 +141,37 @@ func expandMasterConfigEnv(cfg *MasterFileConfig) {
 		cfg.Search.Provider = expandEnvRefs(cfg.Search.Provider)
 		cfg.Search.SearchDepth = expandEnvRefs(cfg.Search.SearchDepth)
 	}
+	if cfg.Hub != nil {
+		cfg.Hub.GRPCAddr = expandEnvRefs(cfg.Hub.GRPCAddr)
+		cfg.Hub.JWT = expandEnvRefs(cfg.Hub.JWT)
+		cfg.Hub.Session = expandEnvRefs(cfg.Hub.Session)
+		if cfg.Hub.TLS != nil {
+			cfg.Hub.TLS.CAFile = expandEnvRefs(cfg.Hub.TLS.CAFile)
+			cfg.Hub.TLS.CertFile = expandEnvRefs(cfg.Hub.TLS.CertFile)
+			cfg.Hub.TLS.KeyFile = expandEnvRefs(cfg.Hub.TLS.KeyFile)
+		}
+	}
+	if cfg.OpenAI != nil {
+		cfg.OpenAI.APIKey = expandEnvRefs(cfg.OpenAI.APIKey)
+		cfg.OpenAI.Model = expandEnvRefs(cfg.OpenAI.Model)
+		cfg.OpenAI.BaseURL = expandEnvRefs(cfg.OpenAI.BaseURL)
+	}
+	if cfg.Agent != nil {
+		cfg.Agent.Mode = expandEnvRefs(cfg.Agent.Mode)
+		cfg.Agent.Instruction = expandEnvRefs(cfg.Agent.Instruction)
+	}
+	if cfg.Log != nil {
+		cfg.Log.Level = expandEnvRefs(cfg.Log.Level)
+	}
+	if cfg.Runtime != nil {
+		cfg.Runtime.Timeout = expandEnvRefs(cfg.Runtime.Timeout)
+	}
+	if cfg.Metrics != nil {
+		cfg.Metrics.Addr = expandEnvRefs(cfg.Metrics.Addr)
+	}
+	if cfg.Tracing != nil {
+		cfg.Tracing.OTelEndpoint = expandEnvRefs(cfg.Tracing.OTelEndpoint)
+	}
 }
 
 func expandEnvRefs(s string) string {
@@ -143,6 +186,7 @@ func expandEnvRefs(s string) string {
 		if v, ok := os.LookupEnv(sub[1]); ok {
 			return v
 		}
-		return m
+		// Unset env vars expand to empty so optional sections (hub) stay local-only.
+		return ""
 	})
 }
