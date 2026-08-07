@@ -15,7 +15,8 @@ type LocalOptions struct {
 }
 
 type localBackend struct {
-	shell string
+	shell     string
+	bwrapPath string
 }
 
 func NewLocal(opts LocalOptions) (Executor, error) {
@@ -26,18 +27,40 @@ func NewLocal(opts LocalOptions) (Executor, error) {
 	if _, err := exec.LookPath(shell); err != nil {
 		return nil, fmt.Errorf("shell %q: %w", shell, err)
 	}
-	return &localBackend{shell: shell}, nil
+	bwrapPath, _ := exec.LookPath("bwrap")
+	return &localBackend{shell: shell, bwrapPath: bwrapPath}, nil
 }
 
 func (l *localBackend) Name() string { return "local" }
+
+func (l *localBackend) Sandboxed() bool { return l.bwrapPath != "" }
 
 func (l *localBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	res := JobResult{Backend: l.Name(), StartedAt: time.Now()}
 	ctx, cancel := context.WithTimeout(ctx, spec.Timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, l.shell, "-c", spec.Command)
-	if spec.WorkDir != "" {
+	args := []string{"-c", spec.Command}
+	bin := l.shell
+	if l.bwrapPath != "" {
+		bwrapArgs := []string{
+			"--ro-bind", "/", "/",
+			"--dev", "/dev",
+			"--proc", "/proc",
+			"--unshare-pid",
+			"--unshare-ipc",
+			"--cap-drop", "ALL",
+			"--die-with-parent",
+		}
+		if spec.WorkDir != "" {
+			bwrapArgs = append(bwrapArgs, "--bind", spec.WorkDir, spec.WorkDir, "--chdir", spec.WorkDir)
+		}
+		bwrapArgs = append(bwrapArgs, "--", l.shell, "-c", spec.Command)
+		bin = l.bwrapPath
+		args = bwrapArgs
+	}
+	cmd := exec.CommandContext(ctx, bin, args...)
+	if l.bwrapPath == "" && spec.WorkDir != "" {
 		cmd.Dir = spec.WorkDir
 	}
 	cmd.Env = mergeEnv(spec.Env)

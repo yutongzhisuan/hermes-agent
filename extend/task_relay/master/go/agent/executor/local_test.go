@@ -88,6 +88,22 @@ func TestLocalKillsProcessGroup(t *testing.T) {
 	require.Equal(t, syscall.ESRCH, err)
 }
 
+func TestLocalSandboxProbe(t *testing.T) {
+	e, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	res, err := e.Run(context.Background(), executor.Spec{
+		Command: "echo sandbox-ok",
+	}.WithDefaults(10*time.Second, time.Minute, 1<<20))
+	require.NoError(t, err)
+	require.Equal(t, "sandbox-ok\n", res.Stdout)
+}
+
+func TestLocalSandboxedFlag(t *testing.T) {
+	l, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	_ = l.(interface{ Sandboxed() bool }).Sandboxed()
+}
+
 func TestLocalSetsidEscapeDoesNotHang(t *testing.T) {
 	if _, err := exec.LookPath("setsid"); err != nil {
 		t.Skip("setsid not available (macOS)")
