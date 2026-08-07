@@ -40,6 +40,11 @@ func doGet(ctx context.Context, client httpDoer, url string, headers map[string]
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	return doGetBytes(ctx, client, req)
+}
+
+// doGetBytes performs a pre-built request and returns the raw response body.
+func doGetBytes(ctx context.Context, client httpDoer, req *http.Request) ([]byte, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)

@@ -62,7 +62,7 @@ func providerEnvBindings() []struct {
 	key string
 	env []string
 } {
-	providers := []string{"tavily", "perplexity", "gateway", "exa", "searxng", "brave-free"}
+	providers := []string{"firecrawl", "parallel", "tavily", "perplexity", "gateway", "exa", "searxng", "brave-free", "ddgs"}
 	var bindings []struct {
 		key string
 		env []string
@@ -168,7 +168,7 @@ func applyViperToFile(file *agent.MasterFileConfig) {
 			enabled := viper.GetBool("search.enabled")
 			file.Search.Enabled = &enabled
 		}
-		for _, p := range []string{"tavily", "perplexity", "gateway", "exa", "searxng", "brave-free"} {
+		for _, p := range []string{"firecrawl", "parallel", "tavily", "perplexity", "gateway", "exa", "searxng", "brave-free", "ddgs"} {
 			applyViperToProvider(file.Search, p)
 		}
 	}

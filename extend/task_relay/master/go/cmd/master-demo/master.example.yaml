@@ -71,6 +71,16 @@ search:
       api_key: 4a89ecd6295b5b95f29ec7e10e274fd74370980797714425
       timeout_seconds: 30
 
+    # firecrawl:
+    #   base_url: https://api.firecrawl.dev
+    #   api_key: ${FIRECRAWL_API_KEY}
+    #   timeout_seconds: 30
+
+    # parallel:
+    #   base_url: https://api.parallel.ai
+    #   api_key: ${PARALLEL_API_KEY}
+    #   timeout_seconds: 30
+
     # tavily:
     #   base_url: ${TAVILY_BASE_URL}
     #   api_key: ${TAVILY_API_KEY}
@@ -96,4 +106,6 @@ search:
     #   api_key: ${BRAVE_SEARCH_API_KEY}
     #   timeout_seconds: 30
 
-    # Note: firecrawl, parallel and ddgs are planned for Phase 2.
+    # ddgs:
+    #   base_url: https://html.duckduckgo.com
+    #   timeout_seconds: 30

@@ -51,22 +51,26 @@ type Provider interface {
 
 // allProviderNames lists every provider the Go master knows about.
 var allProviderNames = []string{
+	"firecrawl",
+	"parallel",
 	"tavily",
 	"perplexity",
 	"gateway",
 	"exa",
 	"searxng",
 	"brave-free",
+	"ddgs",
 }
 
-// Legacy preference order matches the Python side, filtered to providers that
-// are implemented in this Go package. Phase 2 will insert firecrawl, parallel
-// and ddgs in their historic positions.
+// Legacy preference order matches the Python side in web_search_registry.py.
 var legacyPreference = []string{
+	"firecrawl",
+	"parallel",
 	"tavily",
 	"exa",
 	"searxng",
 	"brave-free",
+	"ddgs",
 }
 
 // providerNames returns the names of every provider in the registry.
@@ -211,6 +215,10 @@ func BuildProviderRegistry(cfg *SearchConfig) []Provider {
 // provider block exists.
 func buildProvider(name string, cfg *SearchConfig) Provider {
 	switch name {
+	case "firecrawl":
+		return newFirecrawlProvider(cfg)
+	case "parallel":
+		return newParallelProvider(cfg)
 	case "tavily":
 		return newTavilyProvider(cfg)
 	case "perplexity":
@@ -223,6 +231,8 @@ func buildProvider(name string, cfg *SearchConfig) Provider {
 		return newSearxngProvider(cfg)
 	case "brave-free":
 		return newBraveProvider(cfg)
+	case "ddgs":
+		return newDDGSProvider(cfg)
 	default:
 		return nil
 	}

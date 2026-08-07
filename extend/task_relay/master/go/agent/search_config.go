@@ -12,15 +12,17 @@ const (
 	capabilityExtract = "extract"
 )
 
-// knownProviderNames lists every provider that the Go master currently
-// understands. Phase 2 will add firecrawl, parallel and ddgs.
+// knownProviderNames lists every provider that the Go master understands.
 var knownProviderNames = []string{
+	"firecrawl",
+	"parallel",
 	"tavily",
 	"perplexity",
 	"gateway",
 	"exa",
 	"searxng",
 	"brave-free",
+	"ddgs",
 }
 
 // SearchProviderConfig holds provider-specific settings.
