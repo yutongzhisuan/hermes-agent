@@ -11,7 +11,10 @@ from typing import Sequence
 
 from extend.task_relay.worker.jwt_manager import derive_token_url, ensure_worker_jwt
 from extend.task_relay.worker.task_worker import TaskWorker, install_signal_handlers
-from extend.task_relay.worker.tls_client import build_client_ssl_context, client_tls_from_args
+from extend.task_relay.worker.tls_client import (
+    build_client_ssl_context,
+    client_tls_from_args,
+)
 
 logger = logging.getLogger("task_relay.worker")
 
@@ -59,7 +62,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--backend",
         default="stub",
-        choices=["stub", "acp", "remote-acp"],
+        choices=["stub", "acp", "remote-acp", "shell-exec"],
         help="execution backend to use (default: stub)",
     )
     parser.add_argument(
@@ -107,9 +110,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default="INFO",
         help="logging level (default: INFO)",
     )
-    parser.add_argument("--tls-ca", default="", help="CA bundle to verify Hub TLS (PEM)")
-    parser.add_argument("--tls-cert", default="", help="client certificate for mTLS (PEM)")
-    parser.add_argument("--tls-key", default="", help="client private key for mTLS (PEM)")
+    parser.add_argument(
+        "--tls-ca", default="", help="CA bundle to verify Hub TLS (PEM)"
+    )
+    parser.add_argument(
+        "--tls-cert", default="", help="client certificate for mTLS (PEM)"
+    )
+    parser.add_argument(
+        "--tls-key", default="", help="client private key for mTLS (PEM)"
+    )
     parser.add_argument(
         "--tls-skip-hostname-verify",
         action="store_true",
@@ -120,7 +129,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def _create_backend(args: argparse.Namespace):
     if args.backend == "stub":
-        from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
+        from extend.task_relay.worker.backends.stub_backend import (
+            StubBackend,
+            StubBackendConfig,
+        )
 
         return StubBackend(StubBackendConfig(sleep_seconds=args.stub_sleep_seconds))
     if args.backend == "acp":
@@ -141,6 +153,12 @@ def _create_backend(args: argparse.Namespace):
                 endpoint_url=resolve_remote_acp_url(args.remote_acp_url or None)
             )
         )
+    if args.backend == "shell-exec":
+        from extend.task_relay.worker.backends.shell_exec_backend import (
+            ShellExecBackend,
+        )
+
+        return ShellExecBackend()
     raise ValueError(f"unknown backend: {args.backend}")
 
 
@@ -169,7 +187,9 @@ async def _async_main(argv: Sequence[str] | None) -> int:
     )
     backend = _create_backend(args)
 
-    session_modes = [m.strip().lower() for m in args.session_modes.split(",") if m.strip()]
+    session_modes = [
+        m.strip().lower() for m in args.session_modes.split(",") if m.strip()
+    ]
     if "a" not in session_modes:
         logger.error("Mode A is mandatory for all workers")
         return 1
