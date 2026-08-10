@@ -20,12 +20,14 @@ type ExecLimits struct {
 }
 
 type BashToolDeps struct {
-	Evaluator    policy.Evaluator
-	Executor     executor.Executor
-	Audit        *policy.AuditLogger
-	Limits       ExecLimits
-	EnvAllowKeys []string
-	Session      string
+	Evaluator      policy.Evaluator
+	Executor       executor.Executor
+	Remote         executor.Executor // nil = remote unavailable
+	DefaultBackend string            // "local" | "remote"; empty = local
+	Audit          *policy.AuditLogger
+	Limits         ExecLimits
+	EnvAllowKeys   []string
+	Session        string
 }
 
 type BashTool struct {
@@ -39,6 +41,7 @@ type BashInput struct {
 	WorkDir        string            `json:"workdir,omitempty" jsonschema:"description=Working directory; defaults to master working dir"`
 	TimeoutSeconds int               `json:"timeout_seconds,omitempty" jsonschema:"description=Timeout in seconds; default and max from exec.limits"`
 	Env            map[string]string `json:"env,omitempty" jsonschema:"description=Extra env vars; keys outside exec.policy.env_allow_keys are stripped"`
+	Backend        string            `json:"backend,omitempty" jsonschema:"description=Execution backend: local or remote; defaults to the configured default_backend"`
 }
 
 type BashOutput struct {
@@ -88,12 +91,28 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 		return b.deny(entry, "needs approval (approval workflow not yet enabled)")
 	}
 
-	entry.Backend = d.Executor.Name()
+	execBackend := d.Executor
+	backend := in.Backend
+	if backend == "" {
+		backend = d.DefaultBackend
+	}
+	switch backend {
+	case "", "local":
+	case "remote":
+		if d.Remote == nil {
+			return BashOutput{}, fmt.Errorf("remote backend unavailable (no hub connection configured)")
+		}
+		execBackend = d.Remote
+	default:
+		return BashOutput{}, fmt.Errorf("unknown backend %q (want local|remote)", in.Backend)
+	}
+
+	entry.Backend = execBackend.Name()
 	span.SetAttributes(
 		attribute.String("exec.backend", entry.Backend),
 		attribute.String("exec.decision", decision.String()),
 	)
-	res, err := d.Executor.Run(ctx, spec)
+	res, err := execBackend.Run(ctx, spec)
 	if err != nil {
 		entry.ExitCode = -1
 		entry.Error = err.Error()

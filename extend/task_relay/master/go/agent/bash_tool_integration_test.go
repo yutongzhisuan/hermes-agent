@@ -33,7 +33,7 @@ exec:
 	require.True(t, cfg.Exec.Enabled)
 	require.Equal(t, auditPath, cfg.Exec.AuditPath)
 
-	bashTool, err := buildBashTool(cfg)
+	bashTool, err := buildBashTool(cfg, nil)
 	require.NoError(t, err)
 	require.NotNil(t, bashTool)
 
@@ -49,4 +49,17 @@ exec:
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"command":"echo e2e"`)
 	require.Contains(t, string(data), `"decision":"allow"`)
+}
+
+func TestBuildBashToolRemoteDefaultRequiresHub(t *testing.T) {
+	cfg := Config{
+		MasterSession: "it",
+		Exec: &ExecConfig{
+			Enabled:        true,
+			DefaultBackend: "remote",
+		},
+	}
+	_, err := buildBashTool(cfg, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "hub")
 }

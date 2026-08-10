@@ -247,7 +247,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		}
 		tools = append(tools, searchTools...)
 		if cfg.Exec != nil && cfg.Exec.Enabled {
-			bashTool, bashErr := buildBashTool(cfg)
+			bashTool, bashErr := buildBashTool(cfg, hub)
 			if bashErr != nil {
 				if mcpClose != nil {
 					_ = mcpClose()
@@ -401,10 +401,13 @@ func closeHub(hub *client.Client) error {
 	return hub.Close()
 }
 
-func buildBashTool(cfg Config) (tool.BaseTool, error) {
+func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 	execCfg := cfg.Exec.WithDefaults()
-	if execCfg.DefaultBackend == "remote" {
-		return nil, fmt.Errorf("exec default_backend=remote is not yet implemented (remote backend is phase 2)")
+	var remoteExec executor.Executor
+	if hub != nil {
+		remoteExec = executor.NewRemoteBackend(hub, cfg.MasterSession, 0)
+	} else if execCfg.DefaultBackend == "remote" {
+		return nil, fmt.Errorf("exec default_backend=remote requires a hub connection (local-only mode has no hub)")
 	}
 	exec, err := executor.NewLocal(executor.LocalOptions{})
 	if err != nil {
@@ -415,16 +418,18 @@ func buildBashTool(cfg Config) (tool.BaseTool, error) {
 		return nil, fmt.Errorf("exec audit: %w", err)
 	}
 	bash := NewBashTool(BashToolDeps{
-		Evaluator:    policy.NewEvaluator(execCfg.Policy),
-		Executor:     exec,
-		Audit:        audit,
-		Limits:       execCfg.Limits,
-		EnvAllowKeys: execCfg.EnvAllowKeys,
-		Session:      cfg.MasterSession,
+		Evaluator:      policy.NewEvaluator(execCfg.Policy),
+		Executor:       exec,
+		Remote:         remoteExec,
+		DefaultBackend: execCfg.DefaultBackend,
+		Audit:          audit,
+		Limits:         execCfg.Limits,
+		EnvAllowKeys:   execCfg.EnvAllowKeys,
+		Session:        cfg.MasterSession,
 	})
 	t, err := toolutils.InferTool(
 		"bash",
-		"Execute a shell command under policy control (allow-list, audit). Use for local system commands.",
+		"Execute a shell command under policy control (allow-list, audit). Supports local execution; remote backend via hub workers when configured.",
 		bash.Run,
 	)
 	if err != nil {

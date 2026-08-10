@@ -149,3 +149,92 @@ func TestBashToolDangerousEnvStripped(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, out.Stdout, "/tmp/evil") // PATH override 被剥离，保留最小 base env 的 PATH
 }
+
+type fakeExecutor struct {
+	name     string
+	runCalls int
+	lastSpec executor.Spec
+	result   executor.JobResult
+	err      error
+}
+
+func (f *fakeExecutor) Run(_ context.Context, spec executor.Spec) (executor.JobResult, error) {
+	f.runCalls++
+	f.lastSpec = spec
+	if f.result.Backend == "" {
+		f.result.Backend = f.name
+	}
+	return f.result, f.err
+}
+
+func (f *fakeExecutor) Name() string    { return f.name }
+func (f *fakeExecutor) Sandboxed() bool { return false }
+
+func mustAudit(t *testing.T) *policy.AuditLogger {
+	t.Helper()
+	audit, err := policy.NewAuditLogger(filepath.Join(t.TempDir(), "audit.jsonl"))
+	require.NoError(t, err)
+	return audit
+}
+
+func buildBackendTool(t *testing.T, local, remote executor.Executor, defaultBackend string) *agent.BashTool {
+	t.Helper()
+	return agent.NewBashTool(agent.BashToolDeps{
+		Evaluator:      policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}}),
+		Executor:       local,
+		Remote:         remote,
+		DefaultBackend: defaultBackend,
+		Audit:          mustAudit(t),
+		Limits:         agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+		Session:        "test-session",
+	})
+}
+
+func TestBashRemoteSelected(t *testing.T) {
+	remote := &fakeExecutor{name: "remote", result: executor.JobResult{ExitCode: 0, Stdout: "remote\n", Backend: "remote"}}
+	local := &fakeExecutor{name: "local"}
+	tool := buildBackendTool(t, local, remote, "")
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", Backend: "remote"})
+	require.NoError(t, err)
+	require.Equal(t, 0, out.ExitCode)
+	require.Equal(t, "remote\n", out.Stdout)
+	require.Equal(t, 1, remote.runCalls)
+	require.Equal(t, 0, local.runCalls)
+	require.Equal(t, "echo hi", remote.lastSpec.Command)
+}
+
+func TestBashRemoteUnavailable(t *testing.T) {
+	tool := buildBashTool(t, policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}})
+	_, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", Backend: "remote"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "remote backend unavailable")
+}
+
+func TestBashUnknownBackend(t *testing.T) {
+	tool := buildBashTool(t, policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}})
+	_, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", Backend: "mars"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mars")
+}
+
+func TestBashDefaultLocal(t *testing.T) {
+	remote := &fakeExecutor{name: "remote", result: executor.JobResult{ExitCode: 0, Backend: "remote"}}
+	local := &fakeExecutor{name: "local", result: executor.JobResult{ExitCode: 0, Stdout: "local\n"}}
+	tool := buildBackendTool(t, local, remote, "")
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi"})
+	require.NoError(t, err)
+	require.Equal(t, "local\n", out.Stdout)
+	require.Equal(t, 1, local.runCalls)
+	require.Equal(t, 0, remote.runCalls)
+}
+
+func TestBashDefaultRemoteWhenConfigured(t *testing.T) {
+	remote := &fakeExecutor{name: "remote", result: executor.JobResult{ExitCode: 0, Stdout: "remote\n", Backend: "remote"}}
+	local := &fakeExecutor{name: "local", result: executor.JobResult{ExitCode: 0}}
+	tool := buildBackendTool(t, local, remote, "remote")
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi"})
+	require.NoError(t, err)
+	require.Equal(t, "remote\n", out.Stdout)
+	require.Equal(t, 1, remote.runCalls)
+	require.Equal(t, 0, local.runCalls)
+}
