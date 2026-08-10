@@ -85,9 +85,6 @@ func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return abandon(res, ctxErr)
 		}
-		if err != nil {
-			continue
-		}
 		switch result.GetStatus() {
 		case pb.TaskStatus_TASK_STATUS_COMPLETED, pb.TaskStatus_TASK_STATUS_FAILED,
 			pb.TaskStatus_TASK_STATUS_LOST, pb.TaskStatus_TASK_STATUS_CANCELLED:
@@ -136,7 +133,10 @@ func (r *remoteBackend) finalize(res JobResult, result *pb.TaskResult) (JobResul
 	res.TimedOut = payload.TimedOut
 	res.Canceled = payload.Canceled
 	if status == pb.TaskStatus_TASK_STATUS_FAILED || status == pb.TaskStatus_TASK_STATUS_CANCELLED {
+		// Non-COMPLETED terminal states do not trust the payload exit code; the
+		// job-level Canceled flag comes from the task status, not the payload.
 		res.ExitCode = -1
+		res.Canceled = status == pb.TaskStatus_TASK_STATUS_CANCELLED
 	}
 	return res, nil
 }

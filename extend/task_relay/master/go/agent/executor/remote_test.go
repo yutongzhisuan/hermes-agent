@@ -140,6 +140,64 @@ func TestRemoteFailedNoPayload(t *testing.T) {
 	require.ErrorContains(t, err, "worker exploded")
 }
 
+func TestRemoteFailedWithPayloadForcesExitCode(t *testing.T) {
+	tests := []struct {
+		name         string
+		status       pb.TaskStatus
+		payload      map[string]any
+		wantCanceled bool
+		wantTimedOut bool
+	}{
+		{
+			name:   "failed with successful-looking payload",
+			status: pb.TaskStatus_TASK_STATUS_FAILED,
+			payload: map[string]any{
+				"exit_code": 0, "stdout": "partial out", "stderr": "partial err",
+				"timed_out": false, "canceled": false,
+			},
+		},
+		{
+			name:   "failed with canceled payload",
+			status: pb.TaskStatus_TASK_STATUS_FAILED,
+			payload: map[string]any{
+				"exit_code": 0, "stdout": "partial out", "stderr": "",
+				"timed_out": false, "canceled": true,
+			},
+		},
+		{
+			name:   "failed keeps payload timed_out",
+			status: pb.TaskStatus_TASK_STATUS_FAILED,
+			payload: map[string]any{
+				"exit_code": 0, "stdout": "", "stderr": "",
+				"timed_out": true, "canceled": false,
+			},
+			wantTimedOut: true,
+		},
+		{
+			name:   "cancelled forces canceled regardless of payload",
+			status: pb.TaskStatus_TASK_STATUS_CANCELLED,
+			payload: map[string]any{
+				"exit_code": 0, "stdout": "partial out", "stderr": "",
+				"timed_out": false, "canceled": false,
+			},
+			wantCanceled: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &fakeDispatcher{result: execResult(t, tc.status, tc.payload, "")}
+			backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)
+			res, err := backend.Run(context.Background(), executor.Spec{Command: "true", Timeout: 5 * time.Second})
+			require.NoError(t, err)
+			require.Equal(t, -1, res.ExitCode)
+			require.Equal(t, tc.payload["stdout"], res.Stdout)
+			require.Equal(t, tc.payload["stderr"], res.Stderr)
+			require.Equal(t, tc.wantCanceled, res.Canceled)
+			require.Equal(t, tc.wantTimedOut, res.TimedOut)
+		})
+	}
+}
+
 func TestRemoteContextTimeout(t *testing.T) {
 	fake := &fakeDispatcher{result: execResult(t, pb.TaskStatus_TASK_STATUS_RUNNING, nil, "")}
 	backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)
