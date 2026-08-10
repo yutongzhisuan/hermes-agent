@@ -33,7 +33,7 @@ exec:
 	require.True(t, cfg.Exec.Enabled)
 	require.Equal(t, auditPath, cfg.Exec.AuditPath)
 
-	bashTool, err := buildBashTool(cfg, nil)
+	bashTool, err := buildBashTool(cfg, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, bashTool)
 
@@ -59,7 +59,7 @@ func TestBuildBashToolRemoteDefaultRequiresHub(t *testing.T) {
 			DefaultBackend: "remote",
 		},
 	}
-	_, err := buildBashTool(cfg, nil)
+	_, err := buildBashTool(cfg, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "hub")
 }

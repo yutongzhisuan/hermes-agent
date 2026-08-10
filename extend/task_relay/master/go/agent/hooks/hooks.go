@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -91,7 +92,12 @@ func (r *Runner) runHook(ctx context.Context, h Hook, stdin []byte) error {
 }
 
 func (r *Runner) Wrap(t tool.InvokableTool) tool.InvokableTool {
-	return &hookedTool{inner: t, runner: r}
+	h := &hookedTool{inner: t, runner: r}
+	if info, err := t.Info(context.Background()); err == nil && info != nil {
+		h.name = info.Name
+		h.eager = true
+	}
+	return h
 }
 
 func (r *Runner) WrapAll(tools []tool.BaseTool) []tool.BaseTool {
@@ -109,7 +115,12 @@ func (r *Runner) WrapAll(tools []tool.BaseTool) []tool.BaseTool {
 type hookedTool struct {
 	inner  tool.InvokableTool
 	runner *Runner
-	name   string
+	// name is immutable when eager is true; otherwise it is resolved once
+	// under nameOnce on first use.
+	name     string
+	eager    bool
+	nameOnce sync.Once
+	nameErr  error
 }
 
 func (h *hookedTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
@@ -117,15 +128,20 @@ func (h *hookedTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 }
 
 func (h *hookedTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
-	name := h.name
-	if name == "" {
-		info, err := h.inner.Info(ctx)
-		if err != nil {
-			return "", fmt.Errorf("hook resolve tool info: %w", err)
+	if !h.eager {
+		h.nameOnce.Do(func() {
+			info, err := h.inner.Info(ctx)
+			if err != nil {
+				h.nameErr = err
+				return
+			}
+			h.name = info.Name
+		})
+		if h.nameErr != nil {
+			return "", fmt.Errorf("hook resolve tool info: %w", h.nameErr)
 		}
-		name = info.Name
-		h.name = name
 	}
+	name := h.name
 	if err := h.runner.Check(ctx, name, argumentsInJSON); err != nil {
 		return "", err
 	}

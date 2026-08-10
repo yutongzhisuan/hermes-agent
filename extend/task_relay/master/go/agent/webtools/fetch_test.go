@@ -129,6 +129,24 @@ func TestFetchRedirectRevalidated(t *testing.T) {
 	assert.Contains(t, err.Error(), "denied")
 }
 
+func TestFetchFinalURLReported(t *testing.T) {
+	srvB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprint(w, "final body")
+	}))
+	defer srvB.Close()
+	srvA := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, srvB.URL+"/landing", http.StatusFound)
+	}))
+	defer srvA.Close()
+
+	tool := NewFetchTool(newTestDeps(t, nil))
+	out, err := tool.Run(context.Background(), FetchInput{URL: srvA.URL})
+	require.NoError(t, err)
+	assert.Equal(t, srvB.URL+"/landing", out.URL)
+	assert.Equal(t, "final body", out.Content)
+}
+
 func TestFetchTransportDialsValidatedIP(t *testing.T) {
 	tool := NewFetchTool(newTestDeps(t, func(d *Deps) {
 		d.AllowPrivateNetworks = false

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -131,6 +132,7 @@ type Master struct {
 	Model           string
 	shutdownTracing func(context.Context) error
 	mcpClose        func() error
+	closers         []io.Closer
 }
 
 // New builds a Master agent.
@@ -225,6 +227,12 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 
 	tools := cfg.Tools
 	var mcpClose func() error
+	var closers []io.Closer
+	closeAudits := func() {
+		for _, c := range closers {
+			_ = c.Close()
+		}
+	}
 	if !useInjectedTools {
 		if !localOnly {
 			tools, err = (&RelayTools{Hub: hub, MasterSession: cfg.MasterSession}).Build()
@@ -256,8 +264,9 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		}
 		tools = append(tools, searchTools...)
 		if cfg.Exec != nil && cfg.Exec.Enabled {
-			bashTool, bashErr := buildBashTool(cfg, hub)
+			bashTool, bashErr := buildBashTool(cfg, hub, &closers)
 			if bashErr != nil {
+				closeAudits()
 				if mcpClose != nil {
 					_ = mcpClose()
 				}
@@ -270,8 +279,9 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			}
 		}
 		if cfg.File != nil && cfg.File.Enabled {
-			fileTools, fileErr := buildFileTools(cfg)
+			fileTools, fileErr := buildFileTools(cfg, &closers)
 			if fileErr != nil {
+				closeAudits()
 				if mcpClose != nil {
 					_ = mcpClose()
 				}
@@ -282,8 +292,9 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			tools = append(tools, fileTools...)
 		}
 		if cfg.Fetch != nil && cfg.Fetch.Enabled {
-			webTools, webErr := buildWebTools(cfg)
+			webTools, webErr := buildWebTools(cfg, &closers)
 			if webErr != nil {
+				closeAudits()
 				if mcpClose != nil {
 					_ = mcpClose()
 				}
@@ -296,6 +307,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		if cfg.Todos != nil && cfg.Todos.Enabled {
 			todosTool, todosErr := buildTodosTool(cfg)
 			if todosErr != nil {
+				closeAudits()
 				if mcpClose != nil {
 					_ = mcpClose()
 				}
@@ -306,6 +318,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			tools = append(tools, todosTool)
 		}
 		if err = ensureUniqueToolNames(ctx, tools); err != nil {
+			closeAudits()
 			if mcpClose != nil {
 				_ = mcpClose()
 			}
@@ -314,8 +327,9 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			return nil, err
 		}
 		if cfg.Hooks != nil && len(cfg.Hooks.PreToolUse) > 0 {
-			runner, hookErr := buildHooksRunner(cfg)
+			runner, hookErr := buildHooksRunner(cfg, &closers)
 			if hookErr != nil {
+				closeAudits()
 				if mcpClose != nil {
 					_ = mcpClose()
 				}
@@ -332,6 +346,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 
 	agentImpl, err := buildAgent(ctx, cfg, chatModel, plannerModel, toolsConfig, localOnly && !useInjectedTools)
 	if err != nil {
+		closeAudits()
 		if mcpClose != nil {
 			_ = mcpClose()
 		}
@@ -347,6 +362,7 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 		Model:           cfg.OpenAIModel,
 		shutdownTracing: shutdownTracing,
 		mcpClose:        mcpClose,
+		closers:         closers,
 	}, nil
 }
 
@@ -446,7 +462,7 @@ func closeHub(hub *client.Client) error {
 	return hub.Close()
 }
 
-func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
+func buildBashTool(cfg Config, hub *client.Client, closers *[]io.Closer) (tool.BaseTool, error) {
 	execCfg := cfg.Exec.WithDefaults()
 	var remoteExec executor.Executor
 	if hub != nil {
@@ -462,6 +478,7 @@ func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("exec audit: %w", err)
 	}
+	registerAuditCloser(closers, audit)
 	var approval policy.ApprovalService
 	if execCfg.Approval.WebhookURL != "" {
 		approval = &policy.WebhookApproval{
@@ -503,7 +520,7 @@ func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 	return t, nil
 }
 
-func buildFileTools(cfg Config) ([]tool.BaseTool, error) {
+func buildFileTools(cfg Config, closers *[]io.Closer) ([]tool.BaseTool, error) {
 	wd, _ := os.Getwd()
 	fileCfg := cfg.File.WithDefaults(wd)
 	paths, err := policy.NewPathEvaluator(fileCfg.Root, fileCfg.Policy)
@@ -518,6 +535,7 @@ func buildFileTools(cfg Config) ([]tool.BaseTool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("file audit: %w", err)
 	}
+	registerAuditCloser(closers, audit)
 	deps := &filetools.Deps{
 		Paths: paths, Audit: audit,
 		MaxReadBytes: fileCfg.MaxReadBytes, MaxWriteBytes: fileCfg.MaxWriteBytes,
@@ -542,7 +560,7 @@ func buildFileTools(cfg Config) ([]tool.BaseTool, error) {
 	return []tool.BaseTool{viewT, writeT, editT, multieditT}, nil
 }
 
-func buildWebTools(cfg Config) ([]tool.BaseTool, error) {
+func buildWebTools(cfg Config, closers *[]io.Closer) ([]tool.BaseTool, error) {
 	wd, _ := os.Getwd()
 	fetchCfg := cfg.Fetch.WithDefaults()
 	root := wd
@@ -564,6 +582,7 @@ func buildWebTools(cfg Config) ([]tool.BaseTool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch audit: %w", err)
 	}
+	registerAuditCloser(closers, audit)
 	deps := &webtools.Deps{
 		Paths: paths, Audit: audit,
 		DomainAllowList: fetchCfg.DomainAllowList, DomainDenyList: fetchCfg.DomainDenyList,
@@ -591,7 +610,7 @@ func buildTodosTool(cfg Config) (tool.BaseTool, error) {
 	return t, nil
 }
 
-func buildHooksRunner(cfg Config) (*hooks.Runner, error) {
+func buildHooksRunner(cfg Config, closers *[]io.Closer) (*hooks.Runner, error) {
 	var auditPath string
 	if cfg.Exec != nil {
 		auditPath = cfg.Exec.AuditPath
@@ -604,7 +623,14 @@ func buildHooksRunner(cfg Config) (*hooks.Runner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("hooks audit: %w", err)
 	}
+	registerAuditCloser(closers, audit)
 	return &hooks.Runner{Hooks: cfg.Hooks.PreToolUse, Audit: audit, Session: cfg.MasterSession}, nil
+}
+
+func registerAuditCloser(closers *[]io.Closer, audit *policy.AuditLogger) {
+	if closers != nil {
+		*closers = append(*closers, audit)
+	}
 }
 
 func buildAgent(
@@ -653,7 +679,7 @@ func buildAgent(
 	}
 }
 
-// Close releases Hub, MCP, and tracing resources.
+// Close releases Hub, MCP, audit, and tracing resources.
 func (m *Master) Close() error {
 	if m == nil {
 		return nil
@@ -661,6 +687,11 @@ func (m *Master) Close() error {
 	var err error
 	if m.mcpClose != nil {
 		err = m.mcpClose()
+	}
+	for _, c := range m.closers {
+		if closeErr := c.Close(); err == nil {
+			err = closeErr
+		}
 	}
 	if m.Hub != nil {
 		if hubErr := m.Hub.Close(); err == nil {

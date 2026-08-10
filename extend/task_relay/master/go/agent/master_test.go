@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/infa/task_relay/master/agent"
+	"github.com/infa/task_relay/master/agent/hooks"
 )
 
 func TestMasterNewRequiresHubAddrWhenJWTSet(t *testing.T) {
@@ -61,6 +64,30 @@ func TestMasterLocalOnlyWithoutHub(t *testing.T) {
 	answer, err := master.Run(context.Background(), "Explain priority queue scheduling briefly.")
 	require.NoError(t, err)
 	require.Contains(t, answer, "Local answer")
+}
+
+func TestMasterCloseClosesAuditLoggers(t *testing.T) {
+	dir := t.TempDir()
+	hookPath := filepath.Join(dir, "allow.sh")
+	require.NoError(t, os.WriteFile(hookPath, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	master, err := agent.New(context.Background(), agent.Config{
+		Mode:                  agent.ModeReAct,
+		ChatModel:             &scriptedChatModel{responses: []*schema.Message{schema.AssistantMessage("noop", nil)}},
+		DisableLocalSubAgents: true,
+		DisableLocalPlanner:   true,
+		Exec: &agent.ExecConfig{
+			Enabled:   true,
+			AuditPath: filepath.Join(dir, "exec-audit.jsonl"),
+		},
+		File:  &agent.FileToolsConfig{Enabled: true, Root: dir},
+		Fetch: &agent.FetchConfig{Enabled: true},
+		Todos: &agent.TodosConfig{Enabled: true, Path: filepath.Join(dir, "todos.json")},
+		Hooks: &agent.HooksConfig{PreToolUse: []hooks.Hook{{Command: hookPath}}},
+	})
+	require.NoError(t, err)
+	require.NoError(t, master.Close())
+	require.NoError(t, master.Close())
 }
 
 func TestMasterCloseNilSafe(t *testing.T) {

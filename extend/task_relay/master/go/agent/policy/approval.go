@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -65,7 +66,7 @@ func (w *WebhookApproval) RequestApproval(ctx context.Context, req ApprovalReque
 	var decoded struct {
 		Approved *bool `json:"approved"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil || decoded.Approved == nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&decoded); err != nil || decoded.Approved == nil {
 		return false, fmt.Errorf("approval webhook malformed response: want {\"approved\": bool}")
 	}
 	return *decoded.Approved, nil

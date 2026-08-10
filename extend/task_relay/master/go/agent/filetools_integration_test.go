@@ -35,7 +35,7 @@ file:
 	require.NoError(t, err)
 	require.NotNil(t, cfg.File)
 
-	tools, err := buildFileTools(cfg)
+	tools, err := buildFileTools(cfg, nil)
 	require.NoError(t, err)
 	require.Len(t, tools, 4)
 

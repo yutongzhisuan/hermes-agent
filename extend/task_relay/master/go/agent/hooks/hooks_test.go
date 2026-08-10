@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -142,6 +144,69 @@ func TestWrapAll(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, fake.calls)
 	assert.Same(t, nonInvocable, wrapped[1])
+}
+
+type safeTool struct{ name string }
+
+func (s *safeTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{Name: s.name}, nil
+}
+
+func (s *safeTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	return "ok", nil
+}
+
+type flakyInfoTool struct {
+	name  string
+	calls atomic.Int64
+}
+
+func (f *flakyInfoTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+	if f.calls.Add(1) == 1 {
+		return nil, fmt.Errorf("info not ready")
+	}
+	return &schema.ToolInfo{Name: f.name}, nil
+}
+
+func (f *flakyInfoTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+	return "ok", nil
+}
+
+func TestHookedToolConcurrentNameResolution(t *testing.T) {
+	dir := t.TempDir()
+	allow := writeScript(t, dir, "allow.sh", "#!/bin/sh\nexit 0\n")
+	r := &Runner{Hooks: []Hook{{Command: allow}}}
+
+	runConcurrent := func(t *testing.T, wrapped tool.InvokableTool) {
+		t.Helper()
+		var wg sync.WaitGroup
+		errs := make([]error, 8)
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				out, err := wrapped.InvokableRun(context.Background(), `{"x":1}`)
+				if err == nil && out != "ok" {
+					err = fmt.Errorf("unexpected output %q", out)
+				}
+				errs[i] = err
+			}(i)
+		}
+		wg.Wait()
+		for _, err := range errs {
+			assert.NoError(t, err)
+		}
+	}
+
+	t.Run("eager", func(t *testing.T) {
+		wrapped := r.Wrap(&safeTool{name: "fake"})
+		runConcurrent(t, wrapped)
+	})
+
+	t.Run("lazy_once_fallback", func(t *testing.T) {
+		wrapped := r.Wrap(&flakyInfoTool{name: "flaky"})
+		runConcurrent(t, wrapped)
+	})
 }
 
 func TestHookBlockAudited(t *testing.T) {

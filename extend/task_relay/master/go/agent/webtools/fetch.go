@@ -82,13 +82,14 @@ func (f *FetchTool) Run(ctx context.Context, in FetchInput) (FetchOutput, error)
 		return FetchOutput{}, err
 	}
 
+	finalURL := resp.Request.URL.String()
 	out := FetchOutput{
-		URL:        u.String(),
+		URL:        finalURL,
 		StatusCode: resp.StatusCode,
 		Content:    content,
 		Truncated:  truncated,
 	}
-	if err := f.deps.auditOp("web_fetch", u.String(), content, 0, nil); err != nil {
+	if err := f.deps.auditOp("web_fetch", finalURL, content, 0, nil); err != nil {
 		return FetchOutput{}, err
 	}
 	return out, nil

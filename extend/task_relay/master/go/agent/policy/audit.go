@@ -92,5 +92,10 @@ func (l *AuditLogger) Log(e AuditEntry) error {
 func (l *AuditLogger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.file.Close()
+	if l.file == nil {
+		return nil
+	}
+	err := l.file.Close()
+	l.file = nil
+	return err
 }

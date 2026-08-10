@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,6 +85,18 @@ func TestWebhookMalformedMissingApproved(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, approved)
 	require.Contains(t, err.Error(), "malformed")
+}
+
+func TestWebhookOversizedBodyDenied(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"approved": true` + strings.Repeat(" ", 8192)))
+	}))
+	defer srv.Close()
+
+	svc := &policy.WebhookApproval{URL: srv.URL, Timeout: 5 * time.Second}
+	approved, err := svc.RequestApproval(context.Background(), policy.ApprovalRequest{})
+	require.Error(t, err)
+	require.False(t, approved)
 }
 
 func TestWebhookTimeout(t *testing.T) {
