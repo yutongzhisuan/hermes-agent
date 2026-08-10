@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -237,4 +238,108 @@ func TestBashDefaultRemoteWhenConfigured(t *testing.T) {
 	require.Equal(t, "remote\n", out.Stdout)
 	require.Equal(t, 1, remote.runCalls)
 	require.Equal(t, 0, local.runCalls)
+}
+
+type fakeApproval struct {
+	approved bool
+	err      error
+	calls    int
+	lastReq  policy.ApprovalRequest
+}
+
+func (f *fakeApproval) RequestApproval(_ context.Context, req policy.ApprovalRequest) (bool, error) {
+	f.calls++
+	f.lastReq = req
+	return f.approved, f.err
+}
+
+func buildApprovalTool(t *testing.T, exec executor.Executor, approval policy.ApprovalService, auditPath string) *agent.BashTool {
+	t.Helper()
+	audit, err := policy.NewAuditLogger(auditPath)
+	require.NoError(t, err)
+	return agent.NewBashTool(agent.BashToolDeps{
+		Evaluator: policy.NewEvaluator(policy.Rules{
+			Mode:         policy.ModeDenyByDefault,
+			ApprovalList: []string{"git push"},
+		}),
+		Executor: exec,
+		Approval: approval,
+		Audit:    audit,
+		Limits:   agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+		Session:  "test-session",
+	})
+}
+
+func readAudit(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(data)
+}
+
+func TestBashApprovalApproved(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	exec := &fakeExecutor{name: "local", result: executor.JobResult{ExitCode: 0, Stdout: "pushed\n"}}
+	approval := &fakeApproval{approved: true}
+	tool := buildApprovalTool(t, exec, approval, auditPath)
+
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "git push origin main"})
+	require.NoError(t, err)
+	require.Equal(t, 0, out.ExitCode)
+	require.Equal(t, "pushed\n", out.Stdout)
+	require.Equal(t, 1, exec.runCalls)
+	require.Equal(t, 1, approval.calls)
+	require.Equal(t, "git push origin main", approval.lastReq.Command)
+	require.Equal(t, "test-session", approval.lastReq.Session)
+	require.NotEmpty(t, approval.lastReq.JobID)
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"approved"`)
+	require.Contains(t, s, `"job_id":"`+approval.lastReq.JobID+`"`)
+}
+
+func TestBashApprovalRejected(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	exec := &fakeExecutor{name: "local"}
+	approval := &fakeApproval{approved: false}
+	tool := buildApprovalTool(t, exec, approval, auditPath)
+
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "git push origin main"})
+	require.NoError(t, err)
+	require.Equal(t, -1, out.ExitCode)
+	require.Contains(t, out.Stderr, "rejected by approval service")
+	require.Equal(t, 0, exec.runCalls)
+	require.Equal(t, 1, approval.calls)
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"needs_approval"`)
+	require.Contains(t, s, `"exit_code":-1`)
+}
+
+func TestBashApprovalError(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	exec := &fakeExecutor{name: "local"}
+	approval := &fakeApproval{err: errors.New("webhook down")}
+	tool := buildApprovalTool(t, exec, approval, auditPath)
+
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "git push origin main"})
+	require.NoError(t, err)
+	require.Equal(t, -1, out.ExitCode)
+	require.Equal(t, 0, exec.runCalls)
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"needs_approval"`)
+	require.Contains(t, s, "webhook down")
+}
+
+func TestBashApprovalNilService(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	exec := &fakeExecutor{name: "local"}
+	tool := buildApprovalTool(t, exec, nil, auditPath)
+
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "git push origin main"})
+	require.NoError(t, err)
+	require.Equal(t, -1, out.ExitCode)
+	require.Contains(t, out.Stderr, "needs approval")
+	require.Equal(t, 0, exec.runCalls)
 }

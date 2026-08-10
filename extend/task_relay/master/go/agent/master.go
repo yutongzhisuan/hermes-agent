@@ -417,12 +417,20 @@ func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("exec audit: %w", err)
 	}
+	var approval policy.ApprovalService
+	if execCfg.Approval.WebhookURL != "" {
+		approval = &policy.WebhookApproval{
+			URL:     execCfg.Approval.WebhookURL,
+			Timeout: time.Duration(execCfg.Approval.TimeoutSeconds) * time.Second,
+		}
+	}
 	bash := NewBashTool(BashToolDeps{
 		Evaluator:      policy.NewEvaluator(execCfg.Policy),
 		Executor:       exec,
 		Remote:         remoteExec,
 		DefaultBackend: execCfg.DefaultBackend,
 		Audit:          audit,
+		Approval:       approval,
 		Limits:         execCfg.Limits,
 		EnvAllowKeys:   execCfg.EnvAllowKeys,
 		Session:        cfg.MasterSession,

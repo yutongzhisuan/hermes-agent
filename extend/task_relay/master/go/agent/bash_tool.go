@@ -25,6 +25,7 @@ type BashToolDeps struct {
 	Remote         executor.Executor // nil = remote unavailable
 	DefaultBackend string            // "local" | "remote"; empty = local
 	Audit          *policy.AuditLogger
+	Approval       policy.ApprovalService // nil = no approval service
 	Limits         ExecLimits
 	EnvAllowKeys   []string
 	Session        string
@@ -84,11 +85,31 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 		)
 		return b.deny(entry, "denied by policy")
 	case policy.NeedsApproval:
-		span.SetAttributes(
-			attribute.String("exec.backend", "none"),
-			attribute.String("exec.decision", decision.String()),
-		)
-		return b.deny(entry, "needs approval (approval workflow not yet enabled)")
+		if d.Approval == nil {
+			span.SetAttributes(
+				attribute.String("exec.backend", "none"),
+				attribute.String("exec.decision", decision.String()),
+			)
+			return b.deny(entry, "needs approval (approval workflow not yet enabled)")
+		}
+		approved, approvalErr := d.Approval.RequestApproval(ctx, policy.ApprovalRequest{
+			JobID:   entry.JobID,
+			Command: spec.Command,
+			Session: d.Session,
+		})
+		if approvalErr != nil || !approved {
+			reason := "rejected by approval service"
+			if approvalErr != nil {
+				reason = approvalErr.Error()
+			}
+			entry.Error = reason
+			span.SetAttributes(
+				attribute.String("exec.backend", "none"),
+				attribute.String("exec.decision", decision.String()),
+			)
+			return b.deny(entry, reason)
+		}
+		entry.Decision = "approved"
 	}
 
 	execBackend := d.Executor

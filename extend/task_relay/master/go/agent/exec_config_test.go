@@ -35,6 +35,29 @@ func TestExecConfigDefaults(t *testing.T) {
 	require.Contains(t, cfg.AuditPath, "exec-audit.jsonl")
 }
 
+func TestExecConfigApprovalMerge(t *testing.T) {
+	file := &agent.MasterFileConfig{
+		Exec: &agent.ExecFileConfig{
+			Enabled: true,
+			Approval: &agent.ExecApprovalFileConfig{
+				WebhookURL:     "https://hooks.example.com/approve",
+				TimeoutSeconds: 45,
+			},
+		},
+	}
+	cfg, _, err := agent.MergeFileIntoConfig(agent.Config{}, file)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Exec)
+	require.Equal(t, "https://hooks.example.com/approve", cfg.Exec.Approval.WebhookURL)
+	require.Equal(t, 45, cfg.Exec.Approval.TimeoutSeconds)
+}
+
+func TestExecConfigApprovalEmptyByDefault(t *testing.T) {
+	cfg := agent.ExecConfig{}.WithDefaults()
+	require.Empty(t, cfg.Approval.WebhookURL)
+	require.Zero(t, cfg.Approval.TimeoutSeconds)
+}
+
 func TestExecConfigBadDurationFails(t *testing.T) {
 	file := &agent.MasterFileConfig{
 		Exec: &agent.ExecFileConfig{

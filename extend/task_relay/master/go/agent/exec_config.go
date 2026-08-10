@@ -10,11 +10,12 @@ import (
 )
 
 type ExecFileConfig struct {
-	Enabled        bool                  `json:"enabled" yaml:"enabled"`
-	DefaultBackend string                `json:"default_backend" yaml:"default_backend"`
-	Policy         *ExecPolicyFileConfig `json:"policy" yaml:"policy"`
-	Limits         *ExecLimitsFileConfig `json:"limits" yaml:"limits"`
-	Audit          *ExecAuditFileConfig  `json:"audit" yaml:"audit"`
+	Enabled        bool                    `json:"enabled" yaml:"enabled"`
+	DefaultBackend string                  `json:"default_backend" yaml:"default_backend"`
+	Policy         *ExecPolicyFileConfig   `json:"policy" yaml:"policy"`
+	Limits         *ExecLimitsFileConfig   `json:"limits" yaml:"limits"`
+	Audit          *ExecAuditFileConfig    `json:"audit" yaml:"audit"`
+	Approval       *ExecApprovalFileConfig `json:"approval" yaml:"approval"`
 }
 
 type ExecPolicyFileConfig struct {
@@ -35,6 +36,17 @@ type ExecAuditFileConfig struct {
 	Path string `json:"path" yaml:"path"`
 }
 
+type ExecApprovalFileConfig struct {
+	WebhookURL     string `json:"webhook_url" yaml:"webhook_url"`
+	TimeoutSeconds int    `json:"timeout_seconds" yaml:"timeout_seconds"`
+}
+
+// ApprovalConfig wires an external approval service for needs-approval commands.
+type ApprovalConfig struct {
+	WebhookURL     string
+	TimeoutSeconds int
+}
+
 type ExecConfig struct {
 	Enabled        bool
 	DefaultBackend string
@@ -42,6 +54,7 @@ type ExecConfig struct {
 	EnvAllowKeys   []string
 	Limits         ExecLimits
 	AuditPath      string
+	Approval       ApprovalConfig
 }
 
 func (c ExecConfig) WithDefaults() ExecConfig {
@@ -97,6 +110,12 @@ func execConfigFromFile(f *ExecFileConfig) (*ExecConfig, error) {
 	}
 	if f.Audit != nil {
 		cfg.AuditPath = f.Audit.Path
+	}
+	if f.Approval != nil {
+		cfg.Approval = ApprovalConfig{
+			WebhookURL:     f.Approval.WebhookURL,
+			TimeoutSeconds: f.Approval.TimeoutSeconds,
+		}
 	}
 	return cfg, nil
 }
