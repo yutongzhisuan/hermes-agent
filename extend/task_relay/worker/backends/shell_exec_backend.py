@@ -118,7 +118,7 @@ class ShellExecBackend:
             error = None
         elif exit_code == 0:
             status = "completed"
-            summary = f"shell exec exit=0"
+            summary = "shell exec exit=0"
             error = None
         else:
             status = "failed"

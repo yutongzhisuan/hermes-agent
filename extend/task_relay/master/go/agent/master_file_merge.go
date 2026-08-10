@@ -161,7 +161,11 @@ func MergeFileIntoConfig(cfg Config, file *MasterFileConfig) (Config, FileRuntim
 		cfg.Exec = execCfg
 	}
 	if cfg.Exec != nil {
-		*cfg.Exec = cfg.Exec.WithDefaults()
+		// Keep the defaulted exec config local to the merged copy; cfg arrives
+		// by value but cfg.Exec is a shared pointer, so writing through it
+		// would leak defaults into the caller's struct.
+		execCfg := cfg.Exec.WithDefaults()
+		cfg.Exec = &execCfg
 	}
 	if cfg.File == nil {
 		cfg.File = fileConfigFromFile(file.File)

@@ -95,6 +95,15 @@ func TestRemoteSuccess(t *testing.T) {
 	require.Equal(t, "session-1", fake.session)
 }
 
+func TestRemoteRoundsUpSubSecondTimeout(t *testing.T) {
+	fake := &fakeDispatcher{result: execResult(t, pb.TaskStatus_TASK_STATUS_COMPLETED, execPayload(0, "", ""), "")}
+	backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)
+	_, err := backend.Run(context.Background(), executor.Spec{Command: "true", Timeout: 1500 * time.Millisecond})
+	require.NoError(t, err)
+	require.Equal(t, "2", fake.spec.GetParams()["timeout_seconds"])
+	require.Equal(t, int32(2), fake.spec.GetTimeoutSeconds())
+}
+
 func TestRemoteSuccessEmptyWorkdir(t *testing.T) {
 	fake := &fakeDispatcher{result: execResult(t, pb.TaskStatus_TASK_STATUS_COMPLETED, execPayload(0, "", ""), "")}
 	backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)

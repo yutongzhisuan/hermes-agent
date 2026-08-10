@@ -44,13 +44,17 @@ hooks:
     - command: /usr/local/bin/audit-hook
       timeout_seconds: 5
 
-approval:
-  webhook_url: ""                    # empty = approval requests denied (fail-closed)
-  timeout_seconds: 120
+exec:
+  approval:
+    webhook_url: ""                  # empty = approval requests denied (fail-closed)
+    timeout_seconds: 120
 
 openai:
   small_model: ""                    # e.g. qwen-turbo; empty = planner reuses main model
 ```
+
+Note: this doc was updated post-implementation — approval ships nested under
+`exec.approval` (see `agent/exec_config.go`), not as a top-level section.
 
 ---
 

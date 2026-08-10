@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -56,9 +57,11 @@ const maxConsecutivePollErrors = 3
 func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	res := JobResult{Backend: r.Name(), StartedAt: time.Now()}
 
+	// Round up so sub-second timeouts never collapse to zero on the wire.
+	timeoutSeconds := int(math.Ceil(spec.Timeout.Seconds()))
 	params := map[string]string{
 		"cmd":             spec.Command,
-		"timeout_seconds": strconv.Itoa(int(spec.Timeout.Seconds())),
+		"timeout_seconds": strconv.Itoa(timeoutSeconds),
 	}
 	if spec.WorkDir != "" {
 		params["workdir"] = spec.WorkDir
@@ -68,7 +71,7 @@ func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 		Goal:           "remote shell exec",
 		Params:         params,
 		Toolsets:       []string{"shell"},
-		TimeoutSeconds: int32(spec.Timeout.Seconds()),
+		TimeoutSeconds: int32(timeoutSeconds),
 	}
 
 	if _, err := r.dispatcher.DispatchTask(ctx, taskSpec, r.session, false); err != nil {
