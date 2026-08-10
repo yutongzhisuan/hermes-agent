@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/infa/task_relay/master/client"
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 )
 
@@ -18,7 +20,11 @@ import (
 type TaskDispatcher interface {
 	DispatchTask(ctx context.Context, spec *pb.TaskSpec, masterSessionID string, allowRedispatch bool) (*pb.DispatchTaskResponse, error)
 	GetTaskResult(ctx context.Context, taskID string, includeLatestCheckpoint bool) (*pb.TaskResult, error)
+	Watch(ctx context.Context, filter client.WatchFilter) (pb.TaskRelay_WatchTaskClient, error)
+	CancelTask(ctx context.Context, req *pb.CancelTaskRequest) (*pb.CancelTaskResponse, error)
 }
+
+var _ TaskDispatcher = (*client.Client)(nil)
 
 type remoteBackend struct {
 	dispatcher   TaskDispatcher
@@ -54,6 +60,23 @@ type remoteExecPayload struct {
 // must not abandon an in-flight remote task that the worker is still running.
 const maxConsecutivePollErrors = 3
 
+// outcome is delivered by whichever producer (watch or poll) observes the
+// terminal state first. err is set only by the poll producer after
+// maxConsecutivePollErrors consecutive failures.
+type outcome struct {
+	res *pb.TaskResult
+	err error
+}
+
+func isTerminal(status pb.TaskStatus) bool {
+	switch status {
+	case pb.TaskStatus_TASK_STATUS_COMPLETED, pb.TaskStatus_TASK_STATUS_FAILED,
+		pb.TaskStatus_TASK_STATUS_LOST, pb.TaskStatus_TASK_STATUS_CANCELLED:
+		return true
+	}
+	return false
+}
+
 func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	res := JobResult{Backend: r.Name(), StartedAt: time.Now()}
 
@@ -82,45 +105,116 @@ func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, spec.Timeout)
 	defer cancel()
 
+	// runCtx gates the producer goroutines; cancelling it on return unblocks
+	// the losing producer (grpc stream Recv honors ctx cancel, the poll loop
+	// selects on ctx) so no goroutine leaks past Run.
+	runCtx, stop := context.WithCancel(ctx)
+	defer stop()
+
+	// Watch and poll run concurrently; whichever observes the terminal state
+	// first wins. Capacity 2 lets both producers deliver without blocking.
+	resultCh := make(chan outcome, 2)
+	go r.watchLoop(runCtx, taskSpec.GetTaskId(), resultCh)
+	go r.pollLoop(runCtx, taskSpec.GetTaskId(), resultCh)
+
+	select {
+	case oc := <-resultCh:
+		res.FinishedAt = time.Now()
+		if oc.err != nil {
+			return res, oc.err
+		}
+		return r.finalize(res, oc.res)
+	case <-ctx.Done():
+		r.cancelRemote(taskSpec.GetTaskId())
+		return abandon(res, ctx.Err())
+	}
+}
+
+// watchLoop is the accelerator producer: it delivers as soon as the hub
+// reports the task terminal. Any failure (open or Recv) silently returns —
+// the poll producer guarantees progress regardless.
+func (r *remoteBackend) watchLoop(ctx context.Context, taskID string, resultCh chan<- outcome) {
+	stream, err := r.dispatcher.Watch(ctx, client.WatchFilter{TaskID: taskID})
+	if err != nil {
+		return
+	}
+	// Snapshot once to close the dispatch-to-subscribe race: the task may
+	// already be terminal before the watch stream sees any event.
+	if result, err := r.dispatcher.GetTaskResult(ctx, taskID, false); err == nil && isTerminal(result.GetStatus()) {
+		resultCh <- outcome{res: result}
+		return
+	}
+	for {
+		ev, err := stream.Recv()
+		if err != nil {
+			return
+		}
+		if ev.GetKind() != pb.TaskEventKind_TASK_EVENT_KIND_TERMINAL || ev.GetTaskId() != taskID {
+			continue
+		}
+		// Fetch the full result; the event itself only signals terminality.
+		if result, err := r.dispatcher.GetTaskResult(ctx, taskID, false); err == nil {
+			resultCh <- outcome{res: result}
+		}
+		return
+	}
+}
+
+// pollLoop is the safety-net producer: it always makes progress even when the
+// watch stream never opens or dies mid-task.
+func (r *remoteBackend) pollLoop(ctx context.Context, taskID string, resultCh chan<- outcome) {
 	ticker := time.NewTicker(r.pollInterval)
 	defer ticker.Stop()
 	consecutivePollErrors := 0
 	for {
-		result, err := r.dispatcher.GetTaskResult(ctx, taskSpec.GetTaskId(), false)
+		result, err := r.dispatcher.GetTaskResult(ctx, taskID, false)
 		if err != nil && ctx.Err() == nil {
 			consecutivePollErrors++
 			if consecutivePollErrors >= maxConsecutivePollErrors {
-				res.FinishedAt = time.Now()
-				return res, fmt.Errorf("get task result: %w", err)
+				resultCh <- outcome{err: fmt.Errorf("get task result: %w", err)}
+				return
 			}
 			select {
 			case <-ctx.Done():
-				return abandon(res, ctx.Err())
+				return
 			case <-ticker.C:
 			}
 			continue
 		}
 		consecutivePollErrors = 0
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return abandon(res, ctxErr)
+		if ctx.Err() != nil {
+			return
 		}
-		switch result.GetStatus() {
-		case pb.TaskStatus_TASK_STATUS_COMPLETED, pb.TaskStatus_TASK_STATUS_FAILED,
-			pb.TaskStatus_TASK_STATUS_LOST, pb.TaskStatus_TASK_STATUS_CANCELLED:
-			res.FinishedAt = time.Now()
-			return r.finalize(res, result)
+		if isTerminal(result.GetStatus()) {
+			resultCh <- outcome{res: result}
+			return
 		}
 		select {
 		case <-ctx.Done():
-			return abandon(res, ctx.Err())
+			return
 		case <-ticker.C:
 		}
 	}
 }
 
+// cancelRemote best-effort propagates local ctx termination to the remote
+// task. Fire-and-forget: we do not wait for the task to reach CANCELLED.
+func (r *remoteBackend) cancelRemote(taskID string) {
+	// The caller's ctx is already dead; a fresh bounded context gives the
+	// cancel RPC itself a chance to complete.
+	cctx, ccancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer ccancel()
+	if _, err := r.dispatcher.CancelTask(cctx, &pb.CancelTaskRequest{
+		TaskId: taskID,
+		Reason: "master executor context done",
+	}); err != nil {
+		slog.Warn("remote task cancel failed", "task_id", taskID, "error", err)
+	}
+}
+
 // abandon mirrors the local backend timeout/cancel convention: return a
-// JobResult without a Go error. The remote task is NOT cancelled on the hub
-// (round-1 scope); it terminates on the worker side by its own timeout.
+// JobResult without a Go error. The remote task has already been asked to
+// cancel best-effort via cancelRemote before abandon is called.
 func abandon(res JobResult, ctxErr error) (JobResult, error) {
 	res.FinishedAt = time.Now()
 	res.ExitCode = -1
