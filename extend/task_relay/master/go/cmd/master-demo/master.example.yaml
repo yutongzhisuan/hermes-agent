@@ -19,6 +19,8 @@ openai:
   api_key: ${OPENAI_API_KEY}
   model: clint
   base_url: ${OPENAI_BASE_URL}
+  # small_model: cheaper model for the local planner subagent (empty = reuse main model)
+  small_model: ""
 
 agent:
   mode: deep # deep | react
@@ -126,6 +128,10 @@ exec:
     max_output_bytes: 1048576
   audit:
     path: ~/.task-relay/exec-audit.jsonl
+  # approval: external approval service for approval_list commands (empty webhook_url = deny)
+  approval:
+    webhook_url: ""
+    timeout_seconds: 120
 
 # Controlled file operations (disabled by default).
 file:
@@ -137,3 +143,27 @@ file:
   limits:
     max_read_bytes: 1048576
     max_write_bytes: 1048576
+
+# Web fetch/download tools with SSRF guard and domain policy (disabled by default).
+# Download destinations are gated by the file policy root when file.root is set.
+fetch:
+  enabled: false   # set true to enable fetch/download
+  policy:
+    domain_allow_list: []        # suffix match; empty = all domains allowed
+    domain_deny_list: []         # suffix match; always wins over allow list
+    allow_private_networks: false
+  limits:
+    max_bytes: 1048576
+    timeout_seconds: 30
+
+# Session todo list persisted to JSON (disabled by default).
+todos:
+  enabled: false   # set true to enable the todos tool
+  path: ""         # default: ~/.task-relay/todos-<session>.json
+
+# External pre-tool-use hooks; non-zero exit blocks the tool call (fail-closed).
+hooks:
+  pre_tool_use: []
+  # pre_tool_use:
+  #   - command: /usr/local/bin/deny-dangerous.sh
+  #     timeout_seconds: 5

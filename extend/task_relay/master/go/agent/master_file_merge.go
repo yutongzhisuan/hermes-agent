@@ -166,6 +166,15 @@ func MergeFileIntoConfig(cfg Config, file *MasterFileConfig) (Config, FileRuntim
 	if cfg.File == nil {
 		cfg.File = fileConfigFromFile(file.File)
 	}
+	if cfg.Fetch == nil {
+		cfg.Fetch = fetchConfigFromFile(file.Fetch)
+	}
+	if cfg.Todos == nil {
+		cfg.Todos = todosConfigFromFile(file.Todos)
+	}
+	if cfg.Hooks == nil {
+		cfg.Hooks = hooksConfigFromFile(file.Hooks)
+	}
 	return cfg, rt, nil
 }
 

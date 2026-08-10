@@ -21,8 +21,11 @@ import (
 
 	"github.com/infa/task_relay/master/agent/executor"
 	"github.com/infa/task_relay/master/agent/filetools"
+	"github.com/infa/task_relay/master/agent/hooks"
 	"github.com/infa/task_relay/master/agent/policy"
 	"github.com/infa/task_relay/master/agent/search"
+	"github.com/infa/task_relay/master/agent/todostool"
+	"github.com/infa/task_relay/master/agent/webtools"
 	"github.com/infa/task_relay/master/client"
 )
 
@@ -106,6 +109,12 @@ type Config struct {
 	Exec *ExecConfig
 	// File configures the file tools (overrides file section when non-nil).
 	File *FileToolsConfig
+	// Fetch configures the fetch/download web tools (overrides file fetch section when non-nil).
+	Fetch *FetchConfig
+	// Todos configures the todos tool (overrides file todos section when non-nil).
+	Todos *TodosConfig
+	// Hooks configures pre-tool-use hooks (overrides file hooks section when non-nil).
+	Hooks *HooksConfig
 
 	HubTLS        client.TLSConfig
 	EnableMetrics bool
@@ -272,6 +281,30 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			}
 			tools = append(tools, fileTools...)
 		}
+		if cfg.Fetch != nil && cfg.Fetch.Enabled {
+			webTools, webErr := buildWebTools(cfg)
+			if webErr != nil {
+				if mcpClose != nil {
+					_ = mcpClose()
+				}
+				_ = closeHub(hub)
+				_ = shutdownTracing(context.Background())
+				return nil, webErr
+			}
+			tools = append(tools, webTools...)
+		}
+		if cfg.Todos != nil && cfg.Todos.Enabled {
+			todosTool, todosErr := buildTodosTool(cfg)
+			if todosErr != nil {
+				if mcpClose != nil {
+					_ = mcpClose()
+				}
+				_ = closeHub(hub)
+				_ = shutdownTracing(context.Background())
+				return nil, todosErr
+			}
+			tools = append(tools, todosTool)
+		}
 		if err = ensureUniqueToolNames(ctx, tools); err != nil {
 			if mcpClose != nil {
 				_ = mcpClose()
@@ -279,6 +312,18 @@ func New(ctx context.Context, cfg Config) (*Master, error) {
 			_ = closeHub(hub)
 			_ = shutdownTracing(context.Background())
 			return nil, err
+		}
+		if cfg.Hooks != nil && len(cfg.Hooks.PreToolUse) > 0 {
+			runner, hookErr := buildHooksRunner(cfg)
+			if hookErr != nil {
+				if mcpClose != nil {
+					_ = mcpClose()
+				}
+				_ = closeHub(hub)
+				_ = shutdownTracing(context.Background())
+				return nil, hookErr
+			}
+			tools = runner.WrapAll(tools)
 		}
 	}
 	toolsConfig := adk.ToolsConfig{
@@ -483,6 +528,71 @@ func buildFileTools(cfg Config) ([]tool.BaseTool, error) {
 		return nil, fmt.Errorf("multiedit tool: %w", err)
 	}
 	return []tool.BaseTool{viewT, writeT, editT, multieditT}, nil
+}
+
+func buildWebTools(cfg Config) ([]tool.BaseTool, error) {
+	wd, _ := os.Getwd()
+	fetchCfg := cfg.Fetch.WithDefaults()
+	root := wd
+	var pathRules policy.PathRules
+	if cfg.File != nil {
+		fileCfg := cfg.File.WithDefaults(wd)
+		root = fileCfg.Root
+		pathRules = fileCfg.Policy
+	}
+	paths, err := policy.NewPathEvaluator(root, pathRules)
+	if err != nil {
+		return nil, fmt.Errorf("fetch root: %w", err)
+	}
+	auditPath := filepath.Join(filepath.Dir(root), ".task-relay", "web-audit.jsonl")
+	if cfg.Exec != nil && cfg.Exec.AuditPath != "" {
+		auditPath = cfg.Exec.AuditPath
+	}
+	audit, err := policy.NewAuditLogger(auditPath)
+	if err != nil {
+		return nil, fmt.Errorf("fetch audit: %w", err)
+	}
+	deps := &webtools.Deps{
+		Paths: paths, Audit: audit,
+		DomainAllowList: fetchCfg.DomainAllowList, DomainDenyList: fetchCfg.DomainDenyList,
+		AllowPrivateNetworks: fetchCfg.AllowPrivateNetworks,
+		MaxBytes:             fetchCfg.MaxBytes, Timeout: fetchCfg.Timeout,
+		Session: cfg.MasterSession,
+	}
+	fetchT, err := toolutils.InferTool("fetch", "Fetch an HTTP(S) URL and return its text content; HTML is rendered to plain text (policy-gated, audited)", webtools.NewFetchTool(deps).Run)
+	if err != nil {
+		return nil, fmt.Errorf("fetch tool: %w", err)
+	}
+	downloadT, err := toolutils.InferTool("download", "Download an HTTP(S) URL to a local file under the configured root (policy-gated, audited, size-capped)", webtools.NewDownloadTool(deps).Run)
+	if err != nil {
+		return nil, fmt.Errorf("download tool: %w", err)
+	}
+	return []tool.BaseTool{fetchT, downloadT}, nil
+}
+
+func buildTodosTool(cfg Config) (tool.BaseTool, error) {
+	todosCfg := cfg.Todos.WithDefaults(cfg.MasterSession)
+	t, err := toolutils.InferTool("todos", "Write the session todo list as a full replacement (persisted to JSON)", todostool.NewTodosTool(todosCfg.Path).Run)
+	if err != nil {
+		return nil, fmt.Errorf("todos tool: %w", err)
+	}
+	return t, nil
+}
+
+func buildHooksRunner(cfg Config) (*hooks.Runner, error) {
+	var auditPath string
+	if cfg.Exec != nil {
+		auditPath = cfg.Exec.AuditPath
+	}
+	if auditPath == "" {
+		home, _ := os.UserHomeDir()
+		auditPath = filepath.Join(home, ".task-relay", "exec-audit.jsonl")
+	}
+	audit, err := policy.NewAuditLogger(auditPath)
+	if err != nil {
+		return nil, fmt.Errorf("hooks audit: %w", err)
+	}
+	return &hooks.Runner{Hooks: cfg.Hooks.PreToolUse, Audit: audit, Session: cfg.MasterSession}, nil
 }
 
 func buildAgent(
