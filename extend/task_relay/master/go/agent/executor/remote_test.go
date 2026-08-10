@@ -13,9 +13,15 @@ import (
 	pb "github.com/infa/xhermes-agent/extend/task_relay/gen/go"
 )
 
+type pollEvent struct {
+	result *pb.TaskResult
+	err    error
+}
+
 type fakeDispatcher struct {
 	spec        *pb.TaskSpec
 	session     string
+	events      []pollEvent
 	results     []*pb.TaskResult
 	result      *pb.TaskResult
 	dispatchErr error
@@ -33,6 +39,11 @@ func (f *fakeDispatcher) DispatchTask(ctx context.Context, spec *pb.TaskSpec, ma
 }
 
 func (f *fakeDispatcher) GetTaskResult(ctx context.Context, taskID string, includeLatestCheckpoint bool) (*pb.TaskResult, error) {
+	if len(f.events) > 0 {
+		ev := f.events[0]
+		f.events = f.events[1:]
+		return ev.result, ev.err
+	}
 	if f.resultErr != nil {
 		return nil, f.resultErr
 	}
@@ -240,4 +251,59 @@ func TestRemotePollsUntilTerminal(t *testing.T) {
 	require.Equal(t, 0, res.ExitCode)
 	require.Equal(t, "done", res.Stdout)
 	require.Equal(t, 3, fake.calls)
+}
+
+func TestRemoteToleratesTransientPollErrors(t *testing.T) {
+	completed := execResult(t, pb.TaskStatus_TASK_STATUS_COMPLETED, execPayload(0, "done", ""), "")
+	fake := &fakeDispatcher{
+		events: []pollEvent{
+			{err: errors.New("hub blip")},
+			{err: errors.New("hub blip")},
+			{result: completed},
+		},
+	}
+	backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)
+	res, err := backend.Run(context.Background(), executor.Spec{Command: "true", Timeout: 5 * time.Second})
+	require.NoError(t, err)
+	require.Equal(t, 0, res.ExitCode)
+	require.Equal(t, "done", res.Stdout)
+	require.Empty(t, fake.events)
+}
+
+func TestRemotePollErrorCounterResetsOnSuccess(t *testing.T) {
+	completed := execResult(t, pb.TaskStatus_TASK_STATUS_COMPLETED, execPayload(0, "done", ""), "")
+	fake := &fakeDispatcher{
+		events: []pollEvent{
+			{err: errors.New("hub blip")},
+			{err: errors.New("hub blip")},
+			{result: &pb.TaskResult{Status: pb.TaskStatus_TASK_STATUS_RUNNING}},
+			{err: errors.New("hub blip")},
+			{err: errors.New("hub blip")},
+			{result: completed},
+		},
+	}
+	backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)
+	res, err := backend.Run(context.Background(), executor.Spec{Command: "true", Timeout: 5 * time.Second})
+	require.NoError(t, err)
+	require.Equal(t, 0, res.ExitCode)
+	require.Empty(t, fake.events)
+}
+
+func TestRemoteAbortsAfterThreeConsecutivePollErrors(t *testing.T) {
+	completed := execResult(t, pb.TaskStatus_TASK_STATUS_COMPLETED, execPayload(0, "done", ""), "")
+	fake := &fakeDispatcher{
+		events: []pollEvent{
+			{err: errors.New("hub down")},
+			{err: errors.New("hub down")},
+			{err: errors.New("hub down")},
+			{result: completed},
+		},
+	}
+	backend := executor.NewRemoteBackend(fake, "session-1", time.Millisecond)
+	_, err := backend.Run(context.Background(), executor.Spec{Command: "true", Timeout: 5 * time.Second})
+	require.ErrorContains(t, err, "get task result")
+	require.ErrorContains(t, err, "hub down")
+	// Run must give up on the third consecutive failure, never reaching the
+	// scripted success behind it.
+	require.Len(t, fake.events, 1)
 }

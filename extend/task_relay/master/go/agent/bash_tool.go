@@ -123,15 +123,20 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 		if d.Remote == nil {
 			return BashOutput{}, fmt.Errorf("remote backend unavailable (no hub connection configured)")
 		}
+		if len(spec.Env) > 0 {
+			// Env is never forwarded to remote workers (leak vector); fail
+			// loudly instead of silently dropping it.
+			return BashOutput{}, fmt.Errorf("env is not supported on the remote backend")
+		}
 		execBackend = d.Remote
 	default:
-		return BashOutput{}, fmt.Errorf("unknown backend %q (want local|remote)", in.Backend)
+		return BashOutput{}, fmt.Errorf("unknown backend %q (want local|remote)", backend)
 	}
 
 	entry.Backend = execBackend.Name()
 	span.SetAttributes(
 		attribute.String("exec.backend", entry.Backend),
-		attribute.String("exec.decision", decision.String()),
+		attribute.String("exec.decision", entry.Decision),
 	)
 	res, err := execBackend.Run(ctx, spec)
 	if err != nil {

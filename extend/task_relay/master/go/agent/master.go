@@ -482,7 +482,7 @@ func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 	})
 	t, err := toolutils.InferTool(
 		"bash",
-		"Execute a shell command under policy control (allow-list, audit). Supports local execution; remote backend via hub workers when configured.",
+		"Execute a shell command under policy control (allow-list, audit). Supports local execution; remote backend via hub workers when configured; env is only supported on the local backend.",
 		bash.Run,
 	)
 	if err != nil {

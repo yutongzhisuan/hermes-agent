@@ -211,6 +211,50 @@ func TestBashRemoteUnavailable(t *testing.T) {
 	require.Contains(t, err.Error(), "remote backend unavailable")
 }
 
+func buildEnvBackendTool(t *testing.T, local, remote executor.Executor) *agent.BashTool {
+	t.Helper()
+	return agent.NewBashTool(agent.BashToolDeps{
+		Evaluator:    policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}}),
+		Executor:     local,
+		Remote:       remote,
+		Audit:        mustAudit(t),
+		Limits:       agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+		EnvAllowKeys: []string{"FOO"},
+		Session:      "test-session",
+	})
+}
+
+func TestBashRemoteRejectsEnv(t *testing.T) {
+	remote := &fakeExecutor{name: "remote"}
+	local := &fakeExecutor{name: "local"}
+	tool := buildEnvBackendTool(t, local, remote)
+	_, err := tool.Run(context.Background(), agent.BashInput{
+		Command: "echo hi",
+		Backend: "remote",
+		Env:     map[string]string{"FOO": "bar"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "env")
+	require.Contains(t, err.Error(), "remote")
+	require.Equal(t, 0, remote.runCalls)
+	require.Equal(t, 0, local.runCalls)
+}
+
+func TestBashLocalAcceptsEnv(t *testing.T) {
+	remote := &fakeExecutor{name: "remote"}
+	localExec, err := executor.NewLocal(executor.LocalOptions{})
+	require.NoError(t, err)
+	tool := buildEnvBackendTool(t, localExec, remote)
+	out, err := tool.Run(context.Background(), agent.BashInput{
+		Command: "echo $FOO",
+		Backend: "local",
+		Env:     map[string]string{"FOO": "bar"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "bar\n", out.Stdout)
+	require.Equal(t, 0, remote.runCalls)
+}
+
 func TestBashUnknownBackend(t *testing.T) {
 	tool := buildBashTool(t, policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}})
 	_, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", Backend: "mars"})

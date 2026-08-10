@@ -48,6 +48,11 @@ type remoteExecPayload struct {
 	Canceled bool   `json:"canceled"`
 }
 
+// maxConsecutivePollErrors bounds how many consecutive GetTaskResult failures
+// are tolerated before abandoning the poll loop. Transient hub/network errors
+// must not abandon an in-flight remote task that the worker is still running.
+const maxConsecutivePollErrors = 3
+
 func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 	res := JobResult{Backend: r.Name(), StartedAt: time.Now()}
 
@@ -76,12 +81,23 @@ func (r *remoteBackend) Run(ctx context.Context, spec Spec) (JobResult, error) {
 
 	ticker := time.NewTicker(r.pollInterval)
 	defer ticker.Stop()
+	consecutivePollErrors := 0
 	for {
 		result, err := r.dispatcher.GetTaskResult(ctx, taskSpec.GetTaskId(), false)
 		if err != nil && ctx.Err() == nil {
-			res.FinishedAt = time.Now()
-			return res, fmt.Errorf("get task result: %w", err)
+			consecutivePollErrors++
+			if consecutivePollErrors >= maxConsecutivePollErrors {
+				res.FinishedAt = time.Now()
+				return res, fmt.Errorf("get task result: %w", err)
+			}
+			select {
+			case <-ctx.Done():
+				return abandon(res, ctx.Err())
+			case <-ticker.C:
+			}
+			continue
 		}
+		consecutivePollErrors = 0
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return abandon(res, ctxErr)
 		}
