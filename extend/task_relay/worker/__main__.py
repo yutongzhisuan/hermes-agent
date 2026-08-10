@@ -66,6 +66,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="execution backend to use (default: stub)",
     )
     parser.add_argument(
+        "--toolsets",
+        default="",
+        help="comma-separated toolsets to advertise (e.g. shell,python)",
+    )
+    parser.add_argument(
         "--prefer-atomic-claim",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -162,6 +167,15 @@ def _create_backend(args: argparse.Namespace):
     raise ValueError(f"unknown backend: {args.backend}")
 
 
+def _resolve_toolsets(args: argparse.Namespace) -> list[str]:
+    toolsets = [t.strip() for t in args.toolsets.split(",") if t.strip()]
+    if not toolsets and args.backend == "shell-exec":
+        # Shell-exec workers advertise the shell toolset so hub eligibility
+        # matches the master's remote exec dispatches (Toolsets=["shell"]).
+        toolsets = ["shell"]
+    return toolsets
+
+
 async def _async_main(argv: Sequence[str] | None) -> int:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
@@ -204,6 +218,7 @@ async def _async_main(argv: Sequence[str] | None) -> int:
         session_modes=session_modes,
         prefer_atomic_claim=args.prefer_atomic_claim,
         probe_resources_enabled=not args.no_probe_resources,
+        toolsets=_resolve_toolsets(args),
         ssl_context=ssl_context,
     )
     install_signal_handlers(worker)

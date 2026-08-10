@@ -20,7 +20,10 @@ from extend.task_relay.hub.task_router import TaskRouter
 from extend.task_relay.hub.worker_registry import WorkerRegistry
 from extend.task_relay.hub.bootstrap import start_ws_server
 from extend.task_relay.tests.conftest import SECRET, make_auth, make_worker_jwt
-from extend.task_relay.worker.backends.stub_backend import StubBackend, StubBackendConfig
+from extend.task_relay.worker.backends.stub_backend import (
+    StubBackend,
+    StubBackendConfig,
+)
 from extend.task_relay.worker.task_executor import (
     TaskBackend,
     TaskCompletePayload,
@@ -28,8 +31,9 @@ from extend.task_relay.worker.task_executor import (
     TaskRunPayload,
 )
 from extend.task_relay.worker.task_worker import TaskWorker
-from extend.task_relay.worker.__main__ import _build_arg_parser
+from extend.task_relay.worker.__main__ import _build_arg_parser, _resolve_toolsets
 from extend.task_relay.worker.jwt_manager import _read_cached
+
 
 def _spec(
     task_id: str = "t1",
@@ -103,7 +107,9 @@ class FakeWorkerWs:
 
     async def request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         self.requests.append((method, params))
-        self.request_times.setdefault(method, []).append(asyncio.get_event_loop().time())
+        self.request_times.setdefault(method, []).append(
+            asyncio.get_event_loop().time()
+        )
         if method == "worker.announce":
             return {"heartbeat_interval_ms": 1000}
         if method == "worker.poll":
@@ -147,7 +153,9 @@ def _run_payload_dict(
     }
 
 
-async def _run_worker_until(worker: TaskWorker, predicate, timeout: float = 5.0) -> None:
+async def _run_worker_until(
+    worker: TaskWorker, predicate, timeout: float = 5.0
+) -> None:
     run_task = asyncio.create_task(worker.run())
     try:
         deadline = asyncio.get_event_loop().time() + timeout
@@ -631,7 +639,9 @@ def test_worker_announce_uses_session_modes_from_cli(monkeypatch):
     )
     fake_ws.poll_results.append([_run_payload_dict("t1")])
 
-    asyncio.run(_run_worker_until(worker, lambda: fake_ws.complete_count > 0, timeout=2.0))
+    asyncio.run(
+        _run_worker_until(worker, lambda: fake_ws.complete_count > 0, timeout=2.0)
+    )
 
     announce = [r for r in fake_ws.requests if r[0] == "worker.announce"]
     assert announce
@@ -640,26 +650,99 @@ def test_worker_announce_uses_session_modes_from_cli(monkeypatch):
 
 def test_cli_session_modes_default_is_a():
     parser = _build_arg_parser()
-    args = parser.parse_args(
-        ["--worker-id", "w1", "--relay-url", "ws://x", "--worker-jwt-file", "/tmp/jwt"]
-    )
+    args = parser.parse_args([
+        "--worker-id",
+        "w1",
+        "--relay-url",
+        "ws://x",
+        "--worker-jwt-file",
+        "/tmp/jwt",
+    ])
     assert args.session_modes == "a"
+
+
+def test_cli_toolsets_default_empty_for_stub():
+    parser = _build_arg_parser()
+    args = parser.parse_args([
+        "--worker-id",
+        "w1",
+        "--relay-url",
+        "ws://x",
+        "--worker-jwt-file",
+        "/tmp/jwt",
+    ])
+    assert _resolve_toolsets(args) == []
+
+
+def test_cli_toolsets_shell_exec_defaults_to_shell():
+    parser = _build_arg_parser()
+    args = parser.parse_args([
+        "--worker-id",
+        "w1",
+        "--relay-url",
+        "ws://x",
+        "--worker-jwt-file",
+        "/tmp/jwt",
+        "--backend",
+        "shell-exec",
+    ])
+    assert _resolve_toolsets(args) == ["shell"]
+
+
+def test_cli_toolsets_explicit_flag_overrides_default():
+    parser = _build_arg_parser()
+    args = parser.parse_args([
+        "--worker-id",
+        "w1",
+        "--relay-url",
+        "ws://x",
+        "--worker-jwt-file",
+        "/tmp/jwt",
+        "--backend",
+        "shell-exec",
+        "--toolsets",
+        "shell, python",
+    ])
+    assert _resolve_toolsets(args) == ["shell", "python"]
+
+
+@pytest.mark.asyncio
+async def test_worker_announce_advertises_toolsets(monkeypatch):
+    fake_ws = FakeWorkerWs()
+    monkeypatch.setattr(
+        "extend.task_relay.worker.task_worker.TaskWorkerWs",
+        lambda *args, **kwargs: fake_ws,
+    )
+
+    worker = TaskWorker(
+        worker_id="w1",
+        relay_url="ws://x",
+        jwt=make_worker_jwt("w1"),
+        backend=StubBackend(),
+        toolsets=["shell"],
+    )
+    fake_ws.poll_results.append([_run_payload_dict("t1")])
+
+    await _run_worker_until(worker, lambda: fake_ws.complete_count > 0, timeout=2.0)
+
+    announce = [r for r in fake_ws.requests if r[0] == "worker.announce"]
+    assert announce
+    caps = announce[0][1].get("capabilities") or {}
+    assert caps.get("toolsets") == ["shell"]
 
 
 def test_cli_session_modes_can_be_comma_separated():
     parser = _build_arg_parser()
-    args = parser.parse_args(
-        [
-            "--worker-id",
-            "w1",
-            "--relay-url",
-            "ws://x",
-            "--worker-jwt-file",
-            "/tmp/jwt",
-            "--session-modes",
-            "a, b",
-        ]
-    )
+    args = parser.parse_args([
+        "--worker-id",
+        "w1",
+        "--relay-url",
+        "ws://x",
+        "--worker-jwt-file",
+        "/tmp/jwt",
+        "--session-modes",
+        "a, b",
+    ])
     assert args.session_modes == "a, b"
 
 
@@ -670,16 +753,14 @@ async def test_cli_rejects_session_modes_without_a(tmp_path):
 
     from extend.task_relay.worker.__main__ import _async_main
 
-    rc = await _async_main(
-        [
-            "--worker-id",
-            "w1",
-            "--relay-url",
-            "ws://x",
-            "--worker-jwt-file",
-            str(jwt_path),
-            "--session-modes",
-            "b",
-        ]
-    )
+    rc = await _async_main([
+        "--worker-id",
+        "w1",
+        "--relay-url",
+        "ws://x",
+        "--worker-jwt-file",
+        str(jwt_path),
+        "--session-modes",
+        "b",
+    ])
     assert rc == 1

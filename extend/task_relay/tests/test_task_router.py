@@ -213,9 +213,7 @@ async def test_claim_skips_offline_or_draining_worker(router, registry):
 async def test_claim_respects_allowed_worker_ids(router, registry):
     await _announce_poll_worker(registry, "w1")
     await _announce_poll_worker(registry, "w2")
-    await router.dispatch_task(
-        spec(task_id="t1", allowed_worker_ids=["w2"]), "m1"
-    )
+    await router.dispatch_task(spec(task_id="t1", allowed_worker_ids=["w2"]), "m1")
     assert await router.atomic_claim_for_poll("w1", max_tasks=1) == []
     claimed = await router.atomic_claim_for_poll("w2", max_tasks=1)
     assert len(claimed) == 1
@@ -241,13 +239,31 @@ async def test_claim_respects_toolsets(router, registry):
 
 
 @pytest.mark.asyncio
+async def test_shell_task_requires_advertised_shell_toolset(router, registry):
+    # Regression: a worker that advertises no toolsets (the shell-exec worker
+    # bug) must never be eligible for the master's remote exec tasks, which
+    # always dispatch with toolsets=["shell"].
+    await _announce_poll_worker(registry, "w-no-toolsets")
+    await _announce_poll_worker(registry, "w-shell", toolsets=["shell"])
+    await router.dispatch_task(spec(task_id="t1", toolsets=["shell"]), "m1")
+    assert await router.atomic_claim_for_poll("w-no-toolsets", max_tasks=1) == []
+    claimed = await router.atomic_claim_for_poll("w-shell", max_tasks=1)
+    assert len(claimed) == 1
+
+
+@pytest.mark.asyncio
 async def test_claim_jwt_toolset_scope_allows_claim(router, registry):
     await _announce_poll_worker(registry, "w1", toolsets=["terminal", "file"])
     await router.dispatch_task(spec(task_id="t1", toolsets=["file"]), "m1")
     claims = WorkerClaims(
-        sub="w1", allowed_toolsets=["terminal", "file"], max_concurrent=1, exp=9999999999
+        sub="w1",
+        allowed_toolsets=["terminal", "file"],
+        max_concurrent=1,
+        exp=9999999999,
     )
-    claimed = await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims)
+    claimed = await router.atomic_claim_for_poll(
+        "w1", max_tasks=1, worker_claims=claims
+    )
     assert len(claimed) == 1
 
 
@@ -258,7 +274,10 @@ async def test_claim_jwt_toolset_scope_denies_claim(router, registry):
     claims = WorkerClaims(
         sub="w1", allowed_toolsets=["terminal"], max_concurrent=1, exp=9999999999
     )
-    assert await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims) == []
+    assert (
+        await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims)
+        == []
+    )
 
 
 @pytest.mark.asyncio
@@ -270,7 +289,10 @@ async def test_claim_jwt_toolset_scope_intersects_with_advertised(router, regist
     claims = WorkerClaims(
         sub="w1", allowed_toolsets=["terminal"], max_concurrent=1, exp=9999999999
     )
-    assert await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims) == []
+    assert (
+        await router.atomic_claim_for_poll("w1", max_tasks=1, worker_claims=claims)
+        == []
+    )
 
 
 # ---------------------------------------------------------------------------
