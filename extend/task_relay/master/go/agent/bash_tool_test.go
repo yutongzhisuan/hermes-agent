@@ -284,6 +284,137 @@ func TestBashDefaultRemoteWhenConfigured(t *testing.T) {
 	require.Equal(t, 0, local.runCalls)
 }
 
+func buildWorkdirTool(t *testing.T, exec executor.Executor, paths policy.PathEvaluator, auditPath string) *agent.BashTool {
+	t.Helper()
+	audit, err := policy.NewAuditLogger(auditPath)
+	require.NoError(t, err)
+	return agent.NewBashTool(agent.BashToolDeps{
+		Evaluator:    policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}}),
+		Executor:     exec,
+		Paths:        paths,
+		Audit:        audit,
+		Limits:       agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+		EnvAllowKeys: []string{"FOO"},
+		Session:      "test-session",
+	})
+}
+
+func TestBashWorkdirDenied(t *testing.T) {
+	root := t.TempDir()
+	paths, err := policy.NewPathEvaluator(root, policy.PathRules{DenyList: []string{".env", "**/.env"}})
+	require.NoError(t, err)
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	exec := &fakeExecutor{name: "local"}
+	tool := buildWorkdirTool(t, exec, paths, auditPath)
+
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", WorkDir: "/etc"})
+	require.NoError(t, err)
+	require.Equal(t, -1, out.ExitCode)
+	require.Contains(t, out.Stderr, "workdir denied")
+	require.Equal(t, 0, exec.runCalls)
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"deny"`)
+	require.Contains(t, s, `"backend":"none"`)
+	require.Contains(t, s, `"workdir":"/etc"`)
+}
+
+func TestBashWorkdirAllowed(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "sub")
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+	paths, err := policy.NewPathEvaluator(root, policy.PathRules{DenyList: []string{".env", "**/.env"}})
+	require.NoError(t, err)
+	exec := &fakeExecutor{name: "local", result: executor.JobResult{ExitCode: 0, Stdout: "ok\n"}}
+	tool := buildWorkdirTool(t, exec, paths, filepath.Join(t.TempDir(), "audit.jsonl"))
+
+	out, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", WorkDir: sub})
+	require.NoError(t, err)
+	require.Equal(t, "ok\n", out.Stdout)
+	require.Equal(t, 1, exec.runCalls)
+	require.Equal(t, sub, exec.lastSpec.WorkDir)
+}
+
+func TestBashWorkdirNilPaths(t *testing.T) {
+	exec := &fakeExecutor{name: "local", result: executor.JobResult{ExitCode: 0}}
+	tool := buildWorkdirTool(t, exec, nil, filepath.Join(t.TempDir(), "audit.jsonl"))
+
+	_, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", WorkDir: "/etc"})
+	require.NoError(t, err)
+	require.Equal(t, 1, exec.runCalls)
+}
+
+func TestBashWorkdirEmptyUngated(t *testing.T) {
+	root := t.TempDir()
+	paths, err := policy.NewPathEvaluator(root, policy.PathRules{})
+	require.NoError(t, err)
+	exec := &fakeExecutor{name: "local", result: executor.JobResult{ExitCode: 0}}
+	tool := buildWorkdirTool(t, exec, paths, filepath.Join(t.TempDir(), "audit.jsonl"))
+
+	_, err = tool.Run(context.Background(), agent.BashInput{Command: "echo hi"})
+	require.NoError(t, err)
+	require.Equal(t, 1, exec.runCalls)
+	require.Empty(t, exec.lastSpec.WorkDir)
+}
+
+func TestBashRemoteUnavailableAudited(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	tool := buildWorkdirTool(t, &fakeExecutor{name: "local"}, nil, auditPath)
+
+	_, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", Backend: "remote"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unavailable")
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"deny"`)
+	require.Contains(t, s, `"backend":"none"`)
+	require.Contains(t, s, "unavailable")
+}
+
+func TestBashUnknownBackendAudited(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	tool := buildWorkdirTool(t, &fakeExecutor{name: "local"}, nil, auditPath)
+
+	_, err := tool.Run(context.Background(), agent.BashInput{Command: "echo hi", Backend: "mars"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mars")
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"deny"`)
+	require.Contains(t, s, `"backend":"none"`)
+	require.Contains(t, s, "mars")
+}
+
+func TestBashRemoteEnvRejectedAudited(t *testing.T) {
+	auditPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	remote := &fakeExecutor{name: "remote"}
+	audit, err := policy.NewAuditLogger(auditPath)
+	require.NoError(t, err)
+	tool := agent.NewBashTool(agent.BashToolDeps{
+		Evaluator:    policy.NewEvaluator(policy.Rules{Mode: policy.ModeDenyByDefault, AllowList: []string{"echo"}}),
+		Executor:     &fakeExecutor{name: "local"},
+		Remote:       remote,
+		Audit:        audit,
+		Limits:       agent.ExecLimits{TimeoutDefault: 30 * time.Second, TimeoutMax: time.Minute, MaxOutputBytes: 1 << 20},
+		EnvAllowKeys: []string{"FOO"},
+		Session:      "test-session",
+	})
+
+	_, err = tool.Run(context.Background(), agent.BashInput{
+		Command: "echo hi",
+		Backend: "remote",
+		Env:     map[string]string{"FOO": "bar"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "env")
+	require.Equal(t, 0, remote.runCalls)
+
+	s := readAudit(t, auditPath)
+	require.Contains(t, s, `"decision":"deny"`)
+	require.Contains(t, s, `"backend":"none"`)
+	require.Contains(t, s, "env")
+}
+
 type fakeApproval struct {
 	approved bool
 	err      error

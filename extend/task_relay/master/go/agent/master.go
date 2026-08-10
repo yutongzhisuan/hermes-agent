@@ -469,6 +469,17 @@ func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 			Timeout: time.Duration(execCfg.Approval.TimeoutSeconds) * time.Second,
 		}
 	}
+	// Reuse the file-tools root/policy to gate the bash workdir; without file
+	// config there is no path policy in play and workdir stays ungated.
+	var paths policy.PathEvaluator
+	if cfg.File != nil {
+		wd, _ := os.Getwd()
+		fileCfg := cfg.File.WithDefaults(wd)
+		paths, err = policy.NewPathEvaluator(fileCfg.Root, fileCfg.Policy)
+		if err != nil {
+			return nil, fmt.Errorf("exec workdir path policy: %w", err)
+		}
+	}
 	bash := NewBashTool(BashToolDeps{
 		Evaluator:      policy.NewEvaluator(execCfg.Policy),
 		Executor:       exec,
@@ -476,6 +487,7 @@ func buildBashTool(cfg Config, hub *client.Client) (tool.BaseTool, error) {
 		DefaultBackend: execCfg.DefaultBackend,
 		Audit:          audit,
 		Approval:       approval,
+		Paths:          paths,
 		Limits:         execCfg.Limits,
 		EnvAllowKeys:   execCfg.EnvAllowKeys,
 		Session:        cfg.MasterSession,

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -26,6 +27,7 @@ type BashToolDeps struct {
 	DefaultBackend string            // "local" | "remote"; empty = local
 	Audit          *policy.AuditLogger
 	Approval       policy.ApprovalService // nil = no approval service
+	Paths          policy.PathEvaluator   // nil = no workdir gating
 	Limits         ExecLimits
 	EnvAllowKeys   []string
 	Session        string
@@ -112,6 +114,21 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 		entry.Decision = "approved"
 	}
 
+	// workdir also feeds the bwrap writable --bind, so gating it here closes
+	// both the chdir and the bind-mount escape paths. Empty workdir means the
+	// master cwd, which the operator controls, so it stays ungated.
+	if d.Paths != nil && spec.WorkDir != "" {
+		if pd := d.Paths.EvaluatePath(spec.WorkDir); pd != policy.Allow {
+			span.SetAttributes(
+				attribute.String("exec.backend", "none"),
+				attribute.String("exec.decision", "deny"),
+			)
+			entry.Decision = "deny"
+			entry.Backend = "none"
+			return b.deny(entry, "workdir denied by path policy")
+		}
+	}
+
 	execBackend := d.Executor
 	backend := in.Backend
 	if backend == "" {
@@ -121,16 +138,16 @@ func (b *BashTool) Run(ctx context.Context, in BashInput) (BashOutput, error) {
 	case "", "local":
 	case "remote":
 		if d.Remote == nil {
-			return BashOutput{}, fmt.Errorf("remote backend unavailable (no hub connection configured)")
+			return b.reject(entry, "remote backend unavailable (no hub connection configured)")
 		}
 		if len(spec.Env) > 0 {
 			// Env is never forwarded to remote workers (leak vector); fail
 			// loudly instead of silently dropping it.
-			return BashOutput{}, fmt.Errorf("env is not supported on the remote backend")
+			return b.reject(entry, "env is not supported on the remote backend")
 		}
 		execBackend = d.Remote
 	default:
-		return BashOutput{}, fmt.Errorf("unknown backend %q (want local|remote)", backend)
+		return b.reject(entry, fmt.Sprintf("unknown backend %q (want local|remote)", backend))
 	}
 
 	entry.Backend = execBackend.Name()
@@ -175,6 +192,19 @@ func (b *BashTool) deny(entry policy.AuditEntry, reason string) (BashOutput, err
 		return BashOutput{}, fmt.Errorf("denied and audit failed: %w", err)
 	}
 	return BashOutput{ExitCode: -1, Stderr: reason}, nil
+}
+
+// reject audits a pre-execution failure (backend never selected) and returns
+// it as a Go error, unlike policy denies which surface as BashOutput stderr.
+func (b *BashTool) reject(entry policy.AuditEntry, reason string) (BashOutput, error) {
+	entry.Backend = "none"
+	entry.Decision = "deny"
+	entry.ExitCode = -1
+	entry.Error = reason
+	if err := b.deps.Audit.Log(entry); err != nil {
+		return BashOutput{}, fmt.Errorf("%s (and audit failed: %w)", reason, err)
+	}
+	return BashOutput{}, errors.New(reason)
 }
 
 var dangerousEnvKeys = map[string]struct{}{
