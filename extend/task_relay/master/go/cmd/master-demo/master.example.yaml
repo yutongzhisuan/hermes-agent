@@ -69,8 +69,8 @@ search:
   providers:
     # Legacy self-hosted Tavily-compatible gateway (matches older single-provider configs).
     gateway:
-      base_url: http://100.118.227.59:8000
-      api_key: 4a89ecd6295b5b95f29ec7e10e274fd74370980797714425
+      base_url: ${SEARCH_GATEWAY_BASE_URL}
+      api_key: ${SEARCH_GATEWAY_API_KEY}
       timeout_seconds: 30
 
     # firecrawl:
