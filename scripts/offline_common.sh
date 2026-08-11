@@ -32,6 +32,43 @@ offline_platform_tag() {
   echo "${os}-${arch}"
 }
 
+# True when building on native Windows (Git Bash / MSYS / Cygwin).
+offline_is_windows() {
+  case "$(uname -s | tr '[:upper:]' '[:lower:]')" in
+    mingw*|msys*|cygwin*) return 0 ;;
+  esac
+  return 1
+}
+
+# Resolve the interpreter inside an embedded python/ prefix.
+offline_embedded_python_path() {
+  local dest="$1"
+  local ver="$2"
+  if [[ -x "$dest/bin/python${ver}" ]]; then
+    echo "$dest/bin/python${ver}"
+  elif [[ -x "$dest/bin/python3" ]]; then
+    echo "$dest/bin/python3"
+  elif [[ -f "$dest/python.exe" ]]; then
+    echo "$dest/python.exe"
+  elif [[ -f "$dest/bin/python.exe" ]]; then
+    echo "$dest/bin/python.exe"
+  else
+    return 1
+  fi
+}
+
+# Resolve venv interpreter (Unix bin/ or Windows Scripts/).
+offline_venv_python_path() {
+  local bundle_root="$1"
+  if [[ -f "$bundle_root/venv/Scripts/python.exe" ]]; then
+    echo "$bundle_root/venv/Scripts/python.exe"
+  elif [[ -x "$bundle_root/venv/bin/python" ]]; then
+    echo "$bundle_root/venv/bin/python"
+  else
+    return 1
+  fi
+}
+
 offline_build_headless_wheel() {
   local root="$1"
   local out_dir="$2"
@@ -88,12 +125,13 @@ offline_stage_embedded_python() {
     fi
     staging="$(mktemp -d "${TMPDIR:-/tmp}/xhermes-embed-py.XXXXXX")"
     tar xzf "$tgz" -C "$staging"
-    # python-build-standalone install_only layout: python/bin/python3.x
-    if [[ -x "$staging/python/bin/python${ver}" || -x "$staging/python/bin/python3" ]]; then
+    # python-build-standalone install_only layout: python/bin/python3.x (Unix)
+    # or python/python.exe (Windows).
+    if offline_embedded_python_path "$staging/python" "$ver" >/dev/null 2>&1; then
       cp -a "$staging/python"/. "$dest"/
     else
       prefix="$(find "$staging" -mindepth 1 -maxdepth 1 -type d | head -1)"
-      if [[ -z "$prefix" || ! -d "$prefix/bin" ]]; then
+      if [[ -z "$prefix" ]] || ! offline_embedded_python_path "$prefix" "$ver" >/dev/null 2>&1; then
         echo "ERROR: unrecognized standalone Python layout in ${tgz}" >&2
         find "$staging" | head -40 >&2 || true
         rm -rf "$staging"
@@ -116,7 +154,7 @@ offline_stage_embedded_python() {
     # Prefer the concrete versioned directory (e.g. cpython-3.11.15-...), not the
     # short cpython-3.11-... symlink which may point outside the staging tree.
     prefix="$(find "$staging" -mindepth 1 -maxdepth 1 -type d -name "cpython-${ver}.*" | sort | tail -1)"
-    if [[ -z "$prefix" || ! -d "$prefix/bin" ]]; then
+    if [[ -z "$prefix" ]] || ! offline_embedded_python_path "$prefix" "$ver" >/dev/null 2>&1; then
       echo "ERROR: uv python install ${ver} did not produce a usable prefix under ${staging}" >&2
       ls -la "$staging" >&2 || true
       rm -rf "$staging"
@@ -126,47 +164,49 @@ offline_stage_embedded_python() {
     rm -rf "$staging"
   fi
 
-  if [[ -x "$dest/bin/python${ver}" ]]; then
-    echo "$dest/bin/python${ver}"
-  elif [[ -x "$dest/bin/python3" ]]; then
-    echo "$dest/bin/python3"
-  else
-    echo "ERROR: embedded Python binary missing under ${dest}/bin" >&2
-    ls -la "$dest/bin" >&2 || true
+  if ! offline_embedded_python_path "$dest" "$ver"; then
+    echo "ERROR: embedded Python binary missing under ${dest}" >&2
+    ls -la "$dest" "$dest/bin" 2>&1 || true
     exit 1
   fi
 }
 
-# Point venv/bin/python* at the embedded runtime with relative symlinks and
-# rewrite pyvenv.cfg home so the tree stays relocatable after extract.
+# Point venv interpreter config at the embedded runtime so the tree stays
+# relocatable after extract. Unix: relative symlinks under venv/bin.
+# Windows: rewrite pyvenv.cfg only (Scripts\\python.exe is a launcher stub).
 offline_rewire_venv_to_embedded_python() {
   local bundle_root="$1"
   local ver="$2"
-  local venv_bin="$bundle_root/venv/bin"
-  local embedded_py="python${ver}"
   local cfg="$bundle_root/venv/pyvenv.cfg"
+  local home_rel embedded
 
-  if [[ ! -x "$bundle_root/python/bin/${embedded_py}" ]]; then
-    if [[ -x "$bundle_root/python/bin/python3" ]]; then
-      embedded_py="python3"
-    else
-      echo "ERROR: embedded python not found for venv rewire" >&2
-      exit 1
-    fi
+  embedded="$(offline_embedded_python_path "$bundle_root/python" "$ver")" || {
+    echo "ERROR: embedded python not found for venv rewire" >&2
+    exit 1
+  }
+
+  case "$embedded" in
+    */python/bin/*) home_rel="../python/bin" ;;
+    *) home_rel="../python" ;;
+  esac
+
+  if ! offline_is_windows; then
+    local venv_bin="$bundle_root/venv/bin"
+    local embedded_name
+    embedded_name="$(basename "$embedded")"
+    mkdir -p "$venv_bin"
+    ln -sfn "../../python/bin/${embedded_name}" "$venv_bin/python"
+    ln -sfn "python" "$venv_bin/python3"
+    ln -sfn "python" "$venv_bin/python${ver}"
   fi
-
-  mkdir -p "$venv_bin"
-  ln -sfn "../../python/bin/${embedded_py}" "$venv_bin/python"
-  ln -sfn "python" "$venv_bin/python3"
-  ln -sfn "python" "$venv_bin/python${ver}"
 
   if [[ -f "$cfg" ]]; then
     if grep -q '^home = ' "$cfg"; then
       # Relative to venv/; resolved by the launcher against absolute ROOT.
-      sed -i.bak 's|^home = .*|home = ../python/bin|' "$cfg"
+      sed -i.bak "s|^home = .*|home = ${home_rel}|" "$cfg"
       rm -f "${cfg}.bak"
     else
-      echo 'home = ../python/bin' >>"$cfg"
+      echo "home = ${home_rel}" >>"$cfg"
     fi
     if ! grep -q '^relocatable' "$cfg"; then
       echo 'relocatable = true' >>"$cfg"

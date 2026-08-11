@@ -29,7 +29,7 @@ mkdir -p "$ROOT/dist"
 # Populate python/ + venv/ for a frozen-style tree. Prints embedded python path.
 offline_populate_frozen_tree() {
   local bundle_root="$1"
-  local embedded_py
+  local embedded_py venv_py
   mkdir -p "$bundle_root/bin"
 
   echo "→ embedding standalone Python ${PYTHON} into bundle..."
@@ -37,33 +37,52 @@ offline_populate_frozen_tree() {
   echo "  embedded: ${embedded_py}"
 
   uv venv "$bundle_root/venv" --python "$embedded_py" --relocatable
-  uv pip install --python "$bundle_root/venv/bin/python" "$WHEEL"
+  venv_py="$(offline_venv_python_path "$bundle_root")" || {
+    echo "ERROR: venv python missing after uv venv under ${bundle_root}/venv" >&2
+    exit 1
+  }
+  uv pip install --python "$venv_py" "$WHEEL"
   offline_rewire_venv_to_embedded_python "$bundle_root" "$PYTHON"
 }
 
 offline_write_frozen_launcher() {
   local bundle_root="$1"
+  # Cross-platform bash launcher (Unix + Git Bash on Windows CI/smoke).
   cat >"$bundle_root/bin/xhermes" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+PY=""
 if [[ -x "\${ROOT}/python/bin/python${PYTHON}" ]]; then
   PY="\${ROOT}/python/bin/python${PYTHON}"
 elif [[ -x "\${ROOT}/python/bin/python3" ]]; then
   PY="\${ROOT}/python/bin/python3"
+elif [[ -f "\${ROOT}/python/python.exe" ]]; then
+  PY="\${ROOT}/python/python.exe"
+elif [[ -f "\${ROOT}/python/bin/python.exe" ]]; then
+  PY="\${ROOT}/python/bin/python.exe"
 else
-  echo "ERROR: embedded Python ${PYTHON} missing under \${ROOT}/python/bin" >&2
+  echo "ERROR: embedded Python ${PYTHON} missing under \${ROOT}/python" >&2
   exit 1
 fi
-SITE="\$(printf '%s\\n' "\${ROOT}"/venv/lib/python*/site-packages | head -1)"
+SITE=""
+if [[ -d "\${ROOT}/venv/Lib/site-packages" ]]; then
+  SITE="\${ROOT}/venv/Lib/site-packages"
+else
+  SITE="\$(printf '%s\\n' "\${ROOT}"/venv/lib/python*/site-packages | head -1)"
+fi
 if [[ -z "\${SITE}" || ! -d "\${SITE}" ]]; then
   echo "ERROR: venv site-packages missing under \${ROOT}/venv" >&2
   exit 1
 fi
 export VIRTUAL_ENV="\${ROOT}/venv"
 export PYTHONPATH="\${SITE}\${PYTHONPATH:+:\${PYTHONPATH}}"
-export PATH="\${ROOT}/venv/bin:\${ROOT}/bin:\${PATH}"
-exec "\${PY}" "\${ROOT}/venv/bin/xhermes" "\$@"
+if [[ -d "\${ROOT}/venv/Scripts" ]]; then
+  export PATH="\${ROOT}/venv/Scripts:\${ROOT}/bin:\${PATH}"
+else
+  export PATH="\${ROOT}/venv/bin:\${ROOT}/bin:\${PATH}"
+fi
+exec "\${PY}" -m hermes_cli.main "\$@"
 EOF
   cat >"$bundle_root/bin/serve" <<'EOF'
 #!/usr/bin/env bash
@@ -72,6 +91,38 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 exec "$ROOT/bin/xhermes" serve "$@"
 EOF
   chmod +x "$bundle_root/bin/xhermes" "$bundle_root/bin/serve"
+
+  # Native Windows cmd launchers (cmd.exe / PowerShell users).
+  if offline_is_windows || [[ "$PLATFORM" == windows-* ]]; then
+    cat >"$bundle_root/bin/xhermes.cmd" <<'EOF'
+@echo off
+setlocal EnableExtensions
+set "ROOT=%~dp0.."
+for %%I in ("%ROOT%") do set "ROOT=%%~fI"
+set "PY="
+if exist "%ROOT%\python\python.exe" set "PY=%ROOT%\python\python.exe"
+if not defined PY if exist "%ROOT%\python\bin\python.exe" set "PY=%ROOT%\python\bin\python.exe"
+if not defined PY (
+  echo ERROR: embedded Python missing under %ROOT%\python 1>&2
+  exit /b 1
+)
+if not exist "%ROOT%\venv\Lib\site-packages\" (
+  echo ERROR: venv site-packages missing under %ROOT%\venv 1>&2
+  exit /b 1
+)
+set "VIRTUAL_ENV=%ROOT%\venv"
+set "PYTHONPATH=%ROOT%\venv\Lib\site-packages;%PYTHONPATH%"
+set "PATH=%ROOT%\venv\Scripts;%ROOT%\bin;%PATH%"
+"%PY%" -m hermes_cli.main %*
+exit /b %ERRORLEVEL%
+EOF
+    cat >"$bundle_root/bin/serve.cmd" <<'EOF'
+@echo off
+setlocal EnableExtensions
+call "%~dp0xhermes.cmd" serve %*
+exit /b %ERRORLEVEL%
+EOF
+  fi
 }
 
 build_frozen() {
@@ -95,10 +146,17 @@ Version: ${VERSION}
 Python: ${PYTHON} (embedded under ./python/)
 Platform: ${PLATFORM}
 
-Usage:
+Usage (Unix / macOS / Linux):
   tar xzf $(basename "$out")
   cd xhermes-agent-frozen-py${PYTHON}-${PLATFORM}
+  ./bin/xhermes --version
   ./bin/serve --host 127.0.0.1 --port 0
+
+Usage (Windows):
+  tar xzf $(basename "$out")
+  cd xhermes-agent-frozen-py${PYTHON}-${PLATFORM}
+  bin\\xhermes.cmd --version
+  bin\\serve.cmd --host 127.0.0.1 --port 0
 
 This bundle includes a standalone CPython ${PYTHON} runtime under ./python/
 plus a pre-populated venv with xhermes-agent and all core dependencies.

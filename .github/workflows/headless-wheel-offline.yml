@@ -157,6 +157,9 @@ jobs:
           root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)"
           if [ "${{ matrix.rosetta }}" = "true" ]; then
             arch -x86_64 "$root/bin/xhermes" --version
+          elif [ -f "$root/bin/xhermes.cmd" ] && [ "${{ runner.os }}" = "Windows" ]; then
+            # Prefer native cmd launcher on Windows; bash launcher remains as fallback.
+            cmd.exe //c "$(cygpath -w "$root/bin/xhermes.cmd")" --version
           else
             "$root/bin/xhermes" --version
           fi
