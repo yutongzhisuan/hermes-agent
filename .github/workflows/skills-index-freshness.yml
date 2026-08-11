@@ -7,9 +7,8 @@ name: Skills Index Freshness Check
 #
 # Triggered every 4 hours so we catch a stuck cron within one tick.
 
+# TEMP: offline-packaging-only — restore schedule when re-enabling CI
 on:
-  schedule:
-    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 permissions:

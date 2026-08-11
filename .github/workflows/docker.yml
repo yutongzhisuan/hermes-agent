@@ -1,15 +1,10 @@
 name: Docker Build, Test, and Publish
 
+# TEMP: offline-packaging-only — restore push/release triggers when re-enabling CI
 on:
-  # Trusted main pushes run this workflow directly so environment-scoped
-  # Docker Hub secrets are resolved by the top-level workflow, never across
-  # a reusable-workflow boundary.
-  push:
-    branches: [main]
-  release:
-    types: [published]
-  # CI calls this only for untrusted PR build/test coverage. Those runs never
-  # reach the protected publish or merge jobs below.
+  workflow_dispatch:
+  # Kept so the file remains a valid reusable workflow; ci.yml is disabled so
+  # this path will not fire until CI is restored.
   workflow_call:
 
 permissions:

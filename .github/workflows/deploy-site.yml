@@ -1,15 +1,7 @@
 name: Deploy Site
 
+# TEMP: offline-packaging-only — restore previous `on:` when re-enabling CI
 on:
-  release:
-    types: [published]
-  push:
-    branches: [main]
-    paths:
-      - 'website/**'
-      - 'skills/**'
-      - 'optional-skills/**'
-      - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
     inputs:
       skills_index_run_id:
