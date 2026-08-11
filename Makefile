@@ -3,6 +3,7 @@
         lint build dist-wheel dist-frozen dist-vendored dist-offline clean run-serve \
         dist-offline-macos-arm64 dist-offline-macos-x86_64 \
         dist-offline-linux-x86_64 dist-offline-linux-aarch64 \
+        dist-offline-aos-linux-aarch64 \
         dist-offline-windows-x86_64 \
         go go-build go-test go-fmt go-fix
 
@@ -28,7 +29,7 @@ help: ## Show available targets
 
 help-offline-platforms: ## Per-OS/arch offline bundle build commands
 	@echo "Offline bundles are platform-specific (wheels match build OS/CPU)."
-	@echo "Artifacts: dist/xhermes-agent-{frozen,vendored}-py$(PYTHON)-<platform>.tar.gz"
+	@echo "Artifacts: dist/xhermes-agent-{frozen,vendored,aos}-py$(PYTHON)-<platform>.tar.gz"
 	@echo ""
 	@echo "Platform          Command                              Notes"
 	@echo "----------------  -----------------------------------  ------------------------------"
@@ -36,12 +37,18 @@ help-offline-platforms: ## Per-OS/arch offline bundle build commands
 	@echo "macos-x86_64      make dist-offline-macos-x86_64       Intel Mac; Rosetta on arm64 Mac"
 	@echo "linux-x86_64      make dist-offline-linux-x86_64       Native on Linux amd64; else Docker"
 	@echo "linux-aarch64     make dist-offline-linux-aarch64      Native on Linux arm64; else Docker"
+	@echo "aos-linux-aarch64 make dist-offline-aos-linux-aarch64  Huawei AOS (embedded py+runtime)"
 	@echo "windows-x86_64    make dist-offline-windows-x86_64     Native on Windows (Git Bash / WSL)"
 	@echo ""
 	@echo "Generic (current host platform tag from uname):"
 	@echo "  make dist-offline          # frozen + vendored"
 	@echo "  make dist-frozen           # frozen venv + embedded CPython"
 	@echo "  make dist-vendored         # vendored wheels only (needs host Python)"
+	@echo "  make dist-aos              # AOS bundle (linux/aarch64 host or via Docker target)"
+	@echo ""
+	@echo "AOS deploy:"
+	@echo "  tar xzf dist/xhermes-agent-aos-py$(PYTHON)-linux-aarch64.tar.gz -C /opt/usr"
+	@echo "  bash /opt/usr/xhermes-agent-aos-py$(PYTHON)-linux-aarch64/bin/xhermes version"
 	@echo ""
 	@echo "Linux Docker env override: OFFLINE_DOCKER_IMAGE=<uv-image>"
 
@@ -95,6 +102,13 @@ dist-vendored: ## Offline vendored wheels tarball (air-gapped pip install)
 dist-offline: ## Both offline bundles (frozen + vendored) for current host
 	PYTHON=$(PYTHON) scripts/build_offline_bundle.sh all
 
+dist-aos: ## AOS offline bundle on current linux/aarch64 host
+	@if [ "$$(uname -s)" != "Linux" ] || { [ "$$(uname -m)" != "aarch64" ] && [ "$$(uname -m)" != "arm64" ]; }; then \
+		echo "ERROR: dist-aos requires linux/aarch64; use: make dist-offline-aos-linux-aarch64" >&2; \
+		exit 1; \
+	fi
+	PYTHON=$(PYTHON) scripts/build_offline_bundle.sh aos
+
 # ── Offline bundles by target OS/arch ───────────────────────────────
 # Online wheel (py3-none-any) is platform-independent; targets below are for
 # frozen/vendored offline bundles only.
@@ -129,6 +143,13 @@ dist-offline-linux-aarch64: install ## Offline bundles for Linux arm64 (Docker i
 		$(MAKE) dist-offline; \
 	else \
 		scripts/build_offline_docker.sh aarch64 all; \
+	fi
+
+dist-offline-aos-linux-aarch64: install ## AOS bundle: embedded CPython + runtime libs + ld.so launcher
+	@if [ "$$(uname -s)" = "Linux" ] && { [ "$$(uname -m)" = "aarch64" ] || [ "$$(uname -m)" = "arm64" ]; }; then \
+		$(MAKE) dist-aos; \
+	else \
+		scripts/build_offline_docker.sh aarch64 aos; \
 	fi
 
 dist-offline-windows-x86_64: install ## Offline bundles for Windows x86_64 (native only)

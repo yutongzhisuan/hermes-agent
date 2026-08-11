@@ -167,3 +167,97 @@ offline_rewire_venv_to_embedded_python() {
     fi
   fi
 }
+
+# Copy host shared libraries needed by native wheels on minimal AOS images
+# (libgcc / libstdc++ are often absent from /lib64). Only whitelist safe libs —
+# never ship glibc or the dynamic linker (use the target's).
+#
+# Prefer OFFLINE_AOS_RUNTIME_LIB_DIR when set (pre-staged libs from a
+# glibc-2.34-compatible image such as rockylinux:9). Bookworm libs require
+# GLIBC_2.35+ and will fail on AOS 2.34.
+offline_stage_aos_runtime_libs() {
+  local dest="$1"
+  local site="${2:-}"
+  local name src real
+  local -a wanted=(libgcc_s.so.1 libstdc++.so.6 libgomp.so.1 libatomic.so.1)
+  local preset="${OFFLINE_AOS_RUNTIME_LIB_DIR:-}"
+
+  mkdir -p "$dest"
+
+  if [[ -n "$preset" ]]; then
+    if [[ ! -d "$preset" ]]; then
+      echo "ERROR: OFFLINE_AOS_RUNTIME_LIB_DIR not a directory: ${preset}" >&2
+      exit 1
+    fi
+    echo "→ copying AOS runtime libs from ${preset}"
+    # Copy SONAME links and real objects; dereference nothing yet.
+    find "$preset" -maxdepth 1 \( -type f -o -type l \) \( \
+      -name 'libgcc_s.so*' -o -name 'libstdc++.so*' -o \
+      -name 'libgomp.so*' -o -name 'libatomic.so*' \
+    \) -exec cp -a {} "$dest/" \;
+    # Ensure canonical SONAME names exist even if only versioned files were present.
+    for name in "${wanted[@]}"; do
+      if [[ -e "$dest/$name" ]]; then
+        continue
+      fi
+      src="$(find "$dest" -maxdepth 1 -type f -name "${name%.*}.*" 2>/dev/null | sort | tail -1 || true)"
+      if [[ -n "${src:-}" ]]; then
+        ln -sfn "$(basename "$src")" "$dest/$name"
+      fi
+    done
+  else
+    _aos_resolve_lib() {
+      local n="$1" p
+      p="$(ldconfig -p 2>/dev/null | awk -v n="$n" '$1 == n { print $NF; exit }')"
+      if [[ -n "$p" && -e "$p" ]]; then
+        echo "$p"
+        return 0
+      fi
+      find /lib /lib64 /usr/lib /usr/lib64 -name "$n" 2>/dev/null | head -1
+    }
+
+    for name in "${wanted[@]}"; do
+      src="$(_aos_resolve_lib "$name" || true)"
+      if [[ -z "${src:-}" || ! -e "$src" ]]; then
+        echo "  skip missing runtime lib: ${name}" >&2
+        continue
+      fi
+      real="$(readlink -f "$src" 2>/dev/null || echo "$src")"
+      cp -aL "$real" "$dest/$(basename "$real")"
+      if [[ "$(basename "$real")" != "$name" ]]; then
+        ln -sfn "$(basename "$real")" "$dest/$name"
+      fi
+      echo "  staged ${name} <- ${real}"
+    done
+
+    if [[ -n "$site" && -d "$site" ]]; then
+      while IFS= read -r so; do
+        [[ -f "$so" ]] || continue
+        while IFS= read -r dep; do
+          case "$dep" in
+            libgcc_s.so*|libstdc++.so*|libgomp.so*|libatomic.so*) ;;
+            *) continue ;;
+          esac
+          if [[ -e "$dest/$dep" ]]; then
+            continue
+          fi
+          src="$(_aos_resolve_lib "$dep" || true)"
+          if [[ -n "${src:-}" && -e "$src" ]]; then
+            real="$(readlink -f "$src" 2>/dev/null || echo "$src")"
+            cp -aL "$real" "$dest/$(basename "$real")"
+            ln -sfn "$(basename "$real")" "$dest/$dep"
+            echo "  staged ${dep} <- ${real} (from $(basename "$so"))"
+          fi
+        done < <(ldd "$so" 2>/dev/null | awk '/=>/ { print $1 }' || true)
+      done < <(find "$site" -type f \( -name '*.so' -o -name '*.so.*' \) 2>/dev/null | head -80)
+    fi
+  fi
+
+  if [[ ! -e "$dest/libgcc_s.so.1" || ! -e "$dest/libstdc++.so.6" ]]; then
+    echo "ERROR: AOS runtime requires libgcc_s.so.1 and libstdc++.so.6 in ${dest}" >&2
+    ls -la "$dest" >&2 || true
+    exit 1
+  fi
+  echo "→ AOS runtime lib inventory:"
+  ls -la "$dest"
+}
