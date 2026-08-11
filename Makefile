@@ -4,7 +4,7 @@
         dist-offline-macos-arm64 dist-offline-macos-x86_64 \
         dist-offline-linux-x86_64 dist-offline-linux-aarch64 \
         dist-offline-aos-linux-aarch64 \
-        dist-offline-windows-x86_64 \
+        dist-offline-windows-x86_64 dist-offline-windows-arm64 \
         go go-build go-test go-fmt go-fix
 
 # Headless wheel workflow only (no desktop / web / TUI / npm targets).
@@ -39,6 +39,7 @@ help-offline-platforms: ## Per-OS/arch offline bundle build commands
 	@echo "linux-aarch64     make dist-offline-linux-aarch64      Native on Linux arm64; else Docker"
 	@echo "aos-linux-aarch64 make dist-offline-aos-linux-aarch64  Huawei AOS (embedded py+runtime)"
 	@echo "windows-x86_64    make dist-offline-windows-x86_64     Native on Windows (Git Bash / WSL)"
+	@echo "windows-arm64     make dist-offline-windows-arm64      Native on Windows ARM"
 	@echo ""
 	@echo "Generic (current host platform tag from uname):"
 	@echo "  make dist-offline          # frozen + vendored"
@@ -154,6 +155,10 @@ dist-offline-aos-linux-aarch64: install ## AOS bundle: embedded CPython + runtim
 
 dist-offline-windows-x86_64: install ## Offline bundles for Windows x86_64 (native only)
 	@scripts/check_offline_platform.sh windows-x86_64
+	$(MAKE) dist-offline
+
+dist-offline-windows-arm64: install ## Offline bundles for Windows arm64 (native only)
+	@scripts/check_offline_platform.sh windows-arm64
 	$(MAKE) dist-offline
 
 # ── Run (dev from source tree) ──────────────────────────────────────

@@ -23,6 +23,12 @@ offline_platform_tag() {
     linux) os="linux" ;;
     mingw*|msys*|cygwin*) os="windows" ;;
   esac
+  # Normalize arch aliases so artifact tags match CI matrix names.
+  case "$os-$arch" in
+    linux-arm64) arch="aarch64" ;;
+    macos-aarch64) arch="arm64" ;;
+    windows-aarch64) arch="arm64" ;;
+  esac
   echo "${os}-${arch}"
 }
 
