@@ -84,15 +84,14 @@ offline_build_headless_wheel() {
   local root="$1"
   local out_dir="$2"
   mkdir -p "$out_dir"
-  local out_dir_for_py
-  out_dir_for_py="$(offline_win_path "$out_dir")"
   (
     cd "$root"
     export XHERMES_HEADLESS_WHEEL_BUILD=1
     if command -v uv >/dev/null 2>&1; then
-      uv run python -c "from setuptools.build_meta import build_wheel; build_wheel('${out_dir_for_py}')" >&2
+      # uv build handles Windows paths natively and does not require a synced venv.
+      uv build --wheel -o "$(offline_win_path "$out_dir")" >&2
     else
-      python3 -c "from setuptools.build_meta import build_wheel; build_wheel('${out_dir_for_py}')" >&2
+      python3 -c "from setuptools.build_meta import build_wheel; build_wheel('$(offline_win_path "$out_dir")')" >&2
     fi
   )
   ls -1 "$out_dir"/xhermes_agent-*.whl | head -1
