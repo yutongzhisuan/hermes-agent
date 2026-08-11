@@ -39,7 +39,7 @@ permissions:
 
 concurrency:
   group: headless-wheel-offline-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   PYTHON_VERSION: "3.11"
