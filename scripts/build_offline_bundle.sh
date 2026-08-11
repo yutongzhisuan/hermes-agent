@@ -41,7 +41,7 @@ offline_populate_frozen_tree() {
     echo "ERROR: venv python missing after uv venv under ${bundle_root}/venv" >&2
     exit 1
   }
-  uv pip install --python "$(offline_win_path "$venv_py")" "$WHEEL"
+  uv pip install --python "$(offline_win_path "$venv_py")" "$(offline_win_path "$WHEEL")"
   offline_rewire_venv_to_embedded_python "$bundle_root" "$PYTHON"
 }
 
