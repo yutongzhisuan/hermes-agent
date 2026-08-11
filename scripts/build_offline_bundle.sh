@@ -36,12 +36,12 @@ offline_populate_frozen_tree() {
   embedded_py="$(offline_stage_embedded_python "$bundle_root/python" "$PYTHON")"
   echo "  embedded: ${embedded_py}"
 
-  uv venv "$bundle_root/venv" --python "$embedded_py" --relocatable
+  uv venv "$(offline_win_path "$bundle_root/venv")" --python "$(offline_win_path "$embedded_py")" --relocatable
   venv_py="$(offline_venv_python_path "$bundle_root")" || {
     echo "ERROR: venv python missing after uv venv under ${bundle_root}/venv" >&2
     exit 1
   }
-  uv pip install --python "$venv_py" "$WHEEL"
+  uv pip install --python "$(offline_win_path "$venv_py")" "$WHEEL"
   offline_rewire_venv_to_embedded_python "$bundle_root" "$PYTHON"
 }
 

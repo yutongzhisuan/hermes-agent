@@ -40,6 +40,17 @@ offline_is_windows() {
   return 1
 }
 
+# Convert a POSIX path to a Windows path when running under Git Bash / MSYS.
+# uv.exe is a native Windows binary and requires Windows-style paths.
+# On non-Windows platforms this is a no-op.
+offline_win_path() {
+  if offline_is_windows && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    echo "$1"
+  fi
+}
+
 # Resolve the interpreter inside an embedded python/ prefix.
 offline_embedded_python_path() {
   local dest="$1"
@@ -146,7 +157,9 @@ offline_stage_embedded_python() {
       exit 1
     fi
     staging="$(mktemp -d "${TMPDIR:-/tmp}/xhermes-embed-py.XXXXXX")"
-    if ! uv python install "$ver" --install-dir "$staging" --no-bin >/dev/null; then
+    # uv is a native Windows binary on Windows runners; it needs Windows-style
+    # paths, not the POSIX paths that Git Bash / MSYS produces via mktemp.
+    if ! uv python install "$ver" --install-dir "$(offline_win_path "$staging")" --no-bin >/dev/null; then
       rm -rf "$staging"
       echo "ERROR: uv python install ${ver} failed (set OFFLINE_PYTHON_STANDALONE_TGZ to use a pre-downloaded tarball)" >&2
       exit 1

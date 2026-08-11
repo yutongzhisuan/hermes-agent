@@ -64,12 +64,12 @@ jobs:
           import json, os
 
           all_platforms = [
-              {"platform": "macos-arm64", "runner": "macos-14", "rosetta": False},
-              {"platform": "macos-x86_64", "runner": "macos-14", "rosetta": True},
-              {"platform": "linux-x86_64", "runner": "ubuntu-latest", "rosetta": False},
-              {"platform": "linux-aarch64", "runner": "ubuntu-24.04-arm", "rosetta": False},
-              {"platform": "windows-x86_64", "runner": "windows-latest", "rosetta": False},
-              {"platform": "windows-arm64", "runner": "windows-11-arm", "rosetta": False},
+              {"platform": "macos-arm64", "runner": "macos-14"},
+              {"platform": "macos-x86_64", "runner": "macos-13"},
+              {"platform": "linux-x86_64", "runner": "ubuntu-latest"},
+              {"platform": "linux-aarch64", "runner": "ubuntu-24.04-arm"},
+              {"platform": "windows-x86_64", "runner": "windows-latest"},
+              {"platform": "windows-arm64", "runner": "windows-11-arm"},
           ]
           requested = os.environ.get("REQUESTED", "all")
           mode = os.environ.get("MODE", "frozen")
@@ -111,12 +111,7 @@ jobs:
             uv.lock
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        if: matrix.rosetta != true
         run: uv python install "${{ env.PYTHON_VERSION }}"
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }} (Rosetta)
-        if: matrix.rosetta
-        run: arch -x86_64 uv python install "${{ env.PYTHON_VERSION }}"
 
       - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
@@ -125,27 +120,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends build-essential
 
       - name: Install dev dependencies
-        if: matrix.rosetta != true
         uses: ./.github/actions/retry
         with:
           command: uv sync --locked --python ${{ env.PYTHON_VERSION }} --extra dev
 
-      - name: Install dev dependencies (Rosetta)
-        if: matrix.rosetta
-        uses: ./.github/actions/retry
-        with:
-          command: arch -x86_64 uv sync --locked --python ${{ env.PYTHON_VERSION }} --extra dev
-
       - name: Build offline bundles
         env:
           MODE: ${{ needs.prepare.outputs.mode }}
-        run: |
-          if [ "${{ matrix.rosetta }}" = "true" ]; then
-            echo "Building ${{ matrix.platform }} under Rosetta (arch -x86_64) mode=${MODE}..."
-            arch -x86_64 env PYTHON=${{ env.PYTHON_VERSION }} scripts/build_offline_bundle.sh "${MODE}"
-          else
-            PYTHON=${{ env.PYTHON_VERSION }} scripts/build_offline_bundle.sh "${MODE}"
-          fi
+        run: PYTHON=${{ env.PYTHON_VERSION }} scripts/build_offline_bundle.sh "${MODE}"
 
       - name: Smoke test frozen bundle
         if: needs.prepare.outputs.mode == 'frozen' || needs.prepare.outputs.mode == 'all'
@@ -155,9 +137,7 @@ jobs:
           tmp="$(mktemp -d)"
           tar xzf "$frozen" -C "$tmp"
           root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)"
-          if [ "${{ matrix.rosetta }}" = "true" ]; then
-            arch -x86_64 "$root/bin/xhermes" --version
-          elif [ -f "$root/bin/xhermes.cmd" ] && [ "${{ runner.os }}" = "Windows" ]; then
+          if [ -f "$root/bin/xhermes.cmd" ] && [ "${{ runner.os }}" = "Windows" ]; then
             # Prefer native cmd launcher on Windows; bash launcher remains as fallback.
             cmd.exe //c "$(cygpath -w "$root/bin/xhermes.cmd")" --version
           else
