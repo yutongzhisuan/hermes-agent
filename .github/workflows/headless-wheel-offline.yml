@@ -37,10 +37,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: headless-wheel-offline-${{ github.ref }}
-  cancel-in-progress: false
-
 env:
   PYTHON_VERSION: "3.11"
   UV_VERSION: "0.9.28"
