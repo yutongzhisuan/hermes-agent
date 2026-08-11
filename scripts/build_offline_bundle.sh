@@ -28,21 +28,48 @@ mkdir -p "$ROOT/dist"
 build_frozen() {
   local bundle_root="$STAGING/frozen/xhermes-agent-frozen-py${PYTHON}-${PLATFORM}"
   local out="$ROOT/dist/xhermes-agent-frozen-py${PYTHON}-${PLATFORM}.tar.gz"
+  local embedded_py
   mkdir -p "$bundle_root/bin"
-  uv venv "$bundle_root/venv" --python "$PYTHON" --relocatable
-  uv pip install --python "$bundle_root/venv/bin/python" "$WHEEL"
 
-  cat >"$bundle_root/bin/xhermes" <<'EOF'
+  # Embed a standalone CPython so the extract host does not need system Python.
+  echo "→ embedding standalone Python ${PYTHON} into frozen bundle..."
+  embedded_py="$(offline_stage_embedded_python "$bundle_root/python" "$PYTHON")"
+  echo "  embedded: ${embedded_py}"
+
+  # Create venv from the embedded interpreter, install into that venv, then
+  # rewrite venv/bin/python* to relative symlinks for relocatable extract.
+  uv venv "$bundle_root/venv" --python "$embedded_py" --relocatable
+  uv pip install --python "$bundle_root/venv/bin/python" "$WHEEL"
+  offline_rewire_venv_to_embedded_python "$bundle_root" "$PYTHON"
+
+  # Launch via embedded interpreter + venv site-packages (relocatable; no host Python).
+  cat >"$bundle_root/bin/xhermes" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec "$ROOT/venv/bin/xhermes" "$@"
+ROOT="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -x "\${ROOT}/python/bin/python${PYTHON}" ]]; then
+  PY="\${ROOT}/python/bin/python${PYTHON}"
+elif [[ -x "\${ROOT}/python/bin/python3" ]]; then
+  PY="\${ROOT}/python/bin/python3"
+else
+  echo "ERROR: embedded Python ${PYTHON} missing under \${ROOT}/python/bin" >&2
+  exit 1
+fi
+SITE="\$(printf '%s\\n' "\${ROOT}"/venv/lib/python*/site-packages | head -1)"
+if [[ -z "\${SITE}" || ! -d "\${SITE}" ]]; then
+  echo "ERROR: venv site-packages missing under \${ROOT}/venv" >&2
+  exit 1
+fi
+export VIRTUAL_ENV="\${ROOT}/venv"
+export PYTHONPATH="\${SITE}\${PYTHONPATH:+:\${PYTHONPATH}}"
+export PATH="\${ROOT}/venv/bin:\${ROOT}/bin:\${PATH}"
+exec "\${PY}" "\${ROOT}/venv/bin/xhermes" "\$@"
 EOF
   cat >"$bundle_root/bin/serve" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec "$ROOT/venv/bin/xhermes" serve "$@"
+exec "$ROOT/bin/xhermes" serve "$@"
 EOF
   chmod +x "$bundle_root/bin/xhermes" "$bundle_root/bin/serve"
 
@@ -53,12 +80,12 @@ EOF
     "$PYTHON" \
     "$PLATFORM" \
     "$(basename "$out")" \
-    "Extract anywhere on matching OS/arch; run bin/xhermes or bin/serve. Target host needs compatible Python ${PYTHON} runtime used to create the venv."
+    "Extract anywhere on matching OS/arch; includes embedded CPython ${PYTHON}. Run bin/xhermes or bin/serve (no host Python required)."
 
   cat >"$bundle_root/README.txt" <<EOF
-XHermes headless offline bundle (frozen venv)
+XHermes headless offline bundle (frozen venv + embedded Python)
 Version: ${VERSION}
-Python: ${PYTHON}
+Python: ${PYTHON} (embedded under ./python/)
 Platform: ${PLATFORM}
 
 Usage:
@@ -66,7 +93,9 @@ Usage:
   cd xhermes-agent-frozen-py${PYTHON}-${PLATFORM}
   ./bin/serve --host 127.0.0.1 --port 0
 
-The venv is pre-populated with xhermes-agent and all core dependencies.
+This bundle includes a standalone CPython ${PYTHON} runtime under ./python/
+plus a pre-populated venv with xhermes-agent and all core dependencies.
+No system Python install is required on the target host.
 EOF
 
   tar -czf "$out" -C "$STAGING/frozen" "xhermes-agent-frozen-py${PYTHON}-${PLATFORM}"

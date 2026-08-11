@@ -40,8 +40,8 @@ help-offline-platforms: ## Per-OS/arch offline bundle build commands
 	@echo ""
 	@echo "Generic (current host platform tag from uname):"
 	@echo "  make dist-offline          # frozen + vendored"
-	@echo "  make dist-frozen           # frozen venv only"
-	@echo "  make dist-vendored         # vendored wheels only"
+	@echo "  make dist-frozen           # frozen venv + embedded CPython"
+	@echo "  make dist-vendored         # vendored wheels only (needs host Python)"
 	@echo ""
 	@echo "Linux Docker env override: OFFLINE_DOCKER_IMAGE=<uv-image>"
 
@@ -86,7 +86,7 @@ build: dist-wheel ## Alias: build headless pip wheel
 dist-wheel: ## Headless pip wheel -> dist/xhermes_agent-*.whl
 	XHERMES_HEADLESS_WHEEL_BUILD=1 scripts/build_headless_wheel.sh
 
-dist-frozen: ## Offline frozen venv tarball (all deps pre-installed)
+dist-frozen: ## Offline frozen tarball (embedded CPython + venv + deps)
 	PYTHON=$(PYTHON) scripts/build_offline_bundle.sh frozen
 
 dist-vendored: ## Offline vendored wheels tarball (air-gapped pip install)
