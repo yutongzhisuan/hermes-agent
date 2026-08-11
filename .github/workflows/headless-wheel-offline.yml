@@ -137,8 +137,14 @@ jobs:
             echo "ERROR: empty frozen bundle under ${tmp}" >&2
             exit 1
           fi
-          if [ -f "$root/bin/xhermes.cmd" ] && [ "${{ runner.os }}" = "Windows" ]; then
-            cmd.exe //c "$(cygpath -w "$root/bin/xhermes.cmd")" --version
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            # Prefer cmd launcher; fall back to Git Bash launcher (more reliable on ARM64).
+            if [ -f "$root/bin/xhermes.cmd" ]; then
+              cmd.exe //c "$(cygpath -w "$root/bin/xhermes.cmd")" --version \
+                || "$root/bin/xhermes" --version
+            else
+              "$root/bin/xhermes" --version
+            fi
           else
             "$root/bin/xhermes" --version
           fi
