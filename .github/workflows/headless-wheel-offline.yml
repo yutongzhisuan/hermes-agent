@@ -139,6 +139,10 @@ jobs:
           tmp="$(mktemp -d)"
           tar xzf "$frozen" -C "$tmp"
           root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)"
+          echo "=== Bundle layout ==="
+          find "$root" -maxdepth 4 | sort | head -60
+          echo "=== pyvenv.cfg ==="
+          cat "$root/venv/pyvenv.cfg" 2>/dev/null || echo "(missing)"
           if [ -f "$root/bin/xhermes.cmd" ] && [ "${{ runner.os }}" = "Windows" ]; then
             # Prefer native cmd launcher on Windows; bash launcher remains as fallback.
             cmd.exe //c "$(cygpath -w "$root/bin/xhermes.cmd")" --version
