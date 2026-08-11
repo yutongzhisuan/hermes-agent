@@ -87,14 +87,26 @@ offline_build_headless_wheel() {
   (
     cd "$root"
     export XHERMES_HEADLESS_WHEEL_BUILD=1
+    local out_dir_w
+    out_dir_w="$(offline_win_path "$out_dir")"
     if command -v uv >/dev/null 2>&1; then
-      # uv build handles Windows paths natively and does not require a synced venv.
-      uv build --wheel -o "$(offline_win_path "$out_dir")" >&2
+      # --no-sync: skip lock resolution so Windows cross-platform deps don't block.
+      # XHERMES_HEADLESS_WHEEL_BUILD is inherited via the subshell environment.
+      uv run --no-sync python -c "
+from setuptools.build_meta import build_wheel
+build_wheel('${out_dir_w}')
+" >&2
     else
-      python3 -c "from setuptools.build_meta import build_wheel; build_wheel('$(offline_win_path "$out_dir")')" >&2
+      python3 -c "
+from setuptools.build_meta import build_wheel
+build_wheel('${out_dir_w}')
+" >&2
     fi
   )
-  ls -1 "$out_dir"/xhermes_agent-*.whl | head -1
+  # Use printf glob to avoid SIGPIPE from ls | head under set -eo pipefail.
+  local whl
+  whl="$(printf '%s\n' "$out_dir"/xhermes_agent-*.whl | head -1)"
+  echo "$whl"
 }
 
 offline_write_manifest() {
