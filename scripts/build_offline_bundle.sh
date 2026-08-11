@@ -4,7 +4,7 @@
 #   vendored — wheels/ + install.sh for air-gapped pip install
 #   aos      — frozen + runtime libs + ld.so launcher for Huawei AOS (linux-aarch64)
 #   all      — frozen + vendored (default)
-set -euxo pipefail
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/offline_common.sh

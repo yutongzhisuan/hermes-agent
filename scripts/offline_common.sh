@@ -84,18 +84,15 @@ offline_build_headless_wheel() {
   local root="$1"
   local out_dir="$2"
   mkdir -p "$out_dir"
+  local out_dir_w wheels
+  out_dir_w="$(offline_win_path "$out_dir")"
   (
     cd "$root"
     export XHERMES_HEADLESS_WHEEL_BUILD=1
-    local out_dir_w
-    out_dir_w="$(offline_win_path "$out_dir")"
     if command -v uv >/dev/null 2>&1; then
-      # --no-sync: skip lock resolution so Windows cross-platform deps don't block.
-      # XHERMES_HEADLESS_WHEEL_BUILD is inherited via the subshell environment.
-      uv run --no-sync python -c "
-from setuptools.build_meta import build_wheel
-build_wheel('${out_dir_w}')
-" >&2
+      # uv build inherits shell env (XHERMES_HEADLESS_WHEEL_BUILD) and handles
+      # Windows paths natively; no venv sync required.
+      uv build --wheel -o "$out_dir_w" >&2
     else
       python3 -c "
 from setuptools.build_meta import build_wheel
@@ -103,10 +100,15 @@ build_wheel('${out_dir_w}')
 " >&2
     fi
   )
-  # Use printf glob to avoid SIGPIPE from ls | head under set -eo pipefail.
-  local whl
-  whl="$(printf '%s\n' "$out_dir"/xhermes_agent-*.whl | head -1)"
-  echo "$whl"
+  shopt -s nullglob
+  wheels=( "$out_dir"/xhermes_agent-*.whl )
+  shopt -u nullglob
+  if (( ${#wheels[@]} == 0 )); then
+    echo "ERROR: no wheel produced in ${out_dir}" >&2
+    ls -la "$out_dir" >&2 || true
+    exit 1
+  fi
+  echo "${wheels[0]}"
 }
 
 offline_write_manifest() {

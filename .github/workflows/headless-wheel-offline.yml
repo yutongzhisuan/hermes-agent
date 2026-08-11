@@ -127,9 +127,7 @@ jobs:
       - name: Build offline bundles
         env:
           MODE: ${{ needs.prepare.outputs.mode }}
-        run: |
-          set -x
-          PYTHON=${{ env.PYTHON_VERSION }} scripts/build_offline_bundle.sh "${MODE}"
+        run: PYTHON=${{ env.PYTHON_VERSION }} scripts/build_offline_bundle.sh "${MODE}"
 
       - name: Smoke test frozen bundle
         if: needs.prepare.outputs.mode == 'frozen' || needs.prepare.outputs.mode == 'all'
@@ -138,13 +136,12 @@ jobs:
           frozen="$(ls -1 dist/xhermes-agent-frozen-py${{ env.PYTHON_VERSION }}-${{ matrix.platform }}.tar.gz)"
           tmp="$(mktemp -d)"
           tar xzf "$frozen" -C "$tmp"
-          root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)"
-          echo "=== Bundle layout ==="
-          find "$root" -maxdepth 4 | sort | head -60
-          echo "=== pyvenv.cfg ==="
-          cat "$root/venv/pyvenv.cfg" 2>/dev/null || echo "(missing)"
+          root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -print -quit)"
+          if [ -z "$root" ]; then
+            echo "ERROR: empty frozen bundle under ${tmp}" >&2
+            exit 1
+          fi
           if [ -f "$root/bin/xhermes.cmd" ] && [ "${{ runner.os }}" = "Windows" ]; then
-            # Prefer native cmd launcher on Windows; bash launcher remains as fallback.
             cmd.exe //c "$(cygpath -w "$root/bin/xhermes.cmd")" --version
           else
             "$root/bin/xhermes" --version
