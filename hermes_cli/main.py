@@ -486,9 +486,6 @@ from hermes_cli.subcommands.logs import build_logs_parser
 from hermes_cli.subcommands.prompt_size import build_prompt_size_parser
 from hermes_cli.subcommands.memory import build_memory_parser
 from hermes_cli.subcommands.acp import build_acp_parser
-from hermes_cli.subcommands.relay_hub import build_relay_hub_parser
-from hermes_cli.subcommands.task_worker import build_task_worker_parser
-from hermes_cli.subcommands.relay_acp_rpc import build_relay_acp_rpc_parser
 from hermes_cli.subcommands.tools import build_tools_parser
 from hermes_cli.subcommands.insights import build_insights_parser
 from hermes_cli.subcommands.monitoring import build_monitoring_parser
@@ -10930,9 +10927,6 @@ _BUILTIN_SUBCOMMANDS = frozenset({
     "profile",
     "project",
     "proxy",
-    "relay-acp-rpc",
-    "relay-hub",
-    "task-worker",
     "send",
     "sessions",
     "setup",
@@ -10956,6 +10950,24 @@ _BUILTIN_SUBCOMMANDS = frozenset({
     # expensive eager import of every bundled plugin module.
     "help",
 })
+
+# Task Relay (standalone swarm-network package) is optional. Only short-circuit
+# plugin discovery for these names when extend.task_relay is importable.
+_TASK_RELAY_SUBCOMMANDS = frozenset({"relay-hub", "task-worker", "relay-acp-rpc"})
+
+
+def _task_relay_available() -> bool:
+    """True when the standalone swarm-network package (extend.task_relay) is installed."""
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec("extend.task_relay") is not None
+    except Exception:
+        return False
+
+
+if _task_relay_available():
+    _BUILTIN_SUBCOMMANDS = _BUILTIN_SUBCOMMANDS | _TASK_RELAY_SUBCOMMANDS
 
 
 # Top-level flags that take a value. Needed by ``_first_positional_argv``
@@ -11414,24 +11426,39 @@ def _relay_remainder_argv(args, attr: str) -> list[str]:
     return argv
 
 
+def _relay_missing_exit(command: str) -> None:
+    print(f"Task Relay is not installed (needed for 'xhermes {command}').", file=sys.stderr)
+    print(
+        "Install the standalone swarm-network package that provides extend.task_relay.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
 def cmd_relay_hub(args):
     """Run the Task Relay Hub."""
-    from extend.task_relay.hub.main import main as relay_hub_main
-
+    try:
+        from extend.task_relay.hub.main import main as relay_hub_main
+    except ImportError:
+        _relay_missing_exit("relay-hub")
     sys.exit(relay_hub_main(_relay_remainder_argv(args, "hub_args")))
 
 
 def cmd_task_worker(args):
     """Run a Task Relay worker."""
-    from extend.task_relay.worker.__main__ import main as task_worker_main
-
+    try:
+        from extend.task_relay.worker.__main__ import main as task_worker_main
+    except ImportError:
+        _relay_missing_exit("task-worker")
     sys.exit(task_worker_main(_relay_remainder_argv(args, "worker_args")))
 
 
 def cmd_relay_acp_rpc(args):
     """Run the XHermes ACP JSON-RPC server for remote-acp workers."""
-    from extend.task_relay.worker.acp_rpc_server import main as relay_acp_rpc_main
-
+    try:
+        from extend.task_relay.worker.acp_rpc_server import main as relay_acp_rpc_main
+    except ImportError:
+        _relay_missing_exit("relay-acp-rpc")
     sys.exit(relay_acp_rpc_main(_relay_remainder_argv(args, "rpc_args")))
 
 
@@ -12790,11 +12817,21 @@ def main():
     build_acp_parser(subparsers, cmd_acp=cmd_acp)
 
     # =========================================================================
-    # task relay commands
+    # task relay commands (optional: standalone swarm-network package)
     # =========================================================================
-    build_relay_hub_parser(subparsers, cmd_relay_hub=cmd_relay_hub)
-    build_task_worker_parser(subparsers, cmd_task_worker=cmd_task_worker)
-    build_relay_acp_rpc_parser(subparsers, cmd_relay_acp_rpc=cmd_relay_acp_rpc)
+    if _task_relay_available():
+        from hermes_cli.subcommands.relay_hub import build_relay_hub_parser
+        from hermes_cli.subcommands.task_worker import build_task_worker_parser
+        from hermes_cli.subcommands.relay_acp_rpc import build_relay_acp_rpc_parser
+
+        build_relay_hub_parser(subparsers, cmd_relay_hub=cmd_relay_hub)
+        build_task_worker_parser(subparsers, cmd_task_worker=cmd_task_worker)
+        build_relay_acp_rpc_parser(subparsers, cmd_relay_acp_rpc=cmd_relay_acp_rpc)
+    else:
+        logger.debug(
+            "Task Relay CLI skipped: extend.task_relay not installed "
+            "(install swarm-network to enable relay-hub / task-worker / relay-acp-rpc)"
+        )
 
     # =========================================================================
     # profile command  (parser built in hermes_cli/subcommands/profile.py)
