@@ -146,8 +146,7 @@ rm -rf ~/.xhermes/xhermes-agent
 4. **安装依赖**：`uv pip install --target site-packages -r req.txt`
    —— 必须用 `--target` 独立目录，因为 uv 拒绝修改其托管的 Python
 5. **拷贝源码树**：`rsync` 精简拷贝，排除 `.git`/`.venv`/`node_modules`/
-   `tests`/`web_dist` 等构建期或超大目录；删除源码副本内运行时不需要的
-   Go 构建产物（`extend/task_relay/hub/go` 等）
+   `tests`/`web_dist` 等构建期或超大目录
 6. **清理扩展属性**：`xattr -cr`（防御性；`com.apple.provenance` 由系统
    维护清不掉，但不影响产物）
 7. **写 launcher + postinstall**：launcher 自定位（解析自身符号链接找到

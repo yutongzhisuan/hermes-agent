@@ -171,11 +171,6 @@ rsync -a \
     "$REPO_ROOT"/ "$STAGE_ROOT/xhermes-agent/"
 
 # 5. drop runtime-unneeded build artifacts inside the source copy
-rm -rf "$STAGE_ROOT/xhermes-agent/extend/task_relay/hub/go"
-rm -rf "$STAGE_ROOT/xhermes-agent/extend/task_relay/master" \
-       "$STAGE_ROOT/xhermes-agent/extend/task_relay/worker" \
-       "$STAGE_ROOT/xhermes-agent/extend/task_relay/tests" \
-       "$STAGE_ROOT/xhermes-agent/extend/task_relay/scripts"
 rm -rf "$STAGE_ROOT/xhermes-agent/contributors"
 
 # 6. strip xattrs + block AppleDouble so pkgbuild emits no ._* BOM entries

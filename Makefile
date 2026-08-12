@@ -4,23 +4,12 @@
         dist-offline-macos-arm64 dist-offline-macos-x86_64 \
         dist-offline-linux-x86_64 dist-offline-linux-aarch64 \
         dist-offline-aos-linux-aarch64 \
-        dist-offline-windows-x86_64 dist-offline-windows-arm64 \
-        go go-build go-test go-fmt go-fix
+        dist-offline-windows-x86_64 dist-offline-windows-arm64
 
 # Headless wheel workflow only (no desktop / web / TUI / npm targets).
 
 PYTHON ?= 3.11
 UV     ?= uv
-
-# task_relay Go modules (resolved via repo-root go.work)
-GO            ?= go
-GO_BIN_DIR    ?= bin
-GO_MODULE_DIRS := \
-	extend/task_relay/gen/go \
-	extend/task_relay/hub/go \
-	extend/task_relay/master/go
-GO_MASTER_CMD := ./extend/task_relay/master/go/cmd/master-demo
-GO_HUB_CMD    := ./extend/task_relay/hub/go/cmd/task-relay-hub
 
 # ── Help ────────────────────────────────────────────────────────────
 help: ## Show available targets
@@ -170,35 +159,4 @@ clean: ## Remove wheel output, offline bundles, and local build staging
 	rm -rf dist .pytest_cache .ruff_cache __pycache__ dist/.offline-staging-* \
 	       xhermes_agent_data/skills xhermes_agent_data/optional-skills \
 	       xhermes_agent_data/locales xhermes_agent_data/optional-mcps \
-	       xhermes_agent_data/.headless_wheel_dist \
-	       $(GO_BIN_DIR)/master-demo $(GO_BIN_DIR)/task-relay-hub
-
-# ── task_relay Go (gen / hub / master via go.work) ──────────────────
-go: go-fmt go-fix go-build go-test ## Format, fix, build, and test all Go modules
-
-go-build: ## Build all Go packages + binaries -> bin/
-	@mkdir -p $(GO_BIN_DIR)
-	@for m in $(GO_MODULE_DIRS); do \
-		echo "→ build $$m"; \
-		$(GO) -C $$m build ./...; \
-	done
-	$(GO) build -o $(GO_BIN_DIR)/master-demo $(GO_MASTER_CMD)
-	$(GO) build -o $(GO_BIN_DIR)/task-relay-hub $(GO_HUB_CMD)
-
-go-test: ## Test all three Go modules
-	@for m in $(GO_MODULE_DIRS); do \
-		echo "→ test $$m"; \
-		$(GO) -C $$m test ./...; \
-	done
-
-go-fmt: ## go fmt all three Go modules
-	@for m in $(GO_MODULE_DIRS); do \
-		echo "→ fmt $$m"; \
-		$(GO) -C $$m fmt ./...; \
-	done
-
-go-fix: ## go fix all three Go modules
-	@for m in $(GO_MODULE_DIRS); do \
-		echo "→ fix $$m"; \
-		$(GO) -C $$m fix ./...; \
-	done
+	       xhermes_agent_data/.headless_wheel_dist
