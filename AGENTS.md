@@ -263,6 +263,11 @@ xhermes-agent/
 │   └── src/              # entry.tsx, app.tsx, gatewayClient.ts + app/components/hooks/lib
 ├── tui_gateway/          # Python JSON-RPC backend for the TUI
 ├── acp_adapter/          # ACP server (VS Code / Zed / JetBrains integration)
+├── extend/               # Infa-owned extensions (kept separate from upstream code)
+│   └── task_relay/       # Task Relay ACP sidecar (acp_backend, acp_rpc_server)
+│                         #   + structured-output LLM helper; run the sidecar with
+│                         #   `python -m extend.task_relay.acp_rpc_server`.
+│                         #   The Worker runtime is Go (`swarm-network/worker/go`).
 ├── cron/                 # Scheduler — jobs.py, scheduler.py
 ├── scripts/              # run_tests.sh, release.py, auxiliary scripts
 ├── website/              # Docusaurus docs site
