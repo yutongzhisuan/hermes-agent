@@ -1,0 +1,32 @@
+name: master-planner
+label: Master Planner
+kind: standalone
+version: 0.1.0
+description: >
+  用户侧 Master Agent（planner）插件：把 XHermes 作为推理平台的编排客户端。
+  注册 7 个 gateway_* 工具（dispatch / dispatch_batch / watch / get_result /
+  list_tasks / list_workers / cancel），通过 Gateway-API 的 AgentRelayService
+  下发子任务到平台 Worker 执行，watch 事件流（SSE，游标续传）并聚合结果。
+
+  本地账本（sqlite，~/.xhermes/master_planner.db）记录 run_id / task_id /
+  cursor，是上下文压缩与重启后恢复任务状态的唯一可靠依据。
+
+  纯 stdlib 传输（urllib + SSE），无第三方依赖。所有 handler 为同步实现，
+  watch 阻塞循环每秒轮询 interrupt，delegate_task 子 agent 上下文一律拒绝。
+author: infa
+# requires_env / optional_env are surfaced in the `xhermes config` UI via the
+# env var injector in hermes_cli/config.py.
+requires_env:
+  - name: INFA_GATEWAY_API_KEY
+    description: "平台用户 API Key，走 Gateway-API 鉴权链路（Authorization: Bearer）。"
+    prompt: "INFA Gateway API Key"
+    password: true
+optional_env:
+  - name: INFA_GATEWAY_BASE_URL
+    description: "Gateway-API 基础地址。默认 https://gateway.infa.example.com（占位，部署后替换）。"
+    prompt: "INFA Gateway base URL (default https://gateway.infa.example.com)"
+    password: false
+  - name: INFA_GATEWAY_TIMEOUT_S
+    description: "普通 RPC 的 HTTP 超时秒数（默认 30；watch 流式请求按 wait_seconds 单独计算）。"
+    prompt: "INFA Gateway timeout seconds (default 30)"
+    password: false
