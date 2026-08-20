@@ -159,4 +159,5 @@ clean: ## Remove wheel output, offline bundles, and local build staging
 	rm -rf dist .pytest_cache .ruff_cache __pycache__ dist/.offline-staging-* \
 	       xhermes_agent_data/skills xhermes_agent_data/optional-skills \
 	       xhermes_agent_data/locales xhermes_agent_data/optional-mcps \
-	       xhermes_agent_data/.headless_wheel_dist
+	       xhermes_agent_data/.headless_wheel_dist \
+		   xhermes_agent.egg-info

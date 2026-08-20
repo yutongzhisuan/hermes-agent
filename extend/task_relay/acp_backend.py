@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
+import tempfile
 import threading
 import time
 from typing import Any
@@ -50,18 +52,52 @@ class AcpTaskBackend(TaskBackend):
         self,
         session_manager: Any | None = None,
         progress_interval_seconds: float = 5.0,
+        *,
+        stateless: bool = False,
+        stateless_toolsets: list[str] | None = None,
+        state_root: str | None = None,
+        workdir_root: str | None = None,
+        sandbox: str | None = None,
+        sandbox_image: str | None = None,
     ):
         """Initialize the backend.
 
         Args:
             session_manager: Optional ``acp_adapter.session.SessionManager``
-                instance. When omitted, a fresh ``SessionManager`` is created
-                on first use. Tests can inject a fake manager here.
+                instance. When omitted, a fresh manager is created on first
+                use — a ``StatelessSessionManager`` when *stateless* is set,
+                else a plain ``SessionManager``. Tests can inject a fake
+                manager here.
             progress_interval_seconds: Minimum seconds between ``task.progress``
                 frames forwarded from the agent.
+            stateless: Run each task as a disposable session: the agent is
+                built with ``skip_memory=True`` and a narrowed toolset list
+                (no memory / skills / session_search), the session transcript
+                goes to an ephemeral store, the task runs in a temporary
+                workdir, and both are deleted when the task ends. Nothing the
+                task does can read or mutate the local user's memories,
+                skills, or session history.
+            stateless_toolsets: Toolsets granted to stateless tasks when the
+                task itself does not request any. Defaults to
+                ``DEFAULT_STATELESS_TOOLSETS``.
+            state_root: Directory for the ephemeral session store (default:
+                a fresh temp dir per manager).
+            workdir_root: Parent directory for per-task temp workdirs
+                (default: system temp). Ignored when *sandbox* is set.
+            sandbox: Optional execution sandbox for stateless tasks.
+                ``"docker"`` runs each task in its own disposable container
+                (requires ``apply_sandbox_env`` to have configured the
+                process terminal environment, and implies *stateless*).
+            sandbox_image: Docker image for sandboxed tasks.
         """
         self._session_manager = session_manager
         self._progress_interval_seconds = progress_interval_seconds
+        self._stateless = stateless or bool(sandbox)
+        self._stateless_toolsets = stateless_toolsets
+        self._state_root = state_root
+        self._workdir_root = workdir_root
+        self._sandbox = sandbox
+        self._sandbox_image = sandbox_image
 
     async def run(
         self,
@@ -73,10 +109,48 @@ class AcpTaskBackend(TaskBackend):
         """Create an ACP session, run the goal, and return a terminal payload."""
         manager = self._session_manager
         if manager is None:
-            manager = _import_session_manager()()
+            manager = self._create_default_manager()
 
         user_message = _resume_goal(run)
-        state = manager.create_session(cwd=".")
+        workdir: str | None = None
+        if self._stateless and self._sandbox:
+            # Sandboxed tasks run at a fixed container path; the per-session
+            # disposable container replaces the host-side temp workdir.
+            from extend.task_relay.stateless import SANDBOX_CONTAINER_CWD
+
+            state = manager.create_session(
+                cwd=SANDBOX_CONTAINER_CWD, toolsets=list(run.toolsets) or None
+            )
+        elif self._stateless:
+            workdir = tempfile.mkdtemp(
+                prefix=f"relay-{run.task_id}-", dir=self._workdir_root
+            )
+            state = manager.create_session(
+                cwd=workdir, toolsets=list(run.toolsets) or None
+            )
+        else:
+            state = manager.create_session(cwd=".")
+        session_id = state.session_id
+        agent = state.agent
+
+        try:
+            return await self._run_session(
+                manager, state, run, user_message, on_progress, cancel_event
+            )
+        finally:
+            if self._stateless:
+                self._discard_session(manager, session_id, workdir)
+
+    async def _run_session(
+        self,
+        manager: Any,
+        state: Any,
+        run: TaskRunPayload,
+        user_message: str,
+        on_progress: OnProgress,
+        cancel_event: asyncio.Event,
+    ) -> TaskCompletePayload:
+        """Drive the agent to a terminal state for an already-created session."""
         session_id = state.session_id
         agent = state.agent
 
@@ -185,7 +259,8 @@ class AcpTaskBackend(TaskBackend):
                     )
 
         # Persist any updated history so salvageable context is not lost.
-        if result and result.get("messages"):
+        # Stateless sessions are discarded by run()'s finally instead.
+        if not self._stateless and result and result.get("messages"):
             state.history = result["messages"]
             try:
                 manager.save_session(session_id)
@@ -229,6 +304,31 @@ class AcpTaskBackend(TaskBackend):
             fields=self._extract_fields(result, run),
             usage=self._extract_usage(result),
         )
+
+    def _create_default_manager(self) -> Any:
+        """Create the session manager matching the configured mode."""
+        if self._stateless:
+            from extend.task_relay.stateless import StatelessSessionManager
+
+            return StatelessSessionManager(
+                state_root=self._state_root,
+                toolsets=self._stateless_toolsets,
+                sandbox=self._sandbox,
+                sandbox_image=self._sandbox_image,
+            )
+        return _import_session_manager()()
+
+    @staticmethod
+    def _discard_session(manager: Any, session_id: str, workdir: str | None) -> None:
+        """Best-effort removal of a stateless session and its workdir."""
+        remove = getattr(manager, "remove_session", None)
+        if callable(remove):
+            try:
+                remove(session_id)
+            except Exception:
+                logger.debug("Failed to discard ACP session %s", session_id, exc_info=True)
+        if workdir:
+            shutil.rmtree(workdir, ignore_errors=True)
 
     @staticmethod
     def _extract_usage(result: dict[str, Any] | None) -> dict[str, Any] | None:
