@@ -188,15 +188,14 @@ async def test_stateless_run_forwards_requested_toolsets(tmp_path):
     )
 
     await backend.run(
-        _run_payload(toolsets=["browser", "memory"]),
+        _run_payload(toolsets=["web", "todo"]),
         AsyncMock(),
         AsyncMock(),
         asyncio.Event(),
     )
 
-    # The backend forwards the request verbatim; blocked names are filtered
-    # by StatelessSessionManager, which owns the policy.
-    assert manager.created[0][1] == ["browser", "memory"]
+    # Whitelisted requested toolsets reach the session verbatim.
+    assert manager.created[0][1] == ["web", "todo"]
 
 
 @pytest.mark.asyncio

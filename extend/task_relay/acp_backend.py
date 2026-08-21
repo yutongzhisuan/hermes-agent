@@ -27,6 +27,7 @@ import time
 from typing import Any
 
 from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
+from extend.task_relay.executor_profile import ExecutorProfile
 from extend.task_relay.task_types import (
     OnCheckpoint,
     OnProgress,
@@ -59,6 +60,7 @@ class AcpTaskBackend(TaskBackend):
         workdir_root: str | None = None,
         sandbox: str | None = None,
         sandbox_image: str | None = None,
+        executor_profile: ExecutorProfile | None = None,
     ):
         """Initialize the backend.
 
@@ -89,6 +91,14 @@ class AcpTaskBackend(TaskBackend):
                 (requires ``apply_sandbox_env`` to have configured the
                 process terminal environment, and implies *stateless*).
             sandbox_image: Docker image for sandboxed tasks.
+            executor_profile: Toolset whitelist enforced on every stateless /
+                sandboxed session (see :mod:`extend.task_relay.executor_profile`).
+                Defaults to :class:`ExecutorProfile` with
+                ``DEFAULT_EXECUTOR_TOOLSETS`` — no shell/browser tools for
+                remote tasks. The profile is applied here, at session
+                creation, so the narrowed list reaches
+                ``AIAgent(enabled_toolsets=...)`` (tool registration layer),
+                not just the prompt.
         """
         self._session_manager = session_manager
         self._progress_interval_seconds = progress_interval_seconds
@@ -98,6 +108,12 @@ class AcpTaskBackend(TaskBackend):
         self._workdir_root = workdir_root
         self._sandbox = sandbox
         self._sandbox_image = sandbox_image
+        self._executor_profile = executor_profile or ExecutorProfile()
+
+    @property
+    def executor_profile(self) -> ExecutorProfile:
+        """The toolset whitelist enforced on stateless/sandboxed sessions."""
+        return self._executor_profile
 
     async def run(
         self,
@@ -113,21 +129,31 @@ class AcpTaskBackend(TaskBackend):
 
         user_message = _resume_goal(run)
         workdir: str | None = None
+        if self._stateless:
+            # Executor profile enforcement point: the task-requested toolsets
+            # are intersected with the node operator's whitelist *before* the
+            # session is built. The resolved list is passed through even when
+            # empty — an empty whitelist result means "no tools", never a
+            # fall back to broader manager defaults.
+            toolsets = self._executor_profile.resolve(list(run.toolsets) or None)
+            logger.info(
+                "task %s executor toolsets: %s (requested=%s, whitelist=%s)",
+                run.task_id,
+                toolsets,
+                list(run.toolsets),
+                self._executor_profile.announce_toolsets(),
+            )
         if self._stateless and self._sandbox:
             # Sandboxed tasks run at a fixed container path; the per-session
             # disposable container replaces the host-side temp workdir.
             from extend.task_relay.stateless import SANDBOX_CONTAINER_CWD
 
-            state = manager.create_session(
-                cwd=SANDBOX_CONTAINER_CWD, toolsets=list(run.toolsets) or None
-            )
+            state = manager.create_session(cwd=SANDBOX_CONTAINER_CWD, toolsets=toolsets)
         elif self._stateless:
             workdir = tempfile.mkdtemp(
                 prefix=f"relay-{run.task_id}-", dir=self._workdir_root
             )
-            state = manager.create_session(
-                cwd=workdir, toolsets=list(run.toolsets) or None
-            )
+            state = manager.create_session(cwd=workdir, toolsets=toolsets)
         else:
             state = manager.create_session(cwd=".")
         session_id = state.session_id

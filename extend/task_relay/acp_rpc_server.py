@@ -9,6 +9,14 @@ Untrusted remote tasks should be served with ``--stateless`` (no access to
 the local user's memories, skills, or session history; disposable session
 and workdir) and, on Docker-capable nodes, ``--sandbox docker`` (each task
 in its own network-less, resource-capped disposable container).
+
+Every stateless/sandboxed session is additionally constrained by the
+**executor profile** (:mod:`extend.task_relay.executor_profile`): a toolset
+whitelist that defaults to ``file,web,todo`` — no shell/terminal/browser
+tools for remote goals. Widen it with ``--executor-toolsets`` /
+``--executor-allow-extra`` (node operator's trust decision). The effective
+whitelist is served over the ``acp.toolsets`` RPC method so the Worker's
+announced capabilities stay aligned with what the sidecar can execute.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ from typing import Any
 
 from aiohttp import web
 
+from extend.task_relay.executor_profile import ExecutorProfile
 from extend.task_relay.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
 
 logger = logging.getLogger("task_relay.worker.acp_rpc")
@@ -63,6 +72,8 @@ async def _handle_rpc(request: web.Request) -> web.Response:
             result = await _acp_cancel(state, params)
         elif method == "acp.status":
             result = _acp_status(state, params)
+        elif method == "acp.toolsets":
+            result = _acp_toolsets(state)
         else:
             return web.json_response(
                 {
@@ -177,6 +188,19 @@ def _acp_status(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
     return {"running": not active.task.done()}
 
 
+def _acp_toolsets(state: AcpRpcState) -> dict[str, Any]:
+    """Report the executor-side toolset whitelist for announce alignment.
+
+    The Worker announces capabilities upstream (``task-relay-worker
+    --toolsets`` → daemon announce); this manifest is the sidecar's source
+    of truth, so "宣称的" can always be checked against "能用的".
+    """
+    profile = getattr(state.backend, "executor_profile", None)
+    if profile is None:
+        return {"toolsets": None, "detail": "backend has no executor profile"}
+    return {"toolsets": profile.announce_toolsets()}
+
+
 def create_acp_rpc_app(
     *,
     backend: TaskBackend | None = None,
@@ -187,6 +211,7 @@ def create_acp_rpc_app(
     workdir_root: str | None = None,
     sandbox: str | None = None,
     sandbox_image: str | None = None,
+    executor_profile: ExecutorProfile | None = None,
 ) -> web.Application:
     app = web.Application()
     if backend is None:
@@ -200,6 +225,7 @@ def create_acp_rpc_app(
             workdir_root=workdir_root,
             sandbox=sandbox,
             sandbox_image=sandbox_image,
+            executor_profile=executor_profile,
         )
     app["state"] = AcpRpcState(backend=backend)
     app.router.add_post("/rpc", _handle_rpc)
@@ -218,6 +244,7 @@ async def serve_acp_rpc(
     workdir_root: str | None = None,
     sandbox: str | None = None,
     sandbox_image: str | None = None,
+    executor_profile: ExecutorProfile | None = None,
 ) -> web.AppRunner:
     app = create_acp_rpc_app(
         progress_interval_seconds=progress_interval_seconds,
@@ -227,6 +254,7 @@ async def serve_acp_rpc(
         workdir_root=workdir_root,
         sandbox=sandbox,
         sandbox_image=sandbox_image,
+        executor_profile=executor_profile,
     )
     runner = web.AppRunner(app)
     await runner.setup()
@@ -320,6 +348,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="comma-separated extra approvals.deny globs for --local-confined",
     )
+    parser.add_argument(
+        "--executor-toolsets",
+        default=None,
+        help=(
+            "comma-separated executor whitelist replacing the default "
+            "(file,web,todo). Enforced on every stateless/sandboxed ACP "
+            "session before creation. Env: ACP_EXECUTOR_TOOLSETS"
+        ),
+    )
+    parser.add_argument(
+        "--executor-allow-extra",
+        default=None,
+        help=(
+            "comma-separated toolsets added to the default executor "
+            "whitelist (e.g. terminal on a trusted node — combine with "
+            "--sandbox docker). Env: ACP_EXECUTOR_ALLOW_EXTRA"
+        ),
+    )
     return parser
 
 
@@ -327,6 +373,31 @@ def _split_toolsets(raw: str | None) -> list[str] | None:
     if not raw:
         return None
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _resolve_executor_profile(args: argparse.Namespace) -> ExecutorProfile:
+    """Build the executor whitelist from CLI flags, falling back to env.
+
+    CLI wins over ``ACP_EXECUTOR_TOOLSETS`` / ``ACP_EXECUTOR_ALLOW_EXTRA``;
+    with neither, the default whitelist (no shell/browser) applies.
+    """
+    import os
+
+    allowed = _split_toolsets(args.executor_toolsets)
+    if allowed is None:
+        allowed = _split_toolsets(os.environ.get("ACP_EXECUTOR_TOOLSETS"))
+    extra = _split_toolsets(args.executor_allow_extra)
+    if extra is None:
+        extra = _split_toolsets(os.environ.get("ACP_EXECUTOR_ALLOW_EXTRA"))
+
+    profile = ExecutorProfile.build(allowed=allowed, extra=extra)
+    logger.info(
+        "executor profile: whitelist=%s — announce this exact list upstream "
+        "(task-relay-worker --toolsets=%s)",
+        list(profile.allowed),
+        ",".join(profile.announce_toolsets()),
+    )
+    return profile
 
 
 async def _async_main(argv: list[str] | None) -> int:
@@ -369,6 +440,7 @@ async def _async_main(argv: list[str] | None) -> int:
         workdir_root=args.workdir_root,
         sandbox=args.sandbox,
         sandbox_image=args.sandbox_image,
+        executor_profile=_resolve_executor_profile(args),
     )
     try:
         await asyncio.Event().wait()

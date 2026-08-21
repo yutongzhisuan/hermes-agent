@@ -221,9 +221,10 @@ def resolve_stateless_toolsets(requested: List[str] | None) -> List[str]:
     """Resolve the effective toolset list for a stateless task.
 
     Falls back to :data:`DEFAULT_STATELESS_TOOLSETS` when *requested* is
-    empty, drops blocked and unknown toolsets, and preserves order.
+    ``None``, drops blocked and unknown toolsets, and preserves order. An
+    explicit empty list means "no toolsets" and stays empty.
     """
-    names = list(requested) if requested else list(DEFAULT_STATELESS_TOOLSETS)
+    names = list(requested) if requested is not None else list(DEFAULT_STATELESS_TOOLSETS)
 
     known: set[str] | None = None
     try:
@@ -319,10 +320,13 @@ class StatelessSessionManager(SessionManager):
         ``create_session`` is synchronous and serialized here, so handing the
         per-task toolsets to ``_make_agent`` through an instance attribute is
         race-free.
+
+        An explicit empty list is honored as "no toolsets" (executor profile
+        denied everything); only ``None`` falls back to the manager defaults.
         """
         with self._create_lock:
             self._pending_toolsets = (
-                resolve_stateless_toolsets(toolsets) if toolsets else None
+                resolve_stateless_toolsets(toolsets) if toolsets is not None else None
             )
             try:
                 state = super().create_session(cwd=cwd)
@@ -415,7 +419,11 @@ class StatelessSessionManager(SessionManager):
 
         kwargs = {
             "platform": "acp",
-            "enabled_toolsets": self._pending_toolsets or self._toolsets,
+            "enabled_toolsets": (
+                self._pending_toolsets
+                if self._pending_toolsets is not None
+                else self._toolsets
+            ),
             "quiet_mode": True,
             "skip_memory": True,
             "session_id": session_id,
