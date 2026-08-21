@@ -34,6 +34,12 @@ Process-level isolation (running the sidecar with a dedicated
 ``XHERMES_HOME``) is still recommended on top of this module; enable the
 mode with ``python -m extend.task_relay.acp_rpc_server --stateless``
 (plus ``--sandbox docker`` for containerized execution).
+
+For **trusted internal tasks** on nodes without Docker, ``--local-confined``
+is the lightweight alternative: local execution + stateless sessions +
+:func:`apply_local_confined`, which installs :data:`DEFAULT_LOCAL_DENY_RULES`
+into the sidecar's ``approvals.deny``. Guardrails against accidents, not a
+security boundary.
 """
 
 from __future__ import annotations
@@ -59,6 +65,94 @@ SANDBOX_CONTAINER_CWD = "/workspace"
 #: (``tools/terminal_tool.py`` ``default_image``); used only when neither
 #: the manager config nor ``TERMINAL_DOCKER_IMAGE`` provides one.
 DEFAULT_SANDBOX_IMAGE = "nikolaik/python-nodejs:python3.11-nodejs20"
+
+#: Default ``approvals.deny`` glob preset for local-confined mode.
+#:
+#: These rules fire before every approval bypass (yolo, mode=off, the
+#: non-interactive fail-open path), so they hold for unattended relay
+#: execution. They are guardrails against accidents and obviously-destructive
+#: commands — string matching is inherently bypassable (``python -c``,
+#: encoded payloads, write-then-run), so this is NOT a security boundary.
+#: Use for trusted internal tasks only; untrusted tasks belong in
+#: ``--sandbox docker``.
+DEFAULT_LOCAL_DENY_RULES: List[str] = [
+    # Privilege escalation
+    "sudo *",
+    "doas *",
+    # Destructive filesystem ops beyond the task workdir
+    "rm -rf /*",
+    "rm -rf ~*",
+    "rm -rf $HOME*",
+    "chmod -R * /",
+    "chown -R * /",
+    # Pipe-to-shell installers
+    "curl * | sh*",
+    "curl * | bash*",
+    "curl *|sh*",
+    "curl *|bash*",
+    "wget * | sh*",
+    "wget * | bash*",
+    "wget *|sh*",
+    "wget *|bash*",
+    # Raw devices / partitioning
+    "dd *of=/dev/*",
+    "mkfs*",
+    # Power / service / job scheduling
+    "shutdown*",
+    "reboot*",
+    "halt*",
+    "poweroff*",
+    "systemctl *",
+    "launchctl *",
+    "crontab *",
+    # Local user secrets and hermes state (defense in depth — stateless
+    # mode already keeps the agent's own tools away from these)
+    "*/.ssh/*",
+    "*/.xhermes*",
+    "*/.aws/*",
+    "*/.gnupg/*",
+]
+
+
+def apply_local_confined(*, extra_deny_rules: List[str] | None = None) -> int:
+    """Install the local-confined approval policy into the sidecar's config.
+
+    Merges :data:`DEFAULT_LOCAL_DENY_RULES` (plus *extra_deny_rules*) into
+    ``approvals.deny`` of the sidecar's own ``config.yaml``. Idempotent;
+    existing user rules are preserved. Returns the number of rules added.
+
+    ``config.yaml`` is the upstream policy surface: a deny match blocks the
+    command unconditionally — before yolo, ``approvals.mode=off``, and the
+    non-interactive auto-approve path.
+    """
+    from hermes_cli.config import load_config, save_config
+
+    config = load_config()
+    approvals = config.get("approvals")
+    if not isinstance(approvals, dict):
+        approvals = {}
+
+    existing = approvals.get("deny") or []
+    merged = [r for r in existing if isinstance(r, str) and r.strip()]
+    seen = {r.strip().lower() for r in merged}
+
+    added = 0
+    for rule in list(DEFAULT_LOCAL_DENY_RULES) + list(extra_deny_rules or []):
+        key = rule.strip().lower()
+        if key and key not in seen:
+            merged.append(rule)
+            seen.add(key)
+            added += 1
+
+    approvals["deny"] = merged
+    config["approvals"] = approvals
+    save_config(config, merge_existing=True)
+    logger.info(
+        "local-confined: %d approval deny rules active (%d newly added)",
+        len(merged),
+        added,
+    )
+    return added
 
 
 def apply_sandbox_env(

@@ -265,8 +265,9 @@ xhermes-agent/
 ├── acp_adapter/          # ACP server (VS Code / Zed / JetBrains integration)
 ├── extend/               # Infa-owned extensions (kept separate from upstream code)
 │   └── task_relay/       # Task Relay ACP sidecar (acp_backend, acp_rpc_server)
-│                         #   + stateless session mode + docker sandbox
-│                         #   (stateless.py, `--stateless [--sandbox docker]`)
+│                         #   + stateless session mode + docker sandbox +
+│                         #   local-confined guardrail preset (stateless.py;
+│                         #   `--stateless [--sandbox docker|--local-confined]`)
 │                         #   + structured-output LLM helper; run the sidecar with
 │                         #   `python -m extend.task_relay.acp_rpc_server`.
 │                         #   The Worker runtime is Go (`swarm-network/worker/go`).

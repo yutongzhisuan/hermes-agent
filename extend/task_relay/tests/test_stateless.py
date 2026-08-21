@@ -424,3 +424,75 @@ def test_make_agent_uses_stateless_kwargs(tmp_path, monkeypatch):
     assert not (set(captured["enabled_toolsets"]) & BLOCKED_STATELESS_TOOLSETS)
     # The agent's own persistence (if any) lands in the ephemeral store.
     assert captured["session_db"] is manager._get_db()
+
+
+# ---- local-confined preset ---------------------------------------------------
+
+
+def test_apply_local_confined_merges_and_is_idempotent(tmp_path, monkeypatch):
+    pytest.importorskip("hermes_cli.config")
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
+
+    from extend.task_relay.stateless import (
+        DEFAULT_LOCAL_DENY_RULES,
+        apply_local_confined,
+    )
+    from hermes_cli.config import load_config
+
+    added = apply_local_confined(extra_deny_rules=["custom-cmd *"])
+    assert added == len(DEFAULT_LOCAL_DENY_RULES) + 1
+
+    deny = load_config().get("approvals", {}).get("deny") or []
+    for rule in DEFAULT_LOCAL_DENY_RULES:
+        assert rule in deny
+    assert "custom-cmd *" in deny
+
+    # Second run adds nothing.
+    assert apply_local_confined(extra_deny_rules=["custom-cmd *"]) == 0
+
+
+def test_apply_local_confined_preserves_user_rules(tmp_path, monkeypatch):
+    pytest.importorskip("hermes_cli.config")
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home" / "config.yaml").write_text(
+        "approvals:\n  deny:\n    - 'my-rule *'\n"
+    )
+
+    from extend.task_relay.stateless import (
+        DEFAULT_LOCAL_DENY_RULES,
+        apply_local_confined,
+    )
+    from hermes_cli.config import load_config
+
+    apply_local_confined()
+    deny = load_config().get("approvals", {}).get("deny") or []
+    assert "my-rule *" in deny
+    assert set(DEFAULT_LOCAL_DENY_RULES) <= set(deny)
+
+
+def test_local_confined_deny_blocks_before_any_bypass(tmp_path, monkeypatch):
+    approval = pytest.importorskip("tools.approval")
+    pytest.importorskip("hermes_cli.config")
+    monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
+
+    from extend.task_relay.stateless import apply_local_confined
+
+    apply_local_confined()
+
+    # Deny matches fire regardless of yolo / fail-open paths.
+    assert approval._match_user_deny_rule("sudo rm -rf /tmp/x") == "sudo *"
+    assert approval._match_user_deny_rule("cat ~/.ssh/id_rsa") == "*/.ssh/*"
+    # Ordinary task commands stay allowed.
+    assert approval._match_user_deny_rule("ls -la") is None
+    assert approval._match_user_deny_rule("python3 train.py") is None
+
+
+def test_rpc_parser_accepts_local_confined_flags():
+    from extend.task_relay.acp_rpc_server import _build_arg_parser
+
+    args = _build_arg_parser().parse_args(
+        ["--local-confined", "--local-confined-extra-deny", "foo *,bar *"]
+    )
+    assert args.local_confined is True
+    assert args.local_confined_extra_deny == "foo *,bar *"

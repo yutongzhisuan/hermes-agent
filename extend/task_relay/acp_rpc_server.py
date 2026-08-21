@@ -306,6 +306,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="memory limit in MB for sandboxed task containers",
     )
+    parser.add_argument(
+        "--local-confined",
+        action="store_true",
+        help=(
+            "trusted-task lightweight mode: implies --stateless and installs "
+            "a default approvals.deny preset into the sidecar config "
+            "(guardrails, not a security boundary)"
+        ),
+    )
+    parser.add_argument(
+        "--local-confined-extra-deny",
+        default=None,
+        help="comma-separated extra approvals.deny globs for --local-confined",
+    )
     return parser
 
 
@@ -318,7 +332,15 @@ def _split_toolsets(raw: str | None) -> list[str] | None:
 async def _async_main(argv: list[str] | None) -> int:
     args = _build_arg_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO)
-    stateless = args.stateless or bool(args.sandbox)
+    stateless = args.stateless or bool(args.sandbox) or args.local_confined
+    if args.local_confined:
+        from extend.task_relay.stateless import apply_local_confined
+
+        # Before serving: config.yaml is the approval policy surface.
+        added = apply_local_confined(
+            extra_deny_rules=_split_toolsets(args.local_confined_extra_deny)
+        )
+        logger.info("local-confined enabled: %d deny rules added", added)
     if args.sandbox:
         from extend.task_relay.stateless import apply_sandbox_env
 
