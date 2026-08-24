@@ -4,8 +4,9 @@ kind: standalone
 version: 0.1.0
 description: >
   用户侧 Master Agent（planner）插件：把 XHermes 作为推理平台的编排客户端。
-  注册 7 个 gateway_* 工具（dispatch / dispatch_batch / watch / get_result /
-  list_tasks / list_workers / cancel），通过 Gateway-API 的 AgentRelayService
+  注册 8 个 gateway_* 工具（dispatch / dispatch_batch / watch / get_result /
+  list_tasks / list_models / list_workers / cancel），通过 Gateway-API 的
+  AgentRelayService
   下发子任务到平台 Worker 执行，watch 事件流（SSE，游标续传）并聚合结果。
 
   本地账本（sqlite，~/.xhermes/master_planner.db）记录 run_id / task_id /

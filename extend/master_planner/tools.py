@@ -1,4 +1,4 @@
-"""The seven ``gateway_*`` planner tools (toolset ``master_planner``).
+"""The eight ``gateway_*`` planner tools (toolset ``master_planner``).
 
 Every handler is **synchronous** (spec §4.2 — async handlers land on a 300s
 hard-timeout branch in ``tools/model_tools.py``). Each handler:
@@ -481,6 +481,36 @@ def gateway_list_tasks(args: dict) -> str:
         return _err(exc)
 
 
+def gateway_list_models(args: dict) -> str:
+    refusal = _delegation_refusal()
+    if refusal:
+        return refusal
+    try:
+        region = str(args.get("region") or "").strip()
+        resp = _get_client().list_models(region=region)
+        models = resp.get("models") or []
+        # The server already dedupes pool-wide (spec §13.4 S3); dedupe again
+        # defensively so the planner never sees the same model twice.
+        seen: set[str] = set()
+        unique: list[dict[str, Any]] = []
+        for m in models:
+            if not isinstance(m, dict):
+                continue
+            mid = str(m.get("model_version_id") or "")
+            if not mid or mid in seen:
+                continue
+            seen.add(mid)
+            unique.append(m)
+        return _out({
+            "models": unique,
+            "count": len(unique),
+            "note": "列表是池内 ready 模型的去重聚合。子任务的 spec.model 必须取自这里的 "
+            "model_version_id，不要臆造模型 ID。",
+        })
+    except Exception as exc:
+        return _err(exc)
+
+
 def gateway_list_workers(args: dict) -> str:
     refusal = _delegation_refusal()
     if refusal:
@@ -711,6 +741,27 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    "gateway_list_models": {
+        "type": "function",
+        "function": {
+            "name": "gateway_list_models",
+            "description": (
+                "List schedulable models: pool-wide deduped ready models with "
+                "node_count / available_slots / regions. Call FIRST when planning "
+                "and bind every subtask's model to a model_version_id from this "
+                "list — never invent model IDs. Use gateway_list_workers only "
+                "when you additionally need toolsets or worker water-level detail."
+            ),
+            "parameters": {
+                **_props(
+                    region={
+                        "type": "string",
+                        "description": "Only models ready in this region (optional).",
+                    },
+                ),
+            },
+        },
+    },
     "gateway_list_workers": {
         "type": "function",
         "function": {
@@ -755,13 +806,14 @@ _HANDLERS = {
     "gateway_watch_task": gateway_watch_task,
     "gateway_get_task_result": gateway_get_task_result,
     "gateway_list_tasks": gateway_list_tasks,
+    "gateway_list_models": gateway_list_models,
     "gateway_list_workers": gateway_list_workers,
     "gateway_cancel_task": gateway_cancel_task,
 }
 
 
 def register_tools(ctx) -> None:
-    """Register the seven planner tools in the ``master_planner`` toolset."""
+    """Register the eight planner tools in the ``master_planner`` toolset."""
     for name, schema in _SCHEMAS.items():
         ctx.register_tool(
             name=name,

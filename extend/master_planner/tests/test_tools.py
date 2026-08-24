@@ -27,6 +27,7 @@ from extend.master_planner.tools import (
     gateway_dispatch_batch,
     gateway_dispatch_task,
     gateway_get_task_result,
+    gateway_list_models,
     gateway_list_tasks,
     gateway_list_workers,
     gateway_watch_task,
@@ -38,6 +39,7 @@ ALL_HANDLERS = [
     (gateway_watch_task, {"task_id": "t", "wait_seconds": 1}),
     (gateway_get_task_result, {"task_id": "t"}),
     (gateway_list_tasks, {}),
+    (gateway_list_models, {}),
     (gateway_list_workers, {}),
     (gateway_cancel_task, {"task_id": "t"}),
 ]
@@ -222,6 +224,32 @@ def test_list_workers_aggregates_toolsets(gateway_env):
     out = _parse(gateway_list_workers({}))
     assert out["count"] == 2
     assert out["available_toolsets"] == ["code", "research"]
+
+
+def test_list_models_returns_deduped_models(gateway_env):
+    out = _parse(gateway_list_models({}))
+    # The mock emits a duplicate mv-qwen3-32b entry; the tool dedupes by id.
+    assert out["count"] == 2
+    assert [m["model_version_id"] for m in out["models"]] == [
+        "mv-qwen3-32b",
+        "mv-deepseek-v3",
+    ]
+    assert out["models"][0]["node_count"] == 3
+    assert out["models"][0]["available_slots"] == 12
+    assert out["models"][0]["regions"] == ["cn-east-1", "cn-north-1"]
+    assert "不要臆造模型 ID" in out["note"]
+
+
+def test_list_models_region_filter(gateway_env):
+    out = _parse(gateway_list_models({"region": "cn-north-1"}))
+    assert out["count"] == 1
+    assert out["models"][0]["model_version_id"] == "mv-qwen3-32b"
+
+
+def test_list_models_region_filter_no_match(gateway_env):
+    out = _parse(gateway_list_models({"region": "eu-west-1"}))
+    assert out["count"] == 0
+    assert out["models"] == []
 
 
 def test_cancel_task_marks_ledger(gateway_env):

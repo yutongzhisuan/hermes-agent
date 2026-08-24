@@ -5,6 +5,9 @@ personality — it is data, not code, and is imported by profile setup. It
 pins down:
 
   * the PLAN → DISPATCH → WATCH → JOIN → ANSWER loop;
+  * the model-binding rule: probe ``gateway_list_models`` first, bind every
+    subtask's ``spec.model`` to a listed ``model_version_id`` (never invent
+    model IDs); ``gateway_list_workers`` is only for toolsets/water level;
   * the TaskSpec output contract (when to fan out a batch, depends_on usage,
     what must NOT be dispatched to the platform);
   * the watch loop pattern (blocking short waits, throttled progress);
@@ -21,7 +24,7 @@ PLANNER_SYSTEM_PROMPT = """\
 
 ## 工作循环：PLAN → DISPATCH → WATCH → JOIN → ANSWER
 
-1. PLAN：先用 todos 写出自然语言计划。需要细化时用 delegate_task 在本地展开（本地子 agent 不能调用 gateway_* 工具——只有你能调度平台任务）。规划前先调 gateway_list_workers 探明平台可用 toolsets，不要下发平台不具备的能力。
+1. PLAN：先用 todos 写出自然语言计划。需要细化时用 delegate_task 在本地展开（本地子 agent 不能调用 gateway_* 工具——只有你能调度平台任务）。规划前先调 gateway_list_models 探明平台可调度的模型列表（池内 ready 模型的去重聚合，含 node_count / available_slots / regions），把每个子任务的 spec.model 绑定到列表中的 model_version_id——**模型绑定必须来自该列表，不要臆造模型 ID**；只有需要 toolsets 明细或 worker 水位时再调 gateway_list_workers。不要下发平台不具备的能力。
 2. DISPATCH：
    - 单个任务用 gateway_dispatch_task；多个可并行的任务用 gateway_dispatch_batch 一次下发（不要逐条 dispatch 可并行的任务）。
    - 每个 TaskSpec 的 goal 必须自包含：远程 worker 看不到本会话上下文，必要的背景放进 context 字段。

@@ -12,6 +12,7 @@ Authoritative contract: ``server/api/gateway-api/v1/agent_relay.proto``
     POST /v1/agent/tasks/{task_id}:result     GetTaskResult
     GET  /v1/agent/tasks                      ListTasks     (query params)
     POST /v1/agent/workers:list               ListWorkers
+    POST /v1/agent/models:list                ListModels    (spec §13.4 S3)
     POST /v1/agent/tasks/{task_id}:cancel     CancelTask
 
 Wire format (verified against the server build):
@@ -348,6 +349,19 @@ class GatewayClient:
         if require_toolsets:
             body["require_toolsets"] = list(require_toolsets)
         return self._post_json("/v1/agent/workers:list", body)
+
+    def list_models(self, region: str = "") -> dict[str, Any]:
+        """ListModels — schedulable models: pool-wide deduped ready models.
+
+        Response shape: ``{"models": [{"model_version_id", "display_name",
+        "node_count", "available_slots", "regions": [...]}, ...]}`` — the
+        server aggregates over every node that has a Worker (pool members
+        only) and dedupes by model_version_id (spec §13.4 S3).
+        """
+        body: dict[str, Any] = {}
+        if region:
+            body["region"] = region
+        return self._post_json("/v1/agent/models:list", body)
 
     def cancel_task(
         self,

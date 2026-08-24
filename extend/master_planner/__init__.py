@@ -1,6 +1,6 @@
 """Master Planner plugin — user-side Master Agent for the INFA inference platform.
 
-Registers seven ``gateway_*`` tools (toolset ``master_planner``) so a planner
+Registers eight ``gateway_*`` tools (toolset ``master_planner``) so a planner
 profile can dispatch tasks to the platform's AgentRelayService, watch their
 event stream, and join the results. All new code lives under
 ``extend/master_planner/`` — zero core edits, everything goes through the

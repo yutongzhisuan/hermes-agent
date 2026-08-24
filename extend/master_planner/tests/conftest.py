@@ -157,6 +157,8 @@ class _MockGatewayHandler(BaseHTTPRequestHandler):
                     {"worker_id": "w2", "status": "idle", "toolsets": ["research"]},
                 ]
             })
+        elif path == "/v1/agent/models:list":
+            self._list_models(body)
         else:
             self._send_json(
                 _kratos_error(404, "NOT_FOUND", path), status=404
@@ -233,6 +235,41 @@ class _MockGatewayHandler(BaseHTTPRequestHandler):
         if statuses:
             tasks = [t for t in tasks if t["status"] in statuses]
         self._send_json({"tasks": tasks, "next_page_token": ""})
+
+    def _list_models(self, body: dict) -> None:
+        """ListAgentModels contract: pool-wide ready models, deduped server-side.
+
+        The duplicate ``mv-qwen3-32b`` entry simulates a server regression so
+        the tool's defensive dedupe is exercised; ``region`` in the request
+        body filters the list.
+        """
+        models = [
+            {
+                "model_version_id": "mv-qwen3-32b",
+                "display_name": "Qwen3 32B",
+                "node_count": 3,
+                "available_slots": 12,
+                "regions": ["cn-east-1", "cn-north-1"],
+            },
+            {
+                "model_version_id": "mv-deepseek-v3",
+                "display_name": "DeepSeek V3",
+                "node_count": 1,
+                "available_slots": 4,
+                "regions": ["cn-east-1"],
+            },
+            {
+                "model_version_id": "mv-qwen3-32b",
+                "display_name": "Qwen3 32B",
+                "node_count": 3,
+                "available_slots": 12,
+                "regions": ["cn-east-1", "cn-north-1"],
+            },
+        ]
+        region = str(body.get("region") or "")
+        if region:
+            models = [m for m in models if region in m["regions"]]
+        self._send_json({"models": models})
 
     def _cancel(self, path_task_id: str, body: dict) -> None:
         cancelled = [path_task_id]

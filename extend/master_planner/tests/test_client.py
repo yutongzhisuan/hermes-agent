@@ -114,6 +114,11 @@ def test_get_result_and_list_and_cancel(mock_gateway):
     assert resp["cancelled_task_ids"] == ["r2-1"]
     workers = client.list_workers(require_toolsets=["research"])["workers"]
     assert len(workers) == 2
+    models = client.list_models()["models"]
+    assert any(m["model_version_id"] == "mv-qwen3-32b" for m in models)
+    filtered = client.list_models(region="cn-north-1")["models"]
+    assert filtered
+    assert all("cn-north-1" in m["regions"] for m in filtered)
 
 
 def test_list_tasks_status_filter_uses_query_params(mock_gateway):
