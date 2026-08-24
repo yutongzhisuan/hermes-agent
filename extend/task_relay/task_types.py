@@ -30,6 +30,10 @@ class TaskRunPayload:
     claim_token: str | None = None
     master_session_id: str | None = None
     hub_id: str | None = None
+    # Per-task model binding (spec §13.4 S4): TaskSpec ``model`` field /
+    # ``params["model"]``, forwarded by the worker's acp-remote backend.
+    # ``None`` means "no binding — use the sidecar default model/provider".
+    model: str | None = None
 
 
 @dataclass
@@ -42,6 +46,9 @@ class TaskCompletePayload:
     fields: dict[str, Any] | None = None
     usage: dict[str, Any] | None = None
     error: str | None = None
+    # Structured failure code (e.g. ``model_unavailable``) so the Hub can
+    # route on the failure class instead of parsing the error string.
+    error_code: str | None = None
 
 
 OnProgress = Callable[[str], Awaitable[None]]

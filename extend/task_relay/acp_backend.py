@@ -28,6 +28,12 @@ from typing import Any
 
 from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.executor_profile import ExecutorProfile
+from extend.task_relay.local_runtime import (
+    ERROR_MODEL_UNAVAILABLE,
+    LocalRuntimeResolver,
+    ModelBinding,
+    ModelUnavailableError,
+)
 from extend.task_relay.task_types import (
     OnCheckpoint,
     OnProgress,
@@ -37,13 +43,6 @@ from extend.task_relay.task_types import (
 )
 
 logger = logging.getLogger("task_relay.worker.backends.acp")
-
-
-def _import_session_manager() -> Any:
-    """Lazy import so the backend module is importable without ACP deps."""
-    from acp_adapter.session import SessionManager
-
-    return SessionManager
 
 
 class AcpTaskBackend(TaskBackend):
@@ -61,6 +60,7 @@ class AcpTaskBackend(TaskBackend):
         sandbox: str | None = None,
         sandbox_image: str | None = None,
         executor_profile: ExecutorProfile | None = None,
+        local_runtime: LocalRuntimeResolver | None = None,
     ):
         """Initialize the backend.
 
@@ -99,6 +99,11 @@ class AcpTaskBackend(TaskBackend):
                 creation, so the narrowed list reaches
                 ``AIAgent(enabled_toolsets=...)`` (tool registration layer),
                 not just the prompt.
+            local_runtime: Resolver for per-task model bindings (spec §13.4
+                S4). When omitted, one is built from the
+                ``ACP_LOCAL_RUNTIME_*`` / ``ACP_ALLOWED_MODELS`` env vars on
+                first use — and only then: tasks without a model binding
+                never touch the local runtime config.
         """
         self._session_manager = session_manager
         self._progress_interval_seconds = progress_interval_seconds
@@ -109,6 +114,7 @@ class AcpTaskBackend(TaskBackend):
         self._sandbox = sandbox
         self._sandbox_image = sandbox_image
         self._executor_profile = executor_profile or ExecutorProfile()
+        self._local_runtime = local_runtime
 
     @property
     def executor_profile(self) -> ExecutorProfile:
@@ -127,6 +133,29 @@ class AcpTaskBackend(TaskBackend):
         if manager is None:
             manager = self._create_default_manager()
 
+        # Per-task model binding (spec §13.4 S4): local-runtime-first. A
+        # bound model the local runtime cannot serve is a fail-fast —
+        # model_unavailable lets the Hub rotate candidates; we never wait
+        # and never silently fall back to another provider.
+        binding = await self._resolve_model_binding(run)
+        if isinstance(binding, TaskCompletePayload):
+            return binding
+        if binding is not None and not getattr(manager, "supports_model_binding", False):
+            # Honoring the binding is mandatory: running the task on the
+            # default model would silently violate the dispatch contract.
+            msg = (
+                f"model {run.model!r} bound but the session manager cannot "
+                "apply per-task model overrides"
+            )
+            logger.warning("task %s: %s", run.task_id, msg)
+            return TaskCompletePayload(
+                status="failed",
+                summary=msg,
+                error=msg,
+                error_code=ERROR_MODEL_UNAVAILABLE,
+            )
+        extra: dict[str, Any] = {"binding": binding} if binding is not None else {}
+
         user_message = _resume_goal(run)
         workdir: str | None = None
         if self._stateless:
@@ -143,19 +172,26 @@ class AcpTaskBackend(TaskBackend):
                 list(run.toolsets),
                 self._executor_profile.announce_toolsets(),
             )
+        if binding is not None:
+            logger.info(
+                "task %s model binding: model=%s -> %s",
+                run.task_id,
+                binding.model,
+                binding.base_url,
+            )
         if self._stateless and self._sandbox:
             # Sandboxed tasks run at a fixed container path; the per-session
             # disposable container replaces the host-side temp workdir.
             from extend.task_relay.stateless import SANDBOX_CONTAINER_CWD
 
-            state = manager.create_session(cwd=SANDBOX_CONTAINER_CWD, toolsets=toolsets)
+            state = manager.create_session(cwd=SANDBOX_CONTAINER_CWD, toolsets=toolsets, **extra)
         elif self._stateless:
             workdir = tempfile.mkdtemp(
                 prefix=f"relay-{run.task_id}-", dir=self._workdir_root
             )
-            state = manager.create_session(cwd=workdir, toolsets=toolsets)
+            state = manager.create_session(cwd=workdir, toolsets=toolsets, **extra)
         else:
-            state = manager.create_session(cwd=".")
+            state = manager.create_session(cwd=".", **extra)
         session_id = state.session_id
         agent = state.agent
 
@@ -331,18 +367,48 @@ class AcpTaskBackend(TaskBackend):
             usage=self._extract_usage(result),
         )
 
+    async def _resolve_model_binding(
+        self, run: TaskRunPayload
+    ) -> ModelBinding | TaskCompletePayload | None:
+        """Resolve the task's model binding against the local runtime.
+
+        Returns ``None`` for unbound tasks (default model path, no local
+        runtime interaction), the :class:`ModelBinding` on success, or a
+        fail-fast terminal payload carrying ``model_unavailable``.
+        """
+        model = (run.model or "").strip()
+        if not model:
+            return None
+        if self._local_runtime is None:
+            self._local_runtime = LocalRuntimeResolver.from_env()
+        try:
+            return await self._local_runtime.resolve(model)
+        except ModelUnavailableError as exc:
+            msg = str(exc)
+            logger.info("task %s model binding failed fast: %s", run.task_id, msg)
+            return TaskCompletePayload(
+                status="failed",
+                summary=msg,
+                error=msg,
+                error_code=ERROR_MODEL_UNAVAILABLE,
+            )
+
     def _create_default_manager(self) -> Any:
         """Create the session manager matching the configured mode."""
         if self._stateless:
-            from extend.task_relay.stateless import StatelessSessionManager
+            from extend.task_relay.model_sessions import (
+                BoundModelStatelessSessionManager,
+            )
 
-            return StatelessSessionManager(
+            return BoundModelStatelessSessionManager(
                 state_root=self._state_root,
                 toolsets=self._stateless_toolsets,
                 sandbox=self._sandbox,
                 sandbox_image=self._sandbox_image,
             )
-        return _import_session_manager()()
+        from extend.task_relay.model_sessions import BoundModelSessionManager
+
+        return BoundModelSessionManager()
 
     @staticmethod
     def _discard_session(manager: Any, session_id: str, workdir: str | None) -> None:

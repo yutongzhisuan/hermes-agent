@@ -75,3 +75,32 @@ python -m extend.task_relay.executor_profile   # 打印喂给 --toolsets 的 CSV
 
 stateful（无 `--stateless`）路径面向本地可信使用，不应用 executor
 profile。
+
+## 按任务模型绑定（S4：本地 Runtime 优先）
+
+TaskSpec 的模型绑定（`model` 字段 / `params["model"]`）经 Hub
+`{"run":...}` payload → worker `acp-remote` → `acp.run` 的 `model` 参数
+到达 sidecar。绑定模型的任务**必须**跑在节点本地 OpenAI 兼容 Runtime
+（`local_runtime.py`）：
+
+- 先过运营者白名单 `ACP_ALLOWED_MODELS`（逗号分隔；未设置 = 不做静态
+  白名单，由探测兜底），再探测本地 Runtime 的 `GET /models`；模型不在
+  服务清单内、或本地 Runtime 不可达 → **fail-fast**，任务以
+  `failed` + `error_code="model_unavailable"` 上行，Hub 据此换候选
+  （Hub 侧识别逻辑属 S2）。不等待、不静默换模型。
+- 探测命中后用显式 `provider="custom"` / `api_mode="chat_completions"` /
+  `base_url` / `api_key` 构建 session（`model_sessions.py`），绕开
+  云端凭证解析——绑定任务永远不会落到云平台。
+- 平台全链路回退本期不做（节点上放租户凭证的安全模型未定，spec §13.4
+  S4）。
+
+配置（env）：
+
+| env | 默认 | 含义 |
+|-----|------|------|
+| `ACP_LOCAL_RUNTIME_BASE_URL` | `http://127.0.0.1:8080/v1` | 本地 Runtime OpenAI 兼容地址 |
+| `ACP_LOCAL_RUNTIME_API_KEY` | `no-key-required` | 本地 Runtime bearer（多数本地服务忽略） |
+| `ACP_ALLOWED_MODELS` | 未设置 | 运营者模型白名单（逗号分隔） |
+
+未携带 `model` 的任务行为与 S4 之前完全一致（不探测、不覆盖，用 sidecar
+默认 model/provider）。

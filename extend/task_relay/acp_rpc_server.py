@@ -26,12 +26,15 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 
 from extend.task_relay.executor_profile import ExecutorProfile
 from extend.task_relay.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
+
+if TYPE_CHECKING:
+    from extend.task_relay.local_runtime import LocalRuntimeResolver
 
 logger = logging.getLogger("task_relay.worker.acp_rpc")
 
@@ -116,6 +119,7 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
         trace_context=params.get("trace_context"),
         resume_from_checkpoint=params.get("resume_from_checkpoint"),
         resume_blob=params.get("resume_blob"),
+        model=str(params["model"]) if params.get("model") else None,
     )
     cancel_event = TaskCancelEvent()
 
@@ -158,6 +162,11 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
             "usage": payload.usage,
             "error": payload.error,
         }
+        # Structured failure code (e.g. model_unavailable, spec §13.4 S4):
+        # the worker's acp-remote backend prefixes it into the terminal
+        # error field so the Hub can route on the failure class.
+        if payload.error_code:
+            result["error_code"] = payload.error_code
         if last_checkpoint is not None:
             result["checkpoint"] = last_checkpoint
         return result
@@ -212,6 +221,7 @@ def create_acp_rpc_app(
     sandbox: str | None = None,
     sandbox_image: str | None = None,
     executor_profile: ExecutorProfile | None = None,
+    local_runtime: "LocalRuntimeResolver | None" = None,
 ) -> web.Application:
     app = web.Application()
     if backend is None:
@@ -226,6 +236,7 @@ def create_acp_rpc_app(
             sandbox=sandbox,
             sandbox_image=sandbox_image,
             executor_profile=executor_profile,
+            local_runtime=local_runtime,
         )
     app["state"] = AcpRpcState(backend=backend)
     app.router.add_post("/rpc", _handle_rpc)
