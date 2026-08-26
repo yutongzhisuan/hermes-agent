@@ -37,6 +37,7 @@ logger = logging.getLogger("task_relay.worker.local_runtime")
 ENV_LOCAL_BASE_URL = "ACP_LOCAL_RUNTIME_BASE_URL"
 ENV_LOCAL_API_KEY = "ACP_LOCAL_RUNTIME_API_KEY"
 ENV_ALLOWED_MODELS = "ACP_ALLOWED_MODELS"
+ENV_PROBE_TIMEOUT = "ACP_LOCAL_RUNTIME_PROBE_TIMEOUT_S"
 
 DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:8080/v1"
 DEFAULT_LOCAL_API_KEY = "no-key-required"
@@ -47,8 +48,10 @@ DEFAULT_LOCAL_API_KEY = "no-key-required"
 ERROR_MODEL_UNAVAILABLE = "model_unavailable"
 
 #: Seconds to wait for the local runtime's ``GET /models`` probe. Short on
-#: purpose: a local endpoint answers in milliseconds or is down.
-DEFAULT_PROBE_TIMEOUT_SECONDS = 2.0
+#: purpose: a local endpoint answers in milliseconds or is down. Remote
+#: OpenAI-compatible routers (a legitimate "local runtime" for user-side
+#: agents) can take ~1-2s per probe, so 2s is too tight there.
+DEFAULT_PROBE_TIMEOUT_SECONDS = 5.0
 
 
 class ModelUnavailableError(Exception):
@@ -128,11 +131,14 @@ class LocalRuntimeResolver:
         env = os.environ if env is None else env
         allowed_raw = (env.get(ENV_ALLOWED_MODELS) or "").strip()
         allowed = [m.strip() for m in allowed_raw.split(",") if m.strip()] or None
+        timeout_raw = (env.get(ENV_PROBE_TIMEOUT) or "").strip()
+        timeout = float(timeout_raw) if timeout_raw else DEFAULT_PROBE_TIMEOUT_SECONDS
         return cls(
             base_url=(env.get(ENV_LOCAL_BASE_URL) or "").strip()
             or DEFAULT_LOCAL_BASE_URL,
             api_key=(env.get(ENV_LOCAL_API_KEY) or "").strip() or DEFAULT_LOCAL_API_KEY,
             allowed_models=allowed,
+            probe_timeout_seconds=timeout,
         )
 
     @property
