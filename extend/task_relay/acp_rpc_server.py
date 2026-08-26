@@ -58,7 +58,11 @@ async def _handle_rpc(request: web.Request) -> web.Response:
         payload = await request.json()
     except json.JSONDecodeError:
         return web.json_response(
-            {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}},
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "parse error"},
+            },
             status=400,
         )
 
@@ -78,13 +82,11 @@ async def _handle_rpc(request: web.Request) -> web.Response:
         elif method == "acp.toolsets":
             result = _acp_toolsets(state)
         else:
-            return web.json_response(
-                {
-                    "jsonrpc": "2.0",
-                    "id": msg_id,
-                    "error": {"code": -32601, "message": f"method not found: {method}"},
-                }
-            )
+            return web.json_response({
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": -32601, "message": f"method not found: {method}"},
+            })
     except Exception as exc:
         logger.exception("ACP RPC handler failed for %s", method)
         return web.json_response(
@@ -112,7 +114,9 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
         attempt=int(params.get("attempt") or 1),
         goal=str(params.get("goal") or ""),
         params=params.get("params") if isinstance(params.get("params"), dict) else {},
-        context=params.get("context") if isinstance(params.get("context"), dict) else None,
+        context=params.get("context")
+        if isinstance(params.get("context"), dict)
+        else None,
         toolsets=list(params.get("toolsets") or []),
         timeout_seconds=int(params.get("timeout_seconds") or 600),
         first_progress_seconds=params.get("first_progress_seconds"),
@@ -120,8 +124,18 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
         resume_from_checkpoint=params.get("resume_from_checkpoint"),
         resume_blob=params.get("resume_blob"),
         model=str(params["model"]) if params.get("model") else None,
+        master_session_id=str(params.get("master_session_id") or "") or None,
     )
     cancel_event = TaskCancelEvent()
+    logger.info(
+        "task.run start task_id=%s session_id=%s model=%s attempt=%s timeout_seconds=%s toolsets=%s",
+        run.task_id,
+        run.master_session_id,
+        run.model,
+        run.attempt,
+        run.timeout_seconds,
+        ",".join(run.toolsets or []),
+    )
 
     async def _noop_progress(_summary: str) -> None:
         return None
@@ -153,7 +167,21 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
         }
 
     async def _execute() -> dict[str, Any]:
-        payload = await state.backend.run(run, _noop_progress, _capture_checkpoint, cancel_event)
+        try:
+            payload = await state.backend.run(
+                run, _noop_progress, _capture_checkpoint, cancel_event
+            )
+        except Exception:
+            logger.exception("task.run failed task_id=%s", run.task_id)
+            raise
+        logger.info(
+            "task.run end task_id=%s session_id=%s status=%s error=%s summary=%s",
+            run.task_id,
+            run.master_session_id,
+            payload.status,
+            payload.error or "",
+            (payload.summary or "")[:120],
+        )
         result = {
             "status": payload.status,
             "summary": payload.summary,
@@ -172,7 +200,9 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
         return result
 
     task = asyncio.create_task(_execute())
-    state.runs[run_id] = _ActiveRun(task=task, cancel_event=cancel_event, backend=state.backend)
+    state.runs[run_id] = _ActiveRun(
+        task=task, cancel_event=cancel_event, backend=state.backend
+    )
     try:
         return await task
     finally:
