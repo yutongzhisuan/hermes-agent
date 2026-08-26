@@ -68,17 +68,22 @@ class ModelBinding:
 
 #: Probe signature: returns the model ids the local runtime currently
 #: serves. Injected in tests; the default hits ``GET {base_url}/models``.
-ModelsProbe = Callable[[str, float], Awaitable[list[str]]]
+ModelsProbe = Callable[[str, float, str], Awaitable[list[str]]]
 
 
-async def _default_models_probe(base_url: str, timeout: float) -> list[str]:
+async def _default_models_probe(
+    base_url: str, timeout: float, api_key: str = ""
+) -> list[str]:
     """List model ids from an OpenAI-compatible ``GET /models``."""
     import aiohttp
 
     url = base_url.rstrip("/") + "/models"
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            url, timeout=aiohttp.ClientTimeout(total=timeout)
+            url, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout)
         ) as resp:
             resp.raise_for_status()
             body: dict[str, Any] = await resp.json()
@@ -144,7 +149,9 @@ class LocalRuntimeResolver:
                 f"model {model!r} is not in the node operator's allowed list"
             )
         try:
-            served = await self._probe(self._base_url, self._probe_timeout)
+            served = await self._probe(
+                self._base_url, self._probe_timeout, self._api_key
+            )
         except Exception as exc:
             raise ModelUnavailableError(
                 f"local runtime at {self._base_url} unreachable: {exc}"

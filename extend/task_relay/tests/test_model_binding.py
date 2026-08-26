@@ -43,7 +43,7 @@ def _resolver(
 ) -> LocalRuntimeResolver:
     probe_calls: list[str] = []
 
-    async def probe(base_url: str, timeout: float) -> list[str]:
+    async def probe(base_url: str, timeout: float, api_key: str = "") -> list[str]:
         probe_calls.append(base_url)
         if probe_error is not None:
             raise probe_error
