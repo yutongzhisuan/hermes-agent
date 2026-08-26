@@ -244,7 +244,7 @@ def _apply_events_to_ledger(events: list[dict[str, Any]], cursor: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def gateway_dispatch_task(args: dict) -> str:
+def gateway_dispatch_task(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -270,7 +270,7 @@ def gateway_dispatch_task(args: dict) -> str:
         return _err(exc)
 
 
-def gateway_dispatch_batch(args: dict) -> str:
+def gateway_dispatch_batch(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -322,7 +322,7 @@ def gateway_dispatch_batch(args: dict) -> str:
         return _err(exc)
 
 
-def gateway_watch_task(args: dict) -> str:
+def gateway_watch_task(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -421,7 +421,7 @@ def gateway_watch_task(args: dict) -> str:
         return _err(exc)
 
 
-def gateway_get_task_result(args: dict) -> str:
+def gateway_get_task_result(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -447,7 +447,7 @@ def gateway_get_task_result(args: dict) -> str:
         return _err(exc, task_id=task_id)
 
 
-def gateway_list_tasks(args: dict) -> str:
+def gateway_list_tasks(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -481,7 +481,7 @@ def gateway_list_tasks(args: dict) -> str:
         return _err(exc)
 
 
-def gateway_list_models(args: dict) -> str:
+def gateway_list_models(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -511,7 +511,7 @@ def gateway_list_models(args: dict) -> str:
         return _err(exc)
 
 
-def gateway_list_workers(args: dict) -> str:
+def gateway_list_workers(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
@@ -538,7 +538,7 @@ def gateway_list_workers(args: dict) -> str:
         return _err(exc)
 
 
-def gateway_cancel_task(args: dict) -> str:
+def gateway_cancel_task(args: dict, **_kwargs: object) -> str:
     refusal = _delegation_refusal()
     if refusal:
         return refusal
