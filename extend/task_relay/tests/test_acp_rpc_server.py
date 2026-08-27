@@ -8,9 +8,11 @@ part of this package.
 from __future__ import annotations
 
 import asyncio
+import os
+import tempfile
 
 import pytest
-from aiohttp import ClientSession, web
+from aiohttp import ClientSession, UnixConnector, web
 
 from extend.task_relay.acp_rpc_server import create_acp_rpc_app
 from extend.task_relay.task_types import TaskCompletePayload
@@ -26,6 +28,13 @@ class _StubBackend:
             summary=f"stub done: {run.goal}",
             result_text=f"stub done: {run.goal}",
         )
+
+
+async def _post_rpc(url: str, body: dict, *, connector=None) -> dict:
+    async with ClientSession(connector=connector) as session:
+        async with session.post(url, json=body) as resp:
+            assert resp.status == 200
+            return await resp.json()
 
 
 @pytest.mark.asyncio
@@ -49,14 +58,40 @@ async def test_acp_rpc_run_via_http():
                 "timeout_seconds": 30,
             },
         }
-        async with ClientSession() as session:
-            async with session.post(url, json=body) as resp:
-                assert resp.status == 200
-                payload = await resp.json()
+        payload = await _post_rpc(url, body)
         assert payload["result"]["status"] == "completed"
         assert "rpc goal" in payload["result"]["summary"]
     finally:
         await runner.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_acp_rpc_run_via_uds():
+    with tempfile.TemporaryDirectory() as tmp:
+        sock_path = os.path.join(tmp, "acp.sock")
+        app = create_acp_rpc_app(backend=_StubBackend())
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.UnixSite(runner, sock_path)
+        await site.start()
+        try:
+            body = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "acp.run",
+                "params": {
+                    "run_id": "run-uds",
+                    "task_id": "t1",
+                    "goal": "uds goal",
+                    "timeout_seconds": 30,
+                },
+            }
+            connector = UnixConnector(path=sock_path)
+            payload = await _post_rpc("http://localhost/rpc", body, connector=connector)
+            assert payload["result"]["status"] == "completed"
+            assert "uds goal" in payload["result"]["summary"]
+        finally:
+            await runner.cleanup()
 
 
 class _CheckpointBackend:
@@ -86,10 +121,7 @@ async def test_acp_rpc_returns_last_checkpoint():
             "method": "acp.run",
             "params": {"run_id": "run-cp", "task_id": "t1", "goal": "g", "timeout_seconds": 30},
         }
-        async with ClientSession() as session:
-            async with session.post(url, json=body) as resp:
-                assert resp.status == 200
-                payload = await resp.json()
+        payload = await _post_rpc(url, body)
         checkpoint = payload["result"]["checkpoint"]
         assert checkpoint["checkpoint_id"] == "cp-9"
         assert checkpoint["summary"] == "mid"

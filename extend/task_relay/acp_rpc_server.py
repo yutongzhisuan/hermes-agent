@@ -1,9 +1,10 @@
-"""HTTP JSON-RPC server exposing XHermes ACP execution to RemoteAcpTaskBackend.
+"""JSON-RPC server exposing XHermes ACP execution to RemoteAcpTaskBackend.
 
 Owned by XHermes (migrated from swarm-network ``worker/acp_rpc_server.py``):
-runs as a node-local sidecar (default 127.0.0.1:9105) wrapping
-:class:`~extend.task_relay.acp_backend.AcpTaskBackend`. Start it with
-``python -m extend.task_relay.acp_rpc_server``.
+runs as a node-local sidecar (default Unix domain socket at
+``~/.xhermes/relay/acp.sock``; HTTP loopback on 127.0.0.1:9105 with
+``--http``) wrapping :class:`~extend.task_relay.acp_backend.AcpTaskBackend`.
+Start it with ``python -m extend.task_relay.acp_rpc_server``.
 
 Untrusted remote tasks should be served with ``--stateless`` (no access to
 the local user's memories, skills, or session history; disposable session
@@ -25,11 +26,19 @@ import argparse
 import asyncio
 import json
 import logging
+import os
+import stat
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 
+from extend.task_relay.constants import (
+    DEFAULT_ACP_RPC_HTTP_HOST,
+    DEFAULT_ACP_RPC_HTTP_PORT,
+    DEFAULT_ACP_RPC_SOCKET,
+)
 from extend.task_relay.executor_profile import ExecutorProfile
 from extend.task_relay.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
 
@@ -274,10 +283,23 @@ def create_acp_rpc_app(
     return app
 
 
+def _prepare_uds_path(raw_path: str) -> str:
+    """Expand, ensure parent dir exists, and remove a stale socket file."""
+    expanded = str(Path(raw_path).expanduser())
+    parent = os.path.dirname(expanded)
+    if parent:
+        os.makedirs(parent, mode=0o700, exist_ok=True)
+    if os.path.exists(expanded):
+        os.unlink(expanded)
+    return expanded
+
+
 async def serve_acp_rpc(
     *,
-    host: str = "127.0.0.1",
-    port: int = 9105,
+    socket_path: str | None = DEFAULT_ACP_RPC_SOCKET,
+    host: str = DEFAULT_ACP_RPC_HTTP_HOST,
+    port: int = DEFAULT_ACP_RPC_HTTP_PORT,
+    use_http: bool = False,
     progress_interval_seconds: float = 5.0,
     stateless: bool = False,
     stateless_toolsets: list[str] | None = None,
@@ -299,9 +321,16 @@ async def serve_acp_rpc(
     )
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, host, port=port)
-    await site.start()
-    logger.info("ACP JSON-RPC listening on http://%s:%d/rpc", host, port)
+    if use_http:
+        site = web.TCPSite(runner, host, port=port)
+        await site.start()
+        logger.info("ACP JSON-RPC listening on http://%s:%d/rpc", host, port)
+    else:
+        uds_path = _prepare_uds_path(socket_path or DEFAULT_ACP_RPC_SOCKET)
+        site = web.UnixSite(runner, uds_path)
+        await site.start()
+        os.chmod(uds_path, stat.S_IRUSR | stat.S_IWUSR)
+        logger.info("ACP JSON-RPC listening on unix://%s", uds_path)
     return runner
 
 
@@ -309,8 +338,34 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="XHermes ACP JSON-RPC server for Task Relay workers"
     )
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=9105)
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help=(
+            "listen on HTTP loopback instead of the default Unix domain socket "
+            f"(default: {DEFAULT_ACP_RPC_HTTP_HOST}:{DEFAULT_ACP_RPC_HTTP_PORT}). "
+            "Env: TASK_RELAY_ACP_RPC_HTTP=1"
+        ),
+    )
+    parser.add_argument(
+        "--socket",
+        default=None,
+        help=(
+            "Unix domain socket path when not using --http "
+            f"(default: {DEFAULT_ACP_RPC_SOCKET}). Env: TASK_RELAY_ACP_RPC_SOCKET"
+        ),
+    )
+    parser.add_argument(
+        "--host",
+        default=DEFAULT_ACP_RPC_HTTP_HOST,
+        help="HTTP bind address (only with --http)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_ACP_RPC_HTTP_PORT,
+        help="HTTP bind port (only with --http)",
+    )
     parser.add_argument(
         "--acp-progress-interval-seconds",
         type=float,
@@ -471,9 +526,19 @@ async def _async_main(argv: list[str] | None) -> int:
             args.sandbox_cpu,
             args.sandbox_memory_mb,
         )
+    use_http = args.http or os.environ.get("TASK_RELAY_ACP_RPC_HTTP", "").strip() in {
+        "1",
+        "true",
+        "yes",
+    }
+    socket_path = args.socket or os.environ.get("TASK_RELAY_ACP_RPC_SOCKET")
+    if not use_http and not socket_path:
+        socket_path = DEFAULT_ACP_RPC_SOCKET
     runner = await serve_acp_rpc(
+        socket_path=socket_path,
         host=args.host,
         port=args.port,
+        use_http=use_http,
         progress_interval_seconds=args.acp_progress_interval_seconds,
         stateless=stateless,
         stateless_toolsets=_split_toolsets(args.stateless_toolsets),

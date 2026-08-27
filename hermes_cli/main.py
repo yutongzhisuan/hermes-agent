@@ -11456,7 +11456,7 @@ def cmd_task_worker(args):
 def cmd_relay_acp_rpc(args):
     """Run the XHermes ACP JSON-RPC server for remote-acp workers."""
     try:
-        from extend.task_relay.worker.acp_rpc_server import main as relay_acp_rpc_main
+        from extend.task_relay.acp_rpc_server import main as relay_acp_rpc_main
     except ImportError:
         _relay_missing_exit("relay-acp-rpc")
     sys.exit(relay_acp_rpc_main(_relay_remainder_argv(args, "rpc_args")))

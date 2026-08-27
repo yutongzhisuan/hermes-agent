@@ -495,3 +495,21 @@ def test_rpc_parser_accepts_local_confined_flags():
     )
     assert args.local_confined is True
     assert args.local_confined_extra_deny == "foo *,bar *"
+
+
+def test_rpc_parser_defaults_to_uds():
+    from extend.task_relay.acp_rpc_server import _build_arg_parser
+    from extend.task_relay.constants import DEFAULT_ACP_RPC_SOCKET
+
+    args = _build_arg_parser().parse_args([])
+    assert args.http is False
+    assert args.socket is None
+    assert DEFAULT_ACP_RPC_SOCKET.endswith("relay/acp.sock")
+
+
+def test_rpc_parser_accepts_http_flag():
+    from extend.task_relay.acp_rpc_server import _build_arg_parser
+
+    args = _build_arg_parser().parse_args(["--http", "--port", "9200"])
+    assert args.http is True
+    assert args.port == 9200
