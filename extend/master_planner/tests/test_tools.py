@@ -189,14 +189,14 @@ def test_watch_interrupts_cleanly(gateway_env, fast_client):
     elapsed = time.monotonic() - started
     assert out["reason"] == "interrupted"
     assert out["interrupted"] is True
-    assert "中断" in out["message"]
+    assert "interrupted" in out["message"].lower()
     assert elapsed < 10  # clean exit, nowhere near wait_seconds=20
 
 
 def test_watch_quiet_window_reports_no_events(gateway_env, fast_client):
     out = _parse(gateway_watch_task({"task_id": "block-me", "wait_seconds": 1}))
     assert out["reason"] == "timeout"
-    assert "无新事件" in out["message"]
+    assert "no new events" in out["message"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +209,7 @@ def test_get_task_result_updates_ledger(gateway_env):
     out = _parse(gateway_get_task_result({"task_id": tid}))
     assert out["status"] == "completed"
     assert out["result_text"] == f"full text for {tid}"
-    assert "不可信数据" in out["note"]
+    assert "untrusted" in out["note"].lower()
     assert mp_tools._get_ledger().get(tid)["status"] == "completed"
 
 
@@ -237,7 +237,7 @@ def test_list_models_returns_deduped_models(gateway_env):
     assert out["models"][0]["node_count"] == 3
     assert out["models"][0]["available_slots"] == 12
     assert out["models"][0]["regions"] == ["cn-east-1", "cn-north-1"]
-    assert "不要臆造模型 ID" in out["note"]
+    assert "never invent model ids" in out["note"].lower()
 
 
 def test_list_models_region_filter(gateway_env):

@@ -44,6 +44,13 @@ from extend.task_relay.task_types import (
 
 logger = logging.getLogger("task_relay.worker.backends.acp")
 
+# Brief preamble injected before relay goals so headless XHermes executors know
+# they are running a platform sub-task, not a local interactive session.
+RELAY_EXECUTOR_PREAMBLE = (
+    "[relay executor — headless platform sub-task; no master session context]\n"
+    "Execute the goal below. Return concise, concrete findings only.\n"
+)
+
 
 class AcpTaskBackend(TaskBackend):
     """Backend that executes relay tasks via a XHermes ACP session."""
@@ -476,10 +483,11 @@ def _resume_goal(run: TaskRunPayload) -> str:
 
 
 def _with_relay_identity(run: TaskRunPayload, message: str) -> str:
-    """Prefix the agent message with the relay routing identity when present."""
+    """Prefix the agent message with relay routing identity when present."""
     parts = [f"task_id={run.task_id}"]
     if run.hub_id:
         parts.append(f"hub_id={run.hub_id}")
     if run.master_session_id:
         parts.append(f"master_session_id={run.master_session_id}")
-    return f"[relay {' '.join(parts)}]\n{message}"
+    header = f"[relay {' '.join(parts)}]"
+    return f"{RELAY_EXECUTOR_PREAMBLE}{header}\n{message}"

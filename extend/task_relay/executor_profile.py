@@ -174,7 +174,7 @@ class ExecutorProfile:
         """Return the announced toolsets this profile cannot serve.
 
         An empty result means the worker's announced capabilities are a
-        subset of the sidecar whitelist ("宣称的" ⊆ "能用的").
+        subset of the sidecar whitelist (announced ⊆ allowed).
         """
         return sorted({name for name in announced if name not in self.allowed})
 

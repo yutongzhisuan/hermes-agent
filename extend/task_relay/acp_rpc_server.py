@@ -232,7 +232,7 @@ def _acp_toolsets(state: AcpRpcState) -> dict[str, Any]:
 
     The Worker announces capabilities upstream (``task-relay-worker
     --toolsets`` → daemon announce); this manifest is the sidecar's source
-    of truth, so "宣称的" can always be checked against "能用的".
+    of truth, so announced capabilities can always be checked against allowed.
     """
     profile = getattr(state.backend, "executor_profile", None)
     if profile is None:
