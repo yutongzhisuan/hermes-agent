@@ -344,6 +344,19 @@ class _MockGatewayHandler(BaseHTTPRequestHandler):
                 "message",
                 _event(
                     "3",
+                    "TASK_EVENT_KIND_CHECKPOINT",
+                    checkpoint={
+                        "task_id": tid,
+                        "checkpoint_id": "cp-1",
+                        "summary": "Found 3 sources",
+                        "fields": {},
+                    },
+                ),
+            ),
+            (
+                "message",
+                _event(
+                    "4",
                     "TASK_EVENT_KIND_TERMINAL",
                     result=_task_result(
                         tid, "TASK_STATUS_COMPLETED", summary="done"

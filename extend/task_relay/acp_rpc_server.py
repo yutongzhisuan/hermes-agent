@@ -40,6 +40,7 @@ from extend.task_relay.constants import (
     DEFAULT_ACP_RPC_SOCKET,
 )
 from extend.task_relay.executor_profile import ExecutorProfile
+from extend.task_relay.progress_policy import RelayRuntimeOptions, default_sidecar_options
 from extend.task_relay.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
 
 if TYPE_CHECKING:
@@ -261,6 +262,7 @@ def create_acp_rpc_app(
     sandbox_image: str | None = None,
     executor_profile: ExecutorProfile | None = None,
     local_runtime: "LocalRuntimeResolver | None" = None,
+    relay_options: RelayRuntimeOptions | None = None,
 ) -> web.Application:
     app = web.Application()
     if backend is None:
@@ -276,6 +278,7 @@ def create_acp_rpc_app(
             sandbox_image=sandbox_image,
             executor_profile=executor_profile,
             local_runtime=local_runtime,
+            relay_options=relay_options,
         )
     app["state"] = AcpRpcState(backend=backend)
     app.router.add_post("/rpc", _handle_rpc)
@@ -308,6 +311,7 @@ async def serve_acp_rpc(
     sandbox: str | None = None,
     sandbox_image: str | None = None,
     executor_profile: ExecutorProfile | None = None,
+    relay_options: RelayRuntimeOptions | None = None,
 ) -> web.AppRunner:
     app = create_acp_rpc_app(
         progress_interval_seconds=progress_interval_seconds,
@@ -318,6 +322,7 @@ async def serve_acp_rpc(
         sandbox=sandbox,
         sandbox_image=sandbox_image,
         executor_profile=executor_profile,
+        relay_options=relay_options,
     )
     runner = web.AppRunner(app)
     await runner.setup()
@@ -365,6 +370,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_ACP_RPC_HTTP_PORT,
         help="HTTP bind port (only with --http)",
+    )
+    parser.add_argument(
+        "--progress-mode",
+        choices=["minimal", "tools", "off"],
+        default=None,
+        help=(
+            "Progress frame granularity for remote tasks (default: minimal when "
+            "stateless, tools otherwise). Env: ACP_PROGRESS_MODE"
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-every-steps",
+        type=int,
+        default=None,
+        help=(
+            "Emit an L1 checkpoint every N agent steps (0=disabled). "
+            "Env: ACP_CHECKPOINT_EVERY_STEPS"
+        ),
     )
     parser.add_argument(
         "--acp-progress-interval-seconds",
@@ -496,6 +519,21 @@ def _resolve_executor_profile(args: argparse.Namespace) -> ExecutorProfile:
     return profile
 
 
+def _resolve_relay_options(args: argparse.Namespace, *, stateless: bool) -> RelayRuntimeOptions:
+    base = default_sidecar_options(stateless=stateless)
+    mode = args.progress_mode or base.progress_mode
+    every = (
+        args.checkpoint_every_steps
+        if args.checkpoint_every_steps is not None
+        else base.checkpoint_every_steps
+    )
+    return RelayRuntimeOptions(
+        progress_mode=mode,
+        checkpoint_every_steps=every,
+        report_progress_interval_s=base.report_progress_interval_s,
+    ).normalized()
+
+
 async def _async_main(argv: list[str] | None) -> int:
     args = _build_arg_parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO)
@@ -547,6 +585,7 @@ async def _async_main(argv: list[str] | None) -> int:
         sandbox=args.sandbox,
         sandbox_image=args.sandbox_image,
         executor_profile=_resolve_executor_profile(args),
+        relay_options=_resolve_relay_options(args, stateless=stateless),
     )
     try:
         await asyncio.Event().wait()

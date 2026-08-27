@@ -187,6 +187,14 @@ def _build_spec(args: dict[str, Any], *, task_id: str) -> dict[str, Any]:
         spec["priority"] = int(args["priority"])
     if args.get("depends_on"):
         spec["depends_on"] = [str(t) for t in args["depends_on"]]
+    resume_cp = str(args.get("resume_from_checkpoint") or "").strip()
+    if resume_cp:
+        spec["resume_from_checkpoint"] = resume_cp
+    resume_summary = str(args.get("resume_summary") or "").strip()
+    if resume_summary:
+        params = dict(spec.get("params") or {})
+        params["resume_summary"] = resume_summary
+        spec["params"] = params
     return spec
 
 
@@ -362,6 +370,7 @@ def gateway_watch_task(args: dict, **_kwargs: object) -> str:
         # PROGRESS throttling: collapse each task's progress frames to the
         # latest summary only (spec §4.2 — protects context + prompt cache).
         latest_progress: dict[str, str] = {}
+        latest_checkpoints: dict[str, str] = {}
         terminals: list[dict[str, Any]] = []
         other: list[dict[str, Any]] = []
         for ev in events:
@@ -369,6 +378,17 @@ def gateway_watch_task(args: dict, **_kwargs: object) -> str:
             tid = str(data.get("task_id") or task_id or "?")
             if ev["type"] == "progress":
                 latest_progress[tid] = str(data.get("progress_summary") or "")[:240]
+            elif ev["type"] == "checkpoint":
+                cp = data.get("checkpoint") if isinstance(data.get("checkpoint"), dict) else data
+                summary = str(cp.get("summary") or data.get("summary") or "")[:500]
+                if summary:
+                    latest_checkpoints[tid] = summary
+                other.append({
+                    "type": ev["type"],
+                    "task_id": tid,
+                    "id": ev.get("id") or "",
+                    "summary": summary[:240],
+                })
             elif ev["type"] == "terminal":
                 result_data = (
                     data.get("result") if isinstance(data.get("result"), dict) else {}
@@ -394,6 +414,7 @@ def gateway_watch_task(args: dict, **_kwargs: object) -> str:
             "interrupted": result["interrupted"],
             "cursor": cursor,
             "progress": latest_progress,
+            "checkpoints": latest_checkpoints,
             "terminal": terminals,
             "events": other,
         }
@@ -658,6 +679,19 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                             "independent — default to parallel batch dispatch instead."
                         ),
                     },
+                    resume_from_checkpoint={
+                        "type": "string",
+                        "description": (
+                            "Optional checkpoint id when continuing a prior attempt "
+                            "(L1 resume — include resume_summary when known)."
+                        ),
+                    },
+                    resume_summary={
+                        "type": "string",
+                        "description": (
+                            "Prior checkpoint summary text for L1 resume (untrusted data)."
+                        ),
+                    },
                 ),
                 "required": ["goal"],
             },
@@ -697,9 +731,11 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "description": (
                 "Block up to wait_seconds (<=60) for the next batch of task events "
                 "over the server event stream (SSE, cursor-resumable). Returns a "
-                "throttled summary: latest progress per task + terminal events. "
+                "throttled summary: latest progress and checkpoint summaries per task "
+                "+ terminal events. Progress is a heartbeat only — not a final answer. "
                 "Call repeatedly in a loop until all watched tasks are terminal. "
-                "On cursor_out_of_range, fall back to gateway_get_task_result."
+                "Never inject questions into running tasks. On cursor_out_of_range, "
+                "fall back to gateway_get_task_result."
             ),
             "parameters": {
                 **_props(

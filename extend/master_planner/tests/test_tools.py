@@ -136,14 +136,15 @@ def test_watch_terminal_throttles_progress(gateway_env):
     assert out["reason"] == "terminal"
     # Two progress frames arrived; only the latest summary survives.
     assert out["progress"] == {tid: "step 2"}
+    assert out["checkpoints"] == {tid: "Found 3 sources"}
     assert out["terminal"] == [
         {"task_id": tid, "status": "completed", "summary": "done"}
     ]
-    assert out["cursor"] == "3"
+    assert out["cursor"] == "4"
     # Ledger mirrored the terminal status and the resume cursor.
     row = mp_tools._get_ledger().get(tid)
     assert row["status"] == "completed"
-    assert row["cursor_event_id"] == "3"
+    assert row["cursor_event_id"] == "4"
 
 
 def test_watch_cursor_out_of_range_guides_to_get_result(gateway_env):
@@ -164,10 +165,10 @@ def test_watch_batch_persists_cursor_on_watched_tasks(gateway_env):
         gateway_watch_task({"batch_id": batch["batch_id"], "wait_seconds": 10})
     )
     assert out["reason"] == "terminal"
-    assert out["cursor"] == "3"
+    assert out["cursor"] == "4"
     ledger = mp_tools._get_ledger()
     for tid in batch["task_ids"]:
-        assert ledger.get(tid)["cursor_event_id"] == "3"
+        assert ledger.get(tid)["cursor_event_id"] == "4"
 
 
 def test_watch_interrupts_cleanly(gateway_env, fast_client):

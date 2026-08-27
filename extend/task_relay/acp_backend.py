@@ -28,6 +28,15 @@ from typing import Any
 
 from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
 from extend.task_relay.executor_profile import ExecutorProfile
+from extend.task_relay.progress_policy import (
+    PROGRESS_MODE_OFF,
+    PROGRESS_MODE_TOOLS,
+    RelayRuntimeOptions,
+    default_sidecar_options,
+    parse_relay_options,
+)
+from extend.task_relay.relay_tools import ensure_relay_tools_registered
+from extend.task_relay.task_context import TaskRunContext, bind_task_context, reset_task_context
 from extend.task_relay.local_runtime import (
     ERROR_MODEL_UNAVAILABLE,
     LocalRuntimeResolver,
@@ -49,6 +58,8 @@ logger = logging.getLogger("task_relay.worker.backends.acp")
 RELAY_EXECUTOR_PREAMBLE = (
     "[relay executor — headless platform sub-task; no master session context]\n"
     "Execute the goal below. Return concise, concrete findings only.\n"
+    "Use report_progress for meaningful milestones the master planner should see "
+    "(sparingly — not every step).\n"
 )
 
 
@@ -68,6 +79,7 @@ class AcpTaskBackend(TaskBackend):
         sandbox_image: str | None = None,
         executor_profile: ExecutorProfile | None = None,
         local_runtime: LocalRuntimeResolver | None = None,
+        relay_options: RelayRuntimeOptions | None = None,
     ):
         """Initialize the backend.
 
@@ -122,6 +134,7 @@ class AcpTaskBackend(TaskBackend):
         self._sandbox_image = sandbox_image
         self._executor_profile = executor_profile or ExecutorProfile()
         self._local_runtime = local_runtime
+        self._relay_options = relay_options
 
     @property
     def executor_profile(self) -> ExecutorProfile:
@@ -203,9 +216,29 @@ class AcpTaskBackend(TaskBackend):
         agent = state.agent
 
         try:
-            return await self._run_session(
-                manager, state, run, user_message, on_progress, cancel_event
+            options = self._resolve_relay_options(run)
+            if self._stateless and "task_relay" in self._executor_profile.allowed:
+                ensure_relay_tools_registered()
+            ctx_token = bind_task_context(
+                TaskRunContext(
+                    task_id=run.task_id,
+                    on_checkpoint=on_checkpoint,
+                    options=options,
+                )
             )
+            try:
+                return await self._run_session(
+                    manager,
+                    state,
+                    run,
+                    user_message,
+                    on_progress,
+                    on_checkpoint,
+                    cancel_event,
+                    options=options,
+                )
+            finally:
+                reset_task_context(ctx_token)
         finally:
             if self._stateless:
                 self._discard_session(manager, session_id, workdir)
@@ -217,7 +250,10 @@ class AcpTaskBackend(TaskBackend):
         run: TaskRunPayload,
         user_message: str,
         on_progress: OnProgress,
+        on_checkpoint: OnCheckpoint,
         cancel_event: asyncio.Event,
+        *,
+        options: RelayRuntimeOptions,
     ) -> TaskCompletePayload:
         """Drive the agent to a terminal state for an already-created session."""
         session_id = state.session_id
@@ -228,11 +264,13 @@ class AcpTaskBackend(TaskBackend):
         # Throttled progress relay from the executor thread to the event loop.
         last_progress_at = 0.0
         progress_lock = threading.Lock()
+        checkpoint_seq = 0
 
-        def _step_callback(api_call_count: int, prev_tools: Any = None) -> None:
-            nonlocal last_progress_at
+        def _format_progress(api_call_count: int, prev_tools: Any = None) -> str:
+            if options.progress_mode == PROGRESS_MODE_OFF:
+                return ""
             summary = f"step {api_call_count}"
-            if prev_tools:
+            if options.progress_mode == PROGRESS_MODE_TOOLS and prev_tools:
                 names: list[str] = []
                 for tool in prev_tools:
                     if isinstance(tool, dict):
@@ -243,6 +281,39 @@ class AcpTaskBackend(TaskBackend):
                         names.append(tool)
                 if names:
                     summary = f"completed tools: {', '.join(names)}"
+            return summary
+
+        def _maybe_emit_step_checkpoint(api_call_count: int) -> None:
+            nonlocal checkpoint_seq
+            every = options.checkpoint_every_steps
+            if every <= 0 or api_call_count <= 0 or api_call_count % every != 0:
+                return
+            checkpoint_seq += 1
+            cp_id = f"cp-{run.task_id}-{checkpoint_seq}"
+            summary = f"step {api_call_count} milestone"
+            try:
+                fut = asyncio.run_coroutine_threadsafe(
+                    on_checkpoint(
+                        checkpoint_id=cp_id,
+                        summary=summary[:500],
+                        fields={"step": api_call_count},
+                        resume_blob="",
+                    ),
+                    loop,
+                )
+                fut.add_done_callback(lambda f: f.exception() if f.done() else None)
+            except RuntimeError:
+                logger.warning(
+                    "checkpoint frame dropped for session %s: event loop closed",
+                    session_id,
+                )
+
+        def _step_callback(api_call_count: int, prev_tools: Any = None) -> None:
+            nonlocal last_progress_at
+            summary = _format_progress(api_call_count, prev_tools)
+            _maybe_emit_step_checkpoint(api_call_count)
+            if not summary:
+                return
 
             with progress_lock:
                 now = time.time()
@@ -374,6 +445,25 @@ class AcpTaskBackend(TaskBackend):
             usage=self._extract_usage(result),
         )
 
+    def _resolve_relay_options(self, run: TaskRunPayload) -> RelayRuntimeOptions:
+        """Merge sidecar defaults with per-task ``params.relay_options``."""
+        base = self._relay_options or default_sidecar_options(stateless=self._stateless)
+        params = run.params if isinstance(run.params, dict) else {}
+        raw = params.get("relay_options")
+        if not isinstance(raw, dict):
+            return base.normalized()
+        return parse_relay_options(
+            {
+                "progress_mode": raw.get("progress_mode", base.progress_mode),
+                "checkpoint_every_steps": raw.get(
+                    "checkpoint_every_steps", base.checkpoint_every_steps
+                ),
+                "report_progress_interval_s": raw.get(
+                    "report_progress_interval_s", base.report_progress_interval_s
+                ),
+            }
+        )
+
     async def _resolve_model_binding(
         self, run: TaskRunPayload
     ) -> ModelBinding | TaskCompletePayload | None:
@@ -464,18 +554,22 @@ class AcpTaskBackend(TaskBackend):
 
 
 def _resume_goal(run: TaskRunPayload) -> str:
-    """Build the user message, injecting L1 summary when L2 blob is unavailable."""
+    """Build the user message, injecting L1 summary when resuming."""
     goal = run.goal or ""
+    params = run.params if isinstance(run.params, dict) else {}
+    resume_summary = str(params.get("resume_summary") or "").strip()
     if not run.resume_from_checkpoint:
         return _with_relay_identity(run, goal)
     if isinstance(run.resume_blob, bytes):
-        return _with_relay_identity(
-            run, f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{goal}"
-        )
-    if isinstance(run.resume_blob, str) and run.resume_blob.strip():
+        blob_text = run.resume_blob.decode("utf-8", errors="replace").strip()
+    elif isinstance(run.resume_blob, str):
+        blob_text = run.resume_blob.strip()
+    else:
+        blob_text = resume_summary
+    if blob_text:
         return _with_relay_identity(
             run,
-            f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{run.resume_blob}\n{goal}",
+            f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{blob_text}\n{goal}",
         )
     return _with_relay_identity(
         run, f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{goal}"
