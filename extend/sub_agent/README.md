@@ -1,7 +1,7 @@
-# extend/task_relay — ACP 执行端（Worker sidecar）
+# extend/sub_agent — sub-agent ACP sidecar（Worker sidecar）
 
-XHermes 侧的 Task Relay 执行端：`acp_rpc_server.py` 作为节点本地 sidecar
-（默认 127.0.0.1:9105），把 relay 任务跑在进程内 ACP session 上
+XHermes 侧的 sub-agent 执行端：`acp_rpc_server.py` 作为节点本地 sidecar
+（默认 `unix://~/.xhermes/sub_agent/acp.sock`），把 sub-agent 任务跑在进程内 ACP session 上
 （`acp_backend.py` + `acp_adapter.session`）。
 
 ## 安全模型（M2-W4：executor profile）
@@ -40,7 +40,7 @@ shell/browser**（与 planner 最小权限同原则），白名单双层强制�
 sidecar 启动参数（或等价 env）：
 
 ```bash
-python -m extend.task_relay.acp_rpc_server --stateless \
+python -m extend.sub_agent.acp_rpc_server --stateless \
     --executor-allow-extra terminal,code_execution   # 追加到默认白名单
     # 或整体替换： --executor-toolsets file,web,todo,terminal
 # env: ACP_EXECUTOR_TOOLSETS / ACP_EXECUTOR_ALLOW_EXTRA
@@ -58,7 +58,7 @@ Worker 向上（`task-relay-worker --toolsets` → daemon announce）声明的
 toolsets 必须与 sidecar 实际白名单一致。sidecar 是事实来源：
 
 ```bash
-python -m extend.task_relay.executor_profile   # 打印喂给 --toolsets 的 CSV
+python -m extend.sub_agent.executor_profile   # 打印喂给 --toolsets 的 CSV
 ```
 
 或运行时查 RPC `acp.toolsets`（返回 `{"toolsets": [...]}`）。

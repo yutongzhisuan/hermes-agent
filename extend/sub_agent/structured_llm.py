@@ -1,4 +1,4 @@
-"""Structured output LLM extraction for Task Relay results.
+"""Structured output LLM extraction for sub-agent results.
 
 Owned by XHermes (migrated from swarm-network ``worker/structured_output.py``)
 because it depends on the XHermes host LLM facade (:mod:`agent.plugin_llm`).
@@ -10,7 +10,7 @@ import asyncio
 import logging
 from typing import Any
 
-logger = logging.getLogger("task_relay.structured_llm")
+logger = logging.getLogger("sub_agent.structured_llm")
 
 
 async def llm_extract_structured(text: str, spec: Any) -> dict[str, Any] | None:
@@ -24,7 +24,7 @@ async def llm_extract_structured(text: str, spec: Any) -> dict[str, Any] | None:
         return None
 
     schema = spec if isinstance(spec, dict) else None
-    client = PluginLlm(plugin_id="task_relay")
+    client = PluginLlm(plugin_id="sub_agent")
 
     def _call():
         return client.complete_structured(
@@ -35,7 +35,7 @@ async def llm_extract_structured(text: str, spec: Any) -> dict[str, Any] | None:
             input=[PluginLlmTextInput(text=text[:8000])],
             json_schema=schema,
             json_mode=schema is None,
-            purpose="task_relay_structured_output",
+            purpose="sub_agent_structured_output",
             max_tokens=2048,
         )
 

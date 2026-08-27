@@ -1,4 +1,4 @@
-"""Tests for the stateless relay execution mode.
+"""Tests for the stateless sub-agent execution mode.
 
 Behavior contracts covered:
 
@@ -22,14 +22,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from extend.task_relay.acp_backend import AcpTaskBackend
-from extend.task_relay.stateless import (
+from extend.sub_agent.acp_backend import AcpTaskBackend
+from extend.sub_agent.stateless import (
     BLOCKED_STATELESS_TOOLSETS,
     DEFAULT_STATELESS_TOOLSETS,
     StatelessSessionManager,
     resolve_stateless_toolsets,
 )
-from extend.task_relay.task_types import TaskRunPayload
+from extend.sub_agent.task_types import TaskRunPayload
 
 
 class FakeAgent:
@@ -237,7 +237,7 @@ async def test_stateful_run_still_persists_session():
 
 
 def test_apply_sandbox_env_configures_terminal_backend(monkeypatch):
-    from extend.task_relay.stateless import apply_sandbox_env
+    from extend.sub_agent.stateless import apply_sandbox_env
 
     for var in (
         "TERMINAL_ENV",
@@ -266,7 +266,7 @@ def test_apply_sandbox_env_configures_terminal_backend(monkeypatch):
 
 
 def test_apply_sandbox_env_rejects_unknown_backend():
-    from extend.task_relay.stateless import apply_sandbox_env
+    from extend.sub_agent.stateless import apply_sandbox_env
 
     with pytest.raises(ValueError):
         apply_sandbox_env(sandbox="nope")
@@ -293,7 +293,7 @@ def test_sandbox_manager_registers_container_overrides_and_cleans_up(
     )
 
     manager = StatelessSessionManager(
-        state_root=tmp_path / "relay-state",
+        state_root=tmp_path / "sub-agent-state",
         agent_factory=FakeAgent,
         sandbox="docker",
         sandbox_image="img:x",
@@ -332,7 +332,7 @@ async def test_sandbox_run_uses_container_cwd_and_no_host_workdir(tmp_path):
     result = await backend.run(_run_payload(), AsyncMock(), AsyncMock(), asyncio.Event())
 
     assert result.status == "completed"
-    from extend.task_relay.stateless import SANDBOX_CONTAINER_CWD
+    from extend.sub_agent.stateless import SANDBOX_CONTAINER_CWD
 
     cwd, _toolsets = manager.created[0]
     assert cwd == SANDBOX_CONTAINER_CWD
@@ -349,7 +349,7 @@ def test_manager_persists_to_ephemeral_db(tmp_path, monkeypatch):
     pytest.importorskip("hermes_state")
     monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "user-home"))
 
-    state_root = tmp_path / "relay-state"
+    state_root = tmp_path / "sub-agent-state"
     manager = StatelessSessionManager(state_root=state_root, agent_factory=FakeAgent)
     state = manager.create_session(cwd=str(tmp_path))
 
@@ -378,7 +378,7 @@ def test_manager_discard_removes_owned_state_root(monkeypatch, tmp_path):
 
 def test_manager_discard_keeps_explicit_state_root(tmp_path, monkeypatch):
     monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "user-home"))
-    state_root = tmp_path / "relay-state"
+    state_root = tmp_path / "sub-agent-state"
     manager = StatelessSessionManager(state_root=state_root, agent_factory=FakeAgent)
 
     manager.discard()
@@ -411,7 +411,7 @@ def test_make_agent_uses_stateless_kwargs(tmp_path, monkeypatch):
     monkeypatch.setattr(hermes_cli.runtime_provider, "resolve_runtime_provider", _no_runtime)
 
     manager = StatelessSessionManager(
-        state_root=tmp_path / "relay-state", agent_factory=None
+        state_root=tmp_path / "sub-agent-state", agent_factory=None
     )
     manager.create_session(cwd=str(tmp_path), toolsets=["web", "memory", "skills"])
 
@@ -432,7 +432,7 @@ def test_apply_local_confined_merges_and_is_idempotent(tmp_path, monkeypatch):
     pytest.importorskip("hermes_cli.config")
     monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
 
-    from extend.task_relay.stateless import (
+    from extend.sub_agent.stateless import (
         DEFAULT_LOCAL_DENY_RULES,
         apply_local_confined,
     )
@@ -458,7 +458,7 @@ def test_apply_local_confined_preserves_user_rules(tmp_path, monkeypatch):
         "approvals:\n  deny:\n    - 'my-rule *'\n"
     )
 
-    from extend.task_relay.stateless import (
+    from extend.sub_agent.stateless import (
         DEFAULT_LOCAL_DENY_RULES,
         apply_local_confined,
     )
@@ -475,7 +475,7 @@ def test_local_confined_deny_blocks_before_any_bypass(tmp_path, monkeypatch):
     pytest.importorskip("hermes_cli.config")
     monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
 
-    from extend.task_relay.stateless import apply_local_confined
+    from extend.sub_agent.stateless import apply_local_confined
 
     apply_local_confined()
 
@@ -488,7 +488,7 @@ def test_local_confined_deny_blocks_before_any_bypass(tmp_path, monkeypatch):
 
 
 def test_rpc_parser_accepts_local_confined_flags():
-    from extend.task_relay.acp_rpc_server import _build_arg_parser
+    from extend.sub_agent.acp_rpc_server import _build_arg_parser
 
     args = _build_arg_parser().parse_args(
         ["--local-confined", "--local-confined-extra-deny", "foo *,bar *"]
@@ -498,17 +498,17 @@ def test_rpc_parser_accepts_local_confined_flags():
 
 
 def test_rpc_parser_defaults_to_uds():
-    from extend.task_relay.acp_rpc_server import _build_arg_parser
-    from extend.task_relay.constants import DEFAULT_ACP_RPC_SOCKET
+    from extend.sub_agent.acp_rpc_server import _build_arg_parser
+    from extend.sub_agent.constants import DEFAULT_ACP_RPC_SOCKET
 
     args = _build_arg_parser().parse_args([])
     assert args.http is False
     assert args.socket is None
-    assert DEFAULT_ACP_RPC_SOCKET.endswith("relay/acp.sock")
+    assert DEFAULT_ACP_RPC_SOCKET.endswith("sub_agent/acp.sock")
 
 
 def test_rpc_parser_accepts_http_flag():
-    from extend.task_relay.acp_rpc_server import _build_arg_parser
+    from extend.sub_agent.acp_rpc_server import _build_arg_parser
 
     args = _build_arg_parser().parse_args(["--http", "--port", "9200"])
     assert args.http is True

@@ -25,18 +25,18 @@ from unittest.mock import AsyncMock
 import pytest
 from aiohttp import ClientSession, web
 
-from extend.task_relay.acp_backend import AcpTaskBackend
-from extend.task_relay.acp_rpc_server import (
+from extend.sub_agent.acp_backend import AcpTaskBackend
+from extend.sub_agent.acp_rpc_server import (
     _build_arg_parser,
     _resolve_executor_profile,
     create_acp_rpc_app,
 )
-from extend.task_relay.executor_profile import (
+from extend.sub_agent.executor_profile import (
     DEFAULT_EXECUTOR_TOOLSETS,
     SHELL_CLASS_TOOLSETS,
     ExecutorProfile,
 )
-from extend.task_relay.task_types import TaskRunPayload
+from extend.sub_agent.task_types import TaskRunPayload
 
 
 class FakeAgent:
@@ -218,7 +218,7 @@ async def test_backend_logs_effective_whitelist(caplog):
     manager = FakeStatelessManager()
     backend = _make_backend(manager)
 
-    with caplog.at_level("INFO", logger="task_relay.worker.backends.acp"):
+    with caplog.at_level("INFO", logger="sub_agent.backends.acp"):
         await backend.run(
             _run_payload(toolsets=["web", "browser"]),
             AsyncMock(),

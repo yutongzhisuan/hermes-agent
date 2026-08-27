@@ -1,8 +1,8 @@
-"""Minimal Task Relay payload types used by the XHermes-side ACP code.
+"""Minimal sub-agent payload types used by the XHermes-side ACP code.
 
-These mirror the definitions in the swarm-network worker
-(``extend.task_relay.worker.task_executor``) so the ACP sidecar stays
-wire-compatible without importing the worker package.
+These mirror the definitions in the swarm-network Go worker
+(``swarm-network/worker``) so the ACP sidecar stays wire-compatible without
+importing the worker package.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ OnCheckpoint = Callable[..., Awaitable[None]]
 class TaskCancelEvent(asyncio.Event):
     """asyncio.Event carrying an optional cancel reason from the Hub.
 
-    The Task Relay Hub may push ``task.cancel`` with a ``reason`` field
+    The swarm-network hub may push ``task.cancel`` with a ``reason`` field
     (e.g. ``timeout``). Backends that need to distinguish a normal cancel
     from a timeout-induced cancel can inspect :attr:`reason` after the
     event is set.

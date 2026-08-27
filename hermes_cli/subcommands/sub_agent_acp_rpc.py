@@ -1,4 +1,4 @@
-"""``xhermes relay-acp-rpc`` subcommand parser."""
+"""``xhermes sub-agent-acp-rpc`` subcommand parser."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ import argparse
 from typing import Callable
 
 
-def build_relay_acp_rpc_parser(subparsers, *, cmd_relay_acp_rpc: Callable) -> None:
-    """Attach the ``relay-acp-rpc`` subcommand."""
+def build_sub_agent_acp_rpc_parser(subparsers, *, cmd_sub_agent_acp_rpc: Callable) -> None:
+    """Attach the ``sub-agent-acp-rpc`` subcommand."""
     parser = subparsers.add_parser(
-        "relay-acp-rpc",
+        "sub-agent-acp-rpc",
         help="Run the XHermes ACP JSON-RPC server for remote-acp workers",
         description=(
-            "Expose in-process XHermes ACP execution over HTTP JSON-RPC "
-            "(acp.run / acp.cancel) for Task Relay remote-acp backends."
+            "Expose in-process XHermes sub-agent execution over JSON-RPC "
+            "(acp.run / acp.cancel) for remote-acp worker backends."
         ),
         add_help=False,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -23,4 +23,4 @@ def build_relay_acp_rpc_parser(subparsers, *, cmd_relay_acp_rpc: Callable) -> No
         nargs=argparse.REMAINDER,
         help=argparse.SUPPRESS,
     )
-    parser.set_defaults(func=cmd_relay_acp_rpc)
+    parser.set_defaults(func=cmd_sub_agent_acp_rpc)

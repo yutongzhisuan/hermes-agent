@@ -1,4 +1,4 @@
-"""Local-runtime-first model binding for relay tasks (spec §13.4 S4).
+"""Local-runtime-first model binding for sub-agent tasks (spec §13.4 S4).
 
 A task may carry a model binding (TaskSpec ``model`` field /
 ``params["model"]``, forwarded by the worker as ``acp.run``'s ``model``
@@ -32,7 +32,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
-logger = logging.getLogger("task_relay.worker.local_runtime")
+logger = logging.getLogger("sub_agent.local_runtime")
 
 ENV_LOCAL_BASE_URL = "ACP_LOCAL_RUNTIME_BASE_URL"
 ENV_LOCAL_API_KEY = "ACP_LOCAL_RUNTIME_API_KEY"

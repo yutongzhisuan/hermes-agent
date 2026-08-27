@@ -1,4 +1,4 @@
-"""Active relay task context for executor-only tools (e.g. report_progress)."""
+"""Active sub-agent task context for executor-only tools (e.g. report_progress)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Mapping
 
-from extend.task_relay.progress_policy import RelayRuntimeOptions
+from extend.sub_agent.progress_policy import SubAgentRuntimeOptions
 
 OnCheckpoint = Callable[..., Awaitable[None]]
 
@@ -20,7 +20,7 @@ class TaskRunContext:
 
     task_id: str
     on_checkpoint: OnCheckpoint
-    options: RelayRuntimeOptions
+    options: SubAgentRuntimeOptions
     checkpoint_seq: int = 0
     _last_report_at: float = field(default=0.0, repr=False)
 
@@ -58,7 +58,7 @@ class TaskRunContext:
 
 
 _active_context: contextvars.ContextVar[TaskRunContext | None] = contextvars.ContextVar(
-    "task_relay_active_context", default=None
+    "sub_agent_active_context", default=None
 )
 
 

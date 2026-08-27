@@ -1,7 +1,7 @@
-"""ACP execution backend for the Task Relay worker.
+"""ACP execution backend for the sub-agent executor.
 
 Owned by XHermes (migrated from swarm-network ``worker/backends/acp_backend.py``)
-because it runs a relay task through an in-process XHermes ACP session managed
+because it runs a sub-agent task through an in-process XHermes ACP session managed
 by :mod:`acp_adapter.session`. Progress is throttled and forwarded as
 ``task.progress`` frames; the final agent result drives ``task.complete``.
 
@@ -26,24 +26,25 @@ import threading
 import time
 from typing import Any
 
-from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
-from extend.task_relay.executor_profile import ExecutorProfile
-from extend.task_relay.progress_policy import (
+from extend.sub_agent.constants import CANCEL_REASON_TIMEOUT
+from extend.sub_agent.executor_profile import ExecutorProfile
+from extend.sub_agent.progress_policy import (
     PROGRESS_MODE_OFF,
     PROGRESS_MODE_TOOLS,
-    RelayRuntimeOptions,
+    SubAgentRuntimeOptions,
     default_sidecar_options,
-    parse_relay_options,
+    parse_sub_agent_options,
+    runtime_options_from_params,
 )
-from extend.task_relay.relay_tools import ensure_relay_tools_registered
-from extend.task_relay.task_context import TaskRunContext, bind_task_context, reset_task_context
-from extend.task_relay.local_runtime import (
+from extend.sub_agent.sub_agent_tools import ensure_sub_agent_tools_registered
+from extend.sub_agent.task_context import TaskRunContext, bind_task_context, reset_task_context
+from extend.sub_agent.local_runtime import (
     ERROR_MODEL_UNAVAILABLE,
     LocalRuntimeResolver,
     ModelBinding,
     ModelUnavailableError,
 )
-from extend.task_relay.task_types import (
+from extend.sub_agent.task_types import (
     OnCheckpoint,
     OnProgress,
     TaskBackend,
@@ -51,12 +52,12 @@ from extend.task_relay.task_types import (
     TaskRunPayload,
 )
 
-logger = logging.getLogger("task_relay.worker.backends.acp")
+logger = logging.getLogger("sub_agent.backends.acp")
 
-# Brief preamble injected before relay goals so headless XHermes executors know
+# Brief preamble injected before sub-agent goals so headless XHermes executors know
 # they are running a platform sub-task, not a local interactive session.
-RELAY_EXECUTOR_PREAMBLE = (
-    "[relay executor — headless platform sub-task; no master session context]\n"
+SUB_AGENT_EXECUTOR_PREAMBLE = (
+    "[sub-agent executor — headless platform sub-task; no master session context]\n"
     "Execute the goal below. Return concise, concrete findings only.\n"
     "Use report_progress for meaningful milestones the master planner should see "
     "(sparingly — not every step).\n"
@@ -64,7 +65,7 @@ RELAY_EXECUTOR_PREAMBLE = (
 
 
 class AcpTaskBackend(TaskBackend):
-    """Backend that executes relay tasks via a XHermes ACP session."""
+    """Backend that executes sub-agent tasks via a XHermes ACP session."""
 
     def __init__(
         self,
@@ -79,7 +80,7 @@ class AcpTaskBackend(TaskBackend):
         sandbox_image: str | None = None,
         executor_profile: ExecutorProfile | None = None,
         local_runtime: LocalRuntimeResolver | None = None,
-        relay_options: RelayRuntimeOptions | None = None,
+        sub_agent_options: SubAgentRuntimeOptions | None = None,
     ):
         """Initialize the backend.
 
@@ -111,7 +112,7 @@ class AcpTaskBackend(TaskBackend):
                 process terminal environment, and implies *stateless*).
             sandbox_image: Docker image for sandboxed tasks.
             executor_profile: Toolset whitelist enforced on every stateless /
-                sandboxed session (see :mod:`extend.task_relay.executor_profile`).
+                sandboxed session (see :mod:`extend.sub_agent.executor_profile`).
                 Defaults to :class:`ExecutorProfile` with
                 ``DEFAULT_EXECUTOR_TOOLSETS`` — no shell/browser tools for
                 remote tasks. The profile is applied here, at session
@@ -134,7 +135,7 @@ class AcpTaskBackend(TaskBackend):
         self._sandbox_image = sandbox_image
         self._executor_profile = executor_profile or ExecutorProfile()
         self._local_runtime = local_runtime
-        self._relay_options = relay_options
+        self._sub_agent_options = sub_agent_options
 
     @property
     def executor_profile(self) -> ExecutorProfile:
@@ -202,12 +203,12 @@ class AcpTaskBackend(TaskBackend):
         if self._stateless and self._sandbox:
             # Sandboxed tasks run at a fixed container path; the per-session
             # disposable container replaces the host-side temp workdir.
-            from extend.task_relay.stateless import SANDBOX_CONTAINER_CWD
+            from extend.sub_agent.stateless import SANDBOX_CONTAINER_CWD
 
             state = manager.create_session(cwd=SANDBOX_CONTAINER_CWD, toolsets=toolsets, **extra)
         elif self._stateless:
             workdir = tempfile.mkdtemp(
-                prefix=f"relay-{run.task_id}-", dir=self._workdir_root
+                prefix=f"sub-agent-{run.task_id}-", dir=self._workdir_root
             )
             state = manager.create_session(cwd=workdir, toolsets=toolsets, **extra)
         else:
@@ -216,9 +217,9 @@ class AcpTaskBackend(TaskBackend):
         agent = state.agent
 
         try:
-            options = self._resolve_relay_options(run)
-            if self._stateless and "task_relay" in self._executor_profile.allowed:
-                ensure_relay_tools_registered()
+            options = self._resolve_sub_agent_options(run)
+            if self._stateless and "sub_agent" in self._executor_profile.allowed:
+                ensure_sub_agent_tools_registered()
             ctx_token = bind_task_context(
                 TaskRunContext(
                     task_id=run.task_id,
@@ -253,7 +254,7 @@ class AcpTaskBackend(TaskBackend):
         on_checkpoint: OnCheckpoint,
         cancel_event: asyncio.Event,
         *,
-        options: RelayRuntimeOptions,
+        options: SubAgentRuntimeOptions,
     ) -> TaskCompletePayload:
         """Drive the agent to a terminal state for an already-created session."""
         session_id = state.session_id
@@ -261,7 +262,7 @@ class AcpTaskBackend(TaskBackend):
 
         loop = asyncio.get_running_loop()
 
-        # Throttled progress relay from the executor thread to the event loop.
+        # Throttled progress forwarding from the executor thread to the event loop.
         last_progress_at = 0.0
         progress_lock = threading.Lock()
         checkpoint_seq = 0
@@ -445,14 +446,14 @@ class AcpTaskBackend(TaskBackend):
             usage=self._extract_usage(result),
         )
 
-    def _resolve_relay_options(self, run: TaskRunPayload) -> RelayRuntimeOptions:
-        """Merge sidecar defaults with per-task ``params.relay_options``."""
-        base = self._relay_options or default_sidecar_options(stateless=self._stateless)
+    def _resolve_sub_agent_options(self, run: TaskRunPayload) -> SubAgentRuntimeOptions:
+        """Merge sidecar defaults with per-task ``params.sub_agent_options``."""
+        base = self._sub_agent_options or default_sidecar_options(stateless=self._stateless)
         params = run.params if isinstance(run.params, dict) else {}
-        raw = params.get("relay_options")
-        if not isinstance(raw, dict):
+        raw = runtime_options_from_params(params)
+        if raw is None:
             return base.normalized()
-        return parse_relay_options(
+        return parse_sub_agent_options(
             {
                 "progress_mode": raw.get("progress_mode", base.progress_mode),
                 "checkpoint_every_steps": raw.get(
@@ -493,7 +494,7 @@ class AcpTaskBackend(TaskBackend):
     def _create_default_manager(self) -> Any:
         """Create the session manager matching the configured mode."""
         if self._stateless:
-            from extend.task_relay.model_sessions import (
+            from extend.sub_agent.model_sessions import (
                 BoundModelStatelessSessionManager,
             )
 
@@ -503,7 +504,7 @@ class AcpTaskBackend(TaskBackend):
                 sandbox=self._sandbox,
                 sandbox_image=self._sandbox_image,
             )
-        from extend.task_relay.model_sessions import BoundModelSessionManager
+        from extend.sub_agent.model_sessions import BoundModelSessionManager
 
         return BoundModelSessionManager()
 
@@ -521,7 +522,7 @@ class AcpTaskBackend(TaskBackend):
 
     @staticmethod
     def _extract_usage(result: dict[str, Any] | None) -> dict[str, Any] | None:
-        """Build a relay usage dict from token fields in the agent result."""
+        """Build a sub-agent usage dict from token fields in the agent result."""
         if not result:
             return None
         keys = (
@@ -538,7 +539,7 @@ class AcpTaskBackend(TaskBackend):
     def _extract_fields(
         result: dict[str, Any] | None, run: TaskRunPayload
     ) -> dict[str, Any] | None:
-        """Build relay result fields from agent result metadata."""
+        """Build sub-agent result fields from agent result metadata."""
         if not result:
             return None
         fields: dict[str, Any] = {}
@@ -559,7 +560,7 @@ def _resume_goal(run: TaskRunPayload) -> str:
     params = run.params if isinstance(run.params, dict) else {}
     resume_summary = str(params.get("resume_summary") or "").strip()
     if not run.resume_from_checkpoint:
-        return _with_relay_identity(run, goal)
+        return _with_sub_agent_identity(run, goal)
     if isinstance(run.resume_blob, bytes):
         blob_text = run.resume_blob.decode("utf-8", errors="replace").strip()
     elif isinstance(run.resume_blob, str):
@@ -567,21 +568,21 @@ def _resume_goal(run: TaskRunPayload) -> str:
     else:
         blob_text = resume_summary
     if blob_text:
-        return _with_relay_identity(
+        return _with_sub_agent_identity(
             run,
             f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{blob_text}\n{goal}",
         )
-    return _with_relay_identity(
+    return _with_sub_agent_identity(
         run, f"[Resuming from checkpoint {run.resume_from_checkpoint}]\n{goal}"
     )
 
 
-def _with_relay_identity(run: TaskRunPayload, message: str) -> str:
-    """Prefix the agent message with relay routing identity when present."""
+def _with_sub_agent_identity(run: TaskRunPayload, message: str) -> str:
+    """Prefix the agent message with sub-agent routing identity when present."""
     parts = [f"task_id={run.task_id}"]
     if run.hub_id:
         parts.append(f"hub_id={run.hub_id}")
     if run.master_session_id:
         parts.append(f"master_session_id={run.master_session_id}")
-    header = f"[relay {' '.join(parts)}]"
-    return f"{RELAY_EXECUTOR_PREAMBLE}{header}\n{message}"
+    header = f"[sub-agent {' '.join(parts)}]"
+    return f"{SUB_AGENT_EXECUTOR_PREAMBLE}{header}\n{message}"

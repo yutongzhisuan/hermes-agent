@@ -1,7 +1,7 @@
 """Session managers that honor a per-task model binding (spec §13.4 S4).
 
 Both variants wrap the upstream managers without modifying them: a task's
-resolved :class:`~extend.task_relay.local_runtime.ModelBinding` is handed to
+resolved :class:`~extend.sub_agent.local_runtime.ModelBinding` is handed to
 ``create_session(binding=...)`` and consumed by ``_make_agent`` through a
 pending-attribute guarded by the create lock — the same race-free pattern
 ``StatelessSessionManager`` uses for per-task toolsets.
@@ -27,8 +27,8 @@ from acp_adapter.session import (
     _register_task_cwd,
 )
 
-from extend.task_relay.local_runtime import ModelBinding
-from extend.task_relay.stateless import (
+from extend.sub_agent.local_runtime import ModelBinding
+from extend.sub_agent.stateless import (
     StatelessSessionManager,
     resolve_stateless_toolsets,
 )

@@ -14,8 +14,8 @@ import tempfile
 import pytest
 from aiohttp import ClientSession, UnixConnector, web
 
-from extend.task_relay.acp_rpc_server import create_acp_rpc_app
-from extend.task_relay.task_types import TaskCompletePayload
+from extend.sub_agent.acp_rpc_server import create_acp_rpc_app
+from extend.sub_agent.task_types import TaskCompletePayload
 
 
 class _StubBackend:

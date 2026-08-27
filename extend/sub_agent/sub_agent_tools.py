@@ -1,4 +1,4 @@
-"""Executor-only tools for Task Relay sidecar sessions."""
+"""Executor-only tools for sub-agent sidecar sessions."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ import json
 import logging
 from typing import Any
 
-logger = logging.getLogger("task_relay.relay_tools")
+logger = logging.getLogger("sub_agent.sub_agent_tools")
 
-TOOLSET_NAME = "task_relay"
+TOOLSET_NAME = "sub_agent"
 _registered = False
 
 
-def ensure_relay_tools_registered() -> None:
+def ensure_sub_agent_tools_registered() -> None:
     """Register report_progress into the global tool registry once."""
     global _registered
     if _registered:
@@ -21,11 +21,11 @@ def ensure_relay_tools_registered() -> None:
     try:
         from tools.registry import registry
     except Exception:
-        logger.debug("tool registry unavailable; skipping relay tool registration")
+        logger.debug("tool registry unavailable; skipping sub-agent tool registration")
         return
 
-    def _check_relay_context() -> bool:
-        from extend.task_relay.task_context import get_task_context
+    def _check_sub_agent_context() -> bool:
+        from extend.sub_agent.task_context import get_task_context
 
         return get_task_context() is not None
 
@@ -58,7 +58,7 @@ def ensure_relay_tools_registered() -> None:
             },
         },
         handler=_report_progress_handler,
-        check_fn=_check_relay_context,
+        check_fn=_check_sub_agent_context,
         description="Push a voluntary milestone checkpoint to the master planner.",
         emoji="📡",
     )
@@ -66,7 +66,7 @@ def ensure_relay_tools_registered() -> None:
 
 
 def _report_progress_handler(args: dict[str, Any], **_kwargs: object) -> str:
-    from extend.task_relay.task_context import get_task_context
+    from extend.sub_agent.task_context import get_task_context
 
     ctx = get_task_context()
     if ctx is None:

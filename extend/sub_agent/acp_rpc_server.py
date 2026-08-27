@@ -2,9 +2,9 @@
 
 Owned by XHermes (migrated from swarm-network ``worker/acp_rpc_server.py``):
 runs as a node-local sidecar (default Unix domain socket at
-``~/.xhermes/relay/acp.sock``; HTTP loopback on 127.0.0.1:9105 with
-``--http``) wrapping :class:`~extend.task_relay.acp_backend.AcpTaskBackend`.
-Start it with ``python -m extend.task_relay.acp_rpc_server``.
+``~/.xhermes/sub_agent/acp.sock``; HTTP loopback on 127.0.0.1:9105 with
+``--http``) wrapping :class:`~extend.sub_agent.acp_backend.AcpTaskBackend`.
+Start it with ``python -m extend.sub_agent.acp_rpc_server``.
 
 Untrusted remote tasks should be served with ``--stateless`` (no access to
 the local user's memories, skills, or session history; disposable session
@@ -12,7 +12,7 @@ and workdir) and, on Docker-capable nodes, ``--sandbox docker`` (each task
 in its own network-less, resource-capped disposable container).
 
 Every stateless/sandboxed session is additionally constrained by the
-**executor profile** (:mod:`extend.task_relay.executor_profile`): a toolset
+**executor profile** (:mod:`extend.sub_agent.executor_profile`): a toolset
 whitelist that defaults to ``file,web,todo`` — no shell/terminal/browser
 tools for remote goals. Widen it with ``--executor-toolsets`` /
 ``--executor-allow-extra`` (node operator's trust decision). The effective
@@ -34,19 +34,19 @@ from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 
-from extend.task_relay.constants import (
+from extend.sub_agent.constants import (
     DEFAULT_ACP_RPC_HTTP_HOST,
     DEFAULT_ACP_RPC_HTTP_PORT,
     DEFAULT_ACP_RPC_SOCKET,
 )
-from extend.task_relay.executor_profile import ExecutorProfile
-from extend.task_relay.progress_policy import RelayRuntimeOptions, default_sidecar_options
-from extend.task_relay.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
+from extend.sub_agent.executor_profile import ExecutorProfile
+from extend.sub_agent.progress_policy import SubAgentRuntimeOptions, default_sidecar_options
+from extend.sub_agent.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
 
 if TYPE_CHECKING:
-    from extend.task_relay.local_runtime import LocalRuntimeResolver
+    from extend.sub_agent.local_runtime import LocalRuntimeResolver
 
-logger = logging.getLogger("task_relay.worker.acp_rpc")
+logger = logging.getLogger("sub_agent.acp_rpc")
 
 
 @dataclass
@@ -262,11 +262,11 @@ def create_acp_rpc_app(
     sandbox_image: str | None = None,
     executor_profile: ExecutorProfile | None = None,
     local_runtime: "LocalRuntimeResolver | None" = None,
-    relay_options: RelayRuntimeOptions | None = None,
+    sub_agent_options: SubAgentRuntimeOptions | None = None,
 ) -> web.Application:
     app = web.Application()
     if backend is None:
-        from extend.task_relay.acp_backend import AcpTaskBackend
+        from extend.sub_agent.acp_backend import AcpTaskBackend
 
         backend = AcpTaskBackend(
             progress_interval_seconds=progress_interval_seconds,
@@ -278,7 +278,7 @@ def create_acp_rpc_app(
             sandbox_image=sandbox_image,
             executor_profile=executor_profile,
             local_runtime=local_runtime,
-            relay_options=relay_options,
+            sub_agent_options=sub_agent_options,
         )
     app["state"] = AcpRpcState(backend=backend)
     app.router.add_post("/rpc", _handle_rpc)
@@ -311,7 +311,7 @@ async def serve_acp_rpc(
     sandbox: str | None = None,
     sandbox_image: str | None = None,
     executor_profile: ExecutorProfile | None = None,
-    relay_options: RelayRuntimeOptions | None = None,
+    sub_agent_options: SubAgentRuntimeOptions | None = None,
 ) -> web.AppRunner:
     app = create_acp_rpc_app(
         progress_interval_seconds=progress_interval_seconds,
@@ -322,7 +322,7 @@ async def serve_acp_rpc(
         sandbox=sandbox,
         sandbox_image=sandbox_image,
         executor_profile=executor_profile,
-        relay_options=relay_options,
+        sub_agent_options=sub_agent_options,
     )
     runner = web.AppRunner(app)
     await runner.setup()
@@ -341,7 +341,7 @@ async def serve_acp_rpc(
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="XHermes ACP JSON-RPC server for Task Relay workers"
+        description="XHermes ACP JSON-RPC server for sub-agent executors"
     )
     parser.add_argument(
         "--http",
@@ -519,7 +519,7 @@ def _resolve_executor_profile(args: argparse.Namespace) -> ExecutorProfile:
     return profile
 
 
-def _resolve_relay_options(args: argparse.Namespace, *, stateless: bool) -> RelayRuntimeOptions:
+def _resolve_sub_agent_options(args: argparse.Namespace, *, stateless: bool) -> SubAgentRuntimeOptions:
     base = default_sidecar_options(stateless=stateless)
     mode = args.progress_mode or base.progress_mode
     every = (
@@ -527,7 +527,7 @@ def _resolve_relay_options(args: argparse.Namespace, *, stateless: bool) -> Rela
         if args.checkpoint_every_steps is not None
         else base.checkpoint_every_steps
     )
-    return RelayRuntimeOptions(
+    return SubAgentRuntimeOptions(
         progress_mode=mode,
         checkpoint_every_steps=every,
         report_progress_interval_s=base.report_progress_interval_s,
@@ -539,7 +539,7 @@ async def _async_main(argv: list[str] | None) -> int:
     logging.basicConfig(level=logging.INFO)
     stateless = args.stateless or bool(args.sandbox) or args.local_confined
     if args.local_confined:
-        from extend.task_relay.stateless import apply_local_confined
+        from extend.sub_agent.stateless import apply_local_confined
 
         # Before serving: config.yaml is the approval policy surface.
         added = apply_local_confined(
@@ -547,7 +547,7 @@ async def _async_main(argv: list[str] | None) -> int:
         )
         logger.info("local-confined enabled: %d deny rules added", added)
     if args.sandbox:
-        from extend.task_relay.stateless import apply_sandbox_env
+        from extend.sub_agent.stateless import apply_sandbox_env
 
         # Must run before the first agent/terminal environment is created.
         apply_sandbox_env(
@@ -585,7 +585,7 @@ async def _async_main(argv: list[str] | None) -> int:
         sandbox=args.sandbox,
         sandbox_image=args.sandbox_image,
         executor_profile=_resolve_executor_profile(args),
-        relay_options=_resolve_relay_options(args, stateless=stateless),
+        sub_agent_options=_resolve_sub_agent_options(args, stateless=stateless),
     )
     try:
         await asyncio.Event().wait()

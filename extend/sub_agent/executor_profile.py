@@ -1,4 +1,4 @@
-"""Executor-side toolset whitelist (sandbox profile) for Task Relay workers.
+"""Executor-side toolset whitelist (sandbox profile) for sub-agent executors.
 
 Security context: once the platform is open, goals dispatched by external
 tenants (planners) execute on compute nodes through the ACP sidecar. An
@@ -12,21 +12,21 @@ task-requested toolsets with the node operator's whitelist before the ACP
 session is created — this is tool *registration/filtering* enforcement
 (``AIAgent(enabled_toolsets=...)``), not prompt-level guidance.
 
-Layer 2 (:mod:`extend.task_relay.stateless`): ``BLOCKED_STATELESS_TOOLSETS``
+Layer 2 (:mod:`extend.sub_agent.stateless`): ``BLOCKED_STATELESS_TOOLSETS``
 always drops toolsets that touch the local user's state (memory / skills /
 session_search / ...), even if the operator whitelists them here.
 
 The node operator chooses the trust level: the whitelist can be widened via
 ``--executor-toolsets`` / ``--executor-allow-extra`` (or the
 ``ACP_EXECUTOR_TOOLSETS`` / ``ACP_EXECUTOR_ALLOW_EXTRA`` env vars) on
-``extend.task_relay.acp_rpc_server``. Widening to include ``terminal``,
+``extend.sub_agent.acp_rpc_server``. Widening to include ``terminal``,
 ``code_execution``, ``browser`` or ``delegation`` hands remote tenants
 corresponding capabilities — combine with ``--sandbox docker``.
 
 Announce alignment: whatever the sidecar can actually run must equal what
 the Worker announces upstream (``task-relay-worker --toolsets`` → daemon
 announce). Use :func:`ExecutorProfile.announce_toolsets` (or
-``python -m extend.task_relay.executor_profile``) to generate the exact CSV
+``python -m extend.sub_agent.executor_profile``) to generate the exact CSV
 for the worker flag, and :func:`ExecutorProfile.validate_announce` to catch
 drift. The sidecar also serves the manifest over RPC (``acp.toolsets``).
 """
@@ -38,7 +38,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Iterable, List, Mapping
 
-logger = logging.getLogger("task_relay.worker.executor_profile")
+logger = logging.getLogger("sub_agent.executor_profile")
 
 #: Toolsets granted to remote tasks by default: inference support, retrieval
 #: and file read/write only. Shell/terminal/browser/system-control classes

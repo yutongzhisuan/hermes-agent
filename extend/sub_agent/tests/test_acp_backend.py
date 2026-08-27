@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from extend.task_relay.acp_backend import AcpTaskBackend
-from extend.task_relay.constants import CANCEL_REASON_TIMEOUT
-from extend.task_relay.task_types import TaskCancelEvent, TaskRunPayload
+from extend.sub_agent.acp_backend import AcpTaskBackend
+from extend.sub_agent.constants import CANCEL_REASON_TIMEOUT
+from extend.sub_agent.task_types import TaskCancelEvent, TaskRunPayload
 
 
 class FakeAgent:

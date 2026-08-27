@@ -15,19 +15,19 @@ from typing import Any
 import pytest
 from aiohttp import ClientSession, web
 
-from extend.task_relay.acp_backend import AcpTaskBackend
-from extend.task_relay.acp_rpc_server import create_acp_rpc_app
-from extend.task_relay.local_runtime import (
+from extend.sub_agent.acp_backend import AcpTaskBackend
+from extend.sub_agent.acp_rpc_server import create_acp_rpc_app
+from extend.sub_agent.local_runtime import (
     ERROR_MODEL_UNAVAILABLE,
     LocalRuntimeResolver,
     ModelBinding,
     ModelUnavailableError,
 )
-from extend.task_relay.model_sessions import (
+from extend.sub_agent.model_sessions import (
     BoundModelSessionManager,
     BoundModelStatelessSessionManager,
 )
-from extend.task_relay.task_types import TaskRunPayload
+from extend.sub_agent.task_types import TaskRunPayload
 
 LOCAL_URL = "http://127.0.0.1:8080/v1"
 BINDING = ModelBinding(

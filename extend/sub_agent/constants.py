@@ -1,6 +1,6 @@
-"""Shared protocol constants for the Task Relay package.
+"""Shared protocol constants for the sub-agent package.
 
-Mirrors the constants defined by the swarm-network Task Relay Hub so the
+Mirrors the constants defined by the swarm-network hub so the
 ACP sidecar can attribute timeout cancels without importing the Hub code.
 """
 
@@ -12,8 +12,8 @@ from __future__ import annotations
 # reason is treated as a normal cancel and settles as ``cancelled``.
 CANCEL_REASON_TIMEOUT = "__timeout__"
 
-# Default Task Relay ACP sidecar transport (Worker dials this UDS by default).
-DEFAULT_ACP_RPC_SOCKET = "~/.xhermes/relay/acp.sock"
+# Default sub-agent ACP sidecar transport (Worker dials this UDS by default).
+DEFAULT_ACP_RPC_SOCKET = "~/.xhermes/sub_agent/acp.sock"
 
 # HTTP fallback when the sidecar is started with ``--http``.
 DEFAULT_ACP_RPC_HTTP_HOST = "127.0.0.1"

@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from extend.task_relay.acp_backend import AcpTaskBackend, _resume_goal
-from extend.task_relay.progress_policy import PROGRESS_MODE_MINIMAL, RelayRuntimeOptions
-from extend.task_relay.tests.test_acp_backend import (
+from extend.sub_agent.acp_backend import AcpTaskBackend, _resume_goal
+from extend.sub_agent.progress_policy import PROGRESS_MODE_MINIMAL, SubAgentRuntimeOptions
+from extend.sub_agent.tests.test_acp_backend import (
     FakeSessionManager,
     _run_payload,
 )
@@ -20,7 +20,7 @@ async def test_minimal_progress_hides_tool_names():
     manager = FakeSessionManager(block_until_interrupt=False)
     backend = AcpTaskBackend(
         session_manager=manager,
-        relay_options=RelayRuntimeOptions(progress_mode=PROGRESS_MODE_MINIMAL),
+        sub_agent_options=SubAgentRuntimeOptions(progress_mode=PROGRESS_MODE_MINIMAL),
     )
     progress_calls: list[str] = []
 
@@ -37,7 +37,7 @@ async def test_checkpoint_every_steps_emits():
     manager = FakeSessionManager(block_until_interrupt=False)
     backend = AcpTaskBackend(
         session_manager=manager,
-        relay_options=RelayRuntimeOptions(
+        sub_agent_options=SubAgentRuntimeOptions(
             progress_mode=PROGRESS_MODE_MINIMAL,
             checkpoint_every_steps=1,
         ),

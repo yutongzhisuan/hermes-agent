@@ -1,6 +1,6 @@
-"""Stateless ACP session management for Task Relay workers.
+"""Stateless ACP session management for sub-agent executors.
 
-A relay worker executes *remote* subtasks on a machine that may also belong
+A sub-agent worker executes *remote* subtasks on a machine that may also belong
 to a local user. The default ACP session path shares the user's data plane
 (``~/.xhermes/state.db``, global ``memories/``, ``skills/``), which lets a
 remote task read local history and mutate local memories/skills, and leaves
@@ -32,7 +32,7 @@ Call :func:`apply_sandbox_env` once before the first agent is built.
 
 Process-level isolation (running the sidecar with a dedicated
 ``XHERMES_HOME``) is still recommended on top of this module; enable the
-mode with ``python -m extend.task_relay.acp_rpc_server --stateless``
+mode with ``python -m extend.sub_agent.acp_rpc_server --stateless``
 (plus ``--sandbox docker`` for containerized execution).
 
 For **trusted internal tasks** on nodes without Docker, ``--local-confined``
@@ -54,7 +54,7 @@ from typing import Any, List
 
 from acp_adapter.session import SessionManager, _acp_stderr_print, _register_task_cwd
 
-logger = logging.getLogger("task_relay.worker.stateless")
+logger = logging.getLogger("sub_agent.stateless")
 
 #: Working directory used for sessions running inside a sandbox container.
 #: The container is per-session and disposable, so a single fixed path is
@@ -69,7 +69,7 @@ DEFAULT_SANDBOX_IMAGE = "nikolaik/python-nodejs:python3.11-nodejs20"
 #: Default ``approvals.deny`` glob preset for local-confined mode.
 #:
 #: These rules fire before every approval bypass (yolo, mode=off, the
-#: non-interactive fail-open path), so they hold for unattended relay
+#: non-interactive fail-open path), so they hold for unattended sub-agent
 #: execution. They are guardrails against accidents and obviously-destructive
 #: commands — string matching is inherently bypassable (``python -c``,
 #: encoded payloads, write-then-run), so this is NOT a security boundary.
@@ -201,7 +201,7 @@ DEFAULT_STATELESS_TOOLSETS: List[str] = [
     "todo",
 ]
 
-# Toolsets that must never be granted to a remote relay task, even when
+# Toolsets that must never be granted to a remote sub-agent task, even when
 # explicitly requested: they expose or mutate the node's local user state,
 # or make no sense without an interactive user.
 BLOCKED_STATELESS_TOOLSETS = frozenset(
@@ -289,7 +289,7 @@ class StatelessSessionManager(SessionManager):
         )
         self._owns_state_root = state_root is None
         self._state_root = (
-            Path(tempfile.mkdtemp(prefix="xhermes-relay-state-"))
+            Path(tempfile.mkdtemp(prefix="xhermes-sub-agent-state-"))
             if state_root is None
             else Path(state_root)
         )
