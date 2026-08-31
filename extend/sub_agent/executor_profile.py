@@ -144,12 +144,16 @@ class ExecutorProfile:
     def resolve(self, requested: List[str] | None) -> List[str]:
         """Intersect *requested* toolsets with the whitelist.
 
-        An empty/None request falls back to the full whitelist (the task
-        gets exactly what this node offers — nothing more). Anything outside
-        the whitelist is dropped with a warning; the result may be empty,
-        which the session layer must honor as "no tools", not "defaults".
+        ``None`` falls back to the full whitelist (the task gets exactly
+        what this node offers — nothing more): the legacy planner goal
+        path relies on this for tasks that do not request specific
+        toolsets. An **explicit empty list** ``[]`` means "no tools" and
+        resolves to an empty list — distinct from ``None`` (Responses API
+        ``tools: []`` depends on this). Anything outside the whitelist is
+        dropped with a warning; the result may be empty, which the session
+        layer must honor as "no tools", not "defaults".
         """
-        names = list(requested) if requested else list(self.allowed)
+        names = list(requested) if requested is not None else list(self.allowed)
         resolved: List[str] = []
         for name in names:
             if not name:

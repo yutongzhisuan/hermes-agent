@@ -117,8 +117,11 @@ def test_resolve_filters_denied_toolsets():
 
 def test_resolve_without_request_returns_whitelist():
     profile = ExecutorProfile()
+    # None = "unspecified" -> full whitelist (planner/goal path).
     assert profile.resolve(None) == list(DEFAULT_EXECUTOR_TOOLSETS)
-    assert profile.resolve([]) == list(DEFAULT_EXECUTOR_TOOLSETS)
+    # [] = "explicitly no tools" (Responses `tools: []`) -> empty, NOT the
+    # default whitelist. Distinct from None.
+    assert profile.resolve([]) == []
 
 
 def test_resolve_fully_denied_request_stays_empty():

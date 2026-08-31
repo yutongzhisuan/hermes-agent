@@ -187,6 +187,143 @@ async def test_cancel_reason_containing_timeout_is_not_failed():
     assert manager.sessions[0].agent.interrupted is True
 
 
+# ---------------------------------------------------------------------------
+# Responses API envelope integration (POST /v1/responses)
+# ---------------------------------------------------------------------------
+
+
+class _RecordingSessionManager:
+    """Stateless-capable fake that records the toolsets handed to it."""
+
+    def __init__(self) -> None:
+        self.recorded_toolsets: list[list[str]] = []
+        self.state = FakeSessionState(block_until_interrupt=False)
+        self.state.cancel_event = threading.Event()
+
+    def create_session(self, cwd: str = ".", **kwargs: Any) -> FakeSessionState:
+        self.recorded_toolsets.append(list(kwargs.get("toolsets") or []))
+        return self.state
+
+    def remove_session(self, session_id: str) -> None:  # pragma: no cover
+        pass
+
+
+def _responses_params(
+    *,
+    response_id="resp_test1",
+    model="qwen38-27b-fp4",
+    input="hello",
+    instructions="be brief",
+    tools=None,
+):
+    import json
+
+    from extend.sub_agent.responses_payload import PROTOCOL
+
+    envelope = {
+        "protocol": PROTOCOL,
+        "response_id": response_id,
+        "request": {
+            "model": model,
+            "input": input,
+            "instructions": instructions,
+            "tools": tools or [],
+            "max_output_tokens": 0,
+            "text": None,
+            "metadata": {},
+        },
+        "limits": {"max_result_bytes": 262144},
+    }
+    return {"responses.v1": json.dumps(envelope)}
+
+
+@pytest.mark.asyncio
+async def test_responses_envelope_completed_wraps_result_text():
+    import json as _json
+
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_test1", attempt=1, goal="ignored",
+        params=_responses_params(), context=None, toolsets=["web"],
+        timeout_seconds=60, first_progress_seconds=None,
+        trace_context=None, resume_from_checkpoint=None,
+    )
+    cancel_event = asyncio.Event()
+    on_progress = AsyncMock()
+    on_checkpoint = AsyncMock()
+
+    result = await backend.run(run, on_progress, on_checkpoint, cancel_event)
+
+    assert result.status == "completed"
+    obj = _json.loads(result.result_text)
+    assert obj["object"] == "response"
+    assert obj["id"] == "resp_test1"
+    assert isinstance(obj["created_at"], int)
+    assert obj["output"][0]["content"][0]["text"] == "all done"
+    assert obj["usage"]["input_tokens"] == 10
+    assert obj["usage"]["output_tokens"] == 20
+
+
+@pytest.mark.asyncio
+async def test_responses_empty_toolsets_means_no_tools():
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_empty", attempt=1, goal="g",
+        params=_responses_params(), context=None, toolsets=[],
+        timeout_seconds=60, first_progress_seconds=None,
+        trace_context=None, resume_from_checkpoint=None,
+    )
+    cancel_event = asyncio.Event()
+    await backend.run(run, AsyncMock(), AsyncMock(), cancel_event)
+    # tools: [] must resolve to NO tools, not the default whitelist.
+    assert manager.recorded_toolsets == [[]]
+
+
+@pytest.mark.asyncio
+async def test_goal_path_keeps_default_toolsets():
+    from extend.sub_agent.executor_profile import DEFAULT_EXECUTOR_TOOLSETS
+
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="goal-task", attempt=1, goal="do the thing",
+        params=None, context=None, toolsets=[],
+        timeout_seconds=60, first_progress_seconds=None,
+        trace_context=None, resume_from_checkpoint=None,
+    )
+    cancel_event = asyncio.Event()
+    await backend.run(run, AsyncMock(), AsyncMock(), cancel_event)
+    # No envelope + empty toolsets -> full planner whitelist (unchanged).
+    assert manager.recorded_toolsets == [list(DEFAULT_EXECUTOR_TOOLSETS)]
+
+
+@pytest.mark.asyncio
+async def test_malformed_envelope_fails_fast():
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_bad", attempt=1, goal="g",
+        params={"responses.v1": "{not json"},
+        context=None, toolsets=[], timeout_seconds=60,
+        first_progress_seconds=None, trace_context=None,
+        resume_from_checkpoint=None,
+    )
+    cancel_event = asyncio.Event()
+    result = await backend.run(run, AsyncMock(), AsyncMock(), cancel_event)
+    assert result.status == "failed"
+    assert result.error_code == "invalid_responses_payload"
+    # No session was created for a fast-failed task.
+    assert manager.recorded_toolsets == []
 @pytest.mark.asyncio
 async def test_acp_backend_completion_green_path():
     """A normal run without cancellation returns completed with usage/fields."""

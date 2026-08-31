@@ -36,6 +36,12 @@ from extend.sub_agent.progress_policy import (
     parse_sub_agent_options,
     runtime_options_from_params,
 )
+from extend.sub_agent.responses_payload import (
+    ERROR_INVALID_ENVELOPE,
+    build_response_object,
+    parse_responses_envelope,
+    serialize_response,
+)
 from extend.sub_agent.sub_agent_tools import ensure_sub_agent_tools_registered
 from extend.sub_agent.task_context import TaskRunContext, bind_task_context, reset_task_context
 from extend.sub_agent.local_runtime import (
@@ -177,7 +183,21 @@ class AcpTaskBackend(TaskBackend):
             )
         extra: dict[str, Any] = {"binding": binding} if binding is not None else {}
 
-        user_message = _resume_goal(run)
+        # Responses API envelope (POST /v1/responses): when present, the
+        # user message comes from the OpenAI ``input`` (no planner
+        # preamble) and the terminal payload becomes a Response object.
+        # toolsets stay single-sourced from run.toolsets — request.tools
+        # is echo only. A malformed envelope fails fast with the code the
+        # Hub/gateway can surface.
+        parsed = parse_responses_envelope(run.params, run.goal, run.model)
+        if parsed.present and not parsed.ok:
+            return TaskCompletePayload(
+                status="failed",
+                summary=parsed.error,
+                error=parsed.error,
+                error_code=ERROR_INVALID_ENVELOPE,
+            )
+        user_message = parsed.user_message if parsed.present else _resume_goal(run)
         workdir: str | None = None
         if self._stateless:
             # Executor profile enforcement point: the task-requested toolsets
@@ -185,7 +205,16 @@ class AcpTaskBackend(TaskBackend):
             # session is built. The resolved list is passed through even when
             # empty — an empty whitelist result means "no tools", never a
             # fall back to broader manager defaults.
-            toolsets = self._executor_profile.resolve(list(run.toolsets) or None)
+            #
+            # Responses tasks (envelope present) MUST pass the explicit list
+            # (no ``or None``): ``tools: []`` means no tools, not "defaults".
+            # The goal path keeps ``or None`` so legacy planner tasks with no
+            # requested toolsets still get the full whitelist.
+            requested = list(run.toolsets)
+            if parsed.present:
+                toolsets = self._executor_profile.resolve(requested)
+            else:
+                toolsets = self._executor_profile.resolve(requested or None)
             logger.info(
                 "task %s executor toolsets: %s (requested=%s, whitelist=%s)",
                 run.task_id,
@@ -237,6 +266,7 @@ class AcpTaskBackend(TaskBackend):
                     on_checkpoint,
                     cancel_event,
                     options=options,
+                    parsed=parsed,
                 )
             finally:
                 reset_task_context(ctx_token)
@@ -255,6 +285,7 @@ class AcpTaskBackend(TaskBackend):
         cancel_event: asyncio.Event,
         *,
         options: SubAgentRuntimeOptions,
+        parsed: Any = None,
     ) -> TaskCompletePayload:
         """Drive the agent to a terminal state for an already-created session."""
         session_id = state.session_id
@@ -413,38 +444,91 @@ class AcpTaskBackend(TaskBackend):
 
         # Timeout attribution: a Hub timeout cancel must settle as failed.
         if cancelled and reason == CANCEL_REASON_TIMEOUT:
-            return TaskCompletePayload(
-                status="failed",
-                summary="execution timeout",
-                error="execution timeout",
+            return self._wrap_responses(
+                parsed, run,
+                TaskCompletePayload(
+                    status="failed",
+                    summary="execution timeout",
+                    error="execution timeout",
+                ),
             )
 
         if cancelled:
             summary = result.get("final_response") if result else None
             if not summary:
                 summary = reason or "cancelled"
-            return TaskCompletePayload(
-                status="cancelled",
-                summary=str(summary)[:500],
-                fields=self._extract_fields(result, run),
+            return self._wrap_responses(
+                parsed, run,
+                TaskCompletePayload(
+                    status="cancelled",
+                    summary=str(summary)[:500],
+                    fields=self._extract_fields(result, run),
+                ),
             )
 
         # Completed / failed path.
         if result and result.get("failed"):
-            return TaskCompletePayload(
-                status="failed",
-                summary=result.get("final_response") or "ACP reported failure",
-                error=result.get("error"),
-                fields=self._extract_fields(result, run),
+            return self._wrap_responses(
+                parsed, run,
+                TaskCompletePayload(
+                    status="failed",
+                    summary=result.get("final_response") or "ACP reported failure",
+                    error=result.get("error"),
+                    fields=self._extract_fields(result, run),
+                ),
             )
 
-        return TaskCompletePayload(
-            status="completed",
-            summary=result.get("final_response") if result else "",
-            result_text=result.get("final_response") if result else "",
-            fields=self._extract_fields(result, run),
-            usage=self._extract_usage(result),
+        return self._wrap_responses(
+            parsed, run,
+            TaskCompletePayload(
+                status="completed",
+                summary=result.get("final_response") if result else "",
+                result_text=result.get("final_response") if result else "",
+                fields=self._extract_fields(result, run),
+                usage=self._extract_usage(result),
+            ),
         )
+
+    def _wrap_responses(
+        self, parsed: Any, run: TaskRunPayload, payload: TaskCompletePayload
+    ) -> TaskCompletePayload:
+        """Turn a terminal payload into a Responses ``object: response`` JSON.
+
+        No-op when no envelope was present (legacy goal/planner path). The
+        original payload's status, usage and error are preserved; only
+        ``result_text`` is replaced with the serialized Response object
+        (trimmed to the envelope's byte budget).
+        """
+        if parsed is None or not getattr(parsed, "present", False):
+            return payload
+        status = payload.status
+        resp_status = (
+            "completed" if status == "completed"
+            else "failed" if status == "failed"
+            else "cancelled"
+        )
+        text = payload.result_text or payload.summary or ""
+        tools = None
+        request_echo = getattr(parsed, "request_echo", None)
+        if isinstance(request_echo, dict):
+            tools = request_echo.get("tools")
+        obj = build_response_object(
+            getattr(parsed, "response_id", "") or run.task_id,
+            getattr(parsed, "model", "") or run.model or "",
+            resp_status,
+            text,
+            task_id=run.task_id,
+            instructions=getattr(parsed, "instructions", ""),
+            tools=tools,
+            usage=payload.usage if isinstance(payload.usage, dict) else None,
+            error=payload.error if status != "completed" else None,
+        )
+        payload.result_text = serialize_response(obj, getattr(parsed, "max_result_bytes", 262144))
+        # Keep a short plain-text summary for logs/metrics; the wire body
+        # is the Response JSON in result_text.
+        if not payload.summary:
+            payload.summary = text[:500]
+        return payload
 
     def _resolve_sub_agent_options(self, run: TaskRunPayload) -> SubAgentRuntimeOptions:
         """Merge sidecar defaults with per-task ``params.sub_agent_options``."""
