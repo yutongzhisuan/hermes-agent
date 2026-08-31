@@ -406,3 +406,39 @@ async def test_progress_throttling_drops_rapid_callbacks():
 
     # Both callbacks were attempted, but the second should have been throttled.
     assert delivered == 1
+
+
+@pytest.mark.asyncio
+async def test_responses_envelope_emits_atresponses_progress():
+    """P1: a responses task emits an @responses item-level progress
+    envelope (not the legacy 'step N' text), and the envelope is full
+    JSON — never sliced by the 240-char summary cap."""
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_p1", attempt=1, goal="g",
+        params=_responses_params(), context=None, toolsets=["web"],
+        timeout_seconds=60, first_progress_seconds=None,
+        trace_context=None, resume_from_checkpoint=None,
+    )
+    cancel_event = asyncio.Event()
+    progress: list[str] = []
+
+    async def _on_progress(summary: str) -> None:
+        progress.append(summary)
+
+    await backend.run(run, _on_progress, AsyncMock(), cancel_event)
+    await asyncio.sleep(0)  # drain scheduled progress frames
+
+    import json as _json
+    added = [p for p in progress if p.startswith('{"@responses":')]
+    assert added, f"expected an @responses progress envelope, got {progress}"
+    obj = _json.loads(added[0])  # must be valid JSON (not sliced)
+    assert obj["@responses"] is True
+    assert obj["type"] == "response.output_item.added"
+    assert obj["item"]["type"] == "message"
+    assert obj["item"]["status"] == "in_progress"
+    # No legacy 'step N' text for responses tasks.
+    assert not any(p.startswith("step ") for p in progress)

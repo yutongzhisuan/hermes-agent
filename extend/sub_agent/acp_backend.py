@@ -19,11 +19,13 @@ M1 scope: no L2 resume; cancelled tasks are settled immediately.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import shutil
 import tempfile
 import threading
 import time
+import uuid
 from typing import Any
 
 from extend.sub_agent.constants import CANCEL_REASON_TIMEOUT
@@ -340,8 +342,72 @@ class AcpTaskBackend(TaskBackend):
                     session_id,
                 )
 
+        # P1 item-level event state for Responses API tasks. The agent loop
+        # has no token stream (F7), so events are coarse milestone markers:
+        # emit `response.output_item.added` (message in_progress) once so the
+        # client sees work started; the gateway synthesizes
+        # response.created/in_progress/completed around it.
+        responses_seq = 0
+        responses_msg_id = f"msg_{uuid.uuid4().hex}"
+        responses_item_added = False
+
+        def _maybe_emit_responses_event(api_call_count: int) -> None:
+            nonlocal responses_seq, responses_item_added, last_progress_at
+            if not getattr(parsed, "present", False):
+                return
+            with progress_lock:
+                now = time.time()
+                if now - last_progress_at < self._progress_interval_seconds:
+                    return
+                last_progress_at = now
+            if responses_item_added:
+                # Without token deltas there is nothing new to say about the
+                # in-progress message; stay quiet rather than spam the SDK.
+                return
+            responses_seq += 1
+            responses_item_added = True
+            envelope = {
+                "@responses": True,
+                "sequence_number": responses_seq,
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": {
+                    "id": responses_msg_id,
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "in_progress",
+                    "content": [],
+                },
+            }
+            raw = json.dumps(envelope, ensure_ascii=False, separators=(",", ":"))
+            # Bypass the legacy 240-char summary cap (which would slice
+            # mid-JSON). Cap at 8KiB and drop the WHOLE frame if exceeded —
+            # never emit a half object.
+            if len(raw.encode("utf-8")) > 8192:
+                logger.warning(
+                    "responses progress envelope dropped (>%d bytes) for task %s",
+                    8192, run.task_id,
+                )
+                return
+            try:
+                fut = asyncio.run_coroutine_threadsafe(on_progress(raw), loop)
+            except RuntimeError:
+                logger.warning(
+                    "responses progress frame dropped: event loop closed for %s",
+                    run.task_id,
+                )
+            else:
+                fut.add_done_callback(lambda f: f.exception() if f.done() else None)
+
         def _step_callback(api_call_count: int, prev_tools: Any = None) -> None:
             nonlocal last_progress_at
+            if getattr(parsed, "present", False):
+                # Responses API (P1): emit item-level @responses envelopes
+                # instead of the legacy "step N" text, bypassing the 240-char
+                # summary cap (which would corrupt the JSON). See design §6.4.
+                _maybe_emit_responses_event(api_call_count)
+                _maybe_emit_step_checkpoint(api_call_count)
+                return
             summary = _format_progress(api_call_count, prev_tools)
             _maybe_emit_step_checkpoint(api_call_count)
             if not summary:
