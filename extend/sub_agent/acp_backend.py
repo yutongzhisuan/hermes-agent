@@ -43,9 +43,15 @@ from extend.sub_agent.responses_payload import (
     build_response_object,
     parse_responses_envelope,
     serialize_response,
+    split_replay_messages,
+    turn_output_items,
 )
 from extend.sub_agent.sub_agent_tools import ensure_sub_agent_tools_registered
-from extend.sub_agent.task_context import TaskRunContext, bind_task_context, reset_task_context
+from extend.sub_agent.task_context import (
+    TaskRunContext,
+    bind_task_context,
+    reset_task_context,
+)
 from extend.sub_agent.local_runtime import (
     ERROR_MODEL_UNAVAILABLE,
     LocalRuntimeResolver,
@@ -169,7 +175,9 @@ class AcpTaskBackend(TaskBackend):
         binding = await self._resolve_model_binding(run)
         if isinstance(binding, TaskCompletePayload):
             return binding
-        if binding is not None and not getattr(manager, "supports_model_binding", False):
+        if binding is not None and not getattr(
+            manager, "supports_model_binding", False
+        ):
             # Honoring the binding is mandatory: running the task on the
             # default model would silently violate the dispatch contract.
             msg = (
@@ -200,6 +208,17 @@ class AcpTaskBackend(TaskBackend):
                 error_code=ERROR_INVALID_ENVELOPE,
             )
         user_message = parsed.user_message if parsed.present else _resume_goal(run)
+        # v4 structured replay (DeepSeek-style): when the input items form a
+        # transcript that ends with a user message, replay the earlier turns
+        # as conversation history instead of flattening everything into one
+        # user-message text. A transcript that does not end with a user
+        # message (e.g. ends with a tool result) keeps the flatten path.
+        replay_history: list[dict] | None = None
+        if parsed.present and parsed.messages:
+            history, structured_user = split_replay_messages(parsed.messages)
+            if structured_user:
+                user_message = structured_user
+                replay_history = history
         workdir: str | None = None
         if self._stateless:
             # Executor profile enforcement point: the task-requested toolsets
@@ -236,7 +255,9 @@ class AcpTaskBackend(TaskBackend):
             # disposable container replaces the host-side temp workdir.
             from extend.sub_agent.stateless import SANDBOX_CONTAINER_CWD
 
-            state = manager.create_session(cwd=SANDBOX_CONTAINER_CWD, toolsets=toolsets, **extra)
+            state = manager.create_session(
+                cwd=SANDBOX_CONTAINER_CWD, toolsets=toolsets, **extra
+            )
         elif self._stateless:
             workdir = tempfile.mkdtemp(
                 prefix=f"sub-agent-{run.task_id}-", dir=self._workdir_root
@@ -269,6 +290,7 @@ class AcpTaskBackend(TaskBackend):
                     cancel_event,
                     options=options,
                     parsed=parsed,
+                    replay_history=replay_history,
                 )
             finally:
                 reset_task_context(ctx_token)
@@ -288,6 +310,7 @@ class AcpTaskBackend(TaskBackend):
         *,
         options: SubAgentRuntimeOptions,
         parsed: Any = None,
+        replay_history: list[dict] | None = None,
     ) -> TaskCompletePayload:
         """Drive the agent to a terminal state for an already-created session."""
         session_id = state.session_id
@@ -386,7 +409,8 @@ class AcpTaskBackend(TaskBackend):
             if len(raw.encode("utf-8")) > 8192:
                 logger.warning(
                     "responses progress envelope dropped (>%d bytes) for task %s",
-                    8192, run.task_id,
+                    8192,
+                    run.task_id,
                 )
                 return
             try:
@@ -432,16 +456,22 @@ class AcpTaskBackend(TaskBackend):
                     try:
                         f.result()
                     except Exception:
-                        logger.exception("progress frame failed for session %s", session_id)
+                        logger.exception(
+                            "progress frame failed for session %s", session_id
+                        )
 
                 fut.add_done_callback(_log_progress_failure)
 
         agent.step_callback = _step_callback
 
         def _run_agent() -> dict[str, Any]:
+            # Structured replay (v4): the client-replayed transcript becomes
+            # the conversation history; otherwise the session's own history
+            # (empty for stateless sessions) is used as before.
+            history = replay_history if replay_history is not None else state.history
             return agent.run_conversation(
                 user_message=user_message,
-                conversation_history=state.history,
+                conversation_history=history,
                 task_id=session_id,
                 persist_user_message=user_message,
             )
@@ -458,7 +488,9 @@ class AcpTaskBackend(TaskBackend):
                 if hasattr(agent, "interrupt"):
                     agent.interrupt()
             except Exception:
-                logger.debug("ACP cancel failed for session %s", session_id, exc_info=True)
+                logger.debug(
+                    "ACP cancel failed for session %s", session_id, exc_info=True
+                )
 
         watch_task = asyncio.create_task(_watch_cancel())
         result: dict[str, Any] | None = None
@@ -511,7 +543,8 @@ class AcpTaskBackend(TaskBackend):
         # Timeout attribution: a Hub timeout cancel must settle as failed.
         if cancelled and reason == CANCEL_REASON_TIMEOUT:
             return self._wrap_responses(
-                parsed, run,
+                parsed,
+                run,
                 TaskCompletePayload(
                     status="failed",
                     summary="execution timeout",
@@ -524,28 +557,33 @@ class AcpTaskBackend(TaskBackend):
             if not summary:
                 summary = reason or "cancelled"
             return self._wrap_responses(
-                parsed, run,
+                parsed,
+                run,
                 TaskCompletePayload(
                     status="cancelled",
                     summary=str(summary)[:500],
                     fields=self._extract_fields(result, run),
                 ),
+                items=self._turn_items(result),
             )
 
         # Completed / failed path.
         if result and result.get("failed"):
             return self._wrap_responses(
-                parsed, run,
+                parsed,
+                run,
                 TaskCompletePayload(
                     status="failed",
                     summary=result.get("final_response") or "ACP reported failure",
                     error=result.get("error"),
                     fields=self._extract_fields(result, run),
                 ),
+                items=self._turn_items(result),
             )
 
         return self._wrap_responses(
-            parsed, run,
+            parsed,
+            run,
             TaskCompletePayload(
                 status="completed",
                 summary=result.get("final_response") if result else "",
@@ -553,10 +591,30 @@ class AcpTaskBackend(TaskBackend):
                 fields=self._extract_fields(result, run),
                 usage=self._extract_usage(result),
             ),
+            items=self._turn_items(result),
         )
 
+    @staticmethod
+    def _turn_items(result: Any) -> list[dict] | None:
+        """Derive this turn's replayable output items from the run result.
+
+        Returns None when the result has no conversation messages, so the
+        caller keeps the single fallback message item.
+        """
+        if not isinstance(result, dict):
+            return None
+        messages = result.get("messages")
+        if not isinstance(messages, list) or not messages:
+            return None
+        items = turn_output_items(messages)
+        return items or None
+
     def _wrap_responses(
-        self, parsed: Any, run: TaskRunPayload, payload: TaskCompletePayload
+        self,
+        parsed: Any,
+        run: TaskRunPayload,
+        payload: TaskCompletePayload,
+        items: list[dict] | None = None,
     ) -> TaskCompletePayload:
         """Turn a terminal payload into a Responses ``object: response`` JSON.
 
@@ -569,8 +627,10 @@ class AcpTaskBackend(TaskBackend):
             return payload
         status = payload.status
         resp_status = (
-            "completed" if status == "completed"
-            else "failed" if status == "failed"
+            "completed"
+            if status == "completed"
+            else "failed"
+            if status == "failed"
             else "cancelled"
         )
         text = payload.result_text or payload.summary or ""
@@ -588,8 +648,11 @@ class AcpTaskBackend(TaskBackend):
             tools=tools,
             usage=payload.usage if isinstance(payload.usage, dict) else None,
             error=payload.error if status != "completed" else None,
+            items=items,
         )
-        payload.result_text = serialize_response(obj, getattr(parsed, "max_result_bytes", 262144))
+        payload.result_text = serialize_response(
+            obj, getattr(parsed, "max_result_bytes", 262144)
+        )
         # Keep a short plain-text summary for logs/metrics; the wire body
         # is the Response JSON in result_text.
         if not payload.summary:
@@ -598,22 +661,22 @@ class AcpTaskBackend(TaskBackend):
 
     def _resolve_sub_agent_options(self, run: TaskRunPayload) -> SubAgentRuntimeOptions:
         """Merge sidecar defaults with per-task ``params.sub_agent_options``."""
-        base = self._sub_agent_options or default_sidecar_options(stateless=self._stateless)
+        base = self._sub_agent_options or default_sidecar_options(
+            stateless=self._stateless
+        )
         params = run.params if isinstance(run.params, dict) else {}
         raw = runtime_options_from_params(params)
         if raw is None:
             return base.normalized()
-        return parse_sub_agent_options(
-            {
-                "progress_mode": raw.get("progress_mode", base.progress_mode),
-                "checkpoint_every_steps": raw.get(
-                    "checkpoint_every_steps", base.checkpoint_every_steps
-                ),
-                "report_progress_interval_s": raw.get(
-                    "report_progress_interval_s", base.report_progress_interval_s
-                ),
-            }
-        )
+        return parse_sub_agent_options({
+            "progress_mode": raw.get("progress_mode", base.progress_mode),
+            "checkpoint_every_steps": raw.get(
+                "checkpoint_every_steps", base.checkpoint_every_steps
+            ),
+            "report_progress_interval_s": raw.get(
+                "report_progress_interval_s", base.report_progress_interval_s
+            ),
+        })
 
     async def _resolve_model_binding(
         self, run: TaskRunPayload
@@ -666,7 +729,9 @@ class AcpTaskBackend(TaskBackend):
             try:
                 remove(session_id)
             except Exception:
-                logger.debug("Failed to discard ACP session %s", session_id, exc_info=True)
+                logger.debug(
+                    "Failed to discard ACP session %s", session_id, exc_info=True
+                )
         if workdir:
             shutil.rmtree(workdir, ignore_errors=True)
 

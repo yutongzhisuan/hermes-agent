@@ -122,7 +122,9 @@ def test_envelope_missing_request_field_is_invalid():
 
 def test_max_result_bytes_clamped_to_outer_cap():
     env = _envelope(max_result_bytes=999999)
-    parsed = rp.parse_responses_envelope(_params(env), "goal", "m", max_result_bytes=1024)
+    parsed = rp.parse_responses_envelope(
+        _params(env), "goal", "m", max_result_bytes=1024
+    )
     assert parsed.max_result_bytes == 1024
 
 
@@ -183,7 +185,10 @@ def test_serialize_response_unicode_bytes_counted_correctly():
 
 def test_usage_mapping_prompt_completion_to_input_output():
     obj = rp.build_response_object(
-        "resp_1", "m", "completed", "ok",
+        "resp_1",
+        "m",
+        "completed",
+        "ok",
         usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     )
     u = obj["usage"]
@@ -200,3 +205,292 @@ def test_envelope_tools_not_used_for_toolsets():
     assert not hasattr(parsed, "toolsets")
     # request_echo still carries tools for Response echo if needed
     assert parsed.request_echo.get("tools") == [{"type": "web_search"}]
+
+
+# ---------------------------------------------------------------------------
+# Structured replay (v4: input items -> messages, DeepSeek-style plaintext)
+# ---------------------------------------------------------------------------
+
+
+def test_messages_string_input_with_instructions():
+    env = _envelope(input="what is 2+2", instructions="be brief")
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [
+        {"role": "system", "content": "be brief"},
+        {"role": "user", "content": "what is 2+2"},
+    ]
+
+
+def test_messages_string_input_without_instructions():
+    env = _envelope(input="hello", instructions="")
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [{"role": "user", "content": "hello"}]
+
+
+def test_messages_multi_role_preserved_not_transcript():
+    env = _envelope(
+        input=[
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "a"},
+        ]
+    )
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+    ]
+
+
+def test_messages_developer_role_maps_to_system():
+    env = _envelope(input=[{"role": "developer", "content": "dev rules"}])
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [{"role": "system", "content": "dev rules"}]
+
+
+def test_messages_content_parts_joined():
+    env = _envelope(
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "part1"},
+                    {"type": "input_text", "text": "part2"},
+                ],
+            }
+        ]
+    )
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [{"role": "user", "content": "part1\npart2"}]
+
+
+def test_messages_reasoning_merges_into_adjacent_assistant():
+    env = _envelope(
+        input=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "a"},
+            {
+                "type": "reasoning",
+                "content": [{"type": "reasoning_text", "text": "thinking..."}],
+            },
+        ]
+    )
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a\nthinking..."},
+    ]
+
+
+def test_messages_reasoning_without_adjacent_assistant_dropped():
+    env = _envelope(
+        input=[
+            {"type": "reasoning", "content": [{"type": "reasoning_text", "text": "x"}]},
+            {"role": "user", "content": "q"},
+        ]
+    )
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [{"role": "user", "content": "q"}]
+
+
+def test_messages_function_call_becomes_assistant_tool_calls():
+    env = _envelope(
+        input=[
+            {"role": "user", "content": "q"},
+            {
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "get_weather",
+                "arguments": '{"city": "SH"}',
+            },
+        ]
+    )
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages == [
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "get_weather", "arguments": '{"city": "SH"}'},
+                }
+            ],
+        },
+    ]
+
+
+def test_messages_function_call_output_becomes_tool_result():
+    env = _envelope(
+        input=[
+            {"role": "user", "content": "q"},
+            {
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "get_weather",
+                "arguments": "{}",
+            },
+            {"type": "function_call_output", "call_id": "call_1", "output": "sunny"},
+        ]
+    )
+    parsed = rp.parse_responses_envelope(_params(env), "goal", "m")
+    assert parsed.messages[-1] == {
+        "role": "tool",
+        "tool_call_id": "call_1",
+        "content": "sunny",
+    }
+
+
+def test_messages_missing_envelope_empty():
+    parsed = rp.parse_responses_envelope({"other": "1"}, "goal", "m")
+    assert parsed.messages == []
+
+
+def test_split_replay_messages_trailing_user():
+    history, user = rp.split_replay_messages([
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+        {"role": "user", "content": "q2"},
+    ])
+    assert user == "q2"
+    assert history == [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+    ]
+
+
+def test_split_replay_messages_no_trailing_user():
+    messages = [
+        {"role": "user", "content": "q"},
+        {"role": "tool", "tool_call_id": "c", "content": "r"},
+    ]
+    history, user = rp.split_replay_messages(messages)
+    assert user == ""
+    assert history == messages
+
+
+# ---------------------------------------------------------------------------
+# Turn output items (v4: replayable context items in Response.output)
+# ---------------------------------------------------------------------------
+
+
+def test_turn_output_items_slices_after_last_user():
+    messages = [
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+        {"role": "user", "content": "q2"},
+        {"role": "assistant", "content": "a2"},
+    ]
+    items = rp.turn_output_items(messages)
+    assert [i["type"] for i in items] == ["message"]
+    assert items[0]["content"][0]["text"] == "a2"
+
+
+def test_turn_output_items_tool_round_trip():
+    messages = [
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "web", "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "result"},
+        {"role": "assistant", "content": "final"},
+    ]
+    items = rp.turn_output_items(messages)
+    assert [i["type"] for i in items] == [
+        "function_call",
+        "function_call_output",
+        "message",
+    ]
+    fc = items[0]
+    assert fc["call_id"] == "call_1"
+    assert fc["name"] == "web"
+    assert fc["id"].startswith("fc_")
+    out = items[1]
+    assert out["call_id"] == "call_1"
+    assert out["output"] == "result"
+    assert items[2]["content"][0]["text"] == "final"
+
+
+def test_turn_output_items_reasoning_plaintext_first():
+    messages = [
+        {"role": "user", "content": "q"},
+        {
+            "role": "assistant",
+            "content": "answer",
+            "reasoning_content": "thinking about it",
+        },
+    ]
+    items = rp.turn_output_items(messages)
+    assert [i["type"] for i in items] == ["reasoning", "message"]
+    assert items[0]["id"].startswith("rs_")
+    assert items[0]["content"][0]["text"] == "thinking about it"
+
+
+def test_turn_output_items_empty():
+    assert rp.turn_output_items([]) == []
+
+
+def test_turn_output_items_no_user_uses_all():
+    messages = [
+        {"role": "assistant", "content": "a"},
+    ]
+    items = rp.turn_output_items(messages)
+    assert [i["type"] for i in items] == ["message"]
+
+
+def test_build_response_object_with_items_no_duplicate_message():
+    items = [
+        {
+            "id": "fc_1",
+            "type": "function_call",
+            "call_id": "c1",
+            "name": "web",
+            "arguments": "{}",
+        },
+        {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": "final",
+                    "annotations": [],
+                    "logprobs": [],
+                }
+            ],
+        },
+    ]
+    obj = rp.build_response_object("resp_1", "m", "completed", "final", items=items)
+    assert obj["output"] == items
+    assert len([i for i in obj["output"] if i["type"] == "message"]) == 1
+
+
+def test_build_response_object_items_without_message_appends_fallback():
+    items = [
+        {
+            "id": "fc_1",
+            "type": "function_call",
+            "call_id": "c1",
+            "name": "web",
+            "arguments": "{}",
+        },
+    ]
+    obj = rp.build_response_object("resp_1", "m", "completed", "final", items=items)
+    assert obj["output"][0]["type"] == "function_call"
+    assert obj["output"][-1]["type"] == "message"
+    assert obj["output"][-1]["content"][0]["text"] == "final"

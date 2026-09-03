@@ -28,6 +28,7 @@ class FakeAgent:
         self.interrupted = False
         self.run_count = 0
         self.step_callback: Any = None
+        self.result_messages: list[dict[str, Any]] = []
 
     def interrupt(self) -> None:
         self.interrupted = True
@@ -35,6 +36,7 @@ class FakeAgent:
 
     def run_conversation(self, **kwargs: Any) -> dict[str, Any]:
         self.run_count += 1
+        self.last_kwargs = kwargs
 
         # Fire a synthetic step callback so progress throttling is exercised.
         if self.step_callback is not None:
@@ -56,7 +58,7 @@ class FakeAgent:
 
         return {
             "final_response": "all done",
-            "messages": [],
+            "messages": self.result_messages,
             "api_calls": 1,
             "session_id": "fake-xhermes-session",
             "prompt_tokens": 10,
@@ -246,10 +248,16 @@ async def test_responses_envelope_completed_wraps_result_text():
         session_manager=manager, progress_interval_seconds=0.0, stateless=True
     )
     run = TaskRunPayload(
-        task_id="resp_test1", attempt=1, goal="ignored",
-        params=_responses_params(), context=None, toolsets=["web"],
-        timeout_seconds=60, first_progress_seconds=None,
-        trace_context=None, resume_from_checkpoint=None,
+        task_id="resp_test1",
+        attempt=1,
+        goal="ignored",
+        params=_responses_params(),
+        context=None,
+        toolsets=["web"],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
     )
     cancel_event = asyncio.Event()
     on_progress = AsyncMock()
@@ -268,16 +276,145 @@ async def test_responses_envelope_completed_wraps_result_text():
 
 
 @pytest.mark.asyncio
+async def test_responses_structured_replay_passes_history():
+    """v4: input items replay as structured conversation history."""
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_hist",
+        attempt=1,
+        goal="g",
+        params=_responses_params(
+            input=[
+                {"role": "user", "content": "q1"},
+                {"role": "assistant", "content": "a1"},
+                {"role": "user", "content": "q2"},
+            ]
+        ),
+        context=None,
+        toolsets=[],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
+    )
+    await backend.run(run, AsyncMock(), AsyncMock(), asyncio.Event())
+    kwargs = manager.state.agent.last_kwargs
+    assert kwargs["user_message"] == "q2"
+    # instructions become the leading system message (DeepSeek semantics)
+    assert kwargs["conversation_history"] == [
+        {"role": "system", "content": "be brief"},
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_responses_no_trailing_user_falls_back_to_flatten():
+    """A transcript not ending with a user message keeps the flatten path."""
+    manager = _RecordingSessionManager()
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_flat",
+        attempt=1,
+        goal="g",
+        params=_responses_params(
+            instructions="",
+            input=[
+                {"role": "user", "content": "q"},
+                {
+                    "type": "function_call",
+                    "call_id": "c1",
+                    "name": "f",
+                    "arguments": "{}",
+                },
+                {"type": "function_call_output", "call_id": "c1", "output": "r"},
+            ],
+        ),
+        context=None,
+        toolsets=[],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
+    )
+    await backend.run(run, AsyncMock(), AsyncMock(), asyncio.Event())
+    kwargs = manager.state.agent.last_kwargs
+    # flatten path: user_message is the transcript text, history is the
+    # session's own (empty for stateless).
+    assert kwargs["user_message"]
+    assert kwargs["conversation_history"] == []
+
+
+@pytest.mark.asyncio
+async def test_responses_output_carries_replayable_items():
+    """v4: terminal Response output carries this turn's replayable items
+    (function_call / function_call_output / message), not just a single
+    message."""
+    import json as _json
+
+    manager = _RecordingSessionManager()
+    manager.state.agent.result_messages = [
+        {"role": "user", "content": "hello"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "web", "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "search result"},
+        {"role": "assistant", "content": "all done"},
+    ]
+    backend = AcpTaskBackend(
+        session_manager=manager, progress_interval_seconds=0.0, stateless=True
+    )
+    run = TaskRunPayload(
+        task_id="resp_items",
+        attempt=1,
+        goal="g",
+        params=_responses_params(),
+        context=None,
+        toolsets=["web"],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
+    )
+    result = await backend.run(run, AsyncMock(), AsyncMock(), asyncio.Event())
+    obj = _json.loads(result.result_text)
+    types = [i["type"] for i in obj["output"]]
+    assert types == ["function_call", "function_call_output", "message"]
+    assert obj["output"][0]["call_id"] == "call_1"
+    assert obj["output"][1]["output"] == "search result"
+    assert obj["output"][2]["content"][0]["text"] == "all done"
+
+
+@pytest.mark.asyncio
 async def test_responses_empty_toolsets_means_no_tools():
     manager = _RecordingSessionManager()
     backend = AcpTaskBackend(
         session_manager=manager, progress_interval_seconds=0.0, stateless=True
     )
     run = TaskRunPayload(
-        task_id="resp_empty", attempt=1, goal="g",
-        params=_responses_params(), context=None, toolsets=[],
-        timeout_seconds=60, first_progress_seconds=None,
-        trace_context=None, resume_from_checkpoint=None,
+        task_id="resp_empty",
+        attempt=1,
+        goal="g",
+        params=_responses_params(),
+        context=None,
+        toolsets=[],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
     )
     cancel_event = asyncio.Event()
     await backend.run(run, AsyncMock(), AsyncMock(), cancel_event)
@@ -294,10 +431,16 @@ async def test_goal_path_keeps_default_toolsets():
         session_manager=manager, progress_interval_seconds=0.0, stateless=True
     )
     run = TaskRunPayload(
-        task_id="goal-task", attempt=1, goal="do the thing",
-        params=None, context=None, toolsets=[],
-        timeout_seconds=60, first_progress_seconds=None,
-        trace_context=None, resume_from_checkpoint=None,
+        task_id="goal-task",
+        attempt=1,
+        goal="do the thing",
+        params=None,
+        context=None,
+        toolsets=[],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
     )
     cancel_event = asyncio.Event()
     await backend.run(run, AsyncMock(), AsyncMock(), cancel_event)
@@ -312,10 +455,15 @@ async def test_malformed_envelope_fails_fast():
         session_manager=manager, progress_interval_seconds=0.0, stateless=True
     )
     run = TaskRunPayload(
-        task_id="resp_bad", attempt=1, goal="g",
+        task_id="resp_bad",
+        attempt=1,
+        goal="g",
         params={"responses.v1": "{not json"},
-        context=None, toolsets=[], timeout_seconds=60,
-        first_progress_seconds=None, trace_context=None,
+        context=None,
+        toolsets=[],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
         resume_from_checkpoint=None,
     )
     cancel_event = asyncio.Event()
@@ -324,6 +472,8 @@ async def test_malformed_envelope_fails_fast():
     assert result.error_code == "invalid_responses_payload"
     # No session was created for a fast-failed task.
     assert manager.recorded_toolsets == []
+
+
 @pytest.mark.asyncio
 async def test_acp_backend_completion_green_path():
     """A normal run without cancellation returns completed with usage/fields."""
@@ -418,10 +568,16 @@ async def test_responses_envelope_emits_atresponses_progress():
         session_manager=manager, progress_interval_seconds=0.0, stateless=True
     )
     run = TaskRunPayload(
-        task_id="resp_p1", attempt=1, goal="g",
-        params=_responses_params(), context=None, toolsets=["web"],
-        timeout_seconds=60, first_progress_seconds=None,
-        trace_context=None, resume_from_checkpoint=None,
+        task_id="resp_p1",
+        attempt=1,
+        goal="g",
+        params=_responses_params(),
+        context=None,
+        toolsets=["web"],
+        timeout_seconds=60,
+        first_progress_seconds=None,
+        trace_context=None,
+        resume_from_checkpoint=None,
     )
     cancel_event = asyncio.Event()
     progress: list[str] = []
@@ -433,6 +589,7 @@ async def test_responses_envelope_emits_atresponses_progress():
     await asyncio.sleep(0)  # drain scheduled progress frames
 
     import json as _json
+
     added = [p for p in progress if p.startswith('{"@responses":')]
     assert added, f"expected an @responses progress envelope, got {progress}"
     obj = _json.loads(added[0])  # must be valid JSON (not sliced)

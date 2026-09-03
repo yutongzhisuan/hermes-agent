@@ -50,6 +50,7 @@ class ParsedResponsesRequest:
     model: str = ""
     instructions: str = ""
     user_message: str = ""
+    messages: list[dict] = field(default_factory=list)
     max_result_bytes: int = DEFAULT_MAX_RESULT_BYTES
     request_echo: dict = field(default_factory=dict)
     error: str | None = None
@@ -101,6 +102,7 @@ def parse_responses_envelope(
     req_model = str(request.get("model") or "").strip()
     instructions = _normalize_instructions(request.get("instructions"))
     user_message = _normalize_user_message(request.get("input"), instructions, goal)
+    messages = _normalize_items_to_messages(request.get("input"), instructions)
 
     limits = env.get("limits") or {}
     if not isinstance(limits, dict):
@@ -117,6 +119,7 @@ def parse_responses_envelope(
         model=echo_model,
         instructions=instructions,
         user_message=user_message,
+        messages=messages,
         max_result_bytes=max(1, cap),
         request_echo=request,
     )
@@ -134,14 +137,17 @@ def build_response_object(
     usage: dict | None = None,
     error: str | None = None,
     created_at: int | None = None,
+    items: list | None = None,
 ) -> dict:
     """Build an OpenAI Responses ``object: "response"`` dict.
 
     ``status`` is one of ``completed`` / ``failed`` / ``cancelled`` /
-    ``incomplete``. The output always carries at least one assistant
-    message item whose ``output_text`` is ``output_text`` (or ``error``
-    when the task failed without producing text), so the shape stays
-    SDK-parseable across terminal states.
+    ``incomplete``. ``items`` carries the replayable context items
+    (reasoning / function_call / function_call_output / message) produced
+    this turn — DeepSeek-style plaintext replay, no encryption. When
+    ``items`` is empty/absent, or when it contains no message item, a
+    fallback assistant message carrying ``output_text`` (or ``error``)
+    keeps the shape SDK-parseable across terminal states.
     """
     if created_at is None:
         created_at = int(time.time())
@@ -154,22 +160,27 @@ def build_response_object(
         text = status
 
     message_id = _new_id("msg")
-    output = [
-        {
-            "id": message_id,
-            "type": "message",
-            "role": "assistant",
-            "status": status,
-            "content": [
-                {
-                    "type": "output_text",
-                    "text": text,
-                    "annotations": [],
-                    "logprobs": [],
-                }
-            ],
-        }
-    ]
+    fallback_message = {
+        "id": message_id,
+        "type": "message",
+        "role": "assistant",
+        "status": status,
+        "content": [
+            {
+                "type": "output_text",
+                "text": text,
+                "annotations": [],
+                "logprobs": [],
+            }
+        ],
+    }
+
+    if items:
+        output = list(items)
+        if not any(i.get("type") == "message" for i in output if isinstance(i, dict)):
+            output.append(fallback_message)
+    else:
+        output = [fallback_message]
 
     return {
         "id": rid,
@@ -351,6 +362,197 @@ def _content_text(content: Any) -> str:
     return "\n".join(p for p in parts if p)
 
 
+def split_replay_messages(messages: list[dict]) -> tuple[list[dict], str]:
+    """Split structured replay messages into (history, final user message).
+
+    DeepSeek-style stateless replay: the client sends the full transcript
+    as input items on every request. The trailing user message drives the
+    new agent turn; everything before it becomes conversation history.
+    When the transcript does not end with a user message (e.g. it ends
+    with a tool result), the caller falls back to the flattened
+    ``user_message`` text path and history is the full list.
+    """
+    if messages and messages[-1].get("role") == "user":
+        content = messages[-1].get("content")
+        user = content if isinstance(content, str) else _content_text(content)
+        return list(messages[:-1]), user
+    return list(messages), ""
+
+
+def turn_output_items(messages: list[dict]) -> list[dict]:
+    """Convert this turn's new chat messages to replayable output items.
+
+    The conversation ``messages`` include the replayed history plus the
+    new turn; only the messages after the last user message belong to
+    this turn. Conversion (DeepSeek-style plaintext, no encryption):
+
+    - assistant ``reasoning_content`` → a ``reasoning`` item (plaintext)
+    - assistant ``tool_calls`` → ``function_call`` items
+    - assistant text → a ``message`` item (``output_text``)
+    - ``tool`` messages → ``function_call_output`` items
+
+    Order follows the message sequence, i.e. chronological generation
+    order, so the client can append the items to its next request's
+    ``input`` verbatim.
+    """
+    new_messages = list(messages)
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], dict) and messages[i].get("role") == "user":
+            new_messages = list(messages[i + 1 :])
+            break
+
+    items: list[dict] = []
+    for msg in new_messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+
+        if role == "assistant":
+            reasoning = msg.get("reasoning_content")
+            if isinstance(reasoning, str) and reasoning.strip():
+                items.append({
+                    "id": _new_id("rs"),
+                    "type": "reasoning",
+                    "content": [{"type": "reasoning_text", "text": reasoning}],
+                })
+            tool_calls = msg.get("tool_calls") or []
+            if isinstance(tool_calls, list):
+                for tc in tool_calls:
+                    if not isinstance(tc, dict):
+                        continue
+                    fn = tc.get("function") or {}
+                    items.append({
+                        "id": _new_id("fc"),
+                        "type": "function_call",
+                        "call_id": str(tc.get("id") or ""),
+                        "name": str(fn.get("name") or ""),
+                        "arguments": str(fn.get("arguments") or ""),
+                    })
+            text = _content_text(msg.get("content"))
+            if text.strip():
+                items.append({
+                    "id": _new_id("msg"),
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": text,
+                            "annotations": [],
+                            "logprobs": [],
+                        }
+                    ],
+                })
+            continue
+
+        if role == "tool":
+            items.append({
+                "id": _new_id("fc"),
+                "type": "function_call_output",
+                "call_id": str(msg.get("tool_call_id") or ""),
+                "output": _content_text(msg.get("content")),
+            })
+
+    return items
+
+
+def _normalize_items_to_messages(raw_input: Any, instructions: str) -> list[dict]:
+    """Normalize OpenAI input items to a chat-style message list.
+
+    DeepSeek-style semantics (see survey doc §6.1):
+    - ``instructions`` becomes the first system message.
+    - ``message`` items keep their role (``developer`` maps to system);
+      content parts (``input_text``/``output_text``/plain strings) join
+      with newlines.
+    - ``reasoning`` items: plaintext ``content`` merges into the adjacent
+      (preceding) assistant message; ``summary``/``encrypted_content``
+      unsupported, and a reasoning item with no preceding assistant
+      message is dropped.
+    - ``function_call`` items become an assistant message with
+      ``tool_calls``; ``function_call_output`` items become tool result
+      messages.
+    """
+    messages: list[dict] = []
+    if instructions:
+        messages.append({"role": "system", "content": instructions})
+
+    if isinstance(raw_input, str):
+        if raw_input:
+            messages.append({"role": "user", "content": raw_input})
+        return messages
+    if not isinstance(raw_input, list):
+        return messages
+
+    for item in raw_input:
+        if not isinstance(item, dict):
+            continue
+        itype = item.get("type")
+
+        if itype == "function_call":
+            call_id = str(item.get("call_id") or item.get("id") or "")
+            messages.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": str(item.get("name") or ""),
+                            "arguments": str(item.get("arguments") or ""),
+                        },
+                    }
+                ],
+            })
+            continue
+
+        if itype == "function_call_output":
+            messages.append({
+                "role": "tool",
+                "tool_call_id": str(item.get("call_id") or ""),
+                "content": _content_text(item.get("output")),
+            })
+            continue
+
+        if itype == "reasoning":
+            text = _reasoning_content_text(item.get("content"))
+            if text and messages and messages[-1].get("role") == "assistant":
+                prev = messages[-1].get("content")
+                messages[-1]["content"] = (prev + "\n" + text) if prev else text
+            continue
+
+        role = str(item.get("role") or "").strip().lower()
+        if role not in ("user", "assistant", "system", "developer"):
+            continue
+        text = _content_text(item.get("content"))
+        if not text.strip():
+            continue
+        if role == "developer":
+            role = "system"
+        messages.append({"role": role, "content": text})
+
+    return messages
+
+
+def _reasoning_content_text(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for piece in content:
+        if isinstance(piece, str):
+            parts.append(piece)
+            continue
+        if isinstance(piece, dict):
+            text = piece.get("text")
+            if isinstance(text, str) and text:
+                parts.append(text)
+    return "\n".join(parts)
+
+
 def _map_usage(usage: dict | None) -> dict:
     if not usage:
         return {
@@ -415,4 +617,6 @@ __all__ = [
     "parse_responses_envelope",
     "build_response_object",
     "serialize_response",
+    "split_replay_messages",
+    "turn_output_items",
 ]
