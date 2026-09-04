@@ -60,6 +60,9 @@ class _ActiveRun:
 class AcpRpcState:
     backend: TaskBackend
     runs: dict[str, _ActiveRun] = field(default_factory=dict)
+    # Per-run progress summaries queued for Worker polling (acp.progress).
+    # Survives after acp.run returns so the Worker can drain a final batch.
+    progress: dict[str, list[str]] = field(default_factory=dict)
 
 
 async def _handle_rpc(request: web.Request) -> web.Response:
@@ -89,6 +92,8 @@ async def _handle_rpc(request: web.Request) -> web.Response:
             result = await _acp_cancel(state, params)
         elif method == "acp.status":
             result = _acp_status(state, params)
+        elif method == "acp.progress":
+            result = _acp_progress(state, params)
         elif method == "acp.toolsets":
             result = _acp_toolsets(state)
         else:
@@ -147,8 +152,14 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
         ",".join(run.toolsets or []),
     )
 
-    async def _noop_progress(_summary: str) -> None:
-        return None
+    state.progress[run_id] = []
+
+    async def _queue_progress(summary: str) -> None:
+        text = (summary or "").strip()
+        if not text:
+            return
+        bucket = state.progress.setdefault(run_id, [])
+        bucket.append(text)
 
     last_checkpoint: dict[str, Any] | None = None
 
@@ -179,7 +190,7 @@ async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]
     async def _execute() -> dict[str, Any]:
         try:
             payload = await state.backend.run(
-                run, _noop_progress, _capture_checkpoint, cancel_event
+                run, _queue_progress, _capture_checkpoint, cancel_event
             )
         except Exception:
             logger.exception("task.run failed task_id=%s", run.task_id)
@@ -235,6 +246,22 @@ def _acp_status(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
     if active is None:
         return {"running": False}
     return {"running": not active.task.done()}
+
+
+def _acp_progress(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
+    """Drain queued progress summaries for a run (Worker poll).
+
+    Empty drain after the run has finished drops the buffer so memory does
+    not grow across short-lived tasks.
+    """
+    run_id = str(params.get("run_id") or "")
+    if not run_id:
+        return {"summaries": []}
+    summaries = state.progress.get(run_id, [])
+    state.progress[run_id] = []
+    if run_id not in state.runs and not state.progress[run_id]:
+        state.progress.pop(run_id, None)
+    return {"summaries": list(summaries)}
 
 
 def _acp_toolsets(state: AcpRpcState) -> dict[str, Any]:

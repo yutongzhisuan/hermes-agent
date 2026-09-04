@@ -483,6 +483,13 @@ def _normalize_items_to_messages(raw_input: Any, instructions: str) -> list[dict
     if not isinstance(raw_input, list):
         return messages
 
+    # Reasoning items may precede OR follow the assistant message they
+    # belong to (turn_output_items emits [reasoning, message] for verbatim
+    # replay, but a hand-built transcript may use [message, reasoning]).
+    # Defer the text until the next assistant message, whichever side it
+    # falls on, so replay never drops it.
+    pending_reasoning: str | None = None
+
     for item in raw_input:
         if not isinstance(item, dict):
             continue
@@ -516,9 +523,16 @@ def _normalize_items_to_messages(raw_input: Any, instructions: str) -> list[dict
 
         if itype == "reasoning":
             text = _reasoning_content_text(item.get("content"))
-            if text and messages and messages[-1].get("role") == "assistant":
+            if not text:
+                continue
+            if messages and messages[-1].get("role") == "assistant":
                 prev = messages[-1].get("content")
                 messages[-1]["content"] = (prev + "\n" + text) if prev else text
+            else:
+                # No adjacent assistant yet (turn_output_items emits
+                # [reasoning, message] for verbatim replay). Defer until the
+                # next assistant message so the text is never dropped.
+                pending_reasoning = text
             continue
 
         role = str(item.get("role") or "").strip().lower()
@@ -530,6 +544,9 @@ def _normalize_items_to_messages(raw_input: Any, instructions: str) -> list[dict
         if role == "developer":
             role = "system"
         messages.append({"role": role, "content": text})
+        if role == "assistant" and pending_reasoning:
+            messages[-1]["content"] = text + "\n" + pending_reasoning
+            pending_reasoning = None
 
     return messages
 
