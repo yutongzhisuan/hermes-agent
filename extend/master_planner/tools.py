@@ -645,7 +645,10 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                     },
                     model={
                         "type": "string",
-                        "description": "Model affinity for the worker (optional).",
+                        "description": (
+                            "model_version_id from gateway_list_models — never invent "
+                            "(optional affinity)."
+                        ),
                     },
                     toolsets={
                         "type": "array",
@@ -705,7 +708,8 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "Dispatch multiple independent tasks as one parallel batch. Returns "
                 "batch_id + task_ids. Default choice when subtasks have no depends_on "
                 "edges — e.g. research A/B/C fan-out. Each spec.goal must be a concise "
-                "English intent statement. Watch the whole batch with "
+                "English intent statement; each spec.model must be a model_version_id "
+                "from gateway_list_models (never invent). Watch the whole batch with "
                 "gateway_watch_task(batch_id=...)."
             ),
             "parameters": {
@@ -733,9 +737,10 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "over the server event stream (SSE, cursor-resumable). Returns a "
                 "throttled summary: latest progress and checkpoint summaries per task "
                 "+ terminal events. Progress is a heartbeat only — not a final answer. "
-                "Call repeatedly in a loop until all watched tasks are terminal. "
-                "Never inject questions into running tasks. On cursor_out_of_range, "
-                "fall back to gateway_get_task_result."
+                "A timeout with no events is normal — the task is still running; call "
+                "again. Call repeatedly until all watched tasks are terminal. Never "
+                "inject questions into running tasks. On cursor_out_of_range, fall "
+                "back to gateway_get_task_result."
             ),
             "parameters": {
                 **_props(
