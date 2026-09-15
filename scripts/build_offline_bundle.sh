@@ -243,7 +243,11 @@ build_vendored() {
   local bundle_root="$STAGING/vendored/xhermes-agent-vendored-py${PYTHON}-${PLATFORM}"
   local out="$ROOT/dist/xhermes-agent-vendored-py${PYTHON}-${PLATFORM}.tar.gz"
   mkdir -p "$bundle_root/wheels"
-  uv run --with pip python -m pip download -d "$bundle_root/wheels" "$WHEEL"
+  # --no-project: only need a throwaway pip for downloading the built wheel +
+  # its deps. Resolving the workspace (especially with [tool.uv]
+  # exclude-newer) against mirrors that omit upload-time metadata fails for
+  # non-active requires-python forks (e.g. 3.13.*) even when PYTHON=3.11.
+  uv run --no-project --with pip python -m pip download -d "$bundle_root/wheels" "$WHEEL"
   cp "$ROOT/scripts/offline/install-vendored.sh" "$bundle_root/install.sh"
   chmod +x "$bundle_root/install.sh"
 
