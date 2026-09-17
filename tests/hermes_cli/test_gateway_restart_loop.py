@@ -29,7 +29,7 @@ class TestGatewayLifecyclePattern:
         "xhermes gateway restart",
         "xhermes gateway stop",
         "xhermes  gateway  restart",         # double spaces
-        "Hermez Gateway Restart".lower().replace("z", "s"),  # case handled
+        "xHermes Gateway Restart",           # mixed case
         "XHERMES GATEWAY RESTART",           # uppercase
     ])
     def test_hermes_gateway_commands(self, text):
@@ -145,7 +145,7 @@ class TestCronCreateLifecycleBlock:
         monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         scripts_dir = tmp_path / ".xhermes" / "scripts"
         scripts_dir.mkdir(parents=True)
-        (scripts_dir / "restart.sh").write_text("#!/bin/bash\nhermes gateway restart\n")
+        (scripts_dir / "restart.sh").write_text("#!/bin/bash\nxhermes gateway restart\n")
         args = Namespace(
             cron_command="create",
             schedule="1h",
@@ -302,7 +302,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         import tools.terminal_tool as tt
 
         script = tmp_path / "delayed-ops.sh"
-        script.write_text("#!/bin/bash\nsleep 45\nhermes gateway restart\n")
+        script.write_text("#!/bin/bash\nsleep 45\nxhermes gateway restart\n")
         self._patch_env(monkeypatch, self._make_fake_env(), inside_gateway=True)
 
         result = json.loads(tt.terminal_tool(command=f"/bin/bash {script}"))
@@ -392,7 +392,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         import tools.terminal_tool as tt
 
         script = tmp_path / "relative.sh"
-        script.write_text("#!/bin/bash\nhermes gateway restart\n")
+        script.write_text("#!/bin/bash\nxhermes gateway restart\n")
 
         class _FakeEnv:
             env = {}
@@ -411,7 +411,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         import tools.terminal_tool as tt
 
         script = tmp_path / "delayed.sh"
-        script.write_text("#!/bin/bash\nhermes gateway stop\n")
+        script.write_text("#!/bin/bash\nxhermes gateway stop\n")
         script.chmod(0o700)
         self._patch_env(monkeypatch, self._make_fake_env(), inside_gateway=True)
 
@@ -434,7 +434,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         import tools.terminal_tool as tt
 
         script = tmp_path / "options.sh"
-        script.write_text("#!/bin/bash\nhermes gateway restart\n")
+        script.write_text("#!/bin/bash\nxhermes gateway restart\n")
         self._patch_env(monkeypatch, self._make_fake_env(), inside_gateway=True)
 
         result = json.loads(tt.terminal_tool(
@@ -467,7 +467,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         import tools.terminal_tool as tt
 
         inner = tmp_path / "inner.sh"
-        inner.write_text("#!/bin/bash\nhermes gateway restart\n")
+        inner.write_text("#!/bin/bash\nxhermes gateway restart\n")
         outer = tmp_path / "outer.sh"
         outer.write_text("#!/bin/bash\n/bin/bash inner.sh\n")
 
@@ -582,7 +582,7 @@ class TestLifecycleGuardModule:
     def test_script_with_command_raises(self, tmp_path, monkeypatch):
         from cron.lifecycle_guard import GatewayLifecycleBlocked, check_gateway_lifecycle
         script = tmp_path / "restart.sh"
-        script.write_text("#!/bin/bash\nhermes gateway restart\n")
+        script.write_text("#!/bin/bash\nxhermes gateway restart\n")
         with pytest.raises(GatewayLifecycleBlocked):
             check_gateway_lifecycle("clean prompt", str(script))
 
@@ -624,7 +624,7 @@ class TestLifecycleGuardModule:
         decode with errors='replace' so the scan always sees the command."""
         from cron.lifecycle_guard import GatewayLifecycleBlocked, check_gateway_lifecycle
         script = tmp_path / "weird.bin"
-        script.write_bytes(b"\xfehermes gateway restart\xff")
+        script.write_bytes(b"\xfexhermes gateway restart\xff")
         with pytest.raises(GatewayLifecycleBlocked):
             check_gateway_lifecycle("", str(script))
 
@@ -701,7 +701,7 @@ class TestLifecycleGuardModule:
         from cron.lifecycle_guard import GatewayLifecycleBlocked, check_gateway_lifecycle
         script = tmp_path / "wrapper.sh"
         script.write_text("#!/bin/bash\n./deploy.sh\n")
-        (tmp_path / "deploy.sh").write_text("#!/bin/bash\nhermes gateway stop\n")
+        (tmp_path / "deploy.sh").write_text("#!/bin/bash\nxhermes gateway stop\n")
         with pytest.raises(GatewayLifecycleBlocked):
             check_gateway_lifecycle("daily ops", str(script))
 
@@ -810,7 +810,7 @@ class TestTerminalToolGatewayLifecycleGuardRemote:
             def execute(self, command, **kwargs):
                 calls.append(command)
                 if "cat" in command and "/remote/workspace/remote.sh" in command:
-                    return {"output": "#!/bin/bash\\nhermes gateway restart\\n", "returncode": 0}
+                    return {"output": "#!/bin/bash\\nxhermes gateway restart\\n", "returncode": 0}
                 return {"output": "", "returncode": 0}
 
         fake_env = _RemoteEnv()
@@ -837,7 +837,7 @@ class TestCronCreateLifecycleBlockExtra:
         monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
         scripts_dir = tmp_path / ".xhermes" / "scripts"
         scripts_dir.mkdir(parents=True)
-        (scripts_dir / "inner.sh").write_text("#!/bin/bash\nhermes gateway restart\n")
+        (scripts_dir / "inner.sh").write_text("#!/bin/bash\nxhermes gateway restart\n")
         (scripts_dir / "outer.sh").write_text("#!/bin/bash\n/bin/bash inner.sh\n")
         args = Namespace(
             cron_command="create",
