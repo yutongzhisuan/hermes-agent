@@ -238,7 +238,11 @@ DEFAULT_CONFIG = {
         # remains available as a tool regardless of this setting — the routing
         # only controls how inbound user images are presented.
         "image_input_mode": "auto",
-        "disabled_toolsets": [],
+        # Toolsets suppressed by default to keep the always-on tool-schema
+        # payload small (each entry ships its JSON schema on every request):
+        # tts ~459 tok, vision ~232 tok. Re-enable by removing the name here
+        # or in config.yaml.
+        "disabled_toolsets": ["tts", "vision"],
 
         # Per-model reasoning effort overrides (spelling-tolerant).
         # Dict mapping model names (any reasonable spelling) to effort levels.
