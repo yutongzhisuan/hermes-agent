@@ -3150,6 +3150,18 @@ def select_provider_and_model(args=None):
         current_model = current_model.get("default", "")
     current_model = current_model or "(not set)"
 
+    # Usable INFA credentials: skip the provider picker. auth.json session
+    # wins over config.yaml api_key + base_url (resolved inside the flow).
+    try:
+        from hermes_cli.auth import get_infa_auth_status
+
+        if get_infa_auth_status().get("logged_in"):
+            selected = "" if current_model == "(not set)" else current_model
+            _model_flow_infa(config, selected)
+            return
+    except Exception:
+        pass
+
     # Read effective provider the same way the CLI does at startup:
     # config.yaml model.provider > env var > auto-detect
     config_provider = None

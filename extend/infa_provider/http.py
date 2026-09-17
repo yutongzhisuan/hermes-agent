@@ -172,21 +172,61 @@ def fetch_models(session: InfaSession, *, client: Optional[httpx.Client] = None)
         )
         if response.status_code >= 400:
             return []
-        payload = response.json()
-        rows = payload.get("data") if isinstance(payload, dict) else payload
-        if not isinstance(rows, list):
-            return []
-        models = []
-        for row in rows:
-            if isinstance(row, str) and row.strip():
-                models.append(row.strip())
-            elif isinstance(row, dict):
-                model_id = str(row.get("id") or row.get("model") or "").strip()
-                if model_id:
-                    models.append(model_id)
-        return models
+        return _model_ids_from_payload(response.json())
     except Exception:
         return []
     finally:
         if owned:
             http.close()
+
+
+def _model_ids_from_payload(payload: Any) -> list[str]:
+    rows = payload.get("data") if isinstance(payload, dict) else payload
+    if not isinstance(rows, list):
+        return []
+    models = []
+    for row in rows:
+        if isinstance(row, str) and row.strip():
+            models.append(row.strip())
+        elif isinstance(row, dict):
+            model_id = str(row.get("id") or row.get("model") or "").strip()
+            if model_id:
+                models.append(model_id)
+    return models
+
+
+def fetch_models_api_key(base_url: str, api_key: str, *, client: Optional[httpx.Client] = None) -> list[str]:
+    """Fetch /models with Bearer auth and no DPoP (config.yaml API-key mode)."""
+    owned = client is None
+    http = client or httpx.Client(timeout=20.0)
+    try:
+        response = http.get(
+            str(base_url).rstrip("/") + "/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        if response.status_code >= 400:
+            return []
+        return _model_ids_from_payload(response.json())
+    except Exception:
+        return []
+    finally:
+        if owned:
+            http.close()
+
+
+def live_model_ids() -> list[str]:
+    """INFA catalog: auth.json session (DPoP) wins over config.yaml API key."""
+    try:
+        from extend.infa_provider.session import resolve_runtime_credentials
+
+        creds = resolve_runtime_credentials(refresh_if_expiring=True)
+        session = creds.get("session")
+        if session is not None:
+            return fetch_models(session)
+        api_key = str(creds.get("api_key") or "").strip()
+        base_url = str(creds.get("base_url") or "").strip()
+        if api_key and base_url:
+            return fetch_models_api_key(base_url, api_key)
+        return []
+    except Exception:
+        return []

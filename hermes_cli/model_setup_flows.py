@@ -848,8 +848,8 @@ def _model_flow_infa(_config, current_model=""):
         _update_config_for_provider,
         AuthError,
     )
-    from extend.infa_provider.http import fetch_models
-    from extend.infa_provider.session import InfaAuthError, interactive_login, load_session, save_session
+    from extend.infa_provider.http import live_model_ids
+    from extend.infa_provider.session import InfaAuthError, interactive_login, save_session
 
     status = get_infa_auth_status()
     if not status.get("logged_in"):
@@ -861,27 +861,19 @@ def _model_flow_infa(_config, current_model=""):
         except (InfaAuthError, KeyboardInterrupt, EOFError) as exc:
             print(f"Login cancelled or failed: {exc}")
             return
+    elif status.get("source") == "config":
+        print("  INFA API key (config.yaml): ✓")
+        print()
     else:
         print("  INFA consumer session: ✓")
         print()
-        choice = _prompt_auth_credentials_choice("INFA credentials:")
-        if choice == "reauth":
-            try:
-                session = interactive_login()
-                save_session(session)
-            except (InfaAuthError, KeyboardInterrupt, EOFError) as exc:
-                print(f"Login cancelled or failed: {exc}")
-                return
-        elif choice == "cancel":
-            return
 
     try:
         creds = resolve_infa_runtime_credentials(refresh_if_expiring=True)
     except AuthError as exc:
         print(f"INFA credentials failed: {exc}")
         return
-    session = load_session()
-    models = fetch_models(session) if session is not None else []
+    models = live_model_ids()
     if not models:
         typed = input("Model id (required, live catalog unavailable): ").strip()
         if typed:

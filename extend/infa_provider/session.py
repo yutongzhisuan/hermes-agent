@@ -110,25 +110,53 @@ def load_session(*, store: Optional[Mapping[str, Any]] = None) -> Optional[InfaS
     return InfaSession.from_dict(state)
 
 
+def _config_api_credentials() -> Optional[dict[str, str]]:
+    """Read OpenAI-compatible api_key + base_url from config.yaml, if both set."""
+    try:
+        from hermes_cli.config import load_config
+
+        cfg = load_config()
+    except Exception:
+        return None
+    model = cfg.get("model") if isinstance(cfg, dict) else None
+    if not isinstance(model, dict):
+        return None
+    api_key = str(model.get("api_key") or "").strip()
+    base_url = _strip_slash(model.get("base_url"))
+    if not api_key or not base_url:
+        return None
+    return {"api_key": api_key, "base_url": base_url}
+
+
 def resolve_runtime_credentials(*, force_refresh: bool = False, refresh_if_expiring: bool = True) -> dict[str, Any]:
     from extend.infa_provider.login import refresh_session
 
     session = load_session()
-    if session is None:
-        raise InfaAuthError(
-            "No INFA consumer session. Run `xhermes auth add infa`.",
-            code="not_logged_in",
-        )
-    if force_refresh or (refresh_if_expiring and access_token_is_expiring(session)):
-        session = refresh_session(session)
-        save_session(session)
-    return {
-        "provider": PROVIDER_ID,
-        "api_key": session.access_token,
-        "base_url": session.inference_base_url,
-        "source": "xhermes-auth-store",
-        "session": session,
-    }
+    if session is not None:
+        if force_refresh or (refresh_if_expiring and access_token_is_expiring(session)):
+            session = refresh_session(session)
+            save_session(session)
+        return {
+            "provider": PROVIDER_ID,
+            "api_key": session.access_token,
+            "base_url": session.inference_base_url,
+            "source": "xhermes-auth-store",
+            "session": session,
+        }
+    config_creds = _config_api_credentials()
+    if config_creds:
+        return {
+            "provider": PROVIDER_ID,
+            "api_key": config_creds["api_key"],
+            "base_url": config_creds["base_url"],
+            "source": "config",
+            "session": None,
+        }
+    raise InfaAuthError(
+        "No INFA consumer session. Run `xhermes auth add infa`, "
+        "or set model.api_key and model.base_url in config.yaml.",
+        code="not_logged_in",
+    )
 
 
 from extend.infa_provider.login import interactive_login, login, refresh_session  # noqa: E402

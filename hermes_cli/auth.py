@@ -7017,19 +7017,31 @@ def resolve_infa_runtime_credentials(
 
 
 def get_infa_auth_status() -> Dict[str, Any]:
-    from extend.infa_provider.session import load_session
+    from extend.infa_provider.session import InfaAuthError, load_session, resolve_runtime_credentials
 
     session = load_session()
-    if session is None:
+    if session is not None:
+        return {
+            "logged_in": True,
+            "provider": "infa",
+            "source": "xhermes-auth-store",
+            "session_id": session.session_id,
+            "base_url": session.inference_base_url,
+            "api_key": session.access_token,
+        }
+    try:
+        creds = resolve_runtime_credentials(refresh_if_expiring=False)
+    except InfaAuthError:
         return {"logged_in": False, "provider": "infa"}
-    return {
-        "logged_in": True,
-        "provider": "infa",
-        "source": "xhermes-auth-store",
-        "session_id": session.session_id,
-        "base_url": session.inference_base_url,
-        "api_key": session.access_token,
-    }
+    if creds.get("source") == "config":
+        return {
+            "logged_in": True,
+            "provider": "infa",
+            "source": "config",
+            "base_url": creds.get("base_url") or "",
+            "api_key": creds.get("api_key") or "",
+        }
+    return {"logged_in": False, "provider": "infa"}
 
 
 def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:

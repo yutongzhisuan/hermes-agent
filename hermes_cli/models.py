@@ -2834,6 +2834,14 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
     on the platform appear in ``/model`` without a XHermes release.
     """
     normalized = normalize_provider(provider)
+    if normalized == "infa":
+        # Usable ~/.xhermes/auth.json session is the catalog source of truth.
+        try:
+            from extend.infa_provider.http import live_model_ids
+
+            return live_model_ids()
+        except Exception:
+            return []
     if normalized == "openrouter":
         return model_ids(force_refresh=force_refresh)
     if normalized == "openai-codex":
