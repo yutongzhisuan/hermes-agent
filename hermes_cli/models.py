@@ -1149,6 +1149,7 @@ CANONICAL_PROVIDERS: list[ProviderEntry] = [
     ProviderEntry("azure-foundry",  "Azure Foundry",            "Azure Foundry (OpenAI-style or Anthropic-style endpoint, your Azure AI deployment)"),
     ProviderEntry("ai-gateway",     "Vercel AI Gateway",        "Vercel AI Gateway (Multi-model aggregator)"),
     ProviderEntry("qwen-oauth",     "Qwen OAuth (Portal)",      "Qwen OAuth (Reuses local Qwen CLI login)"),
+    ProviderEntry("infa",           "INFA",                     "INFA (Consumer session login, JWT + DPoP chat completions)"),
 ]
 
 # Auto-extend CANONICAL_PROVIDERS with any provider registered in providers/
@@ -1332,6 +1333,8 @@ _PROVIDER_ALIASES = {
     "qwen": "alibaba",
     "alibaba-cloud": "alibaba",
     "qwen-portal": "qwen-oauth",
+    "infa-oauth": "infa",
+    "xhermes-infa": "infa",
     "hf": "huggingface",
     "hugging-face": "huggingface",
     "huggingface-hub": "huggingface",

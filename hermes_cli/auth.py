@@ -461,6 +461,13 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         api_key_env_vars=("AZURE_FOUNDRY_API_KEY",),
         base_url_env_var="AZURE_FOUNDRY_BASE_URL",
     ),
+    "infa": ProviderConfig(
+        id="infa",
+        name="INFA",
+        auth_type="oauth_external",
+        inference_base_url="",
+        base_url_env_var="INFA_GATEWAY_BASE_URL",
+    ),
 }
 
 # Auto-extend PROVIDER_REGISTRY with any api-key provider registered in
@@ -1979,6 +1986,7 @@ def resolve_provider(
         "aigateway": "ai-gateway", "vercel": "ai-gateway", "vercel-ai-gateway": "ai-gateway",
         "opencode": "opencode-zen", "zen": "opencode-zen",
         "qwen-portal": "qwen-oauth", "qwen-cli": "qwen-oauth", "qwen-oauth": "qwen-oauth",
+        "infa": "infa", "infa-oauth": "infa", "xhermes-infa": "infa",
         "hf": "huggingface", "hugging-face": "huggingface", "huggingface-hub": "huggingface",
         "mimo": "xiaomi", "xiaomi-mimo": "xiaomi",
         "tencent": "tencent-tokenhub", "tokenhub": "tencent-tokenhub",
@@ -6977,6 +6985,43 @@ def get_external_process_provider_status(provider_id: str) -> Dict[str, Any]:
     }
 
 
+def resolve_infa_runtime_credentials(
+    *,
+    force_refresh: bool = False,
+    refresh_if_expiring: bool = True,
+) -> Dict[str, Any]:
+    from extend.infa_provider.session import InfaAuthError, resolve_runtime_credentials
+
+    try:
+        return resolve_runtime_credentials(
+            force_refresh=force_refresh,
+            refresh_if_expiring=refresh_if_expiring,
+        )
+    except InfaAuthError as exc:
+        raise AuthError(
+            str(exc),
+            provider="infa",
+            code=getattr(exc, "code", "infa_auth_failed"),
+            relogin_required=True,
+        ) from exc
+
+
+def get_infa_auth_status() -> Dict[str, Any]:
+    from extend.infa_provider.session import load_session
+
+    session = load_session()
+    if session is None:
+        return {"logged_in": False, "provider": "infa"}
+    return {
+        "logged_in": True,
+        "provider": "infa",
+        "source": "xhermes-auth-store",
+        "session_id": session.session_id,
+        "base_url": session.inference_base_url,
+        "api_key": session.access_token,
+    }
+
+
 def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
     """Generic auth status dispatcher."""
     target = (provider_id or get_active_provider() or "").strip().lower()
@@ -6994,6 +7039,8 @@ def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
         return get_qwen_auth_status()
     if target == "minimax-oauth":
         return get_minimax_oauth_auth_status()
+    if target in {"infa", "infa-oauth"}:
+        return get_infa_auth_status()
     if target == "copilot-acp":
         return get_external_process_provider_status(target)
     if target == "azure-foundry":

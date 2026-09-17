@@ -837,6 +837,72 @@ def _model_flow_qwen_oauth(_config, current_model=""):
     else:
         print("No change.")
 
+
+def _model_flow_infa(_config, current_model=""):
+    """INFA consumer-session provider: login if needed, then pick a model."""
+    from hermes_cli.auth import (
+        get_infa_auth_status,
+        resolve_infa_runtime_credentials,
+        _prompt_model_selection,
+        _save_model_choice,
+        _update_config_for_provider,
+        AuthError,
+    )
+    from extend.infa_provider.http import fetch_models
+    from extend.infa_provider.session import InfaAuthError, interactive_login, load_session, save_session
+
+    status = get_infa_auth_status()
+    if not status.get("logged_in"):
+        print("Not logged into INFA. Starting login...")
+        print()
+        try:
+            session = interactive_login()
+            save_session(session)
+        except (InfaAuthError, KeyboardInterrupt, EOFError) as exc:
+            print(f"Login cancelled or failed: {exc}")
+            return
+    else:
+        print("  INFA consumer session: ✓")
+        print()
+        choice = _prompt_auth_credentials_choice("INFA credentials:")
+        if choice == "reauth":
+            try:
+                session = interactive_login()
+                save_session(session)
+            except (InfaAuthError, KeyboardInterrupt, EOFError) as exc:
+                print(f"Login cancelled or failed: {exc}")
+                return
+        elif choice == "cancel":
+            return
+
+    try:
+        creds = resolve_infa_runtime_credentials(refresh_if_expiring=True)
+    except AuthError as exc:
+        print(f"INFA credentials failed: {exc}")
+        return
+    session = load_session()
+    models = fetch_models(session) if session is not None else []
+    if not models:
+        typed = input("Model id (required, live catalog unavailable): ").strip()
+        if typed:
+            models = [typed]
+    if not models:
+        print("No INFA models available.")
+        return
+    selected = _prompt_model_selection(
+        models,
+        current_model=current_model or models[0],
+        confirm_provider="infa",
+        confirm_base_url=creds.get("base_url") or "",
+    )
+    if selected:
+        _save_model_choice(selected)
+        _update_config_for_provider("infa", creds.get("base_url") or "")
+        print(f"Default model set to: {selected} (via INFA)")
+    else:
+        print("No change.")
+
+
 def _model_flow_minimax_oauth(config, current_model="", args=None):
     """MiniMax OAuth provider: ensure logged in, then pick model."""
     from hermes_cli.auth import (

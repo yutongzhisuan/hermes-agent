@@ -34,7 +34,7 @@ from hermes_cli.secret_prompt import masked_secret_prompt
 
 
 # Providers that support OAuth login in addition to API keys.
-_OAUTH_CAPABLE_PROVIDERS = {"anthropic", "nous", "openai-codex", "xai-oauth", "qwen-oauth", "minimax-oauth"}
+_OAUTH_CAPABLE_PROVIDERS = {"anthropic", "nous", "openai-codex", "xai-oauth", "qwen-oauth", "minimax-oauth", "infa"}
 
 
 def _get_custom_provider_names() -> list:
@@ -80,6 +80,8 @@ def _normalize_provider(provider: str) -> str:
         return "openrouter"
     if normalized in {"grok-oauth", "xai-oauth", "x-ai-oauth", "xai-grok-oauth"}:
         return "xai-oauth"
+    if normalized in {"infa-oauth", "xhermes-infa"}:
+        return "infa"
     # Check if it matches a custom provider name
     custom_key = _resolve_custom_provider_input(normalized)
     if custom_key:
@@ -405,6 +407,33 @@ def auth_add_command(args) -> None:
         )
         pool.add_entry(entry)
         print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        return
+
+    if provider == "infa":
+        from extend.infa_provider.session import InfaAuthError, interactive_login, save_session
+
+        try:
+            session = interactive_login()
+        except InfaAuthError as exc:
+            raise SystemExit(str(exc)) from exc
+        save_session(session)
+        auth_mod.mark_provider_active_if_unset(provider)
+        label = (getattr(args, "label", None) or "").strip() or label_from_token(
+            session.access_token,
+            _oauth_default_label(provider, len(pool.entries()) + 1),
+        )
+        entry = PooledCredential(
+            provider=provider,
+            id=uuid.uuid4().hex[:6],
+            label=label,
+            auth_type=AUTH_TYPE_OAUTH,
+            priority=0,
+            source=f"{SOURCE_MANUAL}:consumer_session",
+            access_token=session.access_token,
+            base_url=session.inference_base_url,
+        )
+        pool.add_entry(entry)
+        print(f'Saved {provider} consumer session #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "minimax-oauth":

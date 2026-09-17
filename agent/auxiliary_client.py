@@ -209,6 +209,12 @@ def _openai_http_client_kwargs(
 
 def _create_openai_client(*, api_key: str, base_url: str, **kwargs: Any) -> Any:
     kwargs = {**_openai_http_client_kwargs(base_url), **kwargs}
+    try:
+        from extend.infa_provider.http import maybe_attach_infa_dpop
+
+        maybe_attach_infa_dpop(kwargs.get("http_client"), base_url=str(base_url or ""))
+    except Exception:
+        logger.debug("INFA DPoP attach skipped", exc_info=True)
     # XHermes owns auxiliary retry + provider/model fallback policy (the
     # same-provider transient retry in call_llm plus the except-chain
     # fallback). The OpenAI SDK's own default (max_retries=2 → up to 3

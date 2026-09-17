@@ -33,6 +33,7 @@ from hermes_cli.auth import (
     resolve_codex_runtime_credentials,
     resolve_xai_oauth_runtime_credentials,
     resolve_qwen_runtime_credentials,
+    resolve_infa_runtime_credentials,
     resolve_api_key_provider_credentials,
     resolve_external_process_provider_credentials,
     has_usable_secret,
@@ -466,6 +467,11 @@ def _resolve_runtime_from_pool_entry(
     elif provider == "qwen-oauth":
         api_mode = "chat_completions"
         base_url = base_url or DEFAULT_QWEN_BASE_URL
+    elif provider == "infa":
+        creds = resolve_infa_runtime_credentials()
+        api_mode = "chat_completions"
+        api_key = creds.get("api_key") or api_key
+        base_url = (creds.get("base_url") or base_url).rstrip("/")
     elif provider == "minimax-oauth":
         # MiniMax OAuth tokens are valid only against the Anthropic Messages
         # compatible endpoint. Do not honor stale model.api_mode values from a
@@ -1994,6 +2000,23 @@ def resolve_runtime_provider(
             if requested_provider != "auto":
                 raise
             logger.info("Qwen OAuth credentials failed; "
+                        "falling through to next provider.")
+
+    if provider == "infa":
+        try:
+            creds = resolve_infa_runtime_credentials()
+            return {
+                "provider": "infa",
+                "api_mode": "chat_completions",
+                "base_url": (creds.get("base_url") or "").rstrip("/"),
+                "api_key": creds.get("api_key", ""),
+                "source": creds.get("source", "xhermes-auth-store"),
+                "requested_provider": requested_provider,
+            }
+        except AuthError:
+            if requested_provider != "auto":
+                raise
+            logger.info("INFA consumer session credentials failed; "
                         "falling through to next provider.")
 
     if provider == "minimax-oauth":

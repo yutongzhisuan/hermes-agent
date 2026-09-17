@@ -2304,6 +2304,16 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
         )
         if keepalive_http is not None:
             client_kwargs["http_client"] = keepalive_http
+    try:
+        from extend.infa_provider.http import maybe_attach_infa_dpop
+
+        maybe_attach_infa_dpop(
+            client_kwargs.get("http_client"),
+            provider=str(getattr(agent, "provider", "") or ""),
+            base_url=str(client_kwargs.get("base_url") or ""),
+        )
+    except Exception:
+        _ra().logger.debug("INFA DPoP attach skipped", exc_info=True)
     # Delegate all rate-limit / 5xx retry to xhermes's outer conversation loop,
     # which honors Retry-After and applies adaptive/jittered backoff. The OpenAI
     # SDK default (max_retries=2) uses its own 1-2s backoff that ignores
