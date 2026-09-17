@@ -3722,28 +3722,27 @@ def _build_role_param_description() -> str:
         orchestrator_on = True
 
     if max_depth >= 2 and orchestrator_on:
-        nesting_note = (
-            f"Nesting IS enabled for this user (max_spawn_depth={max_depth}): "
-            f"orchestrator children can themselves delegate up to {max_depth - 1} "
-            "more level(s) deep."
-        )
-    elif max_depth >= 2 and not orchestrator_on:
-        nesting_note = (
-            "Nesting is currently disabled "
-            "(delegation.orchestrator_enabled=false); 'orchestrator' is "
-            "silently forced to 'leaf'."
-        )
-    else:
-        nesting_note = (
-            f"Nesting is OFF for this user (max_spawn_depth={max_depth}); "
-            "'orchestrator' is silently forced to 'leaf'. Raise "
-            "delegation.max_spawn_depth in config.yaml to enable."
+        return (
+            "Role of the child agent. 'leaf' (default) = focused worker, "
+            "cannot delegate further. 'orchestrator' = can use delegate_task "
+            f"to spawn its own workers (max_spawn_depth={max_depth}: nesting "
+            f"up to {max_depth - 1} more level(s) deep)."
         )
 
+    # Orchestrators are unavailable: describing what they would do is dead
+    # payload on every request, so state only the active role and the knob.
+    if max_depth >= 2 and not orchestrator_on:
+        return (
+            "Role of the child agent. Only 'leaf' (focused worker, cannot "
+            "delegate further) is active: nesting is disabled via "
+            "delegation.orchestrator_enabled=false, so 'orchestrator' is "
+            "silently forced to 'leaf'."
+        )
     return (
-        "Role of the child agent. 'leaf' (default) = focused "
-        "worker, cannot delegate further. 'orchestrator' = can "
-        f"use delegate_task to spawn its own workers. {nesting_note}"
+        "Role of the child agent. Only 'leaf' (focused worker, cannot "
+        "delegate further) is active: nesting is OFF for this user "
+        f"(max_spawn_depth={max_depth}), so 'orchestrator' is silently forced "
+        "to 'leaf'. Raise delegation.max_spawn_depth in config.yaml to enable."
     )
 
 
@@ -3835,13 +3834,9 @@ DELEGATE_TASK_SCHEMA = {
             "background": {
                 "type": "boolean",
                 "description": (
-                    "DEPRECATED / IGNORED. Top-level single and batch "
-                    "delegations run in the background automatically — you do "
-                    "not need to (and cannot) opt in or out. A single result or "
-                    "consolidated batch result re-enters the conversation when "
-                    "the work finishes; just continue working in the meantime. "
-                    "Setting this has no effect; the parameter remains only for "
-                    "backward compatibility."
+                    "DEPRECATED / IGNORED — kept only for backward "
+                    "compatibility. Delegations always run in the background "
+                    "(see above); you cannot opt in or out."
                 ),
             },
         },

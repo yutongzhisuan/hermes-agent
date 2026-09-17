@@ -1161,17 +1161,11 @@ MEMORY_SCHEMA = {
         "reports current/limit chars and confirms completion; one batch call finishes the "
         "update, so don't repeat it. Use the bare action/content/old_text fields only for a "
         "single lone change.\n\n"
-        "WHEN: save proactively when the user states a preference, correction, or personal "
-        "detail, or you learn a stable fact about their environment, conventions, or workflow. "
-        "Priority: user preferences & corrections > environment facts > procedures. The best "
-        "memory stops the user repeating themselves.\n\n"
         "IF FULL: an add is rejected with the current entries shown. Reissue as ONE batch that "
         "removes or shortens enough stale entries and adds the new one together.\n\n"
         "TARGETS: 'user' = who the user is (name, role, preferences, style). 'memory' = your "
         "notes (environment, conventions, tool quirks, lessons).\n\n"
-        "SKIP: trivial/obvious info, easily re-discovered facts, raw data dumps, task progress, "
-        "completed-work logs, temporary TODO state (use session_search for those). Reusable "
-        "procedures belong in a skill, not memory."
+        "SKIP: trivial/obvious info, easily re-discovered facts, raw data dumps."
     ),
     "parameters": {
         "type": "object",
