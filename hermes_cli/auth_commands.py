@@ -168,6 +168,12 @@ def auth_add_command(args) -> None:
     if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(CUSTOM_POOL_PREFIX):
         raise SystemExit(f"Unknown provider: {provider}")
 
+    # Fork gate: credentials may only be added for providers this build ships.
+    from extend.provider_allowlist import denied_provider_message, is_provider_allowed
+
+    if not is_provider_allowed(provider):
+        raise SystemExit(denied_provider_message(provider))
+
     requested_type = str(getattr(args, "auth_type", "") or "").strip().lower()
     if requested_type in {AUTH_TYPE_API_KEY, "api-key"}:
         requested_type = AUTH_TYPE_API_KEY

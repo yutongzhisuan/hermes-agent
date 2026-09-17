@@ -405,7 +405,7 @@ py-modules = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "hermes_cli.*", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "cron.*", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*", "hermes_runtime", "hermes_runtime.*", "xhermes_agent_data"]
+include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "hermes_cli.*", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "cron.*", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*", "hermes_runtime", "hermes_runtime.*", "xhermes_agent_data", "extend", "extend.*"]
 
 [tool.setuptools.package-data]
 xhermes_agent_data = ["**/*", ".headless_wheel_dist"]

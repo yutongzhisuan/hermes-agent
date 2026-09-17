@@ -35,6 +35,12 @@ PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# This fork ships a single provider (extend/provider_allowlist), but the
+# upstream suite asserts the full provider catalog. Widen the gate before any
+# test module imports hermes_cli.models, which filters CANONICAL_PROVIDERS at
+# import time. Tests covering the gate itself set the var explicitly.
+os.environ.setdefault("XHERMES_PROVIDER_ALLOWLIST", "*")
+
 
 # ── Sandbox XHERMES_HOME before ANY test module is imported ──────────────────
 # `hermes_cli/main.py` calls `setup_logging()` at MODULE level, which resolves

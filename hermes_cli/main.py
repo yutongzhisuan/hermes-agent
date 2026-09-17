@@ -3433,25 +3433,32 @@ def select_provider_and_model(args=None):
         else:
             ordered.append((key, label, members))
 
-    for key, provider_info in _custom_provider_map.items():
-        name = provider_info["name"]
-        base_url = provider_info["base_url"]
-        short_url = base_url.replace("https://", "").replace("http://", "").rstrip("/")
-        saved_model = provider_info.get("model", "")
-        model_hint = f" — {saved_model}" if saved_model else ""
-        label = f"{name} ({short_url}){model_hint}"
-        if active and key == active:
-            ordered.append((key, f"{label}  ← currently active", []))
-            default_idx = len(ordered) - 1
-        else:
-            ordered.append((key, label, []))
+    # Fork gate: custom endpoints would bypass the provider allowlist, so the
+    # saved-endpoint rows and the manual-URL action are hidden with it.
+    from extend.provider_allowlist import is_provider_allowed as _is_provider_allowed
 
-    ordered.append(("custom", "Custom endpoint (enter URL manually)", []))
-    _has_saved_custom_list = isinstance(config.get("custom_providers"), list) and bool(
-        config.get("custom_providers")
-    )
-    if _has_saved_custom_list:
-        ordered.append(("remove-custom", "Remove a saved custom provider", []))
+    _allow_custom_endpoints = _is_provider_allowed("custom")
+
+    if _allow_custom_endpoints:
+        for key, provider_info in _custom_provider_map.items():
+            name = provider_info["name"]
+            base_url = provider_info["base_url"]
+            short_url = base_url.replace("https://", "").replace("http://", "").rstrip("/")
+            saved_model = provider_info.get("model", "")
+            model_hint = f" — {saved_model}" if saved_model else ""
+            label = f"{name} ({short_url}){model_hint}"
+            if active and key == active:
+                ordered.append((key, f"{label}  ← currently active", []))
+                default_idx = len(ordered) - 1
+            else:
+                ordered.append((key, label, []))
+
+        ordered.append(("custom", "Custom endpoint (enter URL manually)", []))
+        _has_saved_custom_list = isinstance(config.get("custom_providers"), list) and bool(
+            config.get("custom_providers")
+        )
+        if _has_saved_custom_list:
+            ordered.append(("remove-custom", "Remove a saved custom provider", []))
     ordered.append(("aux-config", "Configure auxiliary models...", []))
     ordered.append(("cancel", "Leave unchanged", []))
 

@@ -3087,7 +3087,12 @@ def list_authenticated_providers(
     # Sort: current provider first, then by model count descending
     results.sort(key=lambda r: (not r["is_current"], -r["total_models"]))
 
-    return results
+    # Fork gate: drop rows for providers this build does not ship. Applied to
+    # the assembled rows rather than to _excluded so env-key, models.dev,
+    # plugin and custom-endpoint rows are all covered by one check.
+    from extend.provider_allowlist import is_provider_allowed
+
+    return [row for row in results if is_provider_allowed(row.get("slug"))]
 
 
 def _prepend_moa_picker_provider(providers: List[dict], current_provider: str = "") -> List[dict]:

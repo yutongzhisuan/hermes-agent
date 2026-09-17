@@ -1171,6 +1171,15 @@ try:
 except Exception:
     pass
 
+# Fork gate: this build ships a single provider (see extend/provider_allowlist).
+# Filtering here — after the plugin auto-extend above — collapses every
+# consumer of CANONICAL_PROVIDERS at once: `xhermes model`, the provider
+# catalog, the desktop/gateway inventories and /model.
+from extend.provider_allowlist import is_provider_allowed as _is_provider_allowed
+
+CANONICAL_PROVIDERS[:] = [p for p in CANONICAL_PROVIDERS if _is_provider_allowed(p.slug)]
+_canonical_slugs = {p.slug for p in CANONICAL_PROVIDERS}
+
 # Derived dicts — used throughout the codebase
 _PROVIDER_LABELS = {p.slug: p.label for p in CANONICAL_PROVIDERS}
 _PROVIDER_LABELS["custom"] = "Custom endpoint"  # special case: not a named provider
