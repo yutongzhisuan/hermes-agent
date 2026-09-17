@@ -769,3 +769,26 @@ def test_auth_remove_copilot_suppresses_all_variants(tmp_path, monkeypatch):
     assert is_source_suppressed("copilot", "env:GITHUB_TOKEN")
 
 
+def test_auth_file_path_allows_sandboxed_home_under_pytest(tmp_path, monkeypatch):
+    """pytest + XHERMES_HOME=tmpdir must not trip the real-home seat belt.
+
+    The guard compares against the platform-native home, not against
+    get_hermes_home() itself (that comparison is always true).
+    """
+    from hermes_cli.auth import _auth_file_path
+
+    sandboxed = tmp_path / "xhermes"
+    monkeypatch.setenv("XHERMES_HOME", str(sandboxed))
+    assert _auth_file_path() == sandboxed / "auth.json"
+
+
+def test_auth_file_path_refuses_platform_home_under_pytest(monkeypatch):
+    """Pointing XHERMES_HOME at the real ~/.xhermes must still refuse."""
+    from hermes_constants import _get_platform_default_hermes_home
+    from hermes_cli.auth import _auth_file_path
+
+    monkeypatch.setenv("XHERMES_HOME", str(_get_platform_default_hermes_home()))
+    with pytest.raises(RuntimeError, match="real user auth store"):
+        _auth_file_path()
+
+

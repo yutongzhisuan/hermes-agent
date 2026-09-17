@@ -49,7 +49,12 @@ from hermes_cli.config import (
     read_raw_config,
     require_readable_config_before_write,
 )
-from hermes_constants import OPENROUTER_BASE_URL, get_hermes_home, secure_parent_dir
+from hermes_constants import (
+    OPENROUTER_BASE_URL,
+    _get_platform_default_hermes_home,
+    get_hermes_home,
+    secure_parent_dir,
+)
 from agent.credential_persistence import sanitize_borrowed_credential_payload
 from utils import atomic_replace, atomic_yaml_write, env_float, is_truthy_value
 
@@ -963,13 +968,18 @@ def _oauth_trace(event: str, *, sequence_id: Optional[str] = None, **fields: Any
 
 def _auth_file_path() -> Path:
     path = get_hermes_home() / "auth.json"
-    # Seat belt: if pytest is running and XHERMES_HOME resolves to the real
-    # user's auth store, refuse rather than silently corrupt it. This catches
-    # tests that forgot to monkeypatch XHERMES_HOME, tests invoked without the
-    # hermetic conftest, or sandbox escapes via threads/subprocesses. In
-    # production (no PYTEST_CURRENT_TEST) this is a single dict lookup.
+    # Seat belt: if pytest is running and the resolved path is the real
+    # user's platform-native auth store, refuse rather than silently corrupt
+    # it. This catches tests that forgot to monkeypatch XHERMES_HOME, tests
+    # invoked without the hermetic conftest, or sandbox escapes via
+    # threads/subprocesses. Compare against the platform default — NOT
+    # get_hermes_home() itself, which is always equal to ``path`` and would
+    # refuse every sandboxed write. In production (no PYTEST_CURRENT_TEST)
+    # this is a single dict lookup.
     if os.environ.get("PYTEST_CURRENT_TEST"):
-        real_home_auth = (get_hermes_home() / "auth.json").resolve(strict=False)
+        real_home_auth = (
+            _get_platform_default_hermes_home() / "auth.json"
+        ).resolve(strict=False)
         try:
             resolved = path.resolve(strict=False)
         except Exception:
