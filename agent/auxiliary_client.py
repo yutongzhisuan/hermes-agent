@@ -208,11 +208,17 @@ def _openai_http_client_kwargs(
     return {"http_client": client}
 
 def _create_openai_client(*, api_key: str, base_url: str, **kwargs: Any) -> Any:
-    kwargs = {**_openai_http_client_kwargs(base_url), **kwargs}
+    from extend.unix_socket_http import require_uds_http_client, resolve_openai_base_url
+
+    transport_base_url = str(base_url or "")
+    openai_base_url, _socket_path = resolve_openai_base_url(transport_base_url)
+    # Dial UDS with the original unix:// URL; pass the synthetic http base to OpenAI.
+    kwargs = {**_openai_http_client_kwargs(transport_base_url), **kwargs}
+    require_uds_http_client(kwargs.get("http_client"), transport_base_url)
     try:
         from extend.infa_provider.http import maybe_attach_infa_dpop
 
-        maybe_attach_infa_dpop(kwargs.get("http_client"), base_url=str(base_url or ""))
+        maybe_attach_infa_dpop(kwargs.get("http_client"), base_url=transport_base_url)
     except Exception:
         logger.debug("INFA DPoP attach skipped", exc_info=True)
     # XHermes owns auxiliary retry + provider/model fallback policy (the
@@ -224,7 +230,7 @@ def _create_openai_client(*, api_key: str, base_url: str, **kwargs: Any) -> Any:
     # by default and let XHermes control the budget; explicit callers can still
     # override via kwargs.
     kwargs.setdefault("max_retries", 0)
-    return OpenAI(api_key=api_key, base_url=base_url, **kwargs)
+    return OpenAI(api_key=api_key, base_url=openai_base_url, **kwargs)
 
 
 # ── Interrupt protection for atomic auxiliary tasks ──────────────────────
@@ -3222,6 +3228,20 @@ def _validate_base_url(base_url: str) -> None:
     candidate = str(base_url or "").strip()
     if not candidate or candidate.startswith("acp://"):
         return
+    try:
+        from extend.unix_socket_http import is_unix_base_url, parse_unix_socket_url
+
+        if is_unix_base_url(candidate):
+            parse_unix_socket_url(candidate)
+            return
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Malformed custom endpoint URL: {candidate!r}. "
+            "Use unix:///absolute/path.sock for local UDS inference, "
+            "or a valid http(s) base URL."
+        ) from exc
+    except Exception:
+        pass
     try:
         parsed = urlparse(candidate)
         if parsed.scheme in {"http", "https"}:

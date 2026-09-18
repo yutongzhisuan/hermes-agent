@@ -149,6 +149,14 @@ def attach_dpop(client: httpx.Client, *, session: InfaSession) -> None:
 def maybe_attach_infa_dpop(client: Any, *, provider: str = "", base_url: str = "", session: Optional[InfaSession] = None) -> None:
     if client is None:
         return
+    try:
+        from extend.unix_socket_http import is_unix_base_url
+
+        if is_unix_base_url(base_url):
+            return
+    except Exception:
+        if str(base_url or "").strip().lower().startswith("unix://"):
+            return
     loaded = session or load_session()
     if loaded is None or not loaded.device_private_key:
         return

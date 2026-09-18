@@ -125,6 +125,15 @@ def _config_api_credentials() -> Optional[dict[str, str]]:
     base_url = _strip_slash(model.get("base_url"))
     if not api_key or not base_url:
         return None
+    # Local UDS endpoints are not INFA consumer credentials.
+    try:
+        from extend.unix_socket_http import is_unix_base_url
+
+        if is_unix_base_url(base_url):
+            return None
+    except Exception:
+        if str(base_url).lower().startswith("unix://"):
+            return None
     return {"api_key": api_key, "base_url": base_url}
 
 

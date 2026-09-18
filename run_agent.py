@@ -4705,10 +4705,6 @@ class AIAgent:
         try:
             import httpx as _httpx
 
-            # Explicitly read proxy settings so requests route through
-            # HTTP_PROXY / HTTPS_PROXY / NO_PROXY correctly.
-            _proxy = _get_proxy_for_base_url(base_url)
-
             # Proactive pool reaping: close idle connections at 20 s,
             # before reverse proxies (30–60 s typical) send FIN and
             # cause CLOSE-WAIT accumulation.
@@ -4725,6 +4721,36 @@ class AIAgent:
                 write=15.0,
                 pool=10.0,
             )
+
+            try:
+                from extend import unix_socket_http as _unix_http
+
+                if _unix_http.is_unix_base_url(base_url):
+                    try:
+                        _, _socket_path = _unix_http.resolve_openai_base_url(base_url)
+                        return _unix_http.build_unix_httpx_client(
+                            _socket_path,
+                            verify=verify,
+                            limits=_limits,
+                            timeout=_timeout,
+                        )
+                    except Exception as _uds_exc:
+                        raise RuntimeError(
+                            f"Failed to build UDS HTTP client for {str(base_url or '').strip()!r}; "
+                            "refusing to fall back to TCP localhost."
+                        ) from _uds_exc
+            except RuntimeError:
+                raise
+            except Exception:
+                if str(base_url or "").strip().lower().startswith("unix://"):
+                    raise RuntimeError(
+                        f"Failed to build UDS HTTP client for {str(base_url or '').strip()!r}; "
+                        "refusing to fall back to TCP localhost."
+                    ) from None
+
+            # Explicitly read proxy settings so requests route through
+            # HTTP_PROXY / HTTPS_PROXY / NO_PROXY correctly.
+            _proxy = _get_proxy_for_base_url(base_url)
 
             # When _proxy is None (NO_PROXY bypass or no proxy configured),
             # mount plain transports to prevent httpx from reading env proxy
@@ -4743,6 +4769,8 @@ class AIAgent:
                 mounts=_mounts or None,
                 verify=verify,
             )
+        except RuntimeError:
+            raise
         except Exception:
             return None
 

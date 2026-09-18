@@ -22,7 +22,9 @@ ALLOWLIST_ENV_VAR = "XHERMES_PROVIDER_ALLOWLIST"
 ALLOW_ALL = "*"
 
 # Slugs allowed when the env override is absent.
-DEFAULT_ALLOWED_PROVIDERS = ("infa",)
+# ``custom`` covers OpenAI-compatible local endpoints, including
+# ``unix:///path.sock`` (llama.cpp UDS) configured via model.base_url.
+DEFAULT_ALLOWED_PROVIDERS = ("infa", "custom")
 
 # Alias -> canonical slug, limited to the allowed providers. Aliases of denied
 # providers need no entry: they canonicalize to themselves and miss the

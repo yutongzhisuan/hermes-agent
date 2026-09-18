@@ -2247,6 +2247,18 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
     httpx_verify = resolve_httpx_verify(ca_bundle=ssl_ca_cert, ssl_verify=ssl_verify_cfg)
     _validate_proxy_env_urls()
     _validate_base_url(client_kwargs.get("base_url"))
+    # Keep the configured base (may be unix://...) for httpx UDS dialing;
+    # rewrite to a synthetic http://localhost/v1 only after a UDS client exists.
+    transport_base_url = str(client_kwargs.get("base_url") or "")
+    openai_base_url = transport_base_url
+    socket_path = None
+    try:
+        from extend.unix_socket_http import resolve_openai_base_url
+
+        openai_base_url, socket_path = resolve_openai_base_url(transport_base_url)
+    except Exception:
+        socket_path = None
+        openai_base_url = transport_base_url
     if agent.provider == "copilot-acp" or str(client_kwargs.get("base_url", "")).startswith("acp://copilot"):
         from agent.copilot_acp_client import CopilotACPClient
 
@@ -2269,7 +2281,7 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
             }
             if "http_client" not in safe_kwargs:
                 keepalive_http = agent._build_keepalive_http_client(
-                    base_url, verify=httpx_verify,
+                    transport_base_url or base_url, verify=httpx_verify,
                 )
                 if keepalive_http is not None:
                     safe_kwargs["http_client"] = keepalive_http
@@ -2300,17 +2312,27 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
     # ``tests/run_agent/test_sequential_chats_live.py`` pin this invariant.
     if "http_client" not in client_kwargs:
         keepalive_http = agent._build_keepalive_http_client(
-            client_kwargs.get("base_url", ""), verify=httpx_verify,
+            transport_base_url, verify=httpx_verify,
         )
         if keepalive_http is not None:
             client_kwargs["http_client"] = keepalive_http
+    try:
+        from extend.unix_socket_http import require_uds_http_client
+
+        require_uds_http_client(client_kwargs.get("http_client"), transport_base_url)
+        if socket_path:
+            client_kwargs["base_url"] = openai_base_url
+    except RuntimeError:
+        raise
+    except Exception:
+        pass
     try:
         from extend.infa_provider.http import maybe_attach_infa_dpop
 
         maybe_attach_infa_dpop(
             client_kwargs.get("http_client"),
             provider=str(getattr(agent, "provider", "") or ""),
-            base_url=str(client_kwargs.get("base_url") or ""),
+            base_url=transport_base_url or str(client_kwargs.get("base_url") or ""),
         )
     except Exception:
         _ra().logger.debug("INFA DPoP attach skipped", exc_info=True)
