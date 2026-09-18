@@ -307,3 +307,15 @@ def test_fork_identity_constants():
     assert INSTALL_SUBDIR == "xhermes-agent"
     assert SERVICE_BASE == "xhermes-gateway"
     assert PYPI_DIST_NAME == "xhermes-agent"
+
+
+def test_plugin_manifests_included_in_package_data():
+    """Headless/offline wheels must ship plugin.yaml (and other non-.py assets).
+
+    PluginManager discovers plugins by scanning plugin.yaml. Without
+    package-data entries for plugins/ and extend/, setuptools drops every
+    manifest and frozen bundles appear to have no bundled plugins.
+    """
+    package_data = _load_package_data()
+    assert package_data.get("plugins") == ["**/*"], package_data.get("plugins")
+    assert package_data.get("extend") == ["**/*"], package_data.get("extend")

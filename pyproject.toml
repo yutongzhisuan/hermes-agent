@@ -416,6 +416,13 @@ hermes_cli = ["observability/schemas/*.json"]
 # topic-setup image disappears. Loaded via Path(__file__).parent / "assets"
 # in gateway/status_phrases.py and gateway/run.py.
 gateway = ["assets/**/*"]
+# PluginManager discovers plugins by scanning plugin.yaml next to __init__.py.
+# setuptools only ships .py by default, so frozen/headless wheels previously
+# dropped every manifest and PluginManager found zero bundled plugins.
+plugins = ["**/*"]
+# Fork plugins under extend/ (master_planner, …) also ship plugin.yaml and
+# other non-Python assets that must survive headless / offline packaging.
+extend = ["**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
