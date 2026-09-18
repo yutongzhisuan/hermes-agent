@@ -2269,6 +2269,25 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
         # best-effort; never block migration on validation
         logger.debug("platform_toolsets validation skipped: %s", _ts_val_err)
 
+    # ── Always: enable bundled master-planner unless explicitly disabled ──
+    # PCN Desktop Swarm mode needs the master_planner toolset. Standalone
+    # plugins are opt-in; keep the fork's planner on by default across
+    # fresh installs and upgrades (respect plugins.disabled).
+    # Skip when the support floor refused migration — those configs must
+    # stay byte-for-byte untouched.
+    if not floor_refused:
+        try:
+            from hermes_cli.plugins_cmd import ensure_master_planner_plugin_enabled_in_config
+
+            _planner_cfg = read_raw_config()
+            if ensure_master_planner_plugin_enabled_in_config(_planner_cfg):
+                _persist_migration(_planner_cfg)
+                results["config_added"].append("plugins.enabled += master-planner")
+                if not quiet:
+                    print("  ✓ Enabled bundled master-planner plugin (Swarm / platform dispatch)")
+        except Exception as _planner_err:
+            logger.debug("master-planner default enable skipped: %s", _planner_err)
+
     if current_ver < latest_ver and not quiet and not floor_refused:
         print(f"Config version: {current_ver} → {latest_ver}")
 

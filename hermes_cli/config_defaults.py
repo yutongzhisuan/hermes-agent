@@ -3125,8 +3125,16 @@ DEFAULT_CONFIG = {
         "region": "global",
     },
 
+    # Bundled plugin allow-list. Standalone plugins are opt-in; the INFA
+    # master-planner must be on by default so PCN Desktop Swarm mode works
+    # out of the box. Operators can still add it to plugins.disabled.
+    "plugins": {
+        "enabled": ["master-planner"],
+        "disabled": [],
+    },
+
     # Config schema version - bump this when adding new required fields
-    "_config_version": 33,
+    "_config_version": 34,
 }
 
 # Optional environment variables that enhance functionality

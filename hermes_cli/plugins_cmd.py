@@ -750,6 +750,41 @@ def ensure_basic_auth_plugin_enabled_in_config(cfg: dict) -> bool:
     return True
 
 
+_MASTER_PLANNER_PLUGIN_KEYS = frozenset({"master-planner", "master_planner"})
+
+
+def ensure_master_planner_plugin_enabled_in_config(cfg: dict) -> bool:
+    """Ensure the bundled master-planner plugin is listed in ``plugins.enabled``.
+
+    Swarm mode in PCN Desktop depends on the ``master_planner`` toolset. The
+    plugin ships under ``plugins/master-planner/`` (shim) + ``extend.master_planner``
+    (implementation), but standalone plugins are opt-in. Fresh and upgraded
+    installs must enable it by default.
+
+    Respects an explicit ``plugins.disabled`` entry so operators can still
+    turn the planner off. Returns True when *cfg* was modified.
+    """
+    plugins_cfg = cfg.get("plugins")
+    if not isinstance(plugins_cfg, dict):
+        plugins_cfg = {}
+        cfg["plugins"] = plugins_cfg
+
+    disabled = plugins_cfg.get("disabled")
+    if isinstance(disabled, list) and (set(disabled) & _MASTER_PLANNER_PLUGIN_KEYS):
+        return False
+
+    enabled = plugins_cfg.get("enabled")
+    if not isinstance(enabled, list):
+        enabled = []
+        plugins_cfg["enabled"] = enabled
+    if set(enabled) & _MASTER_PLANNER_PLUGIN_KEYS:
+        return False
+
+    enabled.append("master-planner")
+    plugins_cfg["enabled"] = sorted(set(enabled))
+    return True
+
+
 def _get_enabled_set() -> set:
     """Read the enabled plugins allow-list from config.yaml.
 

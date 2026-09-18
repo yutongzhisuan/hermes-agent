@@ -644,6 +644,32 @@ def _migrate_to_33(results: Dict[str, Any], quiet: bool) -> None:
             )
 
 
+def _migrate_to_34(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 33 → 34: default-enable bundled master-planner ──
+    # PCN Desktop Swarm mode requires the master_planner toolset. Standalone
+    # plugins are opt-in; enable the bundled shim unless the operator already
+    # put it in plugins.disabled. migrate_config also re-runs this as an
+    # always-on ensure for installs already past this version.
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+
+    try:
+        from hermes_cli.plugins_cmd import ensure_master_planner_plugin_enabled_in_config
+    except Exception:
+        return
+
+    config = read_raw_config()
+    if ensure_master_planner_plugin_enabled_in_config(config):
+        _persist_migration(config)
+        results["config_added"].append("plugins.enabled += master-planner")
+        if not quiet:
+            print(
+                "  ✓ Enabled bundled master-planner plugin "
+                "(Swarm / platform dispatch)"
+            )
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: version captured before the ladder started. Order matters: later steps may
@@ -665,6 +691,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (31, _migrate_to_31),
     (32, _migrate_to_32),
     (33, _migrate_to_33),
+    (34, _migrate_to_34),
 )
 
 
