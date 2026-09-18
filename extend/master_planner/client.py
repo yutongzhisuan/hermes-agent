@@ -423,7 +423,7 @@ class GatewayClient:
         ``event_id`` — kratos SSE frames carry no ``id:`` line.
 
         The wait is clamped to ``MAX_WAIT_SECONDS``. The calling thread polls
-        ``should_stop`` (default: hermes ``is_interrupted()``) every
+        ``should_stop`` (default: xhermes ``is_interrupted()``) every
         ``poll_interval_s`` so a blocked watch never wedges the agent loop.
         """
         wait_seconds = max(1.0, min(float(wait_seconds), float(MAX_WAIT_SECONDS)))

@@ -461,7 +461,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sandbox-image",
         default=None,
-        help="Docker image for sandboxed tasks (default: hermes terminal default image)",
+        help="Docker image for sandboxed tasks (default: xhermes terminal default image)",
     )
     parser.add_argument(
         "--sandbox-network",

@@ -54,11 +54,11 @@ def test_watch_progress_then_terminal(mock_gateway):
     assert result["interrupted"] is False
     assert result["error"] is None
     # kratos SSE frames carry no id: line — the cursor is data.event_id.
-    assert result["cursor"] == "3"
+    assert result["cursor"] == "4"
     types = [e["type"] for e in result["events"]]
-    assert types == ["progress", "progress", "terminal"]
+    assert types == ["progress", "progress", "checkpoint", "terminal"]
     terminal = result["events"][-1]
-    assert terminal["id"] == "3"
+    assert terminal["id"] == "4"
     assert terminal["data"]["result"]["status"] == "TASK_STATUS_COMPLETED"
 
 
