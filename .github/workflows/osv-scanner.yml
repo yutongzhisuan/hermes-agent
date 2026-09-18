@@ -23,12 +23,9 @@ name: OSV-Scanner
 # downloads the SARIF result and summarizes the vulnerability count into
 # a review_status for the unified PR comment.
 
+# TEMP: offline-packaging-only — restore schedule when re-enabling CI
 on:
   workflow_call:
-  schedule:
-    # Weekly scan against main — catches CVEs published after merge for
-    # deps that haven't changed since.
-    - cron: '0 9 * * 1'
   workflow_dispatch:
 
 permissions:

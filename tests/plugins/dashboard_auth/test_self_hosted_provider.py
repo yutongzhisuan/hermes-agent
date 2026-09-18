@@ -39,8 +39,8 @@ from hermes_cli.dashboard_auth import (
     assert_protocol_compliance,
 )
 
-_ISSUER = "https://auth.example.com/application/o/hermes"
-_CLIENT_ID = "hermes-dashboard"
+_ISSUER = "https://auth.example.com/application/o/xhermes"
+_CLIENT_ID = "xhermes-dashboard"
 
 _DISCOVERY_DOC = {
     "issuer": _ISSUER,
@@ -292,20 +292,20 @@ class TestStartLogin:
 
     def test_returns_login_start(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.example/auth/callback"
+            redirect_uri="https://xhermes.example/auth/callback"
         )
         assert isinstance(result, LoginStart)
 
 
     def test_authorize_url_has_required_params(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.example/auth/callback"
+            redirect_uri="https://xhermes.example/auth/callback"
         )
         parsed = urllib.parse.urlparse(result.redirect_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
         assert params["response_type"] == "code"
         assert params["client_id"] == _CLIENT_ID
-        assert params["redirect_uri"] == "https://hermes.example/auth/callback"
+        assert params["redirect_uri"] == "https://xhermes.example/auth/callback"
         assert params["scope"] == "openid profile email"
         assert params["code_challenge_method"] == "S256"
         assert "state" in params
@@ -314,7 +314,7 @@ class TestStartLogin:
 
     def test_state_in_cookie_matches_url(self, provider):
         result = provider.start_login(
-            redirect_uri="https://hermes.example/auth/callback"
+            redirect_uri="https://xhermes.example/auth/callback"
         )
         parsed = urllib.parse.urlparse(result.redirect_url)
         params = dict(urllib.parse.parse_qsl(parsed.query))
@@ -351,7 +351,7 @@ class TestCompleteLogin:
                 code="abc",
                 state="s",
                 code_verifier="vfy",
-                redirect_uri="https://hermes.example/auth/callback",
+                redirect_uri="https://xhermes.example/auth/callback",
             )
         assert isinstance(session, Session)
         assert session.user_id == "usr_abc"
@@ -374,7 +374,7 @@ class TestCompleteLogin:
                 code="abc",
                 state="s",
                 code_verifier="vfy",
-                redirect_uri="https://hermes.example/auth/callback",
+                redirect_uri="https://xhermes.example/auth/callback",
             )
         assert session.refresh_token == ""
 
@@ -390,7 +390,7 @@ class TestCompleteLogin:
                     code="x",
                     state="s",
                     code_verifier="v",
-                    redirect_uri="https://hermes.example/auth/callback",
+                    redirect_uri="https://xhermes.example/auth/callback",
                 )
 
     def test_400_raises_invalid_code(self, provider):
@@ -403,7 +403,7 @@ class TestCompleteLogin:
                     code="bad",
                     state="s",
                     code_verifier="v",
-                    redirect_uri="https://hermes.example/auth/callback",
+                    redirect_uri="https://xhermes.example/auth/callback",
                 )
 
 
@@ -440,7 +440,7 @@ class TestConfidentialClient:
                 code="the-code",
                 state="s",
                 code_verifier="the-verifier",
-                redirect_uri="https://hermes.example/auth/callback",
+                redirect_uri="https://xhermes.example/auth/callback",
             )
         _, kwargs = mock_post.call_args
         return kwargs
@@ -612,10 +612,10 @@ class TestPluginRegister:
     @pytest.fixture(autouse=True)
     def clear_env(self, monkeypatch):
         for var in (
-            "HERMES_DASHBOARD_OIDC_ISSUER",
-            "HERMES_DASHBOARD_OIDC_CLIENT_ID",
-            "HERMES_DASHBOARD_OIDC_SCOPES",
-            "HERMES_DASHBOARD_OIDC_CLIENT_SECRET",
+            "XHERMES_DASHBOARD_OIDC_ISSUER",
+            "XHERMES_DASHBOARD_OIDC_CLIENT_ID",
+            "XHERMES_DASHBOARD_OIDC_SCOPES",
+            "XHERMES_DASHBOARD_OIDC_CLIENT_SECRET",
         ):
             monkeypatch.delenv(var, raising=False)
 
@@ -634,14 +634,14 @@ class TestPluginRegister:
         ctx = MagicMock()
         oidc_plugin.register(ctx)
         ctx.register_dashboard_auth_provider.assert_not_called()
-        assert "HERMES_DASHBOARD_OIDC_ISSUER" in oidc_plugin.LAST_SKIP_REASON
+        assert "XHERMES_DASHBOARD_OIDC_ISSUER" in oidc_plugin.LAST_SKIP_REASON
         assert "self_hosted" in oidc_plugin.LAST_SKIP_REASON
 
 
     def test_registers_from_env(self, patch_config, monkeypatch):
         patch_config(None)
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_ISSUER", _ISSUER)
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_CLIENT_ID", _CLIENT_ID)
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_ISSUER", _ISSUER)
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_CLIENT_ID", _CLIENT_ID)
         ctx = MagicMock()
         oidc_plugin.register(ctx)
         ctx.register_dashboard_auth_provider.assert_called_once()
@@ -662,8 +662,8 @@ class TestPluginRegister:
                 }
             }
         )
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_ISSUER", _ISSUER)
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_CLIENT_ID", _CLIENT_ID)
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_ISSUER", _ISSUER)
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_CLIENT_ID", _CLIENT_ID)
         ctx = MagicMock()
         oidc_plugin.register(ctx)
         registered = ctx.register_dashboard_auth_provider.call_args.args[0]
@@ -686,9 +686,9 @@ class TestPluginRegister:
 
     def test_secret_from_env(self, patch_config, monkeypatch):
         patch_config(None)
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_ISSUER", _ISSUER)
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_CLIENT_ID", _CLIENT_ID)
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_CLIENT_SECRET", "env-secret")
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_ISSUER", _ISSUER)
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_CLIENT_ID", _CLIENT_ID)
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_CLIENT_SECRET", "env-secret")
         ctx = MagicMock()
         oidc_plugin.register(ctx)
         registered = ctx.register_dashboard_auth_provider.call_args.args[0]
@@ -705,7 +705,7 @@ class TestPluginRegister:
                 }
             }
         )
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_CLIENT_SECRET", "env-secret")
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_CLIENT_SECRET", "env-secret")
         ctx = MagicMock()
         oidc_plugin.register(ctx)
         registered = ctx.register_dashboard_auth_provider.call_args.args[0]
@@ -721,7 +721,7 @@ class TestPluginRegister:
                 }
             }
         )
-        monkeypatch.setenv("HERMES_DASHBOARD_OIDC_CLIENT_SECRET", "")
+        monkeypatch.setenv("XHERMES_DASHBOARD_OIDC_CLIENT_SECRET", "")
         ctx = MagicMock()
         oidc_plugin.register(ctx)
         registered = ctx.register_dashboard_auth_provider.call_args.args[0]

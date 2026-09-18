@@ -12,21 +12,21 @@
  * through the plugin host loader (next phase); this is that seam.
  */
 
-import { pluginRest, type PluginRestOptions, pluginSocket } from '@/hermes'
+import { pluginRest, type PluginRestOptions, pluginSocket } from '@/xhermes'
 import { createPluginI18n, type PluginI18n } from '@/i18n'
 import { readKey, writeKey } from '@/lib/storage'
 
 import { registry } from './registry'
 import type { Contribution } from './types'
 
-export type { PluginRestOptions } from '@/hermes'
+export type { PluginRestOptions } from '@/xhermes'
 
 /** A contribution as a plugin author writes it — provenance + id scoping are
  *  the host's job, so those fields are off-limits here. */
 export type PluginContribution = Omit<Contribution, 'source' | 'id'> & { id: string }
 
 /** Namespaced JSON persistence (the VS Code `globalState` analog). Keys live
- *  under `hermes.plugin.<id>.` — plugins can't read or clobber each other. */
+ *  under `xhermes.plugin.<id>.` — plugins can't read or clobber each other. */
 export interface PluginStorage {
   get<T>(key: string, fallback: T): T
   set(key: string, value: unknown): void
@@ -75,7 +75,7 @@ export interface HermesPlugin {
 }
 
 function createPluginStorage(pluginId: string): PluginStorage {
-  const scoped = (key: string) => `hermes.plugin.${pluginId}.${key}`
+  const scoped = (key: string) => `xhermes.plugin.${pluginId}.${key}`
 
   return {
     get(key, fallback) {

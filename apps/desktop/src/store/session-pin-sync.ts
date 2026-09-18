@@ -20,7 +20,7 @@
  * the local set untouched.
  */
 
-import { setSessionPinnedRemote } from '@/hermes'
+import { setSessionPinnedRemote } from '@/xhermes'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'
 import { $sessions, sessionMatchesStoredId, sessionPinId } from '@/store/session'
 

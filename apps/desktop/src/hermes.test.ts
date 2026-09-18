@@ -22,7 +22,7 @@ import {
   setApiRequestProfile,
   speakText,
   transcribeAudio
-} from './hermes'
+} from './xhermes'
 import { refreshActiveProfile } from './store/profile'
 
 const emptySessionsResponse = {
@@ -32,7 +32,7 @@ const emptySessionsResponse = {
   total: 0
 }
 
-describe('Hermes REST helpers', () => {
+describe('XHermes REST helpers', () => {
   let api: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
@@ -119,7 +119,7 @@ describe('Hermes REST helpers', () => {
         // The exact skew failure: Electron surfaces the backend catch-all.
         return Promise.reject(
           new Error(
-            'Error invoking remote method \'hermes:api\': Error: 404: {"detail":"No such API endpoint: /api/profiles/sessions/sidebar"}'
+            'Error invoking remote method \'xhermes:api\': Error: 404: {"detail":"No such API endpoint: /api/profiles/sessions/sidebar"}'
           )
         )
       }

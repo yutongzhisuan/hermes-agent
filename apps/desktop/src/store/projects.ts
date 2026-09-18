@@ -6,7 +6,7 @@ import {
   type SidebarProjectTree
 } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { HermesGitBaseBranch, HermesGitBranch } from '@/global'
-import { getHermesConfig, type HermesGateway } from '@/hermes'
+import { getHermesConfig, type HermesGateway } from '@/xhermes'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
 import { desktopGit } from '@/lib/desktop-git'
@@ -25,7 +25,7 @@ import {
   workspaceCwdForNewSession
 } from '@/store/session'
 import { $focusedSessionState, $focusedStoredSessionId } from '@/store/session-states'
-import type { ProjectInfo, ProjectsPayload } from '@/types/hermes'
+import type { ProjectInfo, ProjectsPayload } from '@/types/xhermes'
 
 // First-class, per-profile Projects (named, multi-folder workspaces). State is
 // served by the live gateway's `projects.*` JSON-RPC methods, which wrap the
@@ -144,7 +144,7 @@ export const $reposScanning = atom(false)
 // chats land there, exactly as selecting a profile does.
 export const ALL_PROJECTS = '__all_projects__'
 
-const PROJECT_SCOPE_KEY = 'hermes.desktop.projectScope'
+const PROJECT_SCOPE_KEY = 'xhermes.desktop.projectScope'
 
 export const $projectScope = persistentAtom<string>(PROJECT_SCOPE_KEY, ALL_PROJECTS, {
   decode: raw => raw || ALL_PROJECTS,
@@ -389,7 +389,7 @@ async function gatewayRequest<T>(method: string, params: Record<string, unknown>
   }
 
   if (!gateway) {
-    throw new Error('Hermes gateway is not connected')
+    throw new Error('XHermes gateway is not connected')
   }
 
   return gateway.request<T>(method, params)
@@ -417,7 +417,7 @@ async function activeProjectsContext(): Promise<ActiveProjectsContext> {
   }
 
   if (!gateway || gateway !== activeGateway() || profile !== ($activeGatewayProfile.get() || 'default')) {
-    throw new Error('Active Hermes profile changed while connecting')
+    throw new Error('Active XHermes profile changed while connecting')
   }
 
   return { gateway, profile }
@@ -1028,7 +1028,7 @@ export function refreshWorktrees(): void {
 }
 
 // Spin up a fresh worktree the lightest way (`git worktree add -b`) under the
-// repo, returning where Hermes should start working. Git is the source of
+// repo, returning where XHermes should start working. Git is the source of
 // truth; the caller starts a session in the returned path.
 export async function startWorkInRepo(
   repoPath: string,

@@ -49,11 +49,11 @@ def _frontmatter(text: str) -> dict[str, Any]:
 
 
 def _hermes_meta(fm: dict[str, Any]) -> dict[str, Any]:
-    """``metadata.hermes`` as a dict, tolerant of the string-valued frontmatter
+    """``metadata.xhermes`` as a dict, tolerant of the string-valued frontmatter
     that ``parse_frontmatter``'s malformed-YAML fallback produces."""
     meta = fm.get("metadata")
-    hermes = meta.get("hermes") if isinstance(meta, dict) else None
-    return hermes if isinstance(hermes, dict) else {}
+    xhermes = meta.get("xhermes") if isinstance(meta, dict) else None
+    return xhermes if isinstance(xhermes, dict) else {}
 
 
 def _related(fm: dict[str, Any]) -> list[str]:

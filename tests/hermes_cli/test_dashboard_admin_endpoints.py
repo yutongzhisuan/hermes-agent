@@ -21,7 +21,7 @@ def _client():
 
     client = TestClient(app)
     client.headers[_SESSION_HEADER_NAME] = _SESSION_TOKEN
-    # Keep the state DB under the isolated HERMES_HOME for any handler that
+    # Keep the state DB under the isolated XHERMES_HOME for any handler that
     # touches it.
     hermes_state.DEFAULT_DB_PATH = get_hermes_home() / "state.db"
     return client, _SESSION_HEADER_NAME
@@ -152,9 +152,9 @@ class TestCredentialPoolEndpoints:
     def test_env_seeded_delete_stays_deleted(self):
         """#55217: DELETE must suppress the source or load_pool() resurrects it.
 
-        load_pool() re-seeds from ~/.hermes/.env on every call, so removing
+        load_pool() re-seeds from ~/.xhermes/.env on every call, so removing
         just the pool row silently reverts on the next dashboard refresh.
-        The endpoint must mirror `hermes auth remove`: clean up the backing
+        The endpoint must mirror `xhermes auth remove`: clean up the backing
         source and suppress (provider, source).
         """
         from agent.credential_pool import load_pool
@@ -182,7 +182,7 @@ class TestCredentialPoolEndpoints:
     def test_post_readd_lifts_suppression(self):
         """Re-adding via POST is an explicit re-engagement — suppressions lift.
 
-        Mirrors `hermes auth add`, which clears every suppression for the
+        Mirrors `xhermes auth add`, which clears every suppression for the
         provider so a user who deleted a credential and re-adds one isn't
         silently blocked from env re-seeding.
         """
@@ -608,12 +608,12 @@ class TestSkillsHubSourcesEndpoint:
                 return self._sid
 
             def search(self, q, limit=10):
-                return [_FakeMeta("hermes-index/featured-skill", "trusted")]
+                return [_FakeMeta("xhermes-index/featured-skill", "trusted")]
 
         def _fake_router():
             srcs = [_Src("official"), _Src("github")]
-            # hermes-index source advertises availability + featured search.
-            idx = _Src("hermes-index")
+            # xhermes-index source advertises availability + featured search.
+            idx = _Src("xhermes-index")
             idx.is_available = True
             srcs.insert(1, idx)
             return srcs
@@ -625,7 +625,7 @@ class TestSkillsHubSourcesEndpoint:
         assert r.status_code == 200
         body = r.json()
         ids = {s["id"] for s in body["sources"]}
-        assert {"official", "github", "hermes-index"} <= ids
+        assert {"official", "github", "xhermes-index"} <= ids
         # Every source carries a human label.
         assert all(s.get("label") for s in body["sources"])
         assert body["index_available"] is True
@@ -765,11 +765,11 @@ class TestAdminEndpointsAuthGate:
 
 
 class TestUpdateCheckEndpoint:
-    """``GET /api/hermes/update/check`` reports availability without applying.
+    """``GET /api/xhermes/update/check`` reports availability without applying.
 
     Powers the dashboard's check-before-you-update flow: the System page
     shows the commit-behind count and asks the user to confirm before
-    ``POST /api/hermes/update`` runs ``hermes update``.
+    ``POST /api/xhermes/update`` runs ``xhermes update``.
     """
 
     @pytest.fixture(autouse=True)
@@ -785,7 +785,7 @@ class TestUpdateCheckEndpoint:
 
         monkeypatch.setattr(banner, "check_for_updates", lambda: 5)
 
-        r = self.client.get("/api/hermes/update/check")
+        r = self.client.get("/api/xhermes/update/check")
         assert r.status_code == 200
         body = r.json()
         assert {
@@ -817,7 +817,7 @@ class TestUpdateCheckEndpoint:
             ),
         )
 
-        body = self.client.get("/api/hermes/update/check").json()
+        body = self.client.get("/api/xhermes/update/check").json()
         assert body["install_method"] == "managed-runtime"
         assert body["can_apply"] is False
         assert body["update_available"] is False
@@ -891,7 +891,7 @@ class TestDebugShareEndpoint:
 
 class TestToolsConfigEndpoints:
     """Provider selection, API-key save, and post-setup spawn for toolsets —
-    the dashboard surface that replicates the `hermes tools` configurator."""
+    the dashboard surface that replicates the `xhermes tools` configurator."""
 
     @pytest.fixture(autouse=True)
     def _setup(self, _isolate_hermes_home):
@@ -943,13 +943,13 @@ class TestToolsConfigEndpoints:
 
 def test_spawn_hermes_action_scrubs_gateway_loop_guard_env(monkeypatch, tmp_path):
     """The dashboard runs inside the gateway, so os.environ has
-    _HERMES_GATEWAY=1. Spawned actions (e.g. `gateway restart`) must NOT inherit
+    _XHERMES_GATEWAY=1. Spawned actions (e.g. `gateway restart`) must NOT inherit
     it, or the in-process restart-loop guard rejects the restart and it silently
     fails (#52470).
     """
     import hermes_cli.web_server as ws
 
-    monkeypatch.setenv("_HERMES_GATEWAY", "1")
+    monkeypatch.setenv("_XHERMES_GATEWAY", "1")
     monkeypatch.setattr(ws, "_ACTION_LOG_DIR", tmp_path)
 
     captured = {}
@@ -965,5 +965,5 @@ def test_spawn_hermes_action_scrubs_gateway_loop_guard_env(monkeypatch, tmp_path
 
     ws._spawn_hermes_action(["gateway", "restart"], "gateway-restart")
 
-    assert "_HERMES_GATEWAY" not in captured["env"]
-    assert captured["env"]["HERMES_NONINTERACTIVE"] == "1"
+    assert "_XHERMES_GATEWAY" not in captured["env"]
+    assert captured["env"]["XHERMES_NONINTERACTIVE"] == "1"

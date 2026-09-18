@@ -1,9 +1,9 @@
 {
-  "name": "hermes",
-  "productName": "Hermes",
+  "name": "xhermes",
+  "productName": "xHermes",
   "private": true,
   "version": "0.17.0",
-  "description": "Native desktop shell for Hermes Agent.",
+  "description": "Native desktop shell for XHermes Agent.",
   "author": "Nous Research",
   "type": "module",
   "main": "dist/electron-main.mjs",
@@ -16,12 +16,12 @@
     "clean:renderer": "tsc --build tsconfig.json --clean ",
     "clean:electron": "tsc --build tsconfig.electron.json --clean",
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
-    "dev:fake-boot": "cross-env HERMES_DESKTOP_BOOT_FAKE=1 HERMES_DESKTOP_BOOT_FAKE_STEP_MS=650 npm run dev",
+    "dev:fake-boot": "cross-env XHERMES_DESKTOP_BOOT_FAKE=1 XHERMES_DESKTOP_BOOT_FAKE_STEP_MS=650 npm run dev",
     "dev:mock": "node scripts/dev-mock.mjs",
     "dev:renderer": "node scripts/assert-root-install.mjs && npm run clean:renderer && vite --host 127.0.0.1 --port 5174",
-    "dev:electron": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
-    "profile:main": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron --inspect=9229 .",
-    "profile:main:cpu": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 NODE_OPTIONS=--cpu-prof HERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
+    "dev:electron": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 XHERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
+    "profile:main": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 XHERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron --inspect=9229 .",
+    "profile:main:cpu": "tsc --build tsconfig.electron.json && wait-on http://127.0.0.1:5174 && node scripts/bundle-electron-main.mjs --dev && cross-env XCURSOR_SIZE=24 NODE_OPTIONS=--cpu-prof XHERMES_DESKTOP_DEV_SERVER=http://127.0.0.1:5174 electron .",
     "start": "npm run build && electron .",
     "prebuild": "npm run clean",
     "build": "node scripts/assert-root-install.mjs && node scripts/write-build-stamp.mjs && vite build && node scripts/bundle-electron-main.mjs && node scripts/stage-native-deps.mjs",
@@ -77,7 +77,7 @@
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
-    "@hermes/shared": "file:../shared",
+    "@xhermes/shared": "file:../shared",
     "@icons-pack/react-simple-icons": "13.11.1",
     "@lezer/highlight": "1.2.3",
     "@nanostores/react": "1.1.0",
@@ -162,18 +162,18 @@
   },
   "build": {
     "electronVersion": "40.10.2",
-    "appId": "com.nousresearch.hermes",
-    "productName": "Hermes",
-    "executableName": "Hermes",
+    "appId": "com.xhermes.app",
+    "productName": "xHermes",
+    "executableName": "xHermes",
     "protocols": [
       {
-        "name": "Hermes Protocol",
+        "name": "xHermes Protocol",
         "schemes": [
-          "hermes"
+          "xhermes"
         ]
       }
     ],
-    "artifactName": "Hermes-${version}-${os}-${arch}.${ext}",
+    "artifactName": "xHermes-${version}-${os}-${arch}.${ext}",
     "icon": "assets/icon",
     "directories": {
       "output": "release"
@@ -209,12 +209,12 @@
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.inherit.plist",
       "extendInfo": {
-        "CFBundleDisplayName": "Hermes",
-        "CFBundleExecutable": "Hermes",
-        "CFBundleName": "Hermes",
-        "NSAudioCaptureUsageDescription": "Hermes uses audio capture for voice conversations.",
-        "NSCameraUsageDescription": "Hermes uses the camera when a plugin or feature you enable requests it.",
-        "NSMicrophoneUsageDescription": "Hermes uses the microphone for voice input and voice conversations."
+        "CFBundleDisplayName": "xHermes",
+        "CFBundleExecutable": "xHermes",
+        "CFBundleName": "xHermes",
+        "NSAudioCaptureUsageDescription": "XHermes uses audio capture for voice conversations.",
+        "NSCameraUsageDescription": "XHermes uses the camera when a plugin or feature you enable requests it.",
+        "NSMicrophoneUsageDescription": "XHermes uses the microphone for voice input and voice conversations."
       },
       "gatekeeperAssess": false,
       "hardenedRuntime": true,
@@ -224,7 +224,7 @@
       ]
     },
     "dmg": {
-      "title": "Install Hermes",
+      "title": "Install XHermes",
       "backgroundColor": "#f5f5f7",
       "iconSize": 96,
       "window": {
@@ -246,7 +246,7 @@
       ]
     },
     "win": {
-      "legalTrademarks": "Hermes",
+      "legalTrademarks": "xHermes",
       "target": [
         "nsis",
         "msi"
@@ -256,7 +256,7 @@
     "linux": {
       "category": "Development",
       "maintainer": "Nous Research <support@nousresearch.com>",
-      "synopsis": "Native desktop shell for Hermes Agent.",
+      "synopsis": "Native desktop shell for XHermes Agent.",
       "target": [
         "AppImage",
         "deb",
@@ -267,8 +267,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "Hermes",
-      "uninstallDisplayName": "Hermes",
+      "shortcutName": "xHermes",
+      "uninstallDisplayName": "xHermes",
       "warningsAsErrors": false
     }
   }

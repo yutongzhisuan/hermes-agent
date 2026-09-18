@@ -1415,7 +1415,7 @@ class TestWSL2PowerShellFallback:
                    side_effect=self._fake_check_output([
                        b"C:/Temp\r\n",
                        b"/mnt/c/Temp\n",
-                       b"C:/Temp/hermes.wav\n",
+                       b"C:/Temp/xhermes.wav\n",
                    ])), \
              patch("tools.voice_mode.subprocess.Popen", side_effect=_capture_popen):
             result = vm.play_audio_file(str(sample_wav))

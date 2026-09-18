@@ -98,7 +98,7 @@ describe('messageRenderWeight', () => {
       {
         type: 'tool-call',
         toolName: 'skill_view',
-        args: { name: 'hermes-agent' },
+        args: { name: 'xhermes-agent' },
         result: { content: 'x'.repeat(RENDER_WEIGHT_CHARS * 100) }
       }
     ]

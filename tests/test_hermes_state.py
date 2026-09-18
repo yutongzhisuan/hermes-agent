@@ -2460,7 +2460,7 @@ class TestFTS5ToolCallMigration:
         try:
             assert session_db.fts_optimize_available() is True
 
-            # `hermes db optimize` performs the v23 transition; afterwards the
+            # `xhermes db optimize` performs the v23 transition; afterwards the
             # tool fields are searchable.
             result = session_db.optimize_fts_storage(vacuum=False)
             assert result["ok"] is True
@@ -3729,13 +3729,13 @@ class TestGatewayRoutingPkHeal:
 
     def test_legacy_pk_rebuilt_to_composite(self, tmp_path):
         db_path = self._make_legacy_db(
-            tmp_path, rows=[("/home/u/.hermes/sessions", "agent:main:telegram:dm:1", "{}", 1.0)]
+            tmp_path, rows=[("/home/u/.xhermes/sessions", "agent:main:telegram:dm:1", "{}", 1.0)]
         )
         db = SessionDB(db_path=db_path)
         try:
             assert self._pk_cols(db) == ["scope", "session_key"]
             # Existing rows survive the rebuild.
-            entries = db.load_gateway_routing_entries(scope="/home/u/.hermes/sessions")
+            entries = db.load_gateway_routing_entries(scope="/home/u/.xhermes/sessions")
             assert entries == {"agent:main:telegram:dm:1": "{}"}
         finally:
             db.close()

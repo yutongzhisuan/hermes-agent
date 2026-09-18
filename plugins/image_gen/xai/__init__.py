@@ -233,7 +233,7 @@ class XAIImageGenProvider(ImageGenProvider):
         provider_name = str(creds.get("provider") or "xai").strip() or "xai"
         if not api_key:
             return error_response(
-                error="No xAI credentials found. Configure xAI OAuth in `hermes model` or set XAI_API_KEY.",
+                error="No xAI credentials found. Configure xAI OAuth in `xhermes model` or set XAI_API_KEY.",
                 error_type="missing_api_key",
                 provider=provider_name,
                 aspect_ratio=aspect_ratio,
@@ -289,7 +289,7 @@ class XAIImageGenProvider(ImageGenProvider):
         base_url = str(creds.get("base_url") or "https://api.x.ai/v1").strip().rstrip("/")
         storage_options = build_xai_storage_options(
             "image_gen",
-            filename_prefix="hermes-xai-image",
+            filename_prefix="xhermes-xai-image",
             extension="png",
         )
         storage_notice = maybe_mark_xai_storage_notice_seen("image_gen")

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # (d542894ad). Pin a host via extra.host. The all-interfaces default still
 # requires extra.allowed_source_cidrs (see _source_allowlist_required_but_missing).
 DEFAULT_HOST = None
-DEFAULT_PORT = 8646
+DEFAULT_PORT = 8746
 DEFAULT_WEBHOOK_PATH = "/msgraph/webhook"
 DEFAULT_MAX_SEEN_RECEIPTS = 5000
 DEFAULT_MAX_BODY_BYTES = 1_048_576

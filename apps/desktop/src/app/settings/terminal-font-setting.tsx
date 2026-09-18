@@ -8,10 +8,10 @@ import {
 } from '@/app/right-sidebar/terminal/terminal-font'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { saveHermesConfig } from '@/hermes'
+import { saveHermesConfig } from '@/xhermes'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
-import type { HermesConfigRecord } from '@/types/hermes'
+import type { HermesConfigRecord } from '@/types/xhermes'
 
 import { setHermesConfigCache, useHermesConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
@@ -135,7 +135,7 @@ export function TerminalFontSetting() {
               aria-label={copy.terminalFontTitle}
               className="flex-1"
               disabled={draft === null}
-              list="hermes-terminal-font-families"
+              list="xhermes-terminal-font-families"
               onChange={event => update(event.target.value)}
               placeholder={copy.terminalFontPlaceholder}
               value={value}
@@ -144,7 +144,7 @@ export function TerminalFontSetting() {
               {copy.terminalFontReset}
             </Button>
           </div>
-          <datalist id="hermes-terminal-font-families">
+          <datalist id="xhermes-terminal-font-families">
             {TERMINAL_FONT_SUGGESTIONS.map(font => (
               <option key={font} value={font} />
             ))}

@@ -1,14 +1,14 @@
-"""hermes-memory-store — holographic memory plugin using MemoryProvider interface.
+"""xhermes-memory-store — holographic memory plugin using MemoryProvider interface.
 
 Registers as a MemoryProvider plugin, giving the agent structured fact storage
 with entity resolution, trust scoring, and HRR-based compositional retrieval.
 
 Original plugin by dusterbloom (PR #2351), adapted to the MemoryProvider ABC.
 
-Config in $HERMES_HOME/config.yaml (profile-scoped):
+Config in $XHERMES_HOME/config.yaml (profile-scoped):
   plugins:
-    hermes-memory-store:
-      db_path: $HERMES_HOME/memory_store.db   # omit to use the default
+    xhermes-memory-store:
+      db_path: $XHERMES_HOME/memory_store.db   # omit to use the default
       auto_extract: false
       default_trust: 0.5
       min_trust_threshold: 0.3
@@ -101,7 +101,7 @@ def _load_plugin_config() -> dict:
         # overlay + ${VAR} expansion (e.g. an api key template) too.
         from hermes_cli.config import load_config_readonly
         all_config = load_config_readonly()
-        return cfg_get(all_config, "plugins", "hermes-memory-store", default={}) or {}
+        return cfg_get(all_config, "plugins", "xhermes-memory-store", default={}) or {}
     except Exception:
         return {}
 
@@ -127,7 +127,7 @@ class HolographicMemoryProvider(MemoryProvider):
         return True  # SQLite is always available, numpy is optional
 
     def save_config(self, values, hermes_home):
-        """Write config to config.yaml under plugins.hermes-memory-store."""
+        """Write config to config.yaml under plugins.xhermes-memory-store."""
         from pathlib import Path
         config_path = Path(hermes_home) / "config.yaml"
         try:
@@ -137,7 +137,7 @@ class HolographicMemoryProvider(MemoryProvider):
             from hermes_cli.config import read_user_config_raw
             existing = read_user_config_raw(config_path)
             existing.setdefault("plugins", {})
-            existing["plugins"]["hermes-memory-store"] = values
+            existing["plugins"]["xhermes-memory-store"] = values
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(existing, f, default_flow_style=False)
         except Exception:
@@ -158,12 +158,12 @@ class HolographicMemoryProvider(MemoryProvider):
         _hermes_home = str(get_hermes_home())
         _default_db = _hermes_home + "/memory_store.db"
         db_path = self._config.get("db_path", _default_db)
-        # Expand $HERMES_HOME in user-supplied paths so config values like
-        # "$HERMES_HOME/memory_store.db" or "~/.hermes/memory_store.db" both
+        # Expand $XHERMES_HOME in user-supplied paths so config values like
+        # "$XHERMES_HOME/memory_store.db" or "~/.xhermes/memory_store.db" both
         # resolve to the active profile's directory.
         if isinstance(db_path, str):
-            db_path = db_path.replace("$HERMES_HOME", _hermes_home)
-            db_path = db_path.replace("${HERMES_HOME}", _hermes_home)
+            db_path = db_path.replace("$XHERMES_HOME", _hermes_home)
+            db_path = db_path.replace("${XHERMES_HOME}", _hermes_home)
         default_trust = float(self._config.get("default_trust", 0.5))
         hrr_dim = int(self._config.get("hrr_dim", 1024))
         hrr_weight = float(self._config.get("hrr_weight", 0.3))

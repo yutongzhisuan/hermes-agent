@@ -1,4 +1,4 @@
-"""Core NeMo Relay adapters for physical Hermes provider attempts."""
+"""Core NeMo Relay adapters for physical XHermes provider attempts."""
 
 from __future__ import annotations
 
@@ -208,7 +208,7 @@ def execute_current(
     metadata: dict[str, Any] | None = None,
     defer_logical_completion: bool = False,
 ) -> Any:
-    """Run a provider attempt under the inherited Hermes turn when present."""
+    """Run a provider attempt under the inherited XHermes turn when present."""
     turn = relay_runtime.active_turn()
     if turn is None:
         return callback(request)
@@ -266,7 +266,7 @@ def stream_current(
     defer_logical_completion: bool = False,
     completed_response_predicate: Callable[[Any], bool] | None = None,
 ) -> Any:
-    """Run a provider stream under the inherited Hermes turn when present.
+    """Run a provider stream under the inherited XHermes turn when present.
 
     When ``completed_response_predicate`` is set and the stream_factory returns
     a complete response instead of an iterator (e.g. AnthropicAuxiliaryClient
@@ -348,7 +348,7 @@ def stream(
 
 
 class ManagedLlmStream(Iterator[Any]):
-    """Drive Relay's async stream from Hermes's provider worker thread."""
+    """Drive Relay's async stream from XHermes's provider worker thread."""
 
     def __init__(
         self,
@@ -766,7 +766,7 @@ class AnthropicStreamAccumulator:
         return {**self._message, "content": blocks}
 
     def response(self, base: Any = None) -> Any:
-        """Return the attribute-shaped response consumed by Hermes."""
+        """Return the attribute-shaped response consumed by XHermes."""
         assembled = self.finalize()
         base_payload = _jsonable(base)
         if not isinstance(base_payload, dict):
@@ -804,7 +804,7 @@ def _logical_parent(
                     metadata={
                         relay_runtime.RUNTIME_SCHEMA_KEY: relay_runtime.RUNTIME_SCHEMA_VERSION,
                         relay_runtime.RUNTIME_INSTANCE_KEY: runtime.runtime_id,
-                        "hermes.call_role": str(
+                        "xhermes.call_role": str(
                             (metadata or {}).get("call_role") or "primary"
                         ),
                     },
@@ -845,7 +845,7 @@ def _complete_logical(
             # The provider result is authoritative. Retain the handle so turn
             # finalization can retry cleanup without changing that result.
             logger.warning(
-                "Hermes Relay logical LLM finalization failed",
+                "XHermes Relay logical LLM finalization failed",
                 exc_info=True,
             )
             return

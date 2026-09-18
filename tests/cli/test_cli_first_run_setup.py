@@ -170,7 +170,7 @@ def test_offer_first_run_setup_routes_into_shared_picker(monkeypatch):
     # After the picker "runs", config has a provider and creds resolve.
     monkeypatch.setattr(
         "hermes_cli.config.load_config",
-        lambda: {"model": {"provider": "nous", "default": "hermes-4-405b"}},
+        lambda: {"model": {"provider": "nous", "default": "xhermes-4-405b"}},
     )
     monkeypatch.setattr(
         "hermes_cli.runtime_provider.resolve_runtime_provider",
@@ -185,7 +185,7 @@ def test_offer_first_run_setup_routes_into_shared_picker(monkeypatch):
     assert shell._offer_first_run_setup() is True
     assert picker_calls["count"] == 1
     assert shell.requested_provider == "nous"
-    assert shell.model == "hermes-4-405b"
+    assert shell.model == "xhermes-4-405b"
     # Agent must be rebuilt with the new credentials on next use.
     assert shell.agent is None
 
@@ -249,4 +249,4 @@ def test_empty_key_error_names_actual_provider(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "fireworks" in out
     assert "OPENROUTER_API_KEY" not in out
-    assert "hermes model" in out or "hermes setup" in out
+    assert "xhermes model" in out or "xhermes setup" in out

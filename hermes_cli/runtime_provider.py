@@ -33,6 +33,7 @@ from hermes_cli.auth import (
     resolve_codex_runtime_credentials,
     resolve_xai_oauth_runtime_credentials,
     resolve_qwen_runtime_credentials,
+    resolve_infa_runtime_credentials,
     resolve_api_key_provider_credentials,
     resolve_external_process_provider_credentials,
     has_usable_secret,
@@ -384,7 +385,7 @@ _VALID_API_MODES = {
     "bedrock_converse",
     # Optional opt-in: hand the entire turn to a `codex app-server` subprocess
     # so terminal/file-ops/patching/sandboxing run inside Codex's own runtime
-    # instead of Hermes' tool dispatch. Gated behind config key
+    # instead of XHermes' tool dispatch. Gated behind config key
     # `model.openai_runtime == "codex_app_server"` AND provider in
     # {"openai", "openai-codex"}. Default is unchanged.
     "codex_app_server",
@@ -466,6 +467,11 @@ def _resolve_runtime_from_pool_entry(
     elif provider == "qwen-oauth":
         api_mode = "chat_completions"
         base_url = base_url or DEFAULT_QWEN_BASE_URL
+    elif provider == "infa":
+        creds = resolve_infa_runtime_credentials()
+        api_mode = "chat_completions"
+        api_key = creds.get("api_key") or api_key
+        base_url = (creds.get("base_url") or base_url).rstrip("/")
     elif provider == "minimax-oauth":
         # MiniMax OAuth tokens are valid only against the Anthropic Messages
         # compatible endpoint. Do not honor stale model.api_mode values from a
@@ -596,7 +602,7 @@ def resolve_requested_provider(requested: Optional[str] = None) -> str:
 
     # Prefer the persisted config selection over any stale shell/.env
     # provider override so chat uses the endpoint the user last saved.
-    env_provider = _getenv("HERMES_INFERENCE_PROVIDER", "").strip().lower()
+    env_provider = _getenv("XHERMES_INFERENCE_PROVIDER", "").strip().lower()
     if env_provider:
         return env_provider
 
@@ -759,7 +765,7 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
         logger.warning(
             "custom_providers in config.yaml is a dict, not a list. "
             "Each entry must be prefixed with '-' in YAML. "
-            "Run 'hermes doctor' for details."
+            "Run 'xhermes doctor' for details."
         )
         return None
 
@@ -971,7 +977,7 @@ def canonical_custom_identity(
        config fallback below it stays correct after the user points their
        global default at a different provider.
     3. ``config_provider`` — the active ``config.model.provider`` (or its
-       ``provider``/``HERMES_INFERENCE_PROVIDER`` equivalent). When neither
+       ``provider``/``XHERMES_INFERENCE_PROVIDER`` equivalent). When neither
        a base_url nor a model recovered the entry, the configured provider
        is the only durable identity left, so fall back to it when it names
        a real entry.
@@ -1000,7 +1006,7 @@ def canonical_custom_identity(
         except Exception:
             candidate = ""
     if not candidate:
-        candidate = os.environ.get("HERMES_INFERENCE_PROVIDER", "").strip()
+        candidate = os.environ.get("XHERMES_INFERENCE_PROVIDER", "").strip()
 
     candidate_norm = _normalize_custom_provider_name(candidate)
     # A bare/non-routable candidate cannot heal a bare custom override.
@@ -1377,7 +1383,7 @@ def _resolve_azure_foundry_runtime(
     base_url = explicit_base_url_clean or cfg_base_url or env_base_url
     if not base_url:
         raise AuthError(
-            "Azure Foundry requires a base URL. Set it via 'hermes model' or "
+            "Azure Foundry requires a base URL. Set it via 'xhermes model' or "
             "the AZURE_FOUNDRY_BASE_URL environment variable."
         )
 
@@ -1466,10 +1472,10 @@ def _resolve_azure_foundry_runtime(
     if not api_key:
         raise AuthError(
             "Azure Foundry requires an API key. Set AZURE_FOUNDRY_API_KEY in "
-            "~/.hermes/.env or run 'hermes model' to configure. To use "
+            "~/.xhermes/.env or run 'xhermes model' to configure. To use "
             "keyless Microsoft Entra ID auth instead, set "
             "model.auth_mode: entra_id in config.yaml (or pick "
-            "'Microsoft Entra ID' in 'hermes model')."
+            "'Microsoft Entra ID' in 'xhermes model')."
         )
 
     source = "explicit" if (explicit_api_key or explicit_base_url) else "config"
@@ -1561,14 +1567,14 @@ def _resolve_explicit_runtime(
             str(state.get("agent_key") or "").strip()
             if _agent_key_is_usable(
                 state,
-                max(60, env_int("HERMES_NOUS_MIN_KEY_TTL_SECONDS", 1800)),
+                max(60, env_int("XHERMES_NOUS_MIN_KEY_TTL_SECONDS", 1800)),
             )
             else ""
         )
         expires_at = state.get("agent_key_expires_at") or state.get("expires_at")
         if not api_key:
             creds = resolve_nous_runtime_credentials(
-                timeout_seconds=float(_getenv("HERMES_NOUS_TIMEOUT_SECONDS", "15")),
+                timeout_seconds=float(_getenv("XHERMES_NOUS_TIMEOUT_SECONDS", "15")),
             )
             api_key = creds.get("api_key", "")
             expires_at = creds.get("expires_at")
@@ -1751,10 +1757,10 @@ def resolve_runtime_provider(
                 "Vertex AI credentials could not be resolved. Vertex uses "
                 "OAuth2 (not a static API key): provide a service-account JSON "
                 "via GOOGLE_APPLICATION_CREDENTIALS (or VERTEX_CREDENTIALS_PATH) "
-                "in ~/.hermes/.env, or run 'gcloud auth application-default "
+                "in ~/.xhermes/.env, or run 'gcloud auth application-default "
                 "login' for ADC. Set the GCP project/region under vertex: in "
                 "config.yaml if they aren't embedded in the credentials. "
-                "Run `hermes setup` to install Vertex support."
+                "Run `xhermes setup` to install Vertex support."
             )
         return {
             "provider": "vertex",
@@ -1863,11 +1869,11 @@ def resolve_runtime_provider(
         # For Nous, the pool entry's runtime_api_key is the agent_key
         # compatibility field. It must be an invoke JWT. The pool doesn't
         # refresh it during selection (that would trigger network calls in
-        # non-runtime contexts like `hermes auth list`). If the key is
+        # non-runtime contexts like `xhermes auth list`). If the key is
         # expired/missing, refresh the selected pool entry before falling back
         # to singleton auth resolution.
         if provider == "nous" and entry is not None:
-            min_ttl = max(60, env_int("HERMES_NOUS_MIN_KEY_TTL_SECONDS", 1800))
+            min_ttl = max(60, env_int("XHERMES_NOUS_MIN_KEY_TTL_SECONDS", 1800))
             nous_state = {
                 "agent_key": getattr(entry, "agent_key", None),
                 "agent_key_expires_at": getattr(entry, "agent_key_expires_at", None),
@@ -1921,7 +1927,7 @@ def resolve_runtime_provider(
             from hermes_cli.providers import nous_api_mode
 
             creds = resolve_nous_runtime_credentials(
-                timeout_seconds=float(_getenv("HERMES_NOUS_TIMEOUT_SECONDS", "15")),
+                timeout_seconds=float(_getenv("XHERMES_NOUS_TIMEOUT_SECONDS", "15")),
             )
             return {
                 "provider": "nous",
@@ -1948,7 +1954,7 @@ def resolve_runtime_provider(
                 "api_mode": "codex_responses",
                 "base_url": creds.get("base_url", "").rstrip("/"),
                 "api_key": creds.get("api_key", ""),
-                "source": creds.get("source", "hermes-auth-store"),
+                "source": creds.get("source", "xhermes-auth-store"),
                 "last_refresh": creds.get("last_refresh"),
                 "requested_provider": requested_provider,
             }
@@ -1968,7 +1974,7 @@ def resolve_runtime_provider(
                 "api_mode": "codex_responses",
                 "base_url": (creds.get("base_url") or "").rstrip("/") or DEFAULT_XAI_OAUTH_BASE_URL,
                 "api_key": creds.get("api_key", ""),
-                "source": creds.get("source", "hermes-auth-store"),
+                "source": creds.get("source", "xhermes-auth-store"),
                 "last_refresh": creds.get("last_refresh"),
                 "requested_provider": requested_provider,
             }
@@ -1994,6 +2000,23 @@ def resolve_runtime_provider(
             if requested_provider != "auto":
                 raise
             logger.info("Qwen OAuth credentials failed; "
+                        "falling through to next provider.")
+
+    if provider == "infa":
+        try:
+            creds = resolve_infa_runtime_credentials()
+            return {
+                "provider": "infa",
+                "api_mode": "chat_completions",
+                "base_url": (creds.get("base_url") or "").rstrip("/"),
+                "api_key": creds.get("api_key", ""),
+                "source": creds.get("source", "xhermes-auth-store"),
+                "requested_provider": requested_provider,
+            }
+        except AuthError:
+            if requested_provider != "auto":
+                raise
+            logger.info("INFA consumer session credentials failed; "
                         "falling through to next provider.")
 
     if provider == "minimax-oauth":
@@ -2048,9 +2071,9 @@ def resolve_runtime_provider(
         if _is_azure_endpoint:
             # Honor user-specified env var hints on the model config before
             # falling back to the built-in AZURE_ANTHROPIC_KEY / ANTHROPIC_API_KEY
-            # chain.  Accept both `key_env` (Hermes canonical — matches the
+            # chain.  Accept both `key_env` (XHermes canonical — matches the
             # custom_providers field name) and `api_key_env` (documented in the
-            # Azure Foundry guide and read by most Hermes-compatible importers).
+            # Azure Foundry guide and read by most XHermes-compatible importers).
             # Matches the config.yaml examples in website/docs/guides/azure-foundry.md.
             token = ""
             for hint_key in ("key_env", "api_key_env"):

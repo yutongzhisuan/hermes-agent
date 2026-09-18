@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClientSessionState } from '@/app/types'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { clearClarifyRequest } from '@/store/clarify'
-import type { RpcEvent } from '@/types/hermes'
+import type { RpcEvent } from '@/types/xhermes'
 
 import { useMessageStream } from './index'
 

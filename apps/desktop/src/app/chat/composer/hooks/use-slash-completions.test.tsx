@@ -2,7 +2,7 @@ import type { Unstable_TriggerItem } from '@assistant-ui/core'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { HermesGateway } from '@/hermes'
+import type { HermesGateway } from '@/xhermes'
 import { queryClient } from '@/lib/query-client'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
 
@@ -120,7 +120,7 @@ describe('useSlashCompletions', () => {
   })
 
   // An alphabetical `/` menu buries the skills someone runs daily under the
-  // ones that shipped with Hermes and were never opened.
+  // ones that shipped with XHermes and were never opened.
   it('orders skills by use and hides never-used built-ins on a bare slash', async () => {
     const request = vi.fn().mockResolvedValue(RANKED_CATALOG)
     const api = harness({ request } as unknown as HermesGateway)

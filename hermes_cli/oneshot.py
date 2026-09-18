@@ -4,19 +4,19 @@ Bypasses cli.py entirely.  No banner, no spinner, no session_id line,
 no stderr chatter.  Just the agent's final text to stdout.
 
 Toolsets = explicit --toolsets when provided, otherwise whatever the user has
-configured for "cli" in `hermes tools`.
+configured for "cli" in `xhermes tools`.
 Rules / memory / AGENTS.md / preloaded skills = same as a normal chat turn.
-Approvals = auto-bypassed (HERMES_YOLO_MODE=1 is set for the call).
+Approvals = auto-bypassed (XHERMES_YOLO_MODE=1 is set for the call).
 Working directory = the user's CWD (AGENTS.md etc. resolve from there as usual).
 
-Model / provider selection mirrors `hermes chat`:
+Model / provider selection mirrors `xhermes chat`:
     - Both optional. If omitted, use the user's configured default.
     - If both given, pair them exactly as given.
     - If only --model given, auto-detect the provider that serves it.
     - If only --provider given, error out (ambiguous — caller must pick a model).
 
 Env var fallbacks (used when the corresponding arg is not passed):
-    - HERMES_INFERENCE_MODEL
+    - XHERMES_INFERENCE_MODEL
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def _validate_explicit_toolsets(toolsets: object = None) -> tuple[list[str] | No
     try:
         from toolsets import validate_toolset
     except Exception as exc:
-        return None, f"hermes -z: failed to validate --toolsets: {exc}\n"
+        return None, f"xhermes -z: failed to validate --toolsets: {exc}\n"
 
     built_in = [name for name in normalized if validate_toolset(name)]
     unresolved = [name for name in normalized if name not in built_in]
@@ -80,7 +80,7 @@ def _validate_explicit_toolsets(toolsets: object = None) -> tuple[list[str] | No
         ignored = [name for name in normalized if name not in {"all", "*"}]
         if ignored:
             sys.stderr.write(
-                "hermes -z: --toolsets all enables every toolset; "
+                "xhermes -z: --toolsets all enables every toolset; "
                 f"ignoring additional entries: {', '.join(ignored)}\n"
             )
         return None, None
@@ -111,15 +111,15 @@ def _validate_explicit_toolsets(toolsets: object = None) -> tuple[list[str] | No
     valid = built_in + mcp_valid
 
     if unknown:
-        sys.stderr.write(f"hermes -z: ignoring unknown --toolsets entries: {', '.join(unknown)}\n")
+        sys.stderr.write(f"xhermes -z: ignoring unknown --toolsets entries: {', '.join(unknown)}\n")
     if disabled:
         sys.stderr.write(
-            "hermes -z: ignoring disabled MCP servers (set enabled: true in config.yaml to use): "
+            "xhermes -z: ignoring disabled MCP servers (set enabled: true in config.yaml to use): "
             f"{', '.join(disabled)}\n"
         )
 
     if not valid:
-        return None, "hermes -z: --toolsets did not contain any valid toolsets.\n"
+        return None, "xhermes -z: --toolsets did not contain any valid toolsets.\n"
 
     return valid, None
 
@@ -178,7 +178,7 @@ def run_oneshot(
 
     Args:
         prompt: The user message to send.
-        model: Optional model override. Falls back to HERMES_INFERENCE_MODEL
+        model: Optional model override. Falls back to XHERMES_INFERENCE_MODEL
             env var, then config.yaml's model.default / model.model.
         provider: Optional provider override. Falls back to config.yaml's
             model.provider, then "auto".
@@ -202,10 +202,10 @@ def run_oneshot(
     # not host it), and silently picking the provider's catalog default hides
     # the mismatch.  Require the caller to be explicit.  Validate BEFORE the
     # stderr redirect so the message actually reaches the terminal.
-    env_model_early = os.getenv("HERMES_INFERENCE_MODEL", "").strip()
+    env_model_early = os.getenv("XHERMES_INFERENCE_MODEL", "").strip()
     if provider and not ((model or "").strip() or env_model_early):
         sys.stderr.write(
-            "hermes -z: --provider requires --model (or HERMES_INFERENCE_MODEL). "
+            "xhermes -z: --provider requires --model (or XHERMES_INFERENCE_MODEL). "
             "Pass both explicitly, or neither to use your configured defaults.\n"
         )
         return 2
@@ -218,8 +218,8 @@ def run_oneshot(
 
     # Auto-approve any shell / tool approvals.  Non-interactive by
     # definition — a prompt would hang forever.
-    os.environ["HERMES_YOLO_MODE"] = "1"
-    os.environ["HERMES_ACCEPT_HOOKS"] = "1"
+    os.environ["XHERMES_YOLO_MODE"] = "1"
+    os.environ["XHERMES_ACCEPT_HOOKS"] = "1"
 
     # One-shot prints a single final response and exits: there is no later turn
     # for a detached subagent's completion to re-enter, and nothing here drains
@@ -271,7 +271,7 @@ def run_oneshot(
             _write_usage_file(usage_file, result, failure=repr(failure))
             raise failure
         _write_usage_file(usage_file, result, failure=str(failure))
-        real_stderr.write(f"hermes -z: agent failed: {failure}\n")
+        real_stderr.write(f"xhermes -z: agent failed: {failure}\n")
         real_stderr.flush()
         return 1
 
@@ -287,7 +287,7 @@ def run_oneshot(
         return 2
 
     if not (response or "").strip():
-        real_stderr.write("hermes -z: no final response was produced; treating the run as failed.\n")
+        real_stderr.write("xhermes -z: no final response was produced; treating the run as failed.\n")
         real_stderr.flush()
         return 1
 
@@ -295,7 +295,7 @@ def run_oneshot(
 
 
 def _create_session_db_for_oneshot():
-    """Best-effort SessionDB for ``hermes -z`` / oneshot mode.
+    """Best-effort SessionDB for ``xhermes -z`` / oneshot mode.
 
     Oneshot bypasses ``HermesCLI._init_agent()``, so it must wire the SQLite
     session store itself. Without this, the ``session_search``/recall tool is
@@ -319,7 +319,7 @@ def _run_agent(
 ) -> tuple[str, dict]:
     """Build an AIAgent exactly like a normal CLI chat turn would, then
     run a single conversation.  Returns ``(final_response, run_result)``."""
-    # Imports are local so they don't run when hermes is invoked for
+    # Imports are local so they don't run when xhermes is invoked for
     # other commands (keeps top-level CLI startup cheap).
     from hermes_cli.config import load_config
     from hermes_cli.models import detect_provider_for_model
@@ -336,7 +336,7 @@ def _run_agent(
     else:
         cfg_model = model_cfg.get("default") or model_cfg.get("model") or ""
 
-    env_model = os.getenv("HERMES_INFERENCE_MODEL", "").strip()
+    env_model = os.getenv("XHERMES_INFERENCE_MODEL", "").strip()
     effective_model = (model or "").strip() or env_model or cfg_model
 
     # Resolve effective provider: explicit arg → (auto-detect from model if
@@ -375,7 +375,7 @@ def _run_agent(
                     cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
                 current_provider = (
                     cfg_provider
-                    or os.getenv("HERMES_INFERENCE_PROVIDER", "").strip().lower()
+                    or os.getenv("XHERMES_INFERENCE_PROVIDER", "").strip().lower()
                     or "auto"
                 )
                 detected = detect_provider_for_model(explicit_model, current_provider)
@@ -440,10 +440,10 @@ def _run_agent(
             #                so the agent continues instead of stalling on
             #                the tool's built-in "not available" error
             #   - sudo password prompt → terminal_tool gates on
-            #                HERMES_INTERACTIVE which we never set
-            #   - shell-hook approval → auto-approved via HERMES_ACCEPT_HOOKS=1
+            #                XHERMES_INTERACTIVE which we never set
+            #   - shell-hook approval → auto-approved via XHERMES_ACCEPT_HOOKS=1
             #                (set above); also falls back to deny on non-tty
-            #   - dangerous-command approval → bypassed via HERMES_YOLO_MODE=1
+            #   - dangerous-command approval → bypassed via XHERMES_YOLO_MODE=1
             #   - skill secret capture → returns gracefully when no callback set
             clarify_callback=_oneshot_clarify_callback,
         )

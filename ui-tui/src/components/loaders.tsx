@@ -1,4 +1,4 @@
-import { Box, Text } from '@hermes/ink'
+import { Box, Text } from '@xhermes/ink'
 import { useEffect, useState } from 'react'
 
 import { mix } from '../lib/color.js'

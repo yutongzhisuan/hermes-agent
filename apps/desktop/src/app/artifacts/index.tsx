@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/pagination'
 import { RowButton } from '@/components/ui/row-button'
 import { Tip } from '@/components/ui/tooltip'
-import { getSessionMessages, listAllProfileSessions } from '@/hermes'
+import { getSessionMessages, listAllProfileSessions } from '@/xhermes'
 import { type Translations, useI18n } from '@/i18n'
 import { resolveBrandIcon } from '@/lib/brand-icon'
 import {
