@@ -31,11 +31,14 @@ class InfaSession:
     gateway_base_url: str
     inference_base_url: str
     expires_at: int = 0
+    managed_by: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["logged_in"] = True
         payload["auth_mode"] = "consumer_session"
+        if not payload.get("managed_by"):
+            payload.pop("managed_by", None)
         return payload
 
     @classmethod
@@ -51,6 +54,7 @@ class InfaSession:
             gateway_base_url=_strip_slash(data.get("gateway_base_url")),
             inference_base_url=_strip_slash(data.get("inference_base_url")),
             expires_at=int(data.get("expires_at") or 0),
+            managed_by=str(data.get("managed_by") or ""),
         )
 
 
