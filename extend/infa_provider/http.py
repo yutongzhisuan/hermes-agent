@@ -15,7 +15,7 @@ from extend.infa_provider.dpop import (
     new_proof_id,
     token_hash,
 )
-from extend.infa_provider.session import InfaSession, load_session
+from extend.infa_provider.session import DESKTOP_MANAGED_BY, InfaSession, load_session
 
 _SIGNED_PREFIXES = (
     "/api/v1/chat/completions",
@@ -63,14 +63,32 @@ def apply_dpop_header(request: httpx.Request, session: InfaSession, nonce: str) 
     )
 
 
+def _desktop_shared_session(session: InfaSession) -> InfaSession:
+    """Reload Desktop-written auth.json so Bearer matches the live access token."""
+    if session.managed_by != DESKTOP_MANAGED_BY:
+        return session
+    fresh = load_session()
+    if fresh is None or not fresh.access_token or not fresh.device_private_key:
+        return session
+    return fresh
+
+
+def _prepare_signed_request(request: httpx.Request, session: InfaSession, nonce: str) -> tuple[httpx.Request, InfaSession]:
+    session = _desktop_shared_session(session)
+    prepared = _clone_request(request)
+    prepared.headers["Authorization"] = f"Bearer {session.access_token}"
+    if nonce:
+        apply_dpop_header(prepared, session, nonce)
+    return prepared, session
+
+
 def _retry_after_challenge(response: httpx.Response, request: httpx.Request, session: InfaSession, nonce: str, send) -> httpx.Response:
     try:
         response.read()
     except Exception:
         pass
     response.close()
-    retry = _clone_request(request)
-    apply_dpop_header(retry, session, nonce)
+    retry, _ = _prepare_signed_request(request, session, nonce)
     return send(retry)
 
 
@@ -83,10 +101,7 @@ class _DPoPTransport(httpx.BaseTransport):
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         if not should_sign(request.url.path):
             return self._inner.handle_request(request)
-        current = request
-        if self._nonce[0]:
-            current = _clone_request(request)
-            apply_dpop_header(current, self._session, self._nonce[0])
+        current, self._session = _prepare_signed_request(request, self._session, self._nonce[0])
         response = self._inner.handle_request(current)
         challenge = _dpop_nonce(response.headers)
         if challenge:
@@ -107,10 +122,7 @@ class _AsyncDPoPTransport(httpx.AsyncBaseTransport):
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         if not should_sign(request.url.path):
             return await self._inner.handle_async_request(request)
-        current = request
-        if self._nonce[0]:
-            current = _clone_request(request)
-            apply_dpop_header(current, self._session, self._nonce[0])
+        current, self._session = _prepare_signed_request(request, self._session, self._nonce[0])
         response = await self._inner.handle_async_request(current)
         challenge = _dpop_nonce(response.headers)
         if challenge:
@@ -121,8 +133,7 @@ class _AsyncDPoPTransport(httpx.AsyncBaseTransport):
             except Exception:
                 pass
             await response.aclose()
-            retry = _clone_request(request)
-            apply_dpop_header(retry, self._session, challenge)
+            retry, self._session = _prepare_signed_request(request, self._session, challenge)
             return await self._inner.handle_async_request(retry)
         return response
 
