@@ -11,6 +11,7 @@ from extend.infa_provider.dpop import PROVIDER_ID, jwt_unverified_claims
 ENV_GATEWAY_URL = "INFA_GATEWAY_BASE_URL"
 ENV_PLATFORM_URL = "INFA_PLATFORM_BASE_URL"
 REFRESH_SKEW_SECONDS = 120
+DESKTOP_MANAGED_BY = "desktop"
 
 
 class InfaAuthError(Exception):
@@ -141,12 +142,20 @@ def _config_api_credentials() -> Optional[dict[str, str]]:
     return {"api_key": api_key, "base_url": base_url}
 
 
+def _desktop_owns_refresh(session: InfaSession) -> bool:
+    return session.managed_by == DESKTOP_MANAGED_BY
+
+
 def resolve_runtime_credentials(*, force_refresh: bool = False, refresh_if_expiring: bool = True) -> dict[str, Any]:
     from extend.infa_provider.login import refresh_session
 
     session = load_session()
     if session is not None:
-        if force_refresh or (refresh_if_expiring and access_token_is_expiring(session)):
+        # Desktop writes auth.json and rotates the shared refresh token.
+        # Refreshing it here presents the previous token and revokes the session.
+        if not _desktop_owns_refresh(session) and (
+            force_refresh or (refresh_if_expiring and access_token_is_expiring(session))
+        ):
             session = refresh_session(session)
             save_session(session)
         return {
