@@ -111,7 +111,7 @@ class Ledger:
         ``seq`` raises the run's high-water mark when > 0. Prefer
         :meth:`alloc_seq` before ``record`` so concurrent dispatches never
         share an ``idempotency_key``. ``idempotency_key`` is the caller
-        retry identity; ``task_id`` is a unique Hub external id (UUID).
+        retry identity; ``task_id`` is a unique Hub external id (UUIDv7).
         """
         now = time.time()
         with self._lock:

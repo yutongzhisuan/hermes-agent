@@ -12,8 +12,8 @@ hard-timeout branch in ``tools/model_tools.py``). Each handler:
   3. mirrors all state into the sqlite ledger (the LLM context is compacted
      away; the ledger is the only reliable recovery source).
 
-Task ids are UUIDs (unique Hub external ids). Retry identity is a separate
-``idempotency_key`` of the form ``{run_id}-{seq}`` from an atomically
+Task ids are UUIDv7 (unique Hub external ids, 32 hex). Retry identity is a
+separate ``idempotency_key`` of the form ``{run_id}-{seq}`` from an atomically
 allocated ledger sequence. Large contexts (>48 KiB) are gzip+base64 encoded
 into ``context.inline_gzip`` automatically (spec §12.1 #3).
 
@@ -30,6 +30,7 @@ import gzip
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -346,7 +347,7 @@ def gateway_dispatch_batch(args: dict, **_kwargs: object) -> str:
             specs = []
             task_ids = []
             for i, raw in enumerate(raw_specs):
-                task_id = uuid.uuid4().hex
+                task_id = _new_task_id()
                 seq = task_base + i
                 idem = f"{batch_idem}#{i}"
                 task_ids.append(task_id)
@@ -414,7 +415,7 @@ def _prepare_dispatch_ids(
                 )
             return existing["task_id"], retry_key
         # Unknown key: treat as a fresh reservation under the caller-supplied key.
-        task_id = str(args.get("task_id") or "").strip() or uuid.uuid4().hex
+        task_id = str(args.get("task_id") or "").strip() or _new_task_id()
         ledger.record(
             run_id=run_id,
             task_id=task_id,
@@ -425,7 +426,7 @@ def _prepare_dispatch_ids(
         return task_id, retry_key
 
     seq = ledger.alloc_seq(run_id)
-    task_id = uuid.uuid4().hex
+    task_id = _new_task_id()
     idempotency_key = f"{run_id}-{seq}"
     ledger.record(
         run_id=run_id,
@@ -436,6 +437,28 @@ def _prepare_dispatch_ids(
         idempotency_key=idempotency_key,
     )
     return task_id, idempotency_key
+
+
+def _new_task_id() -> str:
+    """Return a UUIDv7 as 32 hex chars (no hyphens)."""
+    return _uuid7().hex
+
+
+def _uuid7() -> uuid.UUID:
+    factory = getattr(uuid, "uuid7", None)
+    if factory is not None:
+        return factory()
+    ms = time.time_ns() // 1_000_000
+    buf = bytearray(os.urandom(16))
+    buf[0] = (ms >> 40) & 0xFF
+    buf[1] = (ms >> 32) & 0xFF
+    buf[2] = (ms >> 24) & 0xFF
+    buf[3] = (ms >> 16) & 0xFF
+    buf[4] = (ms >> 8) & 0xFF
+    buf[5] = ms & 0xFF
+    buf[6] = (buf[6] & 0x0F) | 0x70
+    buf[8] = (buf[8] & 0x3F) | 0x80
+    return uuid.UUID(bytes=bytes(buf))
 
 
 def gateway_watch_task(args: dict, **_kwargs: object) -> str:

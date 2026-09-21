@@ -15,6 +15,7 @@ import gzip
 import json
 import threading
 import time
+import uuid
 
 from agent.delegation_context import delegated_child_context
 
@@ -23,6 +24,7 @@ from extend.master_planner.ledger import Ledger
 from extend.master_planner.tools import (
     CONTEXT_INLINE_MAX_BYTES,
     _encode_context,
+    _new_task_id,
     gateway_cancel_task,
     gateway_dispatch_batch,
     gateway_dispatch_task,
@@ -56,7 +58,8 @@ def _parse(raw: str) -> dict:
 
 def test_dispatch_task_records_ledger(gateway_env):
     out = _parse(gateway_dispatch_task({"goal": "research A"}))
-    assert len(out["task_id"]) == 32  # uuid4.hex
+    assert len(out["task_id"]) == 32  # uuid7.hex
+    assert uuid.UUID(hex=out["task_id"]).version == 7
     assert out["idempotency_key"].startswith(out["run_id"] + "-")
     # Server status is a TaskStatus enum name; the tool surfaces the short name.
     assert out["status"] == "pending"
@@ -80,6 +83,15 @@ def test_dispatch_task_ids_are_unique(gateway_env):
     seq1 = int(first["idempotency_key"].rsplit("-", 1)[1])
     seq2 = int(second["idempotency_key"].rsplit("-", 1)[1])
     assert seq2 == seq1 + 1
+
+
+def test_new_task_id_is_uuid7():
+    first = _new_task_id()
+    second = _new_task_id()
+    assert first != second
+    assert len(first) == 32
+    assert uuid.UUID(hex=first).version == 7
+    assert uuid.UUID(hex=second).version == 7
 
 
 def test_dispatch_task_retry_reuses_ids(gateway_env, monkeypatch):
