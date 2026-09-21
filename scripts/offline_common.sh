@@ -15,6 +15,13 @@ offline_python_cmd() {
 }
 
 offline_platform_tag() {
+  # Prefer explicit override (CI matrix / make targets) over uname — Git Bash
+  # on Windows ARM often reports x86_64 under emulation.
+  if [[ -n "${OFFLINE_PLATFORM:-}" ]]; then
+    echo "${OFFLINE_PLATFORM}"
+    return 0
+  fi
+
   local os arch
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
@@ -23,6 +30,21 @@ offline_platform_tag() {
     linux) os="linux" ;;
     mingw*|msys*|cygwin*) os="windows" ;;
   esac
+
+  # On Windows, prefer the machine OS architecture over the process arch.
+  # x64 Git Bash on ARM64 reports uname -m=x86_64 while the host is ARM64.
+  if [[ "$os" == "windows" ]]; then
+    local win_arch=""
+    if command -v powershell.exe >/dev/null 2>&1; then
+      win_arch="$(powershell.exe -NoProfile -Command "[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()" 2>/dev/null | tr -d '\r')"
+    fi
+    case "${win_arch}" in
+      Arm64|ARM64) arch="arm64" ;;
+      X64|x64|Amd64|AMD64) arch="x86_64" ;;
+      X86|x86) arch="x86" ;;
+    esac
+  fi
+
   # Normalize arch aliases so artifact tags match CI matrix names.
   case "$os-$arch" in
     linux-arm64) arch="aarch64" ;;
@@ -30,6 +52,51 @@ offline_platform_tag() {
     windows-aarch64) arch="arm64" ;;
   esac
   echo "${os}-${arch}"
+}
+
+# Map offline platform tag → python-build-standalone triple.
+offline_standalone_triple() {
+  case "$1" in
+    linux-x86_64) echo "x86_64-unknown-linux-gnu" ;;
+    linux-aarch64) echo "aarch64-unknown-linux-gnu" ;;
+    macos-arm64) echo "aarch64-apple-darwin" ;;
+    macos-x86_64) echo "x86_64-apple-darwin" ;;
+    windows-x86_64) echo "x86_64-pc-windows-msvc" ;;
+    windows-arm64) echo "aarch64-pc-windows-msvc" ;;
+    *)
+      echo "ERROR: no standalone triple for platform: $1" >&2
+      return 1
+      ;;
+  esac
+}
+
+# Ensure OFFLINE_PYTHON_STANDALONE_TGZ points at a tarball matching $1.
+# Downloads from astral-sh/python-build-standalone when missing.
+offline_ensure_standalone_tgz() {
+  local platform="$1"
+  local dest_dir="${2:-}"
+  local triple tag pyver url out
+
+  if [[ -n "${OFFLINE_PYTHON_STANDALONE_TGZ:-}" && -f "${OFFLINE_PYTHON_STANDALONE_TGZ}" ]]; then
+    return 0
+  fi
+
+  triple="$(offline_standalone_triple "$platform")" || return 1
+  tag="${OFFLINE_PYTHON_STANDALONE_TAG:-20260901}"
+  pyver="${OFFLINE_PYTHON_STANDALONE_VERSION:-3.11.16}"
+  if [[ -z "$dest_dir" ]]; then
+    dest_dir="$(pwd)/dist"
+  fi
+  mkdir -p "$dest_dir"
+  out="${dest_dir}/cpython-${pyver}-${triple}-install_only_stripped.tar.gz"
+  if [[ ! -f "$out" ]]; then
+    url="https://github.com/astral-sh/python-build-standalone/releases/download/${tag}/cpython-${pyver}%2B${tag}-${triple}-install_only_stripped.tar.gz"
+    echo "→ downloading standalone Python ${pyver} (${triple})..." >&2
+    curl -fL --retry 3 -o "$out" "$url"
+  else
+    echo "→ using cached standalone Python: ${out}" >&2
+  fi
+  export OFFLINE_PYTHON_STANDALONE_TGZ="$out"
 }
 
 # True when building on native Windows (Git Bash / MSYS / Cygwin).

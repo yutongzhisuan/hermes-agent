@@ -35,8 +35,8 @@ IMAGE="${OFFLINE_DOCKER_IMAGE:-ghcr.io/astral-sh/uv:python3.11-bookworm-slim}"
 # so frozen/aos embeds do not depend on in-container GitHub downloads.
 STANDALONE_TGZ=""
 if [[ "$MODE" == "frozen" || "$MODE" == "all" || "$MODE" == "aos" ]]; then
-  STANDALONE_TAG="${OFFLINE_PYTHON_STANDALONE_TAG:-20260610}"
-  STANDALONE_PY="${OFFLINE_PYTHON_STANDALONE_VERSION:-3.11.15}"
+  STANDALONE_TAG="${OFFLINE_PYTHON_STANDALONE_TAG:-20260901}"
+  STANDALONE_PY="${OFFLINE_PYTHON_STANDALONE_VERSION:-3.11.16}"
   case "$ARCH" in
     aarch64) STANDALONE_TRIPLE="aarch64-unknown-linux-gnu" ;;
     x86_64) STANDALONE_TRIPLE="x86_64-unknown-linux-gnu" ;;

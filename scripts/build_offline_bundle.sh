@@ -15,7 +15,22 @@ PYTHON="${PYTHON:-3.11}"
 PLATFORM="$(offline_platform_tag)"
 STAGING="$ROOT/dist/.offline-staging-$$"
 WHEEL_DIR="$STAGING/wheel-out"
-mkdir -p "$STAGING"
+mkdir -p "$STAGING" "$ROOT/dist"
+
+# Pin embedded CPython to the target platform triple when:
+# - caller already set OFFLINE_PYTHON_STANDALONE_TGZ, or
+# - building windows-arm64 (Git Bash/uv often embed x86_64 under emulation), or
+# - host platform tag differs from the requested OFFLINE_PLATFORM.
+case "$MODE" in
+  frozen|all|aos)
+    host_tag="$(OFFLINE_PLATFORM= offline_platform_tag)"
+    if [[ -n "${OFFLINE_PYTHON_STANDALONE_TGZ:-}" ]] \
+      || [[ "$PLATFORM" == "windows-arm64" ]] \
+      || [[ "$PLATFORM" != "$host_tag" ]]; then
+      offline_ensure_standalone_tgz "$PLATFORM" "$ROOT/dist"
+    fi
+    ;;
+esac
 
 cleanup() {
   rm -rf "$STAGING"
