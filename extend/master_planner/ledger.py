@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_run_id ON tasks(run_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_batch_id ON tasks(batch_id);
+
+CREATE TABLE IF NOT EXISTS run_seq (
+    run_id  TEXT PRIMARY KEY,
+    high    INTEGER NOT NULL
+);
 """
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "lost"})
@@ -83,8 +88,15 @@ class Ledger:
         batch_id: str = "",
         status: str = "submitted",
         gateway_instance_id: str = "",
+        seq: int = 0,
     ) -> None:
-        """Insert (or idempotently replace) a task row at dispatch time."""
+        """Insert (or idempotently replace) a task row at dispatch time.
+
+        ``seq`` is the sequence issued for this task_id; it raises the run's
+        high-water mark so the id is never issued again, even if task rows are
+        later pruned. A reissued task_id would be dropped by the node-side
+        dedup table, whose retention outlives the platform's task state.
+        """
         now = time.time()
         with self._lock:
             self._conn.execute(
@@ -108,6 +120,13 @@ class Ledger:
                     now,
                 ),
             )
+            if seq > 0:
+                self._conn.execute(
+                    "INSERT INTO run_seq (run_id, high) VALUES (?, ?)"
+                    " ON CONFLICT(run_id) DO UPDATE SET"
+                    " high = MAX(high, excluded.high)",
+                    (run_id, seq),
+                )
             self._conn.commit()
 
     def update_status(self, task_id: str, status: str) -> None:
@@ -137,10 +156,21 @@ class Ledger:
             self._conn.commit()
 
     def next_seq(self, run_id: str) -> int:
-        """Monotonically increasing per-run sequence (task_id idempotency key)."""
+        """Next per-run sequence (task_id idempotency key).
+
+        Reads the high-water mark of recorded tasks, falling back to the row
+        count for ledgers written before ``run_seq`` existed. Deliberately not
+        an allocating counter: a dispatch that fails before ``record`` must
+        retry under the same task_id so the platform can answer it as a
+        duplicate instead of running the goal twice.
+        """
         with self._lock:
             row = self._conn.execute(
-                "SELECT COUNT(*) AS n FROM tasks WHERE run_id = ?", (run_id,)
+                "SELECT COALESCE("
+                " (SELECT high FROM run_seq WHERE run_id = ?),"
+                " (SELECT COUNT(*) FROM tasks WHERE run_id = ?)"
+                ") AS n",
+                (run_id, run_id),
             ).fetchone()
             return int(row["n"]) + 1
 

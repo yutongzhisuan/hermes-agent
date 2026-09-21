@@ -263,10 +263,11 @@ def gateway_dispatch_task(args: dict, **_kwargs: object) -> str:
         session_key = _master_session_id()
         run_id = _run_id(session_key)
         ledger = _get_ledger()
-        task_id = f"{run_id}-{ledger.next_seq(run_id)}"
+        seq = ledger.next_seq(run_id)
+        task_id = f"{run_id}-{seq}"
         spec = _build_spec(args, task_id=task_id)
         resp = _get_client().dispatch_task(spec, master_session_id=session_key)
-        ledger.record(run_id=run_id, task_id=task_id, goal=goal)
+        ledger.record(run_id=run_id, task_id=task_id, goal=goal, seq=seq)
         return _out({
             "task_id": task_id,
             "run_id": run_id,
@@ -312,12 +313,13 @@ def gateway_dispatch_batch(args: dict, **_kwargs: object) -> str:
             join_policy=str(args.get("join_policy") or ""),
         )
         batch_id = str(resp.get("batch_id") or batch_id)
-        for task_id, spec in zip(task_ids, specs):
+        for i, (task_id, spec) in enumerate(zip(task_ids, specs)):
             ledger.record(
                 run_id=run_id,
                 task_id=task_id,
                 batch_id=batch_id,
                 goal=spec["goal"],
+                seq=base_seq + i,
             )
         return _out({
             "batch_id": batch_id,
