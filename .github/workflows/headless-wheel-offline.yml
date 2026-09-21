@@ -23,7 +23,7 @@ on:
           - linux-x86_64
           - linux-aarch64
           - windows-x86_64
-          - windows-arm64
+          # windows-arm64: not supported (no ctranslate2 win_arm64 wheels)
       mode:
         description: Bundle kind to build
         required: false
@@ -75,7 +75,7 @@ jobs:
               {"platform": "linux-x86_64", "runner": "ubuntu-latest"},
               {"platform": "linux-aarch64", "runner": "ubuntu-24.04-arm"},
               {"platform": "windows-x86_64", "runner": "windows-latest"},
-              {"platform": "windows-arm64", "runner": "windows-11-arm"},
+              # windows-arm64 omitted: ctranslate2/faster-whisper have no win_arm64 wheels
           ]
           requested = os.environ.get("REQUESTED", "all")
           mode = os.environ.get("MODE", "frozen")
