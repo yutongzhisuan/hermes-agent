@@ -56,13 +56,15 @@ def _parse(raw: str) -> dict:
 
 def test_dispatch_task_records_ledger(gateway_env):
     out = _parse(gateway_dispatch_task({"goal": "research A"}))
-    assert out["task_id"].startswith(out["run_id"] + "-")
+    assert len(out["task_id"]) == 32  # uuid4.hex
+    assert out["idempotency_key"].startswith(out["run_id"] + "-")
     # Server status is a TaskStatus enum name; the tool surfaces the short name.
     assert out["status"] == "pending"
     row = mp_tools._get_ledger().get(out["task_id"])
     assert row is not None
     assert row["goal"] == "research A"
     assert row["status"] == "submitted"
+    assert row["idempotency_key"] == out["idempotency_key"]
 
 
 def test_dispatch_task_requires_goal(gateway_env):
@@ -70,13 +72,43 @@ def test_dispatch_task_requires_goal(gateway_env):
     assert out["error"] == "invalid_args"
 
 
-def test_dispatch_task_seq_increments(gateway_env):
+def test_dispatch_task_ids_are_unique(gateway_env):
     first = _parse(gateway_dispatch_task({"goal": "a"}))
     second = _parse(gateway_dispatch_task({"goal": "b"}))
     assert first["task_id"] != second["task_id"]
-    seq1 = int(first["task_id"].rsplit("-", 1)[1])
-    seq2 = int(second["task_id"].rsplit("-", 1)[1])
+    assert first["idempotency_key"] != second["idempotency_key"]
+    seq1 = int(first["idempotency_key"].rsplit("-", 1)[1])
+    seq2 = int(second["idempotency_key"].rsplit("-", 1)[1])
     assert seq2 == seq1 + 1
+
+
+def test_dispatch_task_retry_reuses_ids(gateway_env, monkeypatch):
+    calls = {"n": 0}
+    real = mp_tools._get_client().dispatch_task
+
+    def boom_once(spec, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("transient")
+        return real(spec, **kwargs)
+
+    monkeypatch.setattr(mp_tools._get_client(), "dispatch_task", boom_once)
+    failed = _parse(gateway_dispatch_task({"goal": "retry-me"}))
+    assert "error" in failed
+    # First attempt left a dispatching row; recover ids from ledger.
+    ledger = mp_tools._get_ledger()
+    open_rows = [r for r in ledger.open_tasks() if r["goal"] == "retry-me"]
+    assert len(open_rows) == 1
+    row = open_rows[0]
+    assert row["status"] == "dispatching"
+    out = _parse(gateway_dispatch_task({
+        "goal": "retry-me",
+        "idempotency_key": row["idempotency_key"],
+        "task_id": row["task_id"],
+    }))
+    assert out["task_id"] == row["task_id"]
+    assert out["idempotency_key"] == row["idempotency_key"]
+    assert out["status"] == "pending"
 
 
 def test_dispatch_batch_records_all(gateway_env):

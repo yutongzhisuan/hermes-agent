@@ -274,12 +274,22 @@ class GatewayClient:
     # ------------------------------------------------------------------
 
     def dispatch_task(
-        self, spec: dict[str, Any], *, master_session_id: str = ""
+        self,
+        spec: dict[str, Any],
+        *,
+        master_session_id: str = "",
+        idempotency_key: str = "",
     ) -> dict[str, Any]:
-        """DispatchTask — submit a single TaskSpec. ``spec.task_id`` is the idempotency key."""
+        """DispatchTask — submit a single TaskSpec.
+
+        ``idempotency_key`` is the caller retry identity (independent of
+        ``spec.task_id``, which is a unique Hub external id).
+        """
         body: dict[str, Any] = {"spec": spec}
         if master_session_id:
             body["master_session_id"] = master_session_id
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
         return self._post_json("/v1/agent/tasks", body)
 
     def dispatch_batch(
@@ -289,6 +299,7 @@ class GatewayClient:
         batch_id: str = "",
         master_session_id: str = "",
         join_policy: str = "",
+        idempotency_key: str = "",
     ) -> dict[str, Any]:
         """DispatchTaskBatch — submit multiple TaskSpecs as one batch."""
         body: dict[str, Any] = {"specs": specs}
@@ -296,6 +307,8 @@ class GatewayClient:
             body["batch_id"] = batch_id
         if master_session_id:
             body["master_session_id"] = master_session_id
+        if idempotency_key:
+            body["idempotency_key"] = idempotency_key
         completion_mode = _JOIN_COMPLETION_MODES.get(join_policy.strip().lower())
         if completion_mode:
             body["policy"] = {"completion_mode": completion_mode}

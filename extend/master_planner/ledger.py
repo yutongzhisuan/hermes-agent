@@ -38,17 +38,23 @@ CREATE TABLE IF NOT EXISTS tasks (
     status               TEXT NOT NULL DEFAULT 'submitted',
     cursor_event_id      TEXT NOT NULL DEFAULT '',
     gateway_instance_id  TEXT NOT NULL DEFAULT '',
+    idempotency_key      TEXT NOT NULL DEFAULT '',
     submitted_at         REAL NOT NULL,
     updated_at           REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_run_id ON tasks(run_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_batch_id ON tasks(batch_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_idempotency_key ON tasks(idempotency_key);
 
 CREATE TABLE IF NOT EXISTS run_seq (
     run_id  TEXT PRIMARY KEY,
     high    INTEGER NOT NULL
 );
 """
+
+_MIGRATIONS = (
+    "ALTER TABLE tasks ADD COLUMN idempotency_key TEXT NOT NULL DEFAULT ''",
+)
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "lost"})
 
@@ -73,6 +79,15 @@ class Ledger:
         self._conn.row_factory = sqlite3.Row
         with self._lock:
             self._conn.executescript(_SCHEMA)
+            for stmt in _MIGRATIONS:
+                try:
+                    self._conn.execute(stmt)
+                except sqlite3.OperationalError:
+                    pass  # column already present on upgraded DBs
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_idempotency_key"
+                " ON tasks(idempotency_key)"
+            )
             self._conn.commit()
 
     # ------------------------------------------------------------------
@@ -89,24 +104,30 @@ class Ledger:
         status: str = "submitted",
         gateway_instance_id: str = "",
         seq: int = 0,
+        idempotency_key: str = "",
     ) -> None:
         """Insert (or idempotently replace) a task row at dispatch time.
 
-        ``seq`` is the sequence issued for this task_id; it raises the run's
-        high-water mark so the id is never issued again, even if task rows are
-        later pruned. A reissued task_id would be dropped by the node-side
-        dedup table, whose retention outlives the platform's task state.
+        ``seq`` raises the run's high-water mark when > 0. Prefer
+        :meth:`alloc_seq` before ``record`` so concurrent dispatches never
+        share an ``idempotency_key``. ``idempotency_key`` is the caller
+        retry identity; ``task_id`` is a unique Hub external id (UUID).
         """
         now = time.time()
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO tasks (task_id, run_id, batch_id, goal, status,
-                                   gateway_instance_id, submitted_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                   gateway_instance_id, idempotency_key,
+                                   submitted_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(task_id) DO UPDATE SET
                     status = excluded.status,
                     gateway_instance_id = excluded.gateway_instance_id,
+                    idempotency_key = CASE
+                        WHEN excluded.idempotency_key != ''
+                        THEN excluded.idempotency_key
+                        ELSE tasks.idempotency_key END,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -116,6 +137,7 @@ class Ledger:
                     goal,
                     status,
                     gateway_instance_id,
+                    idempotency_key,
                     now,
                     now,
                 ),
@@ -156,13 +178,10 @@ class Ledger:
             self._conn.commit()
 
     def next_seq(self, run_id: str) -> int:
-        """Next per-run sequence (task_id idempotency key).
+        """Peek the next per-run sequence without allocating.
 
-        Reads the high-water mark of recorded tasks, falling back to the row
-        count for ledgers written before ``run_seq`` existed. Deliberately not
-        an allocating counter: a dispatch that fails before ``record`` must
-        retry under the same task_id so the platform can answer it as a
-        duplicate instead of running the goal twice.
+        Prefer :meth:`alloc_seq` at dispatch time so concurrent callers cannot
+        share an ``idempotency_key``.
         """
         with self._lock:
             row = self._conn.execute(
@@ -173,6 +192,50 @@ class Ledger:
                 (run_id, run_id),
             ).fetchone()
             return int(row["n"]) + 1
+
+    def alloc_seq(self, run_id: str, n: int = 1) -> int:
+        """Atomically allocate ``n`` sequences; return the first (base) value.
+
+        Concurrent callers never share the same base, so
+        ``idempotency_key = f"{run_id}-{seq}"`` stays unique under load.
+        """
+        if n < 1:
+            n = 1
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT high FROM run_seq WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            if row is None:
+                count_row = self._conn.execute(
+                    "SELECT COUNT(*) AS n FROM tasks WHERE run_id = ?", (run_id,)
+                ).fetchone()
+                base = int(count_row["n"]) + 1
+                self._conn.execute(
+                    "INSERT INTO run_seq (run_id, high) VALUES (?, ?)",
+                    (run_id, base + n - 1),
+                )
+                self._conn.commit()
+                return base
+            self._conn.execute(
+                "UPDATE run_seq SET high = high + ? WHERE run_id = ?",
+                (n, run_id),
+            )
+            high_row = self._conn.execute(
+                "SELECT high FROM run_seq WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            self._conn.commit()
+            high = int(high_row["high"])
+            return high - n + 1
+
+    def get_by_idempotency_key(self, idempotency_key: str) -> Optional[dict[str, Any]]:
+        if not idempotency_key:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM tasks WHERE idempotency_key = ? LIMIT 1",
+                (idempotency_key,),
+            ).fetchone()
+        return dict(row) if row else None
 
     # ------------------------------------------------------------------
     # Reads

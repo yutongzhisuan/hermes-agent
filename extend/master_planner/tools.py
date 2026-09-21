@@ -12,10 +12,10 @@ hard-timeout branch in ``tools/model_tools.py``). Each handler:
   3. mirrors all state into the sqlite ledger (the LLM context is compacted
      away; the ledger is the only reliable recovery source).
 
-Task ids are ``{run_id}-{seq}`` — ``run_id`` is a session-key digest plus a
-timestamp, ``seq`` comes from the ledger, making the task id the idempotency
-key. Large contexts (>48 KiB) are gzip+base64 encoded into
-``context.inline_gzip`` automatically (spec §12.1 #3).
+Task ids are UUIDs (unique Hub external ids). Retry identity is a separate
+``idempotency_key`` of the form ``{run_id}-{seq}`` from an atomically
+allocated ledger sequence. Large contexts (>48 KiB) are gzip+base64 encoded
+into ``context.inline_gzip`` automatically (spec §12.1 #3).
 
 The wire contract is the gateway-api AgentRelayService proto
 (``server/api/gateway-api/v1/agent_relay.proto``); all HTTP responses pass
@@ -32,6 +32,7 @@ import json
 import logging
 import threading
 import time
+import uuid
 from typing import Any, Optional
 
 from .client import (
@@ -263,13 +264,29 @@ def gateway_dispatch_task(args: dict, **_kwargs: object) -> str:
         session_key = _master_session_id()
         run_id = _run_id(session_key)
         ledger = _get_ledger()
-        seq = ledger.next_seq(run_id)
-        task_id = f"{run_id}-{seq}"
+        task_id, idempotency_key = _prepare_dispatch_ids(
+            ledger, run_id, goal, args=args
+        )
         spec = _build_spec(args, task_id=task_id)
-        resp = _get_client().dispatch_task(spec, master_session_id=session_key)
-        ledger.record(run_id=run_id, task_id=task_id, goal=goal, seq=seq)
+        try:
+            resp = _get_client().dispatch_task(
+                spec,
+                master_session_id=session_key,
+                idempotency_key=idempotency_key,
+            )
+        except Exception:
+            # Keep the dispatching row so a retry can reuse the same ids.
+            raise
+        ledger.record(
+            run_id=run_id,
+            task_id=task_id,
+            goal=goal,
+            status="submitted",
+            idempotency_key=idempotency_key,
+        )
         return _out({
             "task_id": task_id,
+            "idempotency_key": idempotency_key,
             "run_id": run_id,
             "status": task_status_name(resp.get("status")) or "submitted",
             "idempotent_hit": bool(resp.get("idempotent_hit")),
@@ -293,24 +310,63 @@ def gateway_dispatch_batch(args: dict, **_kwargs: object) -> str:
         session_key = _master_session_id()
         run_id = _run_id(session_key)
         ledger = _get_ledger()
-        base_seq = ledger.next_seq(run_id)
-        batch_id = f"{run_id}-b{base_seq}"
-        specs: list[dict[str, Any]] = []
-        task_ids: list[str] = []
+        n = len(raw_specs)
         for i, raw in enumerate(raw_specs):
             if not isinstance(raw, dict) or not str(raw.get("goal") or "").strip():
                 return _out({
                     "error": "invalid_args",
                     "message": f"specs[{i}] must be an object with a non-empty 'goal'.",
                 })
-            task_id = f"{run_id}-{base_seq + i}"
-            task_ids.append(task_id)
-            specs.append(_build_spec(raw, task_id=task_id))
+
+        retry_batch_key = str(args.get("idempotency_key") or "").strip()
+        if retry_batch_key:
+            existing_rows = [
+                ledger.get_by_idempotency_key(f"{retry_batch_key}#{i}")
+                for i in range(n)
+            ]
+            if not all(existing_rows):
+                return _out({
+                    "error": "invalid_args",
+                    "message": "idempotency_key retry did not match a prior batch reservation.",
+                })
+            task_ids = [str(r["task_id"]) for r in existing_rows]  # type: ignore[index]
+            batch_id = str(existing_rows[0].get("batch_id") or "")  # type: ignore[union-attr]
+            batch_idem = retry_batch_key
+            specs = [
+                _build_spec(raw, task_id=tid)
+                for raw, tid in zip(raw_specs, task_ids)
+            ]
+        else:
+            # Reserve n task seqs + 1 batch seq atomically.
+            base_seq = ledger.alloc_seq(run_id, n + 1)
+            batch_seq = base_seq
+            task_base = base_seq + 1
+            batch_idem = f"{run_id}-b{batch_seq}"
+            batch_id = batch_idem
+            specs = []
+            task_ids = []
+            for i, raw in enumerate(raw_specs):
+                task_id = uuid.uuid4().hex
+                seq = task_base + i
+                idem = f"{batch_idem}#{i}"
+                task_ids.append(task_id)
+                specs.append(_build_spec(raw, task_id=task_id))
+                ledger.record(
+                    run_id=run_id,
+                    task_id=task_id,
+                    batch_id=batch_id,
+                    goal=str(raw.get("goal") or "").strip(),
+                    status="dispatching",
+                    seq=seq,
+                    idempotency_key=idem,
+                )
+
         resp = _get_client().dispatch_batch(
             specs,
             batch_id=batch_id,
             master_session_id=session_key,
             join_policy=str(args.get("join_policy") or ""),
+            idempotency_key=batch_idem,
         )
         batch_id = str(resp.get("batch_id") or batch_id)
         for i, (task_id, spec) in enumerate(zip(task_ids, specs)):
@@ -319,17 +375,67 @@ def gateway_dispatch_batch(args: dict, **_kwargs: object) -> str:
                 task_id=task_id,
                 batch_id=batch_id,
                 goal=spec["goal"],
-                seq=base_seq + i,
+                status="submitted",
+                idempotency_key=f"{batch_idem}#{i}",
             )
         return _out({
             "batch_id": batch_id,
             "task_ids": task_ids,
+            "idempotency_key": batch_idem,
             "run_id": run_id,
             "count": len(task_ids),
             "note": "Poll batch progress with gateway_watch_task(batch_id=...).",
         })
     except Exception as exc:
         return _err(exc)
+
+
+def _prepare_dispatch_ids(
+    ledger: Ledger,
+    run_id: str,
+    goal: str,
+    *,
+    args: dict[str, Any],
+) -> tuple[str, str]:
+    """Allocate or reuse (task_id, idempotency_key) for a single dispatch.
+
+    Passing ``idempotency_key`` (and optionally ``task_id``) reuses a prior
+    ``dispatching`` reservation after a failed RPC.
+    """
+    retry_key = str(args.get("idempotency_key") or "").strip()
+    if retry_key:
+        existing = ledger.get_by_idempotency_key(retry_key)
+        if existing is not None:
+            task_id = str(args.get("task_id") or existing["task_id"]).strip()
+            if task_id != existing["task_id"]:
+                raise GatewayError(
+                    "task_id does not match idempotency_key reservation",
+                    code="invalid_args",
+                )
+            return existing["task_id"], retry_key
+        # Unknown key: treat as a fresh reservation under the caller-supplied key.
+        task_id = str(args.get("task_id") or "").strip() or uuid.uuid4().hex
+        ledger.record(
+            run_id=run_id,
+            task_id=task_id,
+            goal=goal,
+            status="dispatching",
+            idempotency_key=retry_key,
+        )
+        return task_id, retry_key
+
+    seq = ledger.alloc_seq(run_id)
+    task_id = uuid.uuid4().hex
+    idempotency_key = f"{run_id}-{seq}"
+    ledger.record(
+        run_id=run_id,
+        task_id=task_id,
+        goal=goal,
+        status="dispatching",
+        seq=seq,
+        idempotency_key=idempotency_key,
+    )
+    return task_id, idempotency_key
 
 
 def gateway_watch_task(args: dict, **_kwargs: object) -> str:
