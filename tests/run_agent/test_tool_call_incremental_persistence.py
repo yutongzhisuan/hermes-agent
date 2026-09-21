@@ -52,7 +52,7 @@ def _make_tool_defs(*names: str) -> list:
 
 
 def _make_agent():
-    hermes_home = Path(tempfile.mkdtemp(prefix="hermes-test-home-"))
+    hermes_home = Path(tempfile.mkdtemp(prefix="xhermes-test-home-"))
     (hermes_home / "logs").mkdir(parents=True, exist_ok=True)
     with (
         patch(

@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { getElevenLabsVoices, getHermesConfigSchema, saveHermesConfig } from '@/hermes'
+import { getElevenLabsVoices, getHermesConfigSchema, saveHermesConfig } from '@/xhermes'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
-import type { HermesConfigRecord } from '@/types/hermes'
+import type { HermesConfigRecord } from '@/types/xhermes'
 
 import { setHermesConfigCache, useHermesConfigRecord } from '../hooks/use-config-record'
 
@@ -36,7 +36,7 @@ export function VoiceProviderFields({ section, providerKey }: { section: 'tts' |
   const { data: loadedConfig } = useHermesConfigRecord()
 
   const { data: schemaResponse } = useQuery({
-    queryKey: ['hermes-config-schema'],
+    queryKey: ['xhermes-config-schema'],
     queryFn: getHermesConfigSchema,
     staleTime: 5 * 60 * 1000
   })

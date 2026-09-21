@@ -7,9 +7,8 @@ name: Skills Index Freshness Check
 #
 # Triggered every 4 hours so we catch a stuck cron within one tick.
 
+# TEMP: offline-packaging-only — restore schedule when re-enabling CI
 on:
-  schedule:
-    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -18,7 +17,7 @@ permissions:
 
 jobs:
   check-freshness:
-    if: github.repository == 'NousResearch/hermes-agent'
+    if: github.repository == 'NousResearch/xhermes-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: trusted-automation
@@ -27,7 +26,7 @@ jobs:
         id: probe
         run: |
           set -e
-          URL="https://hermes-agent.nousresearch.com/docs/api/skills-index.json"
+          URL="https://xhermes-agent.nousresearch.com/docs/api/skills-index.json"
           echo "Probing $URL"
           # -L follows redirects; -f fails on HTTP errors; -s suppresses progress
           if ! curl -fsSL --retry 3 --retry-delay 10 -o /tmp/skills-index.json "$URL"; then

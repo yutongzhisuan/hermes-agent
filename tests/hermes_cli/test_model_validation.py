@@ -463,7 +463,7 @@ class TestValidateCodexAutoCorrection:
 # -- probe_api_models — Cloudflare UA mitigation --------------------------------
 
 class TestProbeApiModelsUserAgent:
-    """Probing custom /v1/models must send a Hermes User-Agent.
+    """Probing custom /v1/models must send a XHermes User-Agent.
 
     Some custom Claude proxies (e.g. ``packyapi.com``) sit behind Cloudflare with
     Browser Integrity Check enabled. The default ``Python-urllib/3.x`` signature
@@ -496,8 +496,8 @@ class TestProbeApiModelsUserAgent:
         req = mock_urlopen.call_args[0][0]
         ua = req.get_header("User-agent")  # urllib title-cases header names
         assert ua, "probe_api_models must send a User-Agent header"
-        assert ua.startswith("hermes-cli/"), (
-            f"User-Agent must advertise hermes-cli, got {ua!r}"
+        assert ua.startswith("xhermes-cli/"), (
+            f"User-Agent must advertise xhermes-cli, got {ua!r}"
         )
         # Must not fall back to urllib's default — that's what Cloudflare 1010 blocks.
         assert not ua.startswith("Python-urllib")
@@ -515,7 +515,7 @@ class TestProbeApiModelsUserAgent:
 
         req = mock_urlopen.call_args[0][0]
         ua = req.get_header("User-agent")
-        assert ua and ua.startswith("hermes-cli/")
+        assert ua and ua.startswith("xhermes-cli/")
         # No Authorization was set, but UA must still be present.
         assert req.get_header("Authorization") is None
 

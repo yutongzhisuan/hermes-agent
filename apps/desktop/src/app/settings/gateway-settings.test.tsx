@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { atom } from 'nanostores'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ProfileInfo } from '@/types/hermes'
+import type { ProfileInfo } from '@/types/xhermes'
 
 const getConnectionConfig = vi.fn()
 const saveConnectionConfig = vi.fn()
@@ -31,7 +31,7 @@ beforeEach(() => {
       is_default: true,
       model: null,
       name: 'default',
-      path: '/tmp/hermes',
+      path: '/tmp/xhermes',
       provider: null,
       skill_count: 0
     },
@@ -40,7 +40,7 @@ beforeEach(() => {
       is_default: false,
       model: null,
       name: 'work',
-      path: '/tmp/hermes/profiles/work',
+      path: '/tmp/xhermes/profiles/work',
       provider: null,
       skill_count: 0
     }
@@ -65,7 +65,7 @@ describe('GatewaySettings', () => {
     render(<GatewaySettings />)
     expect(await screen.findByText('Local gateway')).toBeTruthy()
     expect(
-      screen.getByText('Start a private Hermes backend on localhost. This is the default and works offline.')
+      screen.getByText('Start a private XHermes backend on localhost. This is the default and works offline.')
     ).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'work' }))
@@ -74,7 +74,7 @@ describe('GatewaySettings', () => {
     expect(await screen.findByText('Use default gateway')).toBeTruthy()
     expect(screen.getByText("Remove this profile's override and use the default connection.")).toBeTruthy()
     expect(
-      screen.queryByText('Start a private Hermes backend on localhost. This is the default and works offline.')
+      screen.queryByText('Start a private XHermes backend on localhost. This is the default and works offline.')
     ).toBeNull()
   })
 
@@ -89,7 +89,7 @@ describe('GatewaySettings', () => {
             sshUser: 'alice',
             sshPort: 22,
             sshKeyPath: '',
-            sshRemoteHermesPath: '/opt/hermes/bin/hermes',
+            sshRemoteHermesPath: '/opt/xhermes/bin/xhermes',
             sshRemoteProfile: 'default'
           }
         : localConnection

@@ -1,4 +1,4 @@
-"""Tests for hermes claw commands."""
+"""Tests for xhermes claw commands."""
 
 from argparse import Namespace
 import subprocess
@@ -192,7 +192,7 @@ class TestCmdMigrate:
         """The 'full' preset must NOT auto-enable migrate_secrets.
 
         Users have to opt in to secret import explicitly via --migrate-secrets,
-        even under the 'full' preset.  This mirrors OpenClaw's migrate-hermes
+        even under the 'full' preset.  This mirrors OpenClaw's migrate-xhermes
         posture (two-phase import) and prevents a 'full' run from silently
         copying API keys.
         """
@@ -324,8 +324,8 @@ class TestPrintMigrationReport:
         report = {
             "summary": {"migrated": 2, "skipped": 1, "conflict": 1, "error": 0},
             "items": [
-                {"kind": "soul", "status": "migrated", "destination": "/home/user/.hermes/SOUL.md"},
-                {"kind": "memory", "status": "migrated", "destination": "/home/user/.hermes/memories/MEMORY.md"},
+                {"kind": "soul", "status": "migrated", "destination": "/home/user/.xhermes/SOUL.md"},
+                {"kind": "memory", "status": "migrated", "destination": "/home/user/.xhermes/memories/MEMORY.md"},
                 {"kind": "skills", "status": "conflict", "reason": "already exists"},
                 {"kind": "tts-assets", "status": "skipped", "reason": "not found"},
             ],

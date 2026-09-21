@@ -1,7 +1,7 @@
-"""Safe Hermes Console command engine.
+"""Safe XHermes Console command engine.
 
-This module backs ``hermes console`` and is intentionally narrower than the
-full Hermes CLI. It exposes a curated set of native adapters that can later be
+This module backs ``xhermes console`` and is intentionally narrower than the
+full XHermes CLI. It exposes a curated set of native adapters that can later be
 shared by the dashboard console websocket without becoming a raw shell.
 """
 
@@ -88,8 +88,8 @@ def _strip_console_status_footer(text: str) -> str:
     last = _strip_ansi(lines[-1]).strip()
     prev = _strip_ansi(lines[-2]).strip()
     if not (
-        prev.startswith("Run 'hermes doctor'")
-        and last.startswith("Run 'hermes setup'")
+        prev.startswith("Run 'xhermes doctor'")
+        and last.startswith("Run 'xhermes setup'")
     ):
         return text.rstrip()
 
@@ -147,7 +147,7 @@ def _format_job(job: dict, action: str) -> str:
 
 
 def _parser_root() -> tuple[_ArgumentParser, argparse._SubParsersAction]:
-    parser = _ArgumentParser(prog="hermes", add_help=False)
+    parser = _ArgumentParser(prog="xhermes", add_help=False)
     subparsers = parser.add_subparsers(dest="_console_command")
     return parser, subparsers
 
@@ -177,7 +177,7 @@ def _clean_summary(text: str | None) -> str:
     summary = " ".join(str(text).split())
     if not summary:
         return ""
-    if summary.startswith("Run `hermes "):
+    if summary.startswith("Run `xhermes "):
         return ""
     return summary
 
@@ -467,19 +467,19 @@ def _register_command_family(
         child_key = tuple(child_path)
         full_path = (root, *tuple(child_path))
         usage = " ".join(full_path)
-        command_summary = summary or (summaries or {}).get(full_path) or f"Run `hermes {usage}`."
+        command_summary = summary or (summaries or {}).get(full_path) or f"Run `xhermes {usage}`."
         engine.register(
             full_path,
             usage,
             command_summary,
             handler_factory(tuple(child_path)),
             mutating=child_key in mutating_paths,
-            confirmation=confirmation or f"Run `hermes {usage}`?",
+            confirmation=confirmation or f"Run `xhermes {usage}`?",
         )
 
 
 class HermesConsoleEngine:
-    """Curated line-command executor for Hermes Console."""
+    """Curated line-command executor for XHermes Console."""
 
     def __init__(self, *, output_limit: int = 20000):
         self.output_limit = output_limit
@@ -494,15 +494,15 @@ class HermesConsoleEngine:
 
         try:
             tokens = _split_line(raw_line)
-            if tokens and tokens[0] == "hermes":
+            if tokens and tokens[0] == "xhermes":
                 tokens = tokens[1:]
             if not tokens:
                 return self._help_result()
 
             if _contains_shell_syntax(raw_line, tokens):
                 raise ConsoleCommandError(
-                    "Hermes Console does not run shell syntax. Use one supported "
-                    "Hermes command at a time."
+                    "XHermes Console does not run shell syntax. Use one supported "
+                    "XHermes command at a time."
                 )
 
             builtin = self._execute_builtin(tokens)
@@ -534,7 +534,7 @@ class HermesConsoleEngine:
             return f"{command.usage}\n{command.summary}"
 
         lines = [
-            "Hermes Console",
+            "XHermes Console",
             "",
             "Supported commands:",
         ]
@@ -551,9 +551,9 @@ class HermesConsoleEngine:
         return "\n".join(lines)
 
     def _register_defaults(self) -> None:
-        self.register(("status",), "status", "Show Hermes component status.", _status)
+        self.register(("status",), "status", "Show XHermes component status.", _status)
         self.register(("doctor",), "doctor", "Run diagnostics without auto-fix.", _doctor)
-        self.register(("logs",), "logs [name] [-n N]", "Show recent Hermes logs.", _logs)
+        self.register(("logs",), "logs [name] [-n N]", "Show recent XHermes logs.", _logs)
         self.register(("sessions", "list"), "sessions list [--limit N]", "List recent sessions.", _sessions_list)
         self.register(("sessions", "stats"), "sessions stats", "Show session store statistics.", _sessions_stats)
         self.register(("config", "show"), "config show", "Show current configuration.", _config_show)
@@ -564,7 +564,7 @@ class HermesConsoleEngine:
             "Set a configuration value.",
             _config_set,
             mutating=True,
-            confirmation="Update Hermes configuration?",
+            confirmation="Update XHermes configuration?",
         )
         self.register(("cron", "list"), "cron list [--all]", "List scheduled jobs.", _cron_list)
         self.register(("cron", "status"), "cron status", "Show cron scheduler status.", _cron_status)
@@ -595,7 +595,7 @@ class HermesConsoleEngine:
         self._register_broad_cli_surface()
 
     def _register_broad_cli_surface(self) -> None:
-        """Register non-admin CLI commands that are safe for Hermes Console."""
+        """Register non-admin CLI commands that are safe for XHermes Console."""
 
         extracted = {
             "version": (
@@ -864,7 +864,7 @@ class HermesConsoleEngine:
             "Update config with new options.",
             _config_migrate,
             mutating=True,
-            confirmation="Update Hermes configuration with missing defaults?",
+            confirmation="Update XHermes configuration with missing defaults?",
         )
         self.register(
             ("sessions", "export"),
@@ -1159,12 +1159,12 @@ class HermesConsoleEngine:
         probe = " ".join(tokens[:2]) if len(tokens) > 1 else tokens[0]
         suggestions = difflib.get_close_matches(probe, available, n=3, cutoff=0.45)
         suffix = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-        raise ConsoleCommandError(f"Unsupported Hermes Console command: {probe}.{suffix}")
+        raise ConsoleCommandError(f"Unsupported XHermes Console command: {probe}.{suffix}")
 
     def _rejection_for(self, tokens: Sequence[str]) -> str:
         first = tokens[0]
         if first.startswith("-"):
-            return f"{first} is not available in Hermes Console."
+            return f"{first} is not available in XHermes Console."
         blocked_top = {
             "acp",
             "chat",
@@ -1190,30 +1190,30 @@ class HermesConsoleEngine:
             "whatsapp-cloud",
         }
         if first in blocked_top:
-            return f"`hermes {first}` is not available in Hermes Console."
+            return f"`xhermes {first}` is not available in XHermes Console."
         blocked_pairs = {
-            ("config", "edit"): "`config edit` opens an editor and is not available in Hermes Console.",
-            ("mcp", "serve"): "`mcp serve` starts a server and is not available in Hermes Console.",
-            ("profile", "alias"): "`profile alias` creates shell wrappers and is not available in Hermes Console.",
-            ("skills", "config"): "`skills config` is interactive and is not available in Hermes Console.",
-            ("skills", "publish"): "`skills publish` is not available in Hermes Console.",
-            ("portal", "login"): "`portal login` is interactive and is not available in Hermes Console.",
-            ("portal", "open"): "`portal open` opens a browser and is not available in Hermes Console.",
-            ("kanban", "tail"): "`kanban tail` streams output and is not available in Hermes Console.",
-            ("kanban", "watch"): "`kanban watch` streams output and is not available in Hermes Console.",
-            ("kanban", "daemon"): "`kanban daemon` starts a service and is not available in Hermes Console.",
-            ("kanban", "dispatcher"): "`kanban dispatcher` starts a worker and is not available in Hermes Console.",
-            ("kanban", "swarm"): "`kanban swarm` starts agent work and is not available in Hermes Console.",
-            ("kanban", "decompose"): "`kanban decompose` starts agent work and is not available in Hermes Console.",
-            ("kanban", "specify"): "`kanban specify` starts agent work and is not available in Hermes Console.",
-            ("kanban", "gc"): "`kanban gc` is not available in Hermes Console.",
+            ("config", "edit"): "`config edit` opens an editor and is not available in XHermes Console.",
+            ("mcp", "serve"): "`mcp serve` starts a server and is not available in XHermes Console.",
+            ("profile", "alias"): "`profile alias` creates shell wrappers and is not available in XHermes Console.",
+            ("skills", "config"): "`skills config` is interactive and is not available in XHermes Console.",
+            ("skills", "publish"): "`skills publish` is not available in XHermes Console.",
+            ("portal", "login"): "`portal login` is interactive and is not available in XHermes Console.",
+            ("portal", "open"): "`portal open` opens a browser and is not available in XHermes Console.",
+            ("kanban", "tail"): "`kanban tail` streams output and is not available in XHermes Console.",
+            ("kanban", "watch"): "`kanban watch` streams output and is not available in XHermes Console.",
+            ("kanban", "daemon"): "`kanban daemon` starts a service and is not available in XHermes Console.",
+            ("kanban", "dispatcher"): "`kanban dispatcher` starts a worker and is not available in XHermes Console.",
+            ("kanban", "swarm"): "`kanban swarm` starts agent work and is not available in XHermes Console.",
+            ("kanban", "decompose"): "`kanban decompose` starts agent work and is not available in XHermes Console.",
+            ("kanban", "specify"): "`kanban specify` starts agent work and is not available in XHermes Console.",
+            ("kanban", "gc"): "`kanban gc` is not available in XHermes Console.",
         }
         if len(tokens) >= 2:
             pair = (tokens[0], tokens[1])
             if pair in blocked_pairs:
                 return blocked_pairs[pair]
         if tuple(tokens[:2]) in {("sessions", "delete"), ("sessions", "prune")}:
-            return "`sessions delete` and `sessions prune` are not available in Hermes Console."
+            return "`sessions delete` and `sessions prune` are not available in XHermes Console."
         return ""
 
     def _help_result(self) -> ConsoleResult:
@@ -1247,7 +1247,7 @@ def _apply_confirmed_defaults(args: argparse.Namespace) -> None:
     if getattr(args, "auth_action", None) == "add":
         auth_type = getattr(args, "auth_type", None)
         if auth_type in {"api-key", "api_key"} and not getattr(args, "api_key", None):
-            raise ConsoleCommandError("auth add --type api-key requires --api-key in Hermes Console.")
+            raise ConsoleCommandError("auth add --type api-key requires --api-key in XHermes Console.")
     if getattr(args, "import_name", None) is not None:
         # profile import has no prompt flag; leave it alone.
         return
@@ -1283,7 +1283,7 @@ def _doctor(_engine: HermesConsoleEngine, args: list[str]) -> str:
 
 def _logs(_engine: HermesConsoleEngine, args: list[str]) -> str:
     if "-f" in args or "--follow" in args:
-        raise ConsoleCommandError("`logs -f` is not available in Hermes Console.")
+        raise ConsoleCommandError("`logs -f` is not available in XHermes Console.")
     parser = _ArgumentParser(prog="logs", add_help=False)
     parser.add_argument("log_name", nargs="?", default="agent")
     parser.add_argument("-n", "--lines", type=int, default=50)
@@ -1542,7 +1542,7 @@ def _cron_pause(_engine: HermesConsoleEngine, args: list[str]) -> str:
     from cron.jobs import AmbiguousJobReference, pause_job
 
     try:
-        job = pause_job(args[0], reason="paused from hermes console")
+        job = pause_job(args[0], reason="paused from xhermes console")
     except AmbiguousJobReference as exc:
         raise ConsoleCommandError(str(exc)) from exc
     if not job:
@@ -1585,7 +1585,7 @@ def run_console_repl(
     stderr=None,
     interactive: bool | None = None,
 ) -> int:
-    """Run the local ``hermes console`` REPL."""
+    """Run the local ``xhermes console`` REPL."""
 
     stdin = stdin or sys.stdin
     stdout = stdout or sys.stdout
@@ -1595,11 +1595,11 @@ def run_console_repl(
 
     engine = HermesConsoleEngine()
     if interactive:
-        print("Hermes Console. Type `help` for commands, `exit` to quit.", file=stdout)
+        print("XHermes Console. Type `help` for commands, `exit` to quit.", file=stdout)
 
     while True:
         if interactive:
-            print("hermes> ", end="", file=stdout, flush=True)
+            print("xhermes> ", end="", file=stdout, flush=True)
         line = stdin.readline()
         if line == "":
             if interactive:

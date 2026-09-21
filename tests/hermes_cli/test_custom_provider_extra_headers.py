@@ -32,13 +32,13 @@ def test_normalize_entry_keeps_extra_headers():
         {
             "name": "my-proxy",
             "base_url": "https://llm.internal.example.com/v1",
-            "extra_headers": {"X-Custom-Auth": "tok", "X-Client-Name": "hermes"},
+            "extra_headers": {"X-Custom-Auth": "tok", "X-Client-Name": "xhermes"},
         }
     )
     assert normalized is not None
     assert normalized["extra_headers"] == {
         "X-Custom-Auth": "tok",
-        "X-Client-Name": "hermes",
+        "X-Client-Name": "xhermes",
     }
 
 
@@ -234,7 +234,7 @@ def test_fetch_api_models_sends_extra_headers_to_models_probe(monkeypatch):
         "proxy-key",
         "https://llm.internal.example.com/v1",
         headers={
-            "sleeve-harness": "hermes",
+            "sleeve-harness": "xhermes",
             "sleeve-base-url": "http://localhost:8081/v1",
         },
     )
@@ -242,5 +242,5 @@ def test_fetch_api_models_sends_extra_headers_to_models_probe(monkeypatch):
     assert models == ["proxy-model"]
     assert captured["url"] == "https://llm.internal.example.com/v1/models"
     assert captured["headers"]["authorization"] == "Bearer proxy-key"
-    assert captured["headers"]["sleeve-harness"] == "hermes"
+    assert captured["headers"]["sleeve-harness"] == "xhermes"
     assert captured["headers"]["sleeve-base-url"] == "http://localhost:8081/v1"

@@ -91,17 +91,17 @@ DEFAULT_WEBHOOK_HOST = "127.0.0.1"
 # through the REST API, not the webhook. 1 MiB is generous headroom while
 # keeping oversized/chunked bodies from being buffered unbounded.
 _WEBHOOK_MAX_BODY_BYTES = 1_048_576
-DEFAULT_WEBHOOK_PORT = 8645
+DEFAULT_WEBHOOK_PORT = 8745
 DEFAULT_WEBHOOK_PATH = "/bluebubbles-webhook"
 MAX_TEXT_LENGTH = 4000
 
 # BlueBubbles/iMessage does not expose a stable bot mention identity like
 # Slack (<@U...>), Telegram (@botname), or Matrix (MXID). When users opt into
-# group mention gating without custom aliases, use conservative Hermes wake
+# group mention gating without custom aliases, use conservative XHermes wake
 # words so `require_mention: true` is a one-line enablement path.
 DEFAULT_MENTION_PATTERNS = [
-    r"(?<![\w@])@?hermes\s+agent\b[,:\-]?",
-    r"(?<![\w@])@?hermes\b[,:\-]?",
+    r"(?<![\w@])@?xhermes\s+agent\b[,:\-]?",
+    r"(?<![\w@])@?xhermes\b[,:\-]?",
 ]
 
 # Tapback reaction codes (BlueBubbles associatedMessageType values)
@@ -216,7 +216,7 @@ class BlueBubblesAdapter(BasePlatformAdapter):
         """Compile group-mention wake words from config/env.
 
         ``raw`` is a list (from config or env JSON), a string (raw env var:
-        JSON list, or comma/newline-separated), or None (use Hermes defaults).
+        JSON list, or comma/newline-separated), or None (use XHermes defaults).
         """
         return compile_mention_patterns(
             raw,

@@ -66,7 +66,7 @@ def _make_backend(session: _FakeSession):
 
     backend = CuaDriverBackend.__new__(CuaDriverBackend)
     backend._session = session
-    backend._session_id = "hermes-session"
+    backend._session_id = "xhermes-session"
     backend._snapshot_tokens = {}
     backend._active_pid = 42
     backend._active_window_id = 7
@@ -440,7 +440,7 @@ class _BrowserDriver:
         return _driver_result({"status": "ok", "effect": "confirmed"})
 
 
-def _browser_route(driver: _BrowserDriver, session_id: str = "hermes-a"):
+def _browser_route(driver: _BrowserDriver, session_id: str = "xhermes-a"):
     from tools.computer_use.browser_route import CuaTypedBrowserRoute
 
     return CuaTypedBrowserRoute(
@@ -460,7 +460,7 @@ def _bind_and_snapshot(route) -> str:
 
 def test_exact_browser_binding_injects_hermes_session_capability():
     driver = _BrowserDriver()
-    route = _browser_route(driver, session_id="hermes-owned-session")
+    route = _browser_route(driver, session_id="xhermes-owned-session")
 
     payload = route.observe(pid=101, window_id=202)
 
@@ -469,7 +469,7 @@ def test_exact_browser_binding_injects_hermes_session_capability():
     assert driver.calls == [
         (
             "get_browser_state",
-            {"pid": 101, "window_id": 202, "session": "hermes-owned-session"},
+            {"pid": 101, "window_id": 202, "session": "xhermes-owned-session"},
         )
     ]
 
@@ -609,8 +609,8 @@ def test_scope_ref_must_come_from_this_routes_latest_snapshot():
 
 def test_typed_browser_refs_do_not_cross_route_sessions():
     driver = _BrowserDriver()
-    first = _browser_route(driver, session_id="hermes-a")
-    second = _browser_route(driver, session_id="hermes-b")
+    first = _browser_route(driver, session_id="xhermes-a")
+    second = _browser_route(driver, session_id="xhermes-b")
     first_ref = _bind_and_snapshot(first)
     _bind_and_snapshot(second)
 
@@ -690,7 +690,7 @@ def test_missing_typed_browser_tool_returns_native_fallback_refusal():
 
     call = Mock()
     route = CuaTypedBrowserRoute(
-        session_id="hermes-a",
+        session_id="xhermes-a",
         call_tool=call,
         has_tool=lambda name: False,
     )
@@ -725,7 +725,7 @@ def test_existing_profile_prepare_delegates_to_driver_permission_mode():
                 "pid": 101,
                 "window_id": 202,
                 "strategy": {"kind": "existing_profile"},
-                "session": "hermes-a",
+                "session": "xhermes-a",
             },
         )
     ]

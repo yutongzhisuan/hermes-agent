@@ -26,7 +26,7 @@ def test_unsupported_allocator_is_noop_without_gc(monkeypatch):
 def test_config_kill_switch_overrides_force_from_config_file(monkeypatch, tmp_path):
     from hermes_constants import reset_hermes_home_override, set_hermes_home_override
 
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "xhermes"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         "context:\n  memory_trim:\n    enabled: false\n",
@@ -162,7 +162,7 @@ def test_config_cooldown_controls_rate_limit(monkeypatch):
 def test_legacy_environment_switch_does_not_control_behavior(monkeypatch):
     trim = Mock(return_value=1)
     monkeypatch.setattr(mem_trim, "_malloc_trim", trim)
-    monkeypatch.setenv("HERMES_DISABLE_MEMORY_TRIM", "1")
+    monkeypatch.setenv("XHERMES_DISABLE_MEMORY_TRIM", "1")
     monkeypatch.setattr(
         "hermes_cli.config.load_config_readonly",
         lambda: {"context": {"memory_trim": {"enabled": True}}},

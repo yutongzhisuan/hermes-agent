@@ -54,7 +54,7 @@ vi.mock('@/store/gateway', () => ({
 
 vi.mock('@/lib/desktop-git', () => ({ desktopGit: vi.fn() }))
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/xhermes', () => ({
   getHermesConfig: vi.fn(),
   getProfiles: vi.fn(),
   setApiRequestProfile: vi.fn(),
@@ -73,8 +73,8 @@ const gatewayAtom = gw.$gateway
 const git = await import('@/lib/desktop-git')
 const desktopGit = vi.mocked(git.desktopGit)
 
-const hermes = await import('@/hermes')
-const getHermesConfig = vi.mocked(hermes.getHermesConfig)
+const xhermes = await import('@/xhermes')
+const getHermesConfig = vi.mocked(xhermes.getHermesConfig)
 const notifications = await import('@/store/notifications')
 const notify = vi.mocked(notifications.notify)
 
@@ -108,7 +108,7 @@ describe('project scope', () => {
 
   it('persists the scope to localStorage', () => {
     enterProject('p_abc')
-    expect(window.localStorage.getItem('hermes.desktop.projectScope')).toBe('p_abc')
+    expect(window.localStorage.getItem('xhermes.desktop.projectScope')).toBe('p_abc')
   })
 })
 
@@ -152,7 +152,7 @@ describe('resolveNewSessionCwd', () => {
     $sessions.set([
       {
         archived: false,
-        cwd: '/Users/me/www/hermes-agent',
+        cwd: '/Users/me/www/xhermes-agent',
         ended_at: null,
         id: 'sess-a',
         input_tokens: 0,
@@ -166,7 +166,7 @@ describe('resolveNewSessionCwd', () => {
       } as never
     ])
 
-    expect(resolveNewSessionCwd()).toBe('/Users/me/www/hermes-agent')
+    expect(resolveNewSessionCwd()).toBe('/Users/me/www/xhermes-agent')
   })
 
   it('does not re-attach a remembered cwd when the focused session is detached', () => {

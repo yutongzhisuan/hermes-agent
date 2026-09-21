@@ -1881,7 +1881,7 @@ def dump_api_request_debug(
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         # Sanitize the session ID into a traversal-free path segment — it can
-        # originate from untrusted input (X-Hermes-Session-Id header), and an
+        # originate from untrusted input (X-XHermes-Session-Id header), and an
         # unsanitized "../"-shaped ID would write the dump outside logs_dir.
         safe_sid = _ra()._safe_session_filename_component(agent.session_id)
         dump_file = agent.logs_dir / f"request_dump_{safe_sid}_{timestamp}.json"
@@ -1900,7 +1900,7 @@ def dump_api_request_debug(
 
         agent._vprint(f"{agent.log_prefix}🧾 Request debug dump written to: {dump_file}")
 
-        if env_var_enabled("HERMES_DUMP_REQUEST_STDOUT"):
+        if env_var_enabled("XHERMES_DUMP_REQUEST_STDOUT"):
             print(json.dumps(_redacted_payload, ensure_ascii=False, indent=2, default=str))
 
         return dump_file
@@ -2247,6 +2247,18 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
     httpx_verify = resolve_httpx_verify(ca_bundle=ssl_ca_cert, ssl_verify=ssl_verify_cfg)
     _validate_proxy_env_urls()
     _validate_base_url(client_kwargs.get("base_url"))
+    # Keep the configured base (may be unix://...) for httpx UDS dialing;
+    # rewrite to a synthetic http://localhost/v1 only after a UDS client exists.
+    transport_base_url = str(client_kwargs.get("base_url") or "")
+    openai_base_url = transport_base_url
+    socket_path = None
+    try:
+        from extend.unix_socket_http import resolve_openai_base_url
+
+        openai_base_url, socket_path = resolve_openai_base_url(transport_base_url)
+    except Exception:
+        socket_path = None
+        openai_base_url = transport_base_url
     if agent.provider == "copilot-acp" or str(client_kwargs.get("base_url", "")).startswith("acp://copilot"):
         from agent.copilot_acp_client import CopilotACPClient
 
@@ -2269,7 +2281,7 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
             }
             if "http_client" not in safe_kwargs:
                 keepalive_http = agent._build_keepalive_http_client(
-                    base_url, verify=httpx_verify,
+                    transport_base_url or base_url, verify=httpx_verify,
                 )
                 if keepalive_http is not None:
                     safe_kwargs["http_client"] = keepalive_http
@@ -2300,11 +2312,31 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
     # ``tests/run_agent/test_sequential_chats_live.py`` pin this invariant.
     if "http_client" not in client_kwargs:
         keepalive_http = agent._build_keepalive_http_client(
-            client_kwargs.get("base_url", ""), verify=httpx_verify,
+            transport_base_url, verify=httpx_verify,
         )
         if keepalive_http is not None:
             client_kwargs["http_client"] = keepalive_http
-    # Delegate all rate-limit / 5xx retry to hermes's outer conversation loop,
+    try:
+        from extend.unix_socket_http import require_uds_http_client
+
+        require_uds_http_client(client_kwargs.get("http_client"), transport_base_url)
+        if socket_path:
+            client_kwargs["base_url"] = openai_base_url
+    except RuntimeError:
+        raise
+    except Exception:
+        pass
+    try:
+        from extend.infa_provider.http import maybe_attach_infa_dpop
+
+        maybe_attach_infa_dpop(
+            client_kwargs.get("http_client"),
+            provider=str(getattr(agent, "provider", "") or ""),
+            base_url=transport_base_url or str(client_kwargs.get("base_url") or ""),
+        )
+    except Exception:
+        _ra().logger.debug("INFA DPoP attach skipped", exc_info=True)
+    # Delegate all rate-limit / 5xx retry to xhermes's outer conversation loop,
     # which honors Retry-After and applies adaptive/jittered backoff. The OpenAI
     # SDK default (max_retries=2) uses its own 1-2s backoff that ignores
     # Retry-After and double-retries inside our loop — the same deadlock the
@@ -3305,7 +3337,7 @@ def sanitize_api_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]
     # function_call_output, producing the gateway's HTTP 400
     # "No tool call found for function call output with call_id ...".
     #
-    # We do NOT drop the call: hermes' own dispatch loop intentionally keeps an
+    # We do NOT drop the call: xhermes' own dispatch loop intentionally keeps an
     # empty-name call paired with a synthesized anti-priming tool result
     # ("tool name was empty", see #47967) so weak models self-correct instead of
     # being fed the full tool catalog. Dropping the call here would (a) orphan
@@ -3639,7 +3671,7 @@ def reapply_reasoning_echo_for_provider(agent, api_messages: list) -> int:
 def _iter_httpx_pool_objects(http_client: Any):
     """Yield httpcore pool objects reachable from an httpx client.
 
-    Hermes' keepalive client (#10324 / ``_build_keepalive_http_client``) and
+    XHermes' keepalive client (#10324 / ``_build_keepalive_http_client``) and
     any ``HTTP(S)_PROXY`` configuration put live connections on *mounted*
     transports (``client._mounts``), not only on the default
     ``client._transport``. Walking the default transport alone makes

@@ -125,8 +125,8 @@ def _unauth_response(request: Request, *, reason: str) -> Response:
     navigation to ``/sessions`` (etc.) without a cookie comes back to
     ``/sessions`` after login.
 
-    Under a reverse proxy with ``X-Forwarded-Prefix: /hermes``, the
-    ``login_url`` is prefixed (``/hermes/login?next=...``) so the
+    Under a reverse proxy with ``X-Forwarded-Prefix: /xhermes``, the
+    ``login_url`` is prefixed (``/xhermes/login?next=...``) so the
     browser's window.location.assign / Location: follow lands on the
     proxied login page rather than the bare ``/login`` (which the
     proxy doesn't route to the dashboard).
@@ -266,7 +266,7 @@ def _safe_next_target(request: Request) -> str:
     # navigates to ``login_url``. After the OAuth round trip the user
     # would land on the API URL and see raw JSON instead of the
     # dashboard. SPA routes survive (they don't start with ``/api/``);
-    # the SPA's own ``sessionStorage["hermes.lastLocation"]`` fallback
+    # the SPA's own ``sessionStorage["xhermes.lastLocation"]`` fallback
     # in ``web/src/lib/api.ts`` covers the deep-link case.
     if path == "/api" or path.startswith("/api/"):
         return ""

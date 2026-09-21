@@ -6,7 +6,7 @@
  * messaging platforms), same copy (`useI18n`), same readiness logic
  * (`evaluateRuntimeReadiness` over `host.request`). The point: a plugin can
  * rebuild a REAL core feature through the SDK alone — only
- * `@hermes/plugin-sdk` + react (lint-fenced).
+ * `@xhermes/plugin-sdk` + react (lint-fenced).
  *
  * Pattern notes:
  *  - a module-level `atom` shares the readiness poll between the live label
@@ -32,7 +32,7 @@ import {
   Tip,
   useI18n,
   useValue
-} from '@hermes/plugin-sdk'
+} from '@xhermes/plugin-sdk'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 const READINESS_POLL_MS = 15_000

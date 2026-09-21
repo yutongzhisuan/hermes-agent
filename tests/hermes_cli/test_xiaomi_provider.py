@@ -100,7 +100,7 @@ class TestXiaomiCredentials:
         from hermes_cli import config as config_module
         from hermes_cli import env_loader
 
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         home.mkdir()
         (home / ".env").write_text("", encoding="utf-8")
         monkeypatch.setattr(config_module, "get_env_path", lambda: home / ".env")
@@ -264,9 +264,9 @@ class TestXiaomiProvidersModule:
     """Test Xiaomi in the unified providers module."""
 
     def test_overlay_exists(self):
-        from hermes_cli.providers import HERMES_OVERLAYS
-        assert "xiaomi" in HERMES_OVERLAYS
-        overlay = HERMES_OVERLAYS["xiaomi"]
+        from hermes_cli.providers import XHERMES_OVERLAYS
+        assert "xiaomi" in XHERMES_OVERLAYS
+        overlay = XHERMES_OVERLAYS["xiaomi"]
         assert overlay.transport == "openai_chat"
         assert overlay.base_url_env_var == "XIAOMI_BASE_URL"
         assert not overlay.is_aggregator
@@ -298,7 +298,7 @@ class TestXiaomiProvidersModule:
 
 
 class TestXiaomiDoctor:
-    """Verify hermes doctor recognizes Xiaomi env vars."""
+    """Verify xhermes doctor recognizes Xiaomi env vars."""
 
     def test_provider_env_hints(self):
         from hermes_cli.doctor import _PROVIDER_ENV_HINTS
@@ -314,7 +314,7 @@ class TestXiaomiAgentInit:
         importlib.import_module("run_agent")
 
     def test_api_mode_is_chat_completions(self):
-        from hermes_cli.providers import HERMES_OVERLAYS, TRANSPORT_TO_API_MODE
-        overlay = HERMES_OVERLAYS["xiaomi"]
+        from hermes_cli.providers import XHERMES_OVERLAYS, TRANSPORT_TO_API_MODE
+        overlay = XHERMES_OVERLAYS["xiaomi"]
         api_mode = TRANSPORT_TO_API_MODE[overlay.transport]
         assert api_mode == "chat_completions"

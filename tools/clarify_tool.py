@@ -218,8 +218,7 @@ CLARIFY_SCHEMA = {
                 "type": "string",
                 "description": (
                     "The question itself, and ONLY the question (e.g. 'Which "
-                    "deployment target?'). Do NOT embed the answer options here "
-                    "— pass them as separate elements in `choices`."
+                    "deployment target?') — see CRITICAL above."
                 ),
             },
             "choices": {
@@ -228,19 +227,15 @@ CLARIFY_SCHEMA = {
                 "maxItems": MAX_CHOICES,
                 "description": (
                     "REQUIRED whenever you are presenting selectable options: "
-                    "each distinct option is its own array element (up to 4). "
-                    "The UI renders these as pickable rows and auto-appends an "
-                    "'Other (type your answer)' option. Omit this parameter "
-                    "entirely ONLY for a genuinely open-ended free-text question."
+                    "one distinct option per array element. Omit entirely ONLY "
+                    "for a genuinely open-ended free-text question."
                 ),
             },
             "multi_select": {
                 "type": "boolean",
                 "description": (
-                    "When true, the user can select MULTIPLE options (like checkboxes). "
-                    "The user_response will be a list of selected choices. "
-                    "When false (default), single selection (radio). "
-                    "Has no effect when choices is omitted (open-ended question)."
+                    "Checkbox-style multi selection instead of radio (default "
+                    "false). No effect when `choices` is omitted."
                 ),
             },
         },

@@ -45,11 +45,11 @@ test('canImportHermesCli returns false when interpreter cannot run -c', () => {
 })
 
 test('canImportHermesCli returns false when binary does not exist', () => {
-  const ghost = path.join(os.tmpdir(), 'hermes-probes-ghost-' + Date.now() + '.exe')
+  const ghost = path.join(os.tmpdir(), 'xhermes-probes-ghost-' + Date.now() + '.exe')
   assert.equal(canImportHermesCli(ghost), false)
 })
 
-test('hermes runtime import probe checks config dependencies', () => {
+test('xhermes runtime import probe checks config dependencies', () => {
   const probe = hermesRuntimeImportProbe()
   assert.match(probe, /\bimport yaml\b/)
   // dotenv is the first third-party import on the CLI boot path
@@ -59,11 +59,11 @@ test('hermes runtime import probe checks config dependencies', () => {
   assert.match(probe, /\bimport hermes_cli\.config\b/)
 })
 
-test('explicit Hermes override is authoritative', () => {
-  assert.equal(shouldTrustHermesOverride('/nix/store/abc/bin/hermes'), true)
+test('explicit XHermes override is authoritative', () => {
+  assert.equal(shouldTrustHermesOverride('/nix/store/abc/bin/xhermes'), true)
 })
 
-test('empty Hermes override is not authoritative', () => {
+test('empty XHermes override is not authoritative', () => {
   assert.equal(shouldTrustHermesOverride(''), false)
   assert.equal(shouldTrustHermesOverride(undefined), false)
 })
@@ -75,15 +75,15 @@ test('verifyHermesCli returns false when command is falsy', () => {
 })
 
 test('verifyHermesCli returns false when binary does not exist', () => {
-  const ghost = path.join(os.tmpdir(), 'hermes-probes-ghost-' + Date.now() + '.exe')
+  const ghost = path.join(os.tmpdir(), 'xhermes-probes-ghost-' + Date.now() + '.exe')
   assert.equal(verifyHermesCli(ghost), false)
 })
 
 test('verifyHermesCli returns true when --version exits 0', () => {
   // Write a tiny script that exits 0 regardless of args, then invoke
-  // it through node. This stands in for a working hermes binary --
+  // it through node. This stands in for a working xhermes binary --
   // verifyHermesCli only cares about the exit code.
-  const scriptPath = path.join(os.tmpdir(), `hermes-probes-ok-${Date.now()}-${process.pid}.cjs`)
+  const scriptPath = path.join(os.tmpdir(), `xhermes-probes-ok-${Date.now()}-${process.pid}.cjs`)
   fs.writeFileSync(scriptPath, 'process.exit(0)\n')
 
   try {
@@ -113,15 +113,15 @@ test('verifyHermesCli swallows timeouts (does not throw)', () => {
 test('default probe timeout is 15s (not the old 5s death-loop value)', () => {
   assert.equal(DEFAULT_PROBE_TIMEOUT_MS, 15_000)
   // Module constant uses process.env at load time; with no override it
-  // matches the default (tests run without HERMES_PROBE_TIMEOUT_MS).
+  // matches the default (tests run without XHERMES_PROBE_TIMEOUT_MS).
   assert.equal(PROBE_TIMEOUT_MS, DEFAULT_PROBE_TIMEOUT_MS)
 })
 
-test('resolveProbeTimeoutMs honours HERMES_PROBE_TIMEOUT_MS', () => {
+test('resolveProbeTimeoutMs honours XHERMES_PROBE_TIMEOUT_MS', () => {
   assert.equal(resolveProbeTimeoutMs({}), DEFAULT_PROBE_TIMEOUT_MS)
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: '30000' }), 30_000)
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: '0' }), DEFAULT_PROBE_TIMEOUT_MS)
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: 'nope' }), DEFAULT_PROBE_TIMEOUT_MS)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: '30000' }), 30_000)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: '0' }), DEFAULT_PROBE_TIMEOUT_MS)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: 'nope' }), DEFAULT_PROBE_TIMEOUT_MS)
   // Cap runaway values
-  assert.equal(resolveProbeTimeoutMs({ HERMES_PROBE_TIMEOUT_MS: '999999' }), 120_000)
+  assert.equal(resolveProbeTimeoutMs({ XHERMES_PROBE_TIMEOUT_MS: '999999' }), 120_000)
 })

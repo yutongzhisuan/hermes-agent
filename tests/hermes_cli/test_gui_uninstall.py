@@ -16,7 +16,7 @@ import hermes_cli.gui_uninstall as gu
 
 def _make_agent(hermes_home: Path) -> Path:
     """Create a fake agent install: source package + venv."""
-    agent_root = hermes_home / "hermes-agent"
+    agent_root = hermes_home / "xhermes-agent"
     (agent_root / "hermes_cli").mkdir(parents=True)
     (agent_root / "hermes_cli" / "__init__.py").write_text("")
     (agent_root / "venv" / "bin").mkdir(parents=True)
@@ -24,13 +24,13 @@ def _make_agent(hermes_home: Path) -> Path:
 
 
 def _make_gui_build(hermes_home: Path) -> None:
-    """Create the source-built GUI artifacts a `hermes desktop` run produces."""
-    desktop = hermes_home / "hermes-agent" / "apps" / "desktop"
+    """Create the source-built GUI artifacts a `xhermes desktop` run produces."""
+    desktop = hermes_home / "xhermes-agent" / "apps" / "desktop"
     (desktop / "dist").mkdir(parents=True)
     (desktop / "dist" / "index.html").write_text("<html>")
     (desktop / "release" / "linux-unpacked").mkdir(parents=True)
     (desktop / "node_modules").mkdir(parents=True)
-    (hermes_home / "hermes-agent" / "node_modules").mkdir(parents=True)
+    (hermes_home / "xhermes-agent" / "node_modules").mkdir(parents=True)
     (hermes_home / "desktop-build-stamp.json").write_text("{}")
 
 
@@ -49,7 +49,7 @@ def _make_user_data(hermes_home: Path) -> None:
 
 
 def test_gui_install_summary_shape(tmp_path, monkeypatch):
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".xhermes"
     _make_agent(hermes_home)
     _make_gui_build(hermes_home)
     monkeypatch.setattr(gu, "packaged_gui_app_paths", lambda: [])

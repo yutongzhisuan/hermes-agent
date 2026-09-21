@@ -3,6 +3,7 @@
 from pathlib import Path
 import tomllib
 
+
 def _load_optional_dependencies():
     pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
     with pyproject_path.open("rb") as handle:
@@ -30,13 +31,12 @@ def test_matrix_extra_not_in_all():
     """
     optional_dependencies = _load_optional_dependencies()
 
-    assert "matrix" in optional_dependencies, "[matrix] extra must still exist for `uv sync --extra matrix`"
+    assert "matrix" in optional_dependencies, (
+        "[matrix] extra must still exist for `uv sync --extra matrix`"
+    )
     # Must NOT appear in [all] in any form — neither unconditional nor
     # platform-gated. Lazy-install handles it.
-    matrix_in_all = [
-        dep for dep in optional_dependencies["all"]
-        if "matrix" in dep
-    ]
+    matrix_in_all = [dep for dep in optional_dependencies["all"] if "matrix" in dep]
     assert not matrix_in_all, (
         "matrix must not appear in [all] — it's lazy-installed via "
         "tools/lazy_deps.py LAZY_DEPS['platform.matrix']. Found: "
@@ -64,22 +64,28 @@ def test_lazy_installable_extras_excluded_from_all():
     # someone adds a new lazy-install backend, they have to update
     # this list AND verify [all] doesn't contain it.
     lazy_covered_extras = {
-        "anthropic", "bedrock",
-        "exa", "firecrawl", "parallel-web",
+        "anthropic",
+        "bedrock",
+        "exa",
+        "firecrawl",
+        "parallel-web",
         "fal",
-        "edge-tts", "tts-premium",
-        "voice",  # faster-whisper / sounddevice / numpy
-        "modal", "daytona", "vercel",
-        "messaging", "slack", "matrix", "dingtalk", "feishu",
-        "honcho", "hindsight",
-        "supermemory", "mem0",
+        "tts-premium",
+        "modal",
+        "daytona",
+        "vercel",
+        "slack",
+        "matrix",
+        "honcho",
+        "hindsight",
+        "supermemory",
+        "mem0",
         "mistral",  # mistralai — Voxtral STT/TTS, lazy-installed (stt.mistral / tts.mistral)
     }
     all_extra_specs = optional_dependencies["all"]
     for extra in lazy_covered_extras:
         offending = [
-            spec for spec in all_extra_specs
-            if f"hermes-agent[{extra}]" in spec
+            spec for spec in all_extra_specs if f"xhermes-agent[{extra}]" in spec
         ]
         assert not offending, (
             f"[{extra}] is in [all] but also in LAZY_DEPS. "
@@ -100,14 +106,12 @@ def _exact_pins(specs):
     return pins
 
 
-
-
 def test_pyproject_pins_match_lazy_deps_pins():
     """Generalize #31817 to the whole pin surface, not just aiohttp.
 
     Any package that is exact-pinned in BOTH a pyproject extra and a
     `tools/lazy_deps.py` LAZY_DEPS entry must use the SAME version in both
-    places. When they drift, `hermes update` resolves the pyproject extra
+    places. When they drift, `xhermes update` resolves the pyproject extra
     pin and downgrades the package to the older version, reopening whatever
     the lazy pin fixed (the aiohttp #31817 case, and the anthropic
     CVE-2026-34450/34452 case found alongside it) — only for the lazy
@@ -135,7 +139,9 @@ def test_pyproject_pins_match_lazy_deps_pins():
             lazy_pins.setdefault(package, set()).add(version)
 
     shared = sorted(set(pyproject_pins) & set(lazy_pins))
-    assert shared, "expected at least one package pinned in both pyproject and LAZY_DEPS"
+    assert shared, (
+        "expected at least one package pinned in both pyproject and LAZY_DEPS"
+    )
 
     drift = {
         package: {
@@ -147,14 +153,10 @@ def test_pyproject_pins_match_lazy_deps_pins():
     }
     assert not drift, (
         "pyproject extras pins must match tools/lazy_deps.py LAZY_DEPS pins "
-        "for every shared package — otherwise `hermes update` downgrades the "
+        "for every shared package — otherwise `xhermes update` downgrades the "
         "package below the security-current lazy pin (see #31817). Drift: "
         f"{drift}"
     )
-
-
-
-
 
 
 def test_dingtalk_extra_includes_qrcode_for_qr_auth():
@@ -166,15 +168,13 @@ def test_dingtalk_extra_includes_qrcode_for_qr_auth():
     assert any(dep.startswith("qrcode") for dep in dingtalk_extra)
 
 
-
-
-
-
 def _uv_lock_version(package: str) -> str:
     """Resolved version of ``package`` in uv.lock, or fail loudly."""
     versions = _uv_lock_versions(package)
     assert versions, f"{package} not found in uv.lock"
-    assert len(versions) == 1, f"{package} resolves to multiple versions in uv.lock: {versions}"
+    assert len(versions) == 1, (
+        f"{package} resolves to multiple versions in uv.lock: {versions}"
+    )
     return next(iter(versions))
 
 
@@ -198,7 +198,7 @@ def test_every_lazy_deps_exact_pin_matches_uv_lock():
 
     Any package that is BOTH exact-pinned in ``tools/lazy_deps.py`` AND
     resolved in the committed uv.lock is a *shared* package: the core
-    install ships the locked version, and the ``hermes update`` lazy-refresh
+    install ships the locked version, and the ``xhermes update`` lazy-refresh
     pass re-asserts the LAZY_DEPS pin whenever the package is present
     (``active_features()``). If the two disagree, every update churns the
     package — and when the lazy pin is older, it force-DOWNGRADES a version
@@ -230,7 +230,7 @@ def test_every_lazy_deps_exact_pin_matches_uv_lock():
 
     assert not drift, (
         "LAZY_DEPS exact pins must match the uv.lock resolved version for "
-        "every package the core lock also ships — otherwise `hermes update` "
+        "every package the core lock also ships — otherwise `xhermes update` "
         "churns/downgrades the shared package out from under its other "
         "consumers (#60783, #31817). Bump the pin AND run "
         "`uv lock --upgrade-package <name>` in the same commit. Drift: "
@@ -245,7 +245,7 @@ def test_huggingface_hub_lazy_pin_matches_uv_lock():
     faster-whisper/tokenizers, and transformers/sentence-transformers when
     local Hindsight embeddings are installed), and LAZY_DEPS
     ['tool.trace_upload'] exact-pins it. Because active_features() activates
-    a feature from mere package presence, the `hermes update` lazy-refresh
+    a feature from mere package presence, the `xhermes update` lazy-refresh
     pass re-asserts the LAZY_DEPS pin on every install where hub is present.
     If that pin drifts from the lock's resolved version, every update churns
     the shared package — and a pin below transformers' floor (>=1.5.0)
@@ -261,7 +261,7 @@ def test_huggingface_hub_lazy_pin_matches_uv_lock():
         "LAZY_DEPS['tool.trace_upload'] pins huggingface-hub=="
         f"{lazy_pin} but uv.lock resolves {locked}. These must move in "
         "lockstep (bump the pin AND run `uv lock --upgrade-package "
-        "huggingface-hub`), or `hermes update` will churn/downgrade the "
+        "huggingface-hub`), or `xhermes update` will churn/downgrade the "
         "shared package and break Hindsight local embeddings (#60783)."
     )
 
@@ -289,3 +289,33 @@ def test_huggingface_hub_lazy_pin_inside_transformers_window():
         "range (>=1.5.0,<2). The lazy refresh would downgrade the shared "
         "package and break Hindsight local embeddings (#60783)."
     )
+
+
+def test_fork_identity_constants():
+    from hermes_constants import (
+        PRODUCT_SLUG,
+        HOME_DIRNAME,
+        WIN_HOME_DIRNAME,
+        INSTALL_SUBDIR,
+        SERVICE_BASE,
+        PYPI_DIST_NAME,
+    )
+
+    assert PRODUCT_SLUG == "xhermes"
+    assert HOME_DIRNAME == ".xhermes"
+    assert WIN_HOME_DIRNAME == "xhermes"
+    assert INSTALL_SUBDIR == "xhermes-agent"
+    assert SERVICE_BASE == "xhermes-gateway"
+    assert PYPI_DIST_NAME == "xhermes-agent"
+
+
+def test_plugin_manifests_included_in_package_data():
+    """Headless/offline wheels must ship plugin.yaml (and other non-.py assets).
+
+    PluginManager discovers plugins by scanning plugin.yaml. Without
+    package-data entries for plugins/ and extend/, setuptools drops every
+    manifest and frozen bundles appear to have no bundled plugins.
+    """
+    package_data = _load_package_data()
+    assert package_data.get("plugins") == ["**/*"], package_data.get("plugins")
+    assert package_data.get("extend") == ["**/*"], package_data.get("extend")

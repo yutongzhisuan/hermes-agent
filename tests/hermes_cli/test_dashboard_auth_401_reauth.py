@@ -157,7 +157,7 @@ class TestApi401Envelope:
         /api/analytics/models?days=30`` from ModelsPage round-tripped
         through the OAuth dance and landed the user on the raw JSON
         endpoint instead of the dashboard. The gate now drops API paths
-        from ``next=`` entirely; the SPA's own ``hermes.lastLocation``
+        from ``next=`` entirely; the SPA's own ``xhermes.lastLocation``
         fallback in ``web/src/lib/api.ts`` covers the deep-link case.
         """
         r = gated_app.get("/api/sessions?page=2")

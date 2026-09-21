@@ -1,0 +1,5 @@
+name: infa-provider
+kind: model-provider
+version: 1.0.0
+description: INFA consumer session (JWT + DPoP)
+author: infa
