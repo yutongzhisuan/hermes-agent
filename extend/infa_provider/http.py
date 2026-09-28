@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any, Optional
 from urllib.parse import urlparse
@@ -73,9 +74,53 @@ def _desktop_shared_session(session: InfaSession) -> InfaSession:
     return fresh
 
 
+# Gateway package relay rejects a missing max_tokens after the hold is taken.
+# The metering qualification caps output at 4096.
+_CHAT_COMPLETIONS = "/api/v1/chat/completions"
+_DEFAULT_MAX_TOKENS = 1024
+_MAX_OUTPUT_TOKENS = 4096
+
+
+def bound_chat_max_tokens(request: httpx.Request) -> httpx.Request:
+    if request.method.upper() != "POST" or request.url.path != _CHAT_COMPLETIONS:
+        return request
+    raw = request.content or b""
+    if not raw:
+        return request
+    try:
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeError):
+        return request
+    if not isinstance(payload, dict):
+        return request
+    current = payload.get("max_tokens")
+    try:
+        current_int = int(current) if current is not None else 0
+    except (TypeError, ValueError):
+        current_int = 0
+    bounded = current_int
+    if bounded <= 0:
+        bounded = _DEFAULT_MAX_TOKENS
+    if bounded > _MAX_OUTPUT_TOKENS:
+        bounded = _MAX_OUTPUT_TOKENS
+    if current is not None and bounded == current_int:
+        return request
+    payload["max_tokens"] = bounded
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+    headers = httpx.Headers(request.headers)
+    headers.pop("Content-Length", None)
+    return httpx.Request(
+        method=request.method,
+        url=request.url,
+        headers=headers,
+        content=body,
+        extensions=dict(request.extensions),
+    )
+
+
 def _prepare_signed_request(request: httpx.Request, session: InfaSession, nonce: str) -> tuple[httpx.Request, InfaSession]:
     session = _desktop_shared_session(session)
-    prepared = _clone_request(request)
+    prepared = _clone_request(bound_chat_max_tokens(request))
     prepared.headers["Authorization"] = f"Bearer {session.access_token}"
     if nonce:
         apply_dpop_header(prepared, session, nonce)
