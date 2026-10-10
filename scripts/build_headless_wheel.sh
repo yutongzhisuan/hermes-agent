@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/offline_common.sh
+source "$ROOT/scripts/offline_common.sh"
 cd "$ROOT"
 
 export XHERMES_HEADLESS_WHEEL_BUILD=1
@@ -14,6 +16,7 @@ else
 fi
 
 rm -rf dist/
+offline_clean_build_state "$ROOT"
 mkdir -p dist
 "${PYTHON[@]}" -c "from setuptools.build_meta import build_wheel; print(build_wheel('dist/'))"
 

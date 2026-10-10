@@ -147,12 +147,25 @@ offline_venv_python_path() {
   fi
 }
 
+# setuptools reuses <root>/build/lib across builds, so modules deleted or
+# renamed since an earlier build (and their bytecode) would leak into the
+# wheel; local __pycache__ dirs also trip "importable package" warnings.
+# Both are regenerable artifacts.
+offline_clean_build_state() {
+  local root="$1"
+  rm -rf "$root/build"
+  # -H: the checkout root itself may be a symlink.
+  find -H "$root" \( -name .git -o -name .venv -o -name venv -o -name node_modules -o -name dist \) -prune \
+    -o -type d -name __pycache__ -prune -exec rm -rf {} +
+}
+
 offline_build_headless_wheel() {
   local root="$1"
   local out_dir="$2"
   mkdir -p "$out_dir"
   local out_dir_w wheels
   out_dir_w="$(offline_win_path "$out_dir")"
+  offline_clean_build_state "$root"
   (
     cd "$root"
     export XHERMES_HEADLESS_WHEEL_BUILD=1

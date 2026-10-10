@@ -424,6 +424,14 @@ plugins = ["**/*"]
 # other non-Python assets that must survive headless / offline packaging.
 extend = ["**/*"]
 
+# The "**/*" globs above would otherwise also ship local __pycache__ bytecode
+# (stale, interpreter-specific).
+[tool.setuptools.exclude-package-data]
+xhermes_agent_data = ["*.pyc", "*.pyo"]
+gateway = ["*.pyc", "*.pyo"]
+plugins = ["*.pyc", "*.pyo"]
+extend = ["*.pyc", "*.pyo"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
