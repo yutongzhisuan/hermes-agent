@@ -58,6 +58,24 @@ offline_populate_frozen_tree() {
   }
   uv pip install --python "$(offline_win_path "$venv_py")" "$(offline_win_path "$WHEEL")"
   offline_rewire_venv_to_embedded_python "$bundle_root" "$PYTHON"
+  offline_compile_bytecode "$bundle_root" "$embedded_py"
+}
+
+# Precompile bytecode so the first launch does not compile every module.
+# checked-hash pycs stay valid when an extractor resets file mtimes (the
+# Desktop installer untars without preserving them), unlike timestamp pycs.
+# Non-fatal: a non-runnable cross-target interpreter only loses the speedup.
+offline_compile_bytecode() {
+  local bundle_root="$1"
+  local embedded_py="$2"
+  echo "→ precompiling bytecode (checked-hash)..."
+  if ! "$embedded_py" -m compileall -q -f -j 0 \
+    --invalidation-mode checked-hash \
+    -x '[/\\](tests?|idle_test)[/\\]' \
+    "$(offline_win_path "$bundle_root/python")" \
+    "$(offline_win_path "$bundle_root/venv")" >/dev/null; then
+    echo "WARN: compileall reported errors; affected modules compile on first import" >&2
+  fi
 }
 
 offline_write_frozen_launcher() {
