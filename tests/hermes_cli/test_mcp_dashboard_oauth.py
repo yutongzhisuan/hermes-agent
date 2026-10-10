@@ -67,7 +67,7 @@ def test_hosted_callback_bypasses_gated_cookie_auth(monkeypatch):
         flow_id="flow-gated",
         server_name="reports",
         profile=None,
-        hermes_home="/tmp/hermes-test",
+        hermes_home="/tmp/xhermes-test",
         redirect_uri="https://agent.example/api/mcp/oauth/callback/reports",
     )
     asyncio.run(
@@ -125,7 +125,7 @@ def test_flow_status_does_not_expose_authorization_code():
         flow_id="flow-status",
         server_name="reports",
         profile=None,
-        hermes_home="/tmp/hermes-test",
+        hermes_home="/tmp/xhermes-test",
         redirect_uri="https://agent.example/api/mcp/oauth/callback/flow-status",
     )
     flow.authorization_url = "https://idp.example/authorize"

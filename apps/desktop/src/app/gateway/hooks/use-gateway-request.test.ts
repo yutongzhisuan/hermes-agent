@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { HermesGateway } from '@/hermes'
+import type { HermesGateway } from '@/xhermes'
 import { $gateway } from '@/store/gateway'
 
 import { useGatewayRequest } from './use-gateway-request'

@@ -149,7 +149,7 @@ def _stub_plugin_discovery(monkeypatch):
 
 
 def test_oneshot_wires_session_db_for_recall(monkeypatch):
-    """hermes -z bypasses HermesCLI, but recall still needs SessionDB."""
+    """xhermes -z bypasses HermesCLI, but recall still needs SessionDB."""
     from hermes_cli.oneshot import _run_agent
 
     captured = {}
@@ -229,7 +229,7 @@ def test_launch_tui_exports_model_provider_and_toolsets(monkeypatch, main_mod):
     def fake_call(argv, cwd=None, env=None):
         nonlocal active_path_during_call
         captured.update({"argv": argv, "cwd": cwd, "env": env})
-        active_path_during_call = Path(env["HERMES_TUI_ACTIVE_SESSION_FILE"])
+        active_path_during_call = Path(env["XHERMES_TUI_ACTIVE_SESSION_FILE"])
         assert active_path_during_call.exists()
         return 1
 
@@ -237,17 +237,17 @@ def test_launch_tui_exports_model_provider_and_toolsets(monkeypatch, main_mod):
 
     with pytest.raises(SystemExit):
         main_mod._launch_tui(
-            model="nous/hermes-test", provider="nous", toolsets="web, terminal"
+            model="nous/xhermes-test", provider="nous", toolsets="web, terminal"
         )
 
     env = captured["env"]
-    assert env["HERMES_MODEL"] == "nous/hermes-test"
-    assert env["HERMES_INFERENCE_MODEL"] == "nous/hermes-test"
-    assert env["HERMES_TUI_PROVIDER"] == "nous"
-    assert env["HERMES_INFERENCE_PROVIDER"] == "nous"
-    assert env["HERMES_TUI_TOOLSETS"] == "web,terminal"
-    active_path = Path(env["HERMES_TUI_ACTIVE_SESSION_FILE"])
-    assert active_path.name.startswith("hermes-tui-active-session-")
+    assert env["XHERMES_MODEL"] == "nous/xhermes-test"
+    assert env["XHERMES_INFERENCE_MODEL"] == "nous/xhermes-test"
+    assert env["XHERMES_TUI_PROVIDER"] == "nous"
+    assert env["XHERMES_INFERENCE_PROVIDER"] == "nous"
+    assert env["XHERMES_TUI_TOOLSETS"] == "web,terminal"
+    active_path = Path(env["XHERMES_TUI_ACTIVE_SESSION_FILE"])
+    assert active_path.name.startswith("xhermes-tui-active-session-")
     assert active_path.suffix == ".json"
     assert active_path_during_call == active_path
     assert not active_path.exists()
@@ -259,14 +259,14 @@ def test_launch_tui_exports_model_provider_and_toolsets(monkeypatch, main_mod):
 def test_make_tui_argv_dev_prebuilds_hermes_ink(monkeypatch, main_mod, tmp_path):
     tui_dir = tmp_path / "ui-tui"
     tsx = tui_dir / "node_modules" / ".bin" / "tsx"
-    ink_dir = tui_dir / "packages" / "hermes-ink"
+    ink_dir = tui_dir / "packages" / "xhermes-ink"
     tsx.parent.mkdir(parents=True)
     ink_dir.mkdir(parents=True)
     tsx.write_text("#!/usr/bin/env node\n", encoding="utf-8")
 
     monkeypatch.setattr(main_mod, "_ensure_tui_node", lambda: None)
     monkeypatch.setattr(main_mod, "_tui_need_npm_install", lambda _tui_dir: False)
-    monkeypatch.delenv("HERMES_TUI_DIR", raising=False)
+    monkeypatch.delenv("XHERMES_TUI_DIR", raising=False)
     monkeypatch.setattr(main_mod.shutil, "which", lambda bin_name: f"/usr/bin/{bin_name}")
 
     calls = []

@@ -1,4 +1,4 @@
-import { Text, useInput } from '@hermes/ink'
+import { Text, useInput } from '@xhermes/ink'
 
 import type { Theme } from '../theme.js'
 

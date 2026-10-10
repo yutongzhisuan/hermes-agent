@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 
 TWILIO_API_BASE = "https://api.twilio.com/2010-04-01/Accounts"
 MAX_SMS_LENGTH = 1600  # ~10 SMS segments
-DEFAULT_WEBHOOK_PORT = 8080
+DEFAULT_WEBHOOK_PORT = 8180
 DEFAULT_WEBHOOK_HOST = "127.0.0.1"
 _TWILIO_WEBHOOK_MAX_BODY_BYTES = 65_536  # 64 KiB — Twilio payloads are small
 
@@ -80,9 +80,9 @@ def check_sms_requirements() -> bool:
 
 class SmsAdapter(BasePlatformAdapter):
     """
-    Twilio SMS <-> Hermes gateway adapter.
+    Twilio SMS <-> XHermes gateway adapter.
 
-    Each inbound phone number gets its own Hermes session (multi-tenant).
+    Each inbound phone number gets its own XHermes session (multi-tenant).
     Replies are always sent from the configured TWILIO_PHONE_NUMBER.
     """
 
@@ -516,7 +516,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Hermes plugin system."""
+    """Plugin entry point — called by the XHermes plugin system."""
     ctx.register_platform(
         name="sms",
         label="SMS (Twilio)",

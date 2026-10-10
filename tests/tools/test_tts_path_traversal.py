@@ -36,7 +36,7 @@ def test_output_path_rejects_hermes_oauth_store(tmp_path, monkeypatch):
     """TTS output_path must not bypass the shared protected-file write guard."""
     import agent.file_safety as file_safety
 
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "xhermes-home"
     hermes_home.mkdir()
     monkeypatch.setattr(file_safety, "_hermes_home_path", lambda: hermes_home)
     monkeypatch.setattr(file_safety, "_hermes_root_path", lambda: hermes_home)
@@ -56,7 +56,7 @@ def test_output_path_rejects_mcp_token_directory(tmp_path, monkeypatch):
     """TTS output_path must not write synthesized audio over MCP token files."""
     import agent.file_safety as file_safety
 
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "xhermes-home"
     token_dir = hermes_home / "mcp-tokens"
     token_dir.mkdir(parents=True)
     monkeypatch.setattr(file_safety, "_hermes_home_path", lambda: hermes_home)

@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $terminalFontFamily, setTerminalFontFamilyFromConfig } from '@/app/right-sidebar/terminal/terminal-font'
-import { getHermesConfig } from '@/hermes'
+import { getHermesConfig } from '@/xhermes'
 import { persistString } from '@/lib/storage'
 import {
   $currentCwd,
@@ -18,14 +18,14 @@ import {
   setDefaultReasoningEffort
 } from '@/store/session'
 
-import { useHermesConfig } from './use-hermes-config'
+import { useHermesConfig } from './use-xhermes-config'
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/xhermes', () => ({
   getHermesConfig: vi.fn(),
   getHermesConfigDefaults: vi.fn().mockResolvedValue({})
 }))
 
-const WORKSPACE_CWD_KEY = 'hermes.desktop.workspace-cwd'
+const WORKSPACE_CWD_KEY = 'xhermes.desktop.workspace-cwd'
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -56,7 +56,7 @@ describe('useHermesConfig refreshHermesConfig', () => {
   // composer reseed. The profile default must still be published, because the
   // model picker resolves "the default effort" from it when applying a model's
   // preset — otherwise selecting a model silently downgrades a configured
-  // `agent.reasoning_effort: high` to Hermes' built-in medium.
+  // `agent.reasoning_effort: high` to XHermes' built-in medium.
   it('publishes the profile default effort even when a manual pick blocks the composer reseed', async () => {
     setCurrentModelSource('manual')
     setCurrentReasoningEffort('low')

@@ -14,9 +14,9 @@ import {
   setCuratorPaused,
   setMcpServerEnabled,
   testMcpServer
-} from './hermes'
+} from './xhermes'
 
-describe('Hermes REST parity helpers (hub / mcp / maintenance)', () => {
+describe('XHermes REST parity helpers (hub / mcp / maintenance)', () => {
   let api: ReturnType<typeof vi.fn>
 
   beforeEach(() => {

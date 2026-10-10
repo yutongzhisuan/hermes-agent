@@ -1,0 +1,634 @@
+"""JSON-RPC server exposing XHermes ACP execution to RemoteAcpTaskBackend.
+
+Owned by XHermes (migrated from swarm-network ``worker/acp_rpc_server.py``):
+runs as a node-local sidecar (default Unix domain socket at
+``~/.xhermes/sub_agent/acp.sock``; HTTP loopback on 127.0.0.1:9105 with
+``--http``) wrapping :class:`~extend.sub_agent.acp_backend.AcpTaskBackend`.
+Start it with ``python -m extend.sub_agent.acp_rpc_server``.
+
+Untrusted remote tasks should be served with ``--stateless`` (no access to
+the local user's memories, skills, or session history; disposable session
+and workdir) and, on Docker-capable nodes, ``--sandbox docker`` (each task
+in its own network-less, resource-capped disposable container).
+
+Every stateless/sandboxed session is additionally constrained by the
+**executor profile** (:mod:`extend.sub_agent.executor_profile`): a toolset
+whitelist that defaults to ``file,web,todo`` — no shell/terminal/browser
+tools for remote goals. Widen it with ``--executor-toolsets`` /
+``--executor-allow-extra`` (node operator's trust decision). The effective
+whitelist is served over the ``acp.toolsets`` RPC method so the Worker's
+announced capabilities stay aligned with what the sidecar can execute.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import os
+import stat
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from aiohttp import web
+
+from extend.sub_agent.constants import (
+    DEFAULT_ACP_RPC_HTTP_HOST,
+    DEFAULT_ACP_RPC_HTTP_PORT,
+    DEFAULT_ACP_RPC_SOCKET,
+)
+from extend.sub_agent.executor_profile import ExecutorProfile
+from extend.sub_agent.progress_policy import SubAgentRuntimeOptions, default_sidecar_options
+from extend.sub_agent.task_types import TaskBackend, TaskCancelEvent, TaskRunPayload
+
+if TYPE_CHECKING:
+    from extend.sub_agent.local_runtime import LocalRuntimeResolver
+
+logger = logging.getLogger("sub_agent.acp_rpc")
+
+
+@dataclass
+class _ActiveRun:
+    task: asyncio.Task
+    cancel_event: TaskCancelEvent
+    backend: TaskBackend
+
+
+@dataclass
+class AcpRpcState:
+    backend: TaskBackend
+    runs: dict[str, _ActiveRun] = field(default_factory=dict)
+    # Per-run progress summaries queued for Worker polling (acp.progress).
+    # Survives after acp.run returns so the Worker can drain a final batch.
+    progress: dict[str, list[str]] = field(default_factory=dict)
+
+
+async def _handle_rpc(request: web.Request) -> web.Response:
+    state: AcpRpcState = request.app["state"]
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "parse error"},
+            },
+            status=400,
+        )
+
+    msg_id = payload.get("id")
+    method = payload.get("method")
+    params = payload.get("params") or {}
+    if not isinstance(params, dict):
+        params = {}
+
+    try:
+        if method == "acp.run":
+            result = await _acp_run(state, params)
+        elif method == "acp.cancel":
+            result = await _acp_cancel(state, params)
+        elif method == "acp.status":
+            result = _acp_status(state, params)
+        elif method == "acp.progress":
+            result = _acp_progress(state, params)
+        elif method == "acp.toolsets":
+            result = _acp_toolsets(state)
+        else:
+            return web.json_response({
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": -32601, "message": f"method not found: {method}"},
+            })
+    except Exception as exc:
+        logger.exception("ACP RPC handler failed for %s", method)
+        return web.json_response(
+            {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": -32000, "message": str(exc)},
+            },
+            status=500,
+        )
+
+    return web.json_response({"jsonrpc": "2.0", "id": msg_id, "result": result})
+
+
+async def _acp_run(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
+    run_id = str(params.get("run_id") or "")
+    if not run_id:
+        raise ValueError("run_id is required")
+
+    if run_id in state.runs:
+        raise ValueError(f"run_id already active: {run_id}")
+
+    run = TaskRunPayload(
+        task_id=str(params.get("task_id") or run_id),
+        attempt=int(params.get("attempt") or 1),
+        goal=str(params.get("goal") or ""),
+        params=params.get("params") if isinstance(params.get("params"), dict) else {},
+        context=params.get("context")
+        if isinstance(params.get("context"), dict)
+        else None,
+        toolsets=list(params.get("toolsets") or []),
+        timeout_seconds=int(params.get("timeout_seconds") or 600),
+        first_progress_seconds=params.get("first_progress_seconds"),
+        trace_context=params.get("trace_context"),
+        resume_from_checkpoint=params.get("resume_from_checkpoint"),
+        resume_blob=params.get("resume_blob"),
+        model=str(params["model"]) if params.get("model") else None,
+        master_session_id=str(params.get("master_session_id") or "") or None,
+    )
+    cancel_event = TaskCancelEvent()
+    logger.info(
+        "task.run start task_id=%s session_id=%s model=%s attempt=%s timeout_seconds=%s toolsets=%s",
+        run.task_id,
+        run.master_session_id,
+        run.model,
+        run.attempt,
+        run.timeout_seconds,
+        ",".join(run.toolsets or []),
+    )
+
+    state.progress[run_id] = []
+
+    async def _queue_progress(summary: str) -> None:
+        text = (summary or "").strip()
+        if not text:
+            return
+        bucket = state.progress.setdefault(run_id, [])
+        bucket.append(text)
+
+    last_checkpoint: dict[str, Any] | None = None
+
+    async def _capture_checkpoint(*args: Any, **kwargs: Any) -> None:
+        nonlocal last_checkpoint
+        if args:
+            kwargs.setdefault("checkpoint_id", args[0])
+            if len(args) > 1:
+                kwargs.setdefault("summary", args[1])
+            if len(args) > 2:
+                kwargs.setdefault("fields", args[2])
+            if len(args) > 3:
+                kwargs.setdefault("resume_blob", args[3])
+        checkpoint_id = str(kwargs.get("checkpoint_id") or kwargs.get("id") or "")
+        if not checkpoint_id:
+            return
+        blob = kwargs.get("resume_blob")
+        if isinstance(blob, bytes):
+            blob = blob.decode("utf-8", errors="replace")
+        fields = kwargs.get("fields")
+        last_checkpoint = {
+            "checkpoint_id": checkpoint_id,
+            "summary": kwargs.get("summary") or "",
+            "fields": fields if isinstance(fields, dict) else {},
+            "resume_blob": blob or "",
+        }
+
+    async def _execute() -> dict[str, Any]:
+        try:
+            payload = await state.backend.run(
+                run, _queue_progress, _capture_checkpoint, cancel_event
+            )
+        except Exception:
+            logger.exception("task.run failed task_id=%s", run.task_id)
+            raise
+        logger.info(
+            "task.run end task_id=%s session_id=%s status=%s error=%s summary=%s",
+            run.task_id,
+            run.master_session_id,
+            payload.status,
+            payload.error or "",
+            (payload.summary or "")[:120],
+        )
+        result = {
+            "status": payload.status,
+            "summary": payload.summary,
+            "result_text": payload.result_text,
+            "fields": payload.fields,
+            "usage": payload.usage,
+            "error": payload.error,
+        }
+        # Structured failure code (e.g. model_unavailable, spec §13.4 S4):
+        # the worker's acp-remote backend prefixes it into the terminal
+        # error field so the Hub can route on the failure class.
+        if payload.error_code:
+            result["error_code"] = payload.error_code
+        if last_checkpoint is not None:
+            result["checkpoint"] = last_checkpoint
+        return result
+
+    task = asyncio.create_task(_execute())
+    state.runs[run_id] = _ActiveRun(
+        task=task, cancel_event=cancel_event, backend=state.backend
+    )
+    try:
+        return await task
+    finally:
+        state.runs.pop(run_id, None)
+
+
+async def _acp_cancel(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
+    run_id = str(params.get("run_id") or "")
+    active = state.runs.get(run_id)
+    if active is None:
+        return {"cancelled": False, "reason": "run not found"}
+    reason = str(params.get("reason") or "cancel requested")
+    active.cancel_event.set(reason)
+    return {"cancelled": True}
+
+
+def _acp_status(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
+    run_id = str(params.get("run_id") or "")
+    active = state.runs.get(run_id)
+    if active is None:
+        return {"running": False}
+    return {"running": not active.task.done()}
+
+
+def _acp_progress(state: AcpRpcState, params: dict[str, Any]) -> dict[str, Any]:
+    """Drain queued progress summaries for a run (Worker poll).
+
+    Empty drain after the run has finished drops the buffer so memory does
+    not grow across short-lived tasks.
+    """
+    run_id = str(params.get("run_id") or "")
+    if not run_id:
+        return {"summaries": []}
+    summaries = state.progress.get(run_id, [])
+    state.progress[run_id] = []
+    if run_id not in state.runs and not state.progress[run_id]:
+        state.progress.pop(run_id, None)
+    return {"summaries": list(summaries)}
+
+
+def _acp_toolsets(state: AcpRpcState) -> dict[str, Any]:
+    """Report the executor-side toolset whitelist for announce alignment.
+
+    The Worker announces capabilities upstream (``task-relay-worker
+    --toolsets`` → daemon announce); this manifest is the sidecar's source
+    of truth, so announced capabilities can always be checked against allowed.
+    """
+    profile = getattr(state.backend, "executor_profile", None)
+    if profile is None:
+        return {"toolsets": None, "detail": "backend has no executor profile"}
+    return {"toolsets": profile.announce_toolsets()}
+
+
+def create_acp_rpc_app(
+    *,
+    backend: TaskBackend | None = None,
+    progress_interval_seconds: float = 5.0,
+    stateless: bool = False,
+    stateless_toolsets: list[str] | None = None,
+    state_root: str | None = None,
+    workdir_root: str | None = None,
+    sandbox: str | None = None,
+    sandbox_image: str | None = None,
+    executor_profile: ExecutorProfile | None = None,
+    local_runtime: "LocalRuntimeResolver | None" = None,
+    sub_agent_options: SubAgentRuntimeOptions | None = None,
+) -> web.Application:
+    app = web.Application()
+    if backend is None:
+        from extend.sub_agent.acp_backend import AcpTaskBackend
+
+        backend = AcpTaskBackend(
+            progress_interval_seconds=progress_interval_seconds,
+            stateless=stateless,
+            stateless_toolsets=stateless_toolsets,
+            state_root=state_root,
+            workdir_root=workdir_root,
+            sandbox=sandbox,
+            sandbox_image=sandbox_image,
+            executor_profile=executor_profile,
+            local_runtime=local_runtime,
+            sub_agent_options=sub_agent_options,
+        )
+    app["state"] = AcpRpcState(backend=backend)
+    app.router.add_post("/rpc", _handle_rpc)
+    app.router.add_post("/", _handle_rpc)
+    return app
+
+
+def _prepare_uds_path(raw_path: str) -> str:
+    """Expand, ensure parent dir exists, and remove a stale socket file."""
+    expanded = str(Path(raw_path).expanduser())
+    parent = os.path.dirname(expanded)
+    if parent:
+        os.makedirs(parent, mode=0o700, exist_ok=True)
+    if os.path.exists(expanded):
+        os.unlink(expanded)
+    return expanded
+
+
+async def serve_acp_rpc(
+    *,
+    socket_path: str | None = DEFAULT_ACP_RPC_SOCKET,
+    host: str = DEFAULT_ACP_RPC_HTTP_HOST,
+    port: int = DEFAULT_ACP_RPC_HTTP_PORT,
+    use_http: bool = False,
+    progress_interval_seconds: float = 5.0,
+    stateless: bool = False,
+    stateless_toolsets: list[str] | None = None,
+    state_root: str | None = None,
+    workdir_root: str | None = None,
+    sandbox: str | None = None,
+    sandbox_image: str | None = None,
+    executor_profile: ExecutorProfile | None = None,
+    sub_agent_options: SubAgentRuntimeOptions | None = None,
+) -> web.AppRunner:
+    app = create_acp_rpc_app(
+        progress_interval_seconds=progress_interval_seconds,
+        stateless=stateless,
+        stateless_toolsets=stateless_toolsets,
+        state_root=state_root,
+        workdir_root=workdir_root,
+        sandbox=sandbox,
+        sandbox_image=sandbox_image,
+        executor_profile=executor_profile,
+        sub_agent_options=sub_agent_options,
+    )
+    runner = web.AppRunner(app)
+    await runner.setup()
+    if use_http:
+        site = web.TCPSite(runner, host, port=port)
+        await site.start()
+        logger.info("ACP JSON-RPC listening on http://%s:%d/rpc", host, port)
+    else:
+        uds_path = _prepare_uds_path(socket_path or DEFAULT_ACP_RPC_SOCKET)
+        site = web.UnixSite(runner, uds_path)
+        await site.start()
+        os.chmod(uds_path, stat.S_IRUSR | stat.S_IWUSR)
+        logger.info("ACP JSON-RPC listening on unix://%s", uds_path)
+    return runner
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="XHermes ACP JSON-RPC server for sub-agent executors"
+    )
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help=(
+            "listen on HTTP loopback instead of the default Unix domain socket "
+            f"(default: {DEFAULT_ACP_RPC_HTTP_HOST}:{DEFAULT_ACP_RPC_HTTP_PORT}). "
+            "Env: TASK_RELAY_ACP_RPC_HTTP=1"
+        ),
+    )
+    parser.add_argument(
+        "--socket",
+        default=None,
+        help=(
+            "Unix domain socket path when not using --http "
+            f"(default: {DEFAULT_ACP_RPC_SOCKET}). Env: TASK_RELAY_ACP_RPC_SOCKET"
+        ),
+    )
+    parser.add_argument(
+        "--host",
+        default=DEFAULT_ACP_RPC_HTTP_HOST,
+        help="HTTP bind address (only with --http)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_ACP_RPC_HTTP_PORT,
+        help="HTTP bind port (only with --http)",
+    )
+    parser.add_argument(
+        "--progress-mode",
+        choices=["minimal", "tools", "off"],
+        default=None,
+        help=(
+            "Progress frame granularity for remote tasks (default: minimal when "
+            "stateless, tools otherwise). Env: ACP_PROGRESS_MODE"
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-every-steps",
+        type=int,
+        default=None,
+        help=(
+            "Emit an L1 checkpoint every N agent steps (0=disabled). "
+            "Env: ACP_CHECKPOINT_EVERY_STEPS"
+        ),
+    )
+    parser.add_argument(
+        "--acp-progress-interval-seconds",
+        type=float,
+        default=5.0,
+        help="minimum seconds between ACP progress frames",
+    )
+    parser.add_argument(
+        "--stateless",
+        action="store_true",
+        help=(
+            "run each task as a disposable session: no access to the local "
+            "user's memories, skills, or session history; transcript and "
+            "workdir are deleted when the task ends"
+        ),
+    )
+    parser.add_argument(
+        "--stateless-toolsets",
+        default=None,
+        help=(
+            "comma-separated toolsets granted to stateless tasks when the "
+            "task requests none (default: terminal,file,web,code_execution,todo)"
+        ),
+    )
+    parser.add_argument(
+        "--state-root",
+        default=None,
+        help="directory for the ephemeral stateless session store (default: fresh temp dir)",
+    )
+    parser.add_argument(
+        "--workdir-root",
+        default=None,
+        help="parent directory for per-task temp workdirs (default: system temp)",
+    )
+    parser.add_argument(
+        "--sandbox",
+        choices=["docker"],
+        default=None,
+        help=(
+            "run stateless tasks inside their own disposable Docker container "
+            "(implies --stateless; requires Docker on the node)"
+        ),
+    )
+    parser.add_argument(
+        "--sandbox-image",
+        default=None,
+        help="Docker image for sandboxed tasks (default: xhermes terminal default image)",
+    )
+    parser.add_argument(
+        "--sandbox-network",
+        action="store_true",
+        help="allow container network access (default: no network)",
+    )
+    parser.add_argument(
+        "--sandbox-cpu",
+        type=float,
+        default=None,
+        help="CPU limit for sandboxed task containers (e.g. 2.0)",
+    )
+    parser.add_argument(
+        "--sandbox-memory-mb",
+        type=int,
+        default=None,
+        help="memory limit in MB for sandboxed task containers",
+    )
+    parser.add_argument(
+        "--local-confined",
+        action="store_true",
+        help=(
+            "trusted-task lightweight mode: implies --stateless and installs "
+            "a default approvals.deny preset into the sidecar config "
+            "(guardrails, not a security boundary)"
+        ),
+    )
+    parser.add_argument(
+        "--local-confined-extra-deny",
+        default=None,
+        help="comma-separated extra approvals.deny globs for --local-confined",
+    )
+    parser.add_argument(
+        "--executor-toolsets",
+        default=None,
+        help=(
+            "comma-separated executor whitelist replacing the default "
+            "(file,web,todo). Enforced on every stateless/sandboxed ACP "
+            "session before creation. Env: ACP_EXECUTOR_TOOLSETS"
+        ),
+    )
+    parser.add_argument(
+        "--executor-allow-extra",
+        default=None,
+        help=(
+            "comma-separated toolsets added to the default executor "
+            "whitelist (e.g. terminal on a trusted node — combine with "
+            "--sandbox docker). Env: ACP_EXECUTOR_ALLOW_EXTRA"
+        ),
+    )
+    return parser
+
+
+def _split_toolsets(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _resolve_executor_profile(args: argparse.Namespace) -> ExecutorProfile:
+    """Build the executor whitelist from CLI flags, falling back to env.
+
+    CLI wins over ``ACP_EXECUTOR_TOOLSETS`` / ``ACP_EXECUTOR_ALLOW_EXTRA``;
+    with neither, the default whitelist (no shell/browser) applies.
+    """
+    import os
+
+    allowed = _split_toolsets(args.executor_toolsets)
+    if allowed is None:
+        allowed = _split_toolsets(os.environ.get("ACP_EXECUTOR_TOOLSETS"))
+    extra = _split_toolsets(args.executor_allow_extra)
+    if extra is None:
+        extra = _split_toolsets(os.environ.get("ACP_EXECUTOR_ALLOW_EXTRA"))
+
+    profile = ExecutorProfile.build(allowed=allowed, extra=extra)
+    logger.info(
+        "executor profile: whitelist=%s — announce this exact list upstream "
+        "(task-relay-worker --toolsets=%s)",
+        list(profile.allowed),
+        ",".join(profile.announce_toolsets()),
+    )
+    return profile
+
+
+def _resolve_sub_agent_options(args: argparse.Namespace, *, stateless: bool) -> SubAgentRuntimeOptions:
+    base = default_sidecar_options(stateless=stateless)
+    mode = args.progress_mode or base.progress_mode
+    every = (
+        args.checkpoint_every_steps
+        if args.checkpoint_every_steps is not None
+        else base.checkpoint_every_steps
+    )
+    return SubAgentRuntimeOptions(
+        progress_mode=mode,
+        checkpoint_every_steps=every,
+        report_progress_interval_s=base.report_progress_interval_s,
+    ).normalized()
+
+
+async def _async_main(argv: list[str] | None) -> int:
+    args = _build_arg_parser().parse_args(argv)
+    logging.basicConfig(level=logging.INFO)
+    stateless = args.stateless or bool(args.sandbox) or args.local_confined
+    if args.local_confined:
+        from extend.sub_agent.stateless import apply_local_confined
+
+        # Before serving: config.yaml is the approval policy surface.
+        added = apply_local_confined(
+            extra_deny_rules=_split_toolsets(args.local_confined_extra_deny)
+        )
+        logger.info("local-confined enabled: %d deny rules added", added)
+    if args.sandbox:
+        from extend.sub_agent.stateless import apply_sandbox_env
+
+        # Must run before the first agent/terminal environment is created.
+        apply_sandbox_env(
+            sandbox=args.sandbox,
+            image=args.sandbox_image,
+            network=args.sandbox_network,
+            cpu=args.sandbox_cpu,
+            memory_mb=args.sandbox_memory_mb,
+        )
+        logger.info(
+            "sandbox enabled: backend=%s network=%s cpu=%s memory_mb=%s",
+            args.sandbox,
+            "on" if args.sandbox_network else "off",
+            args.sandbox_cpu,
+            args.sandbox_memory_mb,
+        )
+    use_http = args.http or os.environ.get("TASK_RELAY_ACP_RPC_HTTP", "").strip() in {
+        "1",
+        "true",
+        "yes",
+    }
+    socket_path = args.socket or os.environ.get("TASK_RELAY_ACP_RPC_SOCKET")
+    if not use_http and not socket_path:
+        socket_path = DEFAULT_ACP_RPC_SOCKET
+    runner = await serve_acp_rpc(
+        socket_path=socket_path,
+        host=args.host,
+        port=args.port,
+        use_http=use_http,
+        progress_interval_seconds=args.acp_progress_interval_seconds,
+        stateless=stateless,
+        stateless_toolsets=_split_toolsets(args.stateless_toolsets),
+        state_root=args.state_root,
+        workdir_root=args.workdir_root,
+        sandbox=args.sandbox,
+        sandbox_image=args.sandbox_image,
+        executor_profile=_resolve_executor_profile(args),
+        sub_agent_options=_resolve_sub_agent_options(args, stateless=stateless),
+    )
+    try:
+        await asyncio.Event().wait()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        await runner.cleanup()
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return asyncio.run(_async_main(list(argv) if argv is not None else None))
+    except KeyboardInterrupt:
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

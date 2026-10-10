@@ -264,10 +264,10 @@ class TestBuildSessionContextPrompt:
         )
         ctx = build_session_context(source, config)
 
-        with patch("hermes_constants.display_hermes_home", return_value="~/.hermes/profiles/coder"):
+        with patch("hermes_constants.display_hermes_home", return_value="~/.xhermes/profiles/coder"):
             prompt = build_session_context_prompt(ctx)
 
-        assert "~/.hermes/profiles/coder/cron/output/" in prompt
+        assert "~/.xhermes/profiles/coder/cron/output/" in prompt
 
 
     def test_prompt_quotes_untrusted_metadata_labels(self):
@@ -633,14 +633,14 @@ class TestWhatsAppSessionKeyConsistency:
         """With group_sessions_per_user, the same human flipping between
         phone-JID and LID inside a group must not produce two isolated
         per-user sessions."""
-        tmp_home = tmp_path / "hermes-home"
+        tmp_home = tmp_path / "xhermes-home"
         mapping_dir = tmp_home / "whatsapp" / "session"
         mapping_dir.mkdir(parents=True, exist_ok=True)
         (mapping_dir / "lid-mapping-999999999999999.json").write_text(
             json.dumps("15551234567@s.whatsapp.net"),
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(tmp_home))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_home))
 
         lid_source = SessionSource(
             platform=Platform.WHATSAPP,
@@ -1012,7 +1012,7 @@ class TestWhatsAppIdentifierPublicHelpers:
             json.dumps("15551234567@s.whatsapp.net"),
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
 
         canonical = canonical_whatsapp_identifier("999999999999999@lid")
         assert canonical == "15551234567"

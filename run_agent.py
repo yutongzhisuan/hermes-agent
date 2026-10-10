@@ -26,7 +26,7 @@ try:
     import hermes_bootstrap  # noqa: F401
 except ModuleNotFoundError:
     # Graceful fallback when hermes_bootstrap isn't registered in the venv
-    # yet — happens during partial ``hermes update`` where git-reset landed
+    # yet — happens during partial ``xhermes update`` where git-reset landed
     # new code but ``uv pip install -e .`` didn't finish.  Missing bootstrap
     # means UTF-8 stdio setup is skipped on Windows; POSIX is unaffected.
     pass
@@ -70,7 +70,7 @@ def _launch_cwd_for_session(source: str) -> Optional[str]:
     """Working directory to stamp on a new session row, or None.
 
     Only local CLI sessions get a recorded cwd: the directory the process was
-    launched from is meaningful for ``hermes -c`` / ``--resume`` (relaunch
+    launched from is meaningful for ``xhermes -c`` / ``--resume`` (relaunch
     where you left off). Gateway/cron/remote-backend sessions have no stable
     host cwd to restore, so they record nothing.
 
@@ -94,9 +94,9 @@ def _session_source_for_agent(platform: Optional[str]) -> str:
     try:
         from gateway.session_context import get_session_env
 
-        source = get_session_env("HERMES_SESSION_SOURCE", "")
+        source = get_session_env("XHERMES_SESSION_SOURCE", "")
     except Exception:
-        source = os.environ.get("HERMES_SESSION_SOURCE", "")
+        source = os.environ.get("XHERMES_SESSION_SOURCE", "")
     source = str(source or "").strip()
     if source:
         return source
@@ -300,10 +300,10 @@ _QWEN_CODE_VERSION = "0.14.1"
 
 def _routermint_headers() -> dict:
     """Return the User-Agent RouterMint needs to avoid Cloudflare 1010 blocks."""
-    from hermes_cli import __version__ as _HERMES_VERSION
+    from hermes_cli import __version__ as _XHERMES_VERSION
 
     return {
-        "User-Agent": f"HermesAgent/{_HERMES_VERSION}",
+        "User-Agent": f"xHermesAgent/{_XHERMES_VERSION}",
     }
 
 
@@ -349,8 +349,8 @@ def _safe_session_filename_component(session_id: str) -> str:
     """Return a stable, path-safe filename component for a session ID.
 
     Session IDs can originate from untrusted input (e.g. the
-    ``X-Hermes-Session-Id`` API header) and are otherwise interpolated raw
-    into on-disk artifact filenames under ``~/.hermes/sessions/``.  Without
+    ``X-XHermes-Session-Id`` API header) and are otherwise interpolated raw
+    into on-disk artifact filenames under ``~/.xhermes/sessions/``.  Without
     sanitization, a traversal-shaped ID such as ``../../../../etc/pwned``
     would let a caller write the session snapshot / request dump outside the
     sessions directory.  This collapses every non ``[A-Za-z0-9_-]`` character
@@ -418,7 +418,7 @@ class AIAgent:
     """
 
     _TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER = (
-        "[hermes-agent: tool call arguments were corrupted in this session and "
+        "[xhermes-agent: tool call arguments were corrupted in this session and "
         "have been dropped to keep the conversation alive. See issue #15236.]"
     )
 
@@ -634,7 +634,7 @@ class AIAgent:
             # Carry the live YOLO bypass into the creation-time model_config so
             # a session whose /yolo was toggled BEFORE the row existed (the row
             # is created lazily on the first turn) still persists the flag for
-            # `hermes --resume`. set_session_yolo() no-ops on a missing row, so
+            # `xhermes --resume`. set_session_yolo() no-ops on a missing row, so
             # this is the only chance to record a pre-first-turn toggle.
             _init_model_config = self._session_init_model_config
             try:
@@ -905,7 +905,7 @@ class AIAgent:
         all non-forced output is suppressed.
 
         ``suppress_status_output`` is a stricter CLI automation mode used by
-        parseable single-query flows such as ``hermes chat -q``. In that mode,
+        parseable single-query flows such as ``xhermes chat -q``. In that mode,
         all status/diagnostic prints routed through ``_vprint`` are suppressed
         so stdout stays machine-readable.
         """
@@ -1368,19 +1368,19 @@ class AIAgent:
         Priority:
           1. ``providers.<id>.models.<model>.timeout_seconds`` (per-model override)
           2. ``providers.<id>.request_timeout_seconds`` (provider-wide)
-          3. ``HERMES_API_TIMEOUT`` env var (legacy escape hatch)
+          3. ``XHERMES_API_TIMEOUT`` env var (legacy escape hatch)
           4. 1800.0s default
 
         Used by OpenAI-wire chat completions (streaming and non-streaming) so
         the per-provider config knob wins over the 1800s default.  Without this
-        helper, the hardcoded ``HERMES_API_TIMEOUT`` fallback would always be
+        helper, the hardcoded ``XHERMES_API_TIMEOUT`` fallback would always be
         passed as a per-call ``timeout=`` kwarg, overriding the client-level
         timeout the AIAgent.__init__ path configured.
         """
         cfg = get_provider_request_timeout(self.provider, self.model)
         if cfg is not None:
             return cfg
-        return env_float("HERMES_API_TIMEOUT", 1800.0)
+        return env_float("XHERMES_API_TIMEOUT", 1800.0)
 
     def _resolved_api_call_stale_timeout_base(self) -> tuple[float, bool]:
         """Resolve the base non-stream stale timeout and whether it is implicit.
@@ -1388,7 +1388,7 @@ class AIAgent:
         Priority:
           1. ``providers.<id>.models.<model>.stale_timeout_seconds``
           2. ``providers.<id>.stale_timeout_seconds``
-          3. ``HERMES_API_CALL_STALE_TIMEOUT`` env var
+          3. ``XHERMES_API_CALL_STALE_TIMEOUT`` env var
           4. 90.0s default (time-to-first-byte for non-streaming / Codex
              internal-streaming requests; lowered from 300s in May 2026 so
              fallback providers kick in faster when upstream providers
@@ -1404,7 +1404,7 @@ class AIAgent:
         if cfg is not None:
             return cfg, False
 
-        env_timeout = os.getenv("HERMES_API_CALL_STALE_TIMEOUT")
+        env_timeout = os.getenv("XHERMES_API_CALL_STALE_TIMEOUT")
         if env_timeout is not None:
             return float(env_timeout), False
 
@@ -1457,7 +1457,7 @@ class AIAgent:
         This helper substitutes an actionable hint into the stale-timeout
         warning when the request matches a known silent-reject pattern.
         Currently flagged: ``gpt-5.5`` family on the Codex backend.  See
-        hermes-agent #21444 for the symptom history.  The upstream backend
+        xhermes-agent #21444 for the symptom history.  The upstream backend
         behavior has historically come and gone with ChatGPT entitlement
         changes — the heuristic stays in place as future-proofing even when
         the symptom is dormant.
@@ -1493,7 +1493,7 @@ class AIAgent:
             "Workaround: try `gpt-5.4` on the same OAuth profile, or `gpt-5.3-codex`, "
             "or switch to a different model/provider in your fallback chain. "
             "Some ChatGPT Codex accounts do not support `gpt-5.4-codex`. "
-            "See hermes-agent#21444 for symptom history."
+            "See xhermes-agent#21444 for symptom history."
         )
 
     def _is_openrouter_url(self) -> bool:
@@ -2398,7 +2398,7 @@ class AIAgent:
         That body covers several real causes we cannot distinguish without
         more info from xAI.  The most common (and least obvious) one is
         that **X Premium+ does NOT include API access** — only standalone
-        SuperGrok subscribers can use Hermes against xai-oauth.  Lots of
+        SuperGrok subscribers can use XHermes against xai-oauth.  Lots of
         users see Grok in their X app, assume it works here too, and hit
         this 403 with no idea why.  Lead the hint with that.
 
@@ -2608,7 +2608,7 @@ class AIAgent:
 
     @staticmethod
     def _hook_payload_max_chars() -> int:
-        raw = os.getenv("HERMES_PLUGIN_PAYLOAD_MAX_CHARS", "50000")
+        raw = os.getenv("XHERMES_PLUGIN_PAYLOAD_MAX_CHARS", "50000")
         try:
             return max(1000, int(raw))
         except (TypeError, ValueError):
@@ -2884,7 +2884,7 @@ class AIAgent:
         parts. Image / binary parts are left untouched; only text fields are
         passed through ``redact_sensitive_text``.
 
-        Respects ``HERMES_REDACT_SECRETS`` via ``redact_sensitive_text`` —
+        Respects ``XHERMES_REDACT_SECRETS`` via ``redact_sensitive_text`` —
         when disabled the helper is effectively a no-op.
         """
         if content is None:
@@ -2909,7 +2909,7 @@ class AIAgent:
 
         Gated by ``sessions.write_json_snapshots`` (default False).  state.db
         is the canonical message store; this writer exists only for users
-        whose external tooling consumes ``~/.hermes/sessions/session_{sid}.json``
+        whose external tooling consumes ``~/.xhermes/sessions/session_{sid}.json``
         directly.  When the flag is off this is a fast no-op.
 
         When enabled, rewrites the snapshot after every persistence point with
@@ -2929,7 +2929,7 @@ class AIAgent:
         # session-id changes land in the right file without any re-point
         # bookkeeping at the call sites.  Sanitize the session ID into a
         # single traversal-free path segment — session IDs can come from
-        # untrusted input (X-Hermes-Session-Id header) and must not escape
+        # untrusted input (X-XHermes-Session-Id header) and must not escape
         # the sessions directory.
         try:
             safe_sid = _safe_session_filename_component(self.session_id)
@@ -2950,7 +2950,7 @@ class AIAgent:
                 # Defence-in-depth: redact credentials from every message
                 # content before persistence. Catches PATs / API keys / Bearer
                 # tokens that may have leaked into assistant responses, tool
-                # output, or user paste. Respects HERMES_REDACT_SECRETS via
+                # output, or user paste. Respects XHERMES_REDACT_SECRETS via
                 # redact_sensitive_text — no-op when disabled. (#19798, #19845)
                 if "content" in msg:
                     msg = dict(msg)
@@ -3065,7 +3065,7 @@ class AIAgent:
             self._pending_redirect = None
 
         # Codex app-server owns its model/tool loop and watches a private
-        # interrupt event rather than Hermes' per-thread flag.
+        # interrupt event rather than XHermes' per-thread flag.
         if getattr(self, "api_mode", None) == "codex_app_server":
             _codex_session = getattr(self, "_codex_session", None)
             _request_interrupt = getattr(_codex_session, "request_interrupt", None)
@@ -3238,7 +3238,7 @@ class AIAgent:
     def redirect(self, text: str) -> bool:
         """Redirect the active turn without converting it into a new task.
 
-        During a normal Hermes model request this cancels only that request;
+        During a normal XHermes model request this cancels only that request;
         the conversation loop retains completed messages/tool results, records
         the displayed partial reasoning as plain assistant context, appends the
         correction as a real user message, and retries. During tool execution
@@ -3410,13 +3410,13 @@ class AIAgent:
         """Check whether the per-turn file-mutation verifier footer is on.
 
         Config path: ``display.file_mutation_verifier`` (bool, default True).
-        ``HERMES_FILE_MUTATION_VERIFIER`` env var overrides config.  Exposed
+        ``XHERMES_FILE_MUTATION_VERIFIER`` env var overrides config.  Exposed
         as a method so tests can patch a single seam without reaching into
         the private ``_turn_failed_file_mutations`` state dict.
         """
         try:
             import os as _os
-            env = _os.environ.get("HERMES_FILE_MUTATION_VERIFIER")
+            env = _os.environ.get("XHERMES_FILE_MUTATION_VERIFIER")
             if env is not None:
                 return env.strip().lower() not in {"0", "false", "no", "off"}
             # Read from the persisted config.yaml so gateway and CLI share
@@ -3474,7 +3474,7 @@ class AIAgent:
         path and any path echoed inside the tool's error preview — is
         backtick-wrapped via ``_neutralize_footer_paths`` so the gateway's
         bare-path media extractor can never auto-attach a protected file
-        (e.g. ``~/.hermes/config.yaml``) to a messaging channel (#35584).
+        (e.g. ``~/.xhermes/config.yaml``) to a messaging channel (#35584).
         """
         if not failed:
             return ""
@@ -3507,13 +3507,13 @@ class AIAgent:
         """Check whether the end-of-turn completion explainer footer is on.
 
         Config path: ``display.turn_completion_explainer`` (bool, default
-        True).  ``HERMES_TURN_COMPLETION_EXPLAINER`` env var overrides
+        True).  ``XHERMES_TURN_COMPLETION_EXPLAINER`` env var overrides
         config.  Exposed as a method so tests can patch a single seam,
         mirroring ``_file_mutation_verifier_enabled``.
         """
         try:
             import os as _os
-            env = _os.environ.get("HERMES_TURN_COMPLETION_EXPLAINER")
+            env = _os.environ.get("XHERMES_TURN_COMPLETION_EXPLAINER")
             if env is not None:
                 return env.strip().lower() not in {"0", "false", "no", "off"}
             # Read from the persisted config.yaml so gateway and CLI share
@@ -3646,7 +3646,7 @@ class AIAgent:
         """Update the last-activity timestamp and description (thread-safe).
 
         Also bridges to the kanban board's heartbeat fields when this
-        process is a dispatcher-spawned worker (HERMES_KANBAN_TASK set),
+        process is a dispatcher-spawned worker (XHERMES_KANBAN_TASK set),
         so the dispatcher watchdog doesn't reclaim an actively-running
         worker as stale (#31752). Bridge is rate-limited (60s) and
         best-effort — it never raises into the agent loop.
@@ -3671,7 +3671,7 @@ class AIAgent:
         self._last_activity_ts = time.time()
         self._last_activity_desc = bound_activity_description(desc)
         self._last_activity_provenance = normalize_activity_provenance(provenance)
-        if os.environ.get("HERMES_KANBAN_TASK"):
+        if os.environ.get("XHERMES_KANBAN_TASK"):
             try:
                 from tools.kanban_tools import (
                     heartbeat_current_worker_from_env,
@@ -3803,7 +3803,7 @@ class AIAgent:
         EVALUATION/EMIT is a SEPARATE block that WARNS on failure (R1-M2): a bug in the
         depletion-notice path must not vanish silently under the parse swallow.
         """
-        # Dev test fixture (HERMES_DEV_CREDITS_FIXTURE): inject a chosen notice state
+        # Dev test fixture (XHERMES_DEV_CREDITS_FIXTURE): inject a chosen notice state
         # each turn for repeatable testing, bypassing real headers. Throwaway scaffolding.
         try:
             from agent.credits_tracker import dev_fixture_credits_state
@@ -3823,7 +3823,7 @@ class AIAgent:
             _used = _fixture.used_fraction
             logger.info(
                 "credits ▸ [FIXTURE] remaining=%d (%s) · paid=%s · denom=%s · used=%s "
-                "(real headers bypassed — `echo clear` / unset HERMES_DEV_CREDITS_FIXTURE to restore)",
+                "(real headers bypassed — `echo clear` / unset XHERMES_DEV_CREDITS_FIXTURE to restore)",
                 _fixture.remaining_micros,
                 _fixture.remaining_usd or "?",
                 _fixture.paid_access,
@@ -3837,7 +3837,7 @@ class AIAgent:
         headers = getattr(http_response, "headers", None)
         if not headers:
             return
-        _dev = is_truthy_value(os.environ.get("HERMES_DEV_CREDITS"))
+        _dev = is_truthy_value(os.environ.get("XHERMES_DEV_CREDITS"))
 
         # ── Parse (fail-open → miss; never overwrite good state with None) ──
         try:
@@ -3859,8 +3859,8 @@ class AIAgent:
         if self._credits_session_start_micros is None:
             self._credits_session_start_micros = state.remaining_micros
         if _dev:
-            # HERMES_DEV_CREDITS: stream each capture to agent.log — watch live with
-            # `hermes logs -f` (grep 'credits ▸'). Dev-only; silent for normal users.
+            # XHERMES_DEV_CREDITS: stream each capture to agent.log — watch live with
+            # `xhermes logs -f` (grep 'credits ▸'). Dev-only; silent for normal users.
             spent = self.get_credits_spent_micros()
             used = state.used_fraction
             logger.info(
@@ -4216,7 +4216,7 @@ class AIAgent:
 
         # 4. Release the session-owned computer-use backend.  This ends the
         # exact cua-driver session, drops typed-browser refs/grants, and stops
-        # a private embedded daemon when Hermes YOLO selected unrestricted
+        # a private embedded daemon when XHermes YOLO selected unrestricted
         # mode.  The import is lazy so sessions without computer_use retain
         # the narrow core footprint.
         try:
@@ -4698,16 +4698,12 @@ class AIAgent:
         preserves OS TCP defaults (including ``TCP_NODELAY``).
 
         ``verify`` carries per-provider ``ssl_ca_cert`` / ``ssl_verify`` and
-        ``HERMES_CA_BUNDLE`` settings.  It is passed on the client AND on
+        ``XHERMES_CA_BUNDLE`` settings.  It is passed on the client AND on
         the plain no-proxy mounts (a mounted transport owns the SSL context
         for its scheme).
         """
         try:
             import httpx as _httpx
-
-            # Explicitly read proxy settings so requests route through
-            # HTTP_PROXY / HTTPS_PROXY / NO_PROXY correctly.
-            _proxy = _get_proxy_for_base_url(base_url)
 
             # Proactive pool reaping: close idle connections at 20 s,
             # before reverse proxies (30–60 s typical) send FIN and
@@ -4726,6 +4722,36 @@ class AIAgent:
                 pool=10.0,
             )
 
+            try:
+                from extend import unix_socket_http as _unix_http
+
+                if _unix_http.is_unix_base_url(base_url):
+                    try:
+                        _, _socket_path = _unix_http.resolve_openai_base_url(base_url)
+                        return _unix_http.build_unix_httpx_client(
+                            _socket_path,
+                            verify=verify,
+                            limits=_limits,
+                            timeout=_timeout,
+                        )
+                    except Exception as _uds_exc:
+                        raise RuntimeError(
+                            f"Failed to build UDS HTTP client for {str(base_url or '').strip()!r}; "
+                            "refusing to fall back to TCP localhost."
+                        ) from _uds_exc
+            except RuntimeError:
+                raise
+            except Exception:
+                if str(base_url or "").strip().lower().startswith("unix://"):
+                    raise RuntimeError(
+                        f"Failed to build UDS HTTP client for {str(base_url or '').strip()!r}; "
+                        "refusing to fall back to TCP localhost."
+                    ) from None
+
+            # Explicitly read proxy settings so requests route through
+            # HTTP_PROXY / HTTPS_PROXY / NO_PROXY correctly.
+            _proxy = _get_proxy_for_base_url(base_url)
+
             # When _proxy is None (NO_PROXY bypass or no proxy configured),
             # mount plain transports to prevent httpx from reading env proxy
             # vars and creating an HTTPProxy mount that would bypass our
@@ -4743,6 +4769,8 @@ class AIAgent:
                 mounts=_mounts or None,
                 verify=verify,
             )
+        except RuntimeError:
+            raise
         except Exception:
             return None
 
@@ -5224,7 +5252,7 @@ class AIAgent:
         # Guard against silent account swap.
         #
         # When an agent is using a non-singleton credential — e.g. a manual
-        # pool entry (``hermes auth add xai-oauth``) whose tokens belong to
+        # pool entry (``xhermes auth add xai-oauth``) whose tokens belong to
         # a different account than the device_code singleton, or an agent
         # constructed with an explicit ``api_key=`` arg — force-refreshing
         # the singleton here and adopting its tokens silently re-routes the
@@ -5323,7 +5351,7 @@ class AIAgent:
             from hermes_cli.auth import resolve_nous_runtime_credentials
 
             creds = resolve_nous_runtime_credentials(
-                timeout_seconds=env_float("HERMES_NOUS_TIMEOUT_SECONDS", 15),
+                timeout_seconds=env_float("XHERMES_NOUS_TIMEOUT_SECONDS", 15),
                 force_refresh=force,
             )
         except Exception as exc:
@@ -7313,7 +7341,7 @@ class AIAgent:
             # never sees — and get_session_env() prefers an already-bound
             # ContextVar over os.environ. Rebind in the CALLER's context so
             # post-compression tools/subprocesses on this thread resolve
-            # HERMES_SESSION_ID to the child id after an out-of-place
+            # XHERMES_SESSION_ID to the child id after an out-of-place
             # rotation (idempotent when no rotation happened).
             try:
                 from gateway.session_context import set_current_session_id

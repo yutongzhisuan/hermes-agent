@@ -196,7 +196,7 @@ class TestAtomicSnapshotConcurrencyBehavioral:
             import pytest
             pytest.skip("bash required")
         import shlex
-        snap = str(tmp_path / "hermes-snap-x.sh")
+        snap = str(tmp_path / "xhermes-snap-x.sh")
         _q = shlex.quote
         _tmpl = _q(snap + ".tmp.XXXXXXXXXX")
         # One writer iteration = the exact atomic sequence _wrap_command emits.
@@ -335,7 +335,7 @@ class TestEmbedStdinHeredoc:
 
         assert result.startswith("cat << '")
         assert "hello world" in result
-        assert "HERMES_STDIN_" in result
+        assert "XHERMES_STDIN_" in result
 
     def test_unique_delimiter_each_call(self):
         r1 = BaseEnvironment._embed_stdin_heredoc("cat", "data")

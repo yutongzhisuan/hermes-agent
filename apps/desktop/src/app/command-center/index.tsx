@@ -7,8 +7,8 @@ import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { ResponsiveTabs } from '@/components/ui/tab-dropdown'
 import { Tip } from '@/components/ui/tooltip'
-import { getActionStatus, getLogs, getStatus, getUsageAnalytics, restartGateway, updateHermes } from '@/hermes'
-import type { ActionStatusResponse, AnalyticsResponse, StatusResponse } from '@/hermes'
+import { getActionStatus, getLogs, getStatus, getUsageAnalytics, restartGateway, updateHermes } from '@/xhermes'
+import type { ActionStatusResponse, AnalyticsResponse, StatusResponse } from '@/xhermes'
 import { useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import { compactNumber } from '@/lib/format'
@@ -250,7 +250,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
 
   const sessionListHasResults = filteredSessions.length > 0
 
-  // Client-side substring filter over the fetched tail (matches `hermes logs --search`).
+  // Client-side substring filter over the fetched tail (matches `xhermes logs --search`).
   const visibleLogs = useMemo(() => {
     const needle = logQuery.trim().toLowerCase()
 

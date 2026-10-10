@@ -160,7 +160,7 @@ class TestStripBlockedTools(unittest.TestCase):
     def test_mixed_composite_is_subtracted_at_child_assembly(self):
         """A mixed platform bundle must not re-expose blocked leaf tools.
 
-        ``hermes-cli`` contains both allowed tools and every sensitive
+        ``xhermes-cli`` contains both allowed tools and every sensitive
         delegate tool, so it cannot be dropped wholesale. Child construction
         must instead pass exact one-tool deny toolsets to AIAgent, where
         model_tools applies them after resolving the composite.
@@ -168,7 +168,7 @@ class TestStripBlockedTools(unittest.TestCase):
         import model_tools
 
         parent = _make_mock_parent()
-        parent.enabled_toolsets = ["hermes-cli"]
+        parent.enabled_toolsets = ["xhermes-cli"]
         parent.disabled_toolsets = ["browser"]
 
         with patch("run_agent.AIAgent") as MockAgent:
@@ -213,7 +213,7 @@ class TestStripBlockedTools(unittest.TestCase):
         import model_tools
 
         parent = _make_mock_parent()
-        parent.enabled_toolsets = ["hermes-cli"]
+        parent.enabled_toolsets = ["xhermes-cli"]
         parent.disabled_toolsets = ["delegation", "browser"]
 
         with (
@@ -306,7 +306,7 @@ class TestDelegateTask(unittest.TestCase):
                 goal="Stay on chat completions",
                 context=None,
                 toolsets=None,
-                model="hermes-4-405b",
+                model="xhermes-4-405b",
                 max_iterations=10,
                 parent_agent=parent,
                 task_count=1,
@@ -314,14 +314,14 @@ class TestDelegateTask(unittest.TestCase):
 
             _, kwargs = MockAgent.call_args
             self.assertEqual(kwargs["provider"], "nous")
-            self.assertEqual(kwargs["model"], "hermes-4-405b")
+            self.assertEqual(kwargs["model"], "xhermes-4-405b")
             self.assertEqual(kwargs["api_mode"], "chat_completions")
 
         with patch("run_agent.AIAgent") as MockAgent:
             mock_child = MagicMock()
             MockAgent.return_value = mock_child
             parent.api_mode = "chat_completions"
-            parent.model = "hermes-4-405b"
+            parent.model = "xhermes-4-405b"
 
             _build_child_agent(
                 task_index=0,

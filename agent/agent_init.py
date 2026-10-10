@@ -116,9 +116,9 @@ def _provider_default_routes(provider: str) -> set[str]:
     """Return known exact default routes for a canonical provider id."""
     routes: set[str] = set()
     try:
-        from hermes_cli.providers import HERMES_OVERLAYS, get_provider
+        from hermes_cli.providers import XHERMES_OVERLAYS, get_provider
 
-        overlay = HERMES_OVERLAYS.get(provider)
+        overlay = XHERMES_OVERLAYS.get(provider)
         provider_def = get_provider(provider, allow_network=False)
         for value in (
             getattr(overlay, "base_url_override", ""),
@@ -258,7 +258,7 @@ def _build_codex_gpt5_autoraise_notice(
         f"ℹ Codex {model} caps context at {cap}, so auto-compaction was raised "
         f"to {to_pct}% (from {from_pct}%) to use more of the window before "
         f"summarizing.\n"
-        f"  Opt back out: hermes config set compression.codex_gpt55_autoraise false"
+        f"  Opt back out: xhermes config set compression.codex_gpt55_autoraise false"
     )
 
 
@@ -300,7 +300,7 @@ def _resolve_compression_threshold(
 def _codex_gpt55_autoraise_notice_marker():
     """Path to the per-profile marker recording that the autoraise notice ran.
 
-    Lives under ``$HERMES_HOME`` (which is profile-scoped) alongside the other
+    Lives under ``$XHERMES_HOME`` (which is profile-scoped) alongside the other
     internal markers like ``.container-mode`` — so it is not a user-facing config
     key, and every profile tracks its own notice state independently.
     """
@@ -339,7 +339,7 @@ def _codex_gpt55_autoraise_notice_seen(autoraise: Dict[str, Any]) -> bool:
 def _record_codex_gpt55_autoraise_notice(autoraise: Dict[str, Any]) -> None:
     """Persist that the autoraise notice was shown for this profile/config state.
 
-    Best-effort: a read-only or missing ``$HERMES_HOME`` just means the notice
+    Best-effort: a read-only or missing ``$XHERMES_HOME`` just means the notice
     may show again next init, which is preferable to breaking agent init.
     """
     try:
@@ -561,10 +561,10 @@ def init_agent(
         platform (str): The interface platform the user is on (e.g. "cli", "telegram", "discord", "whatsapp").
             Used to inject platform-specific formatting hints into the system prompt.
         skip_context_files (bool): If True, skip auto-injection of project context files
-            (SOUL.md, .hermes.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / HERMES_HOME
+            (SOUL.md, .xhermes.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / XHERMES_HOME
             into the system prompt. Use this for batch processing and data generation to avoid
             polluting trajectories with user-specific persona or project instructions.
-        load_soul_identity (bool): If True, still use ~/.hermes/SOUL.md as the primary
+        load_soul_identity (bool): If True, still use ~/.xhermes/SOUL.md as the primary
             identity even when skip_context_files=True. Project context files from the cwd
             remain skipped.
     """
@@ -906,7 +906,7 @@ def init_agent(
     # Credits tracking (dev-only, L0 usage-aware-credits) — updated from
     # x-nous-credits-* response headers after each API call.  Session-start
     # remaining is latched the first time a header is ever seen so we can
-    # report cumulative micros spent.  Surfaced behind HERMES_DEV_CREDITS.
+    # report cumulative micros spent.  Surfaced behind XHERMES_DEV_CREDITS.
     agent._credits_state = None
     agent._credits_session_start_micros = None
     # Threshold-notice latch (L4): active sticky-notice keys + the crossing gates.
@@ -919,7 +919,7 @@ def init_agent(
     agent._or_cache_hits: int = 0
 
     # Centralized logging — agent.log (INFO+) and errors.log (WARNING+)
-    # both live under ~/.hermes/logs/.  Idempotent, so gateway mode
+    # both live under ~/.xhermes/logs/.  Idempotent, so gateway mode
     # (which creates a new AIAgent per message) won't duplicate handlers.
     from hermes_logging import setup_logging, setup_verbose_logging
     setup_logging(hermes_home=_ra()._hermes_home)
@@ -1283,13 +1283,13 @@ def init_agent(
                         raise RuntimeError(
                             f"Provider '{_explicit}' is set in config.yaml but no API key "
                             f"was found. Set the {_env_hint} environment "
-                            f"variable, or switch to a different provider with `hermes model`."
+                            f"variable, or switch to a different provider with `xhermes model`."
                         )
                 if not getattr(agent, "_fallback_activated", False):
                     # No provider configured — reject with a clear message.
                     raise RuntimeError(
-                        "No LLM provider configured. Run `hermes model` to "
-                        "select a provider, or run `hermes setup` for first-time "
+                        "No LLM provider configured. Run `xhermes model` to "
+                        "select a provider, or run `xhermes setup` for first-time "
                         "configuration."
                     )
         
@@ -1439,7 +1439,7 @@ def init_agent(
 
     # Kanban worker/orchestrator lifecycle guidance is session-static:
     # the dispatcher decides at spawn time whether this process is a kanban
-    # worker (kanban_show tool is present iff HERMES_KANBAN_TASK is set).
+    # worker (kanban_show tool is present iff XHERMES_KANBAN_TASK is set).
     # Resolving the ~835-token block once here avoids re-running the
     # membership test + reference on every system-prompt rebuild
     # (init + each context compression).
@@ -1504,13 +1504,13 @@ def init_agent(
         except Exception:
             delegated_child = False
         if not delegated_child:
-            os.environ["HERMES_SESSION_ID"] = agent.session_id
+            os.environ["XHERMES_SESSION_ID"] = agent.session_id
 
-    # Session logs go into ~/.hermes/sessions/ alongside gateway sessions
+    # Session logs go into ~/.xhermes/sessions/ alongside gateway sessions
     hermes_home = get_hermes_home()
     agent.logs_dir = hermes_home / "sessions"
     agent.logs_dir.mkdir(parents=True, exist_ok=True)
-    # Per-session JSON snapshot writer (~/.hermes/sessions/session_{sid}.json)
+    # Per-session JSON snapshot writer (~/.xhermes/sessions/session_{sid}.json)
     # is opt-in via sessions.write_json_snapshots (default False).  state.db
     # is canonical — the snapshot is only useful for external tooling that
     # reads the JSON files directly.  See run_agent._save_session_log.
@@ -1581,7 +1581,7 @@ def init_agent(
         "max_tokens": max_tokens,
     }
     # Persist a process-scoped --yolo launch into the session row so a later
-    # `hermes --resume <id>` can restore the bypass (CLI resume paths read
+    # `xhermes --resume <id>` can restore the bypass (CLI resume paths read
     # model_config.yolo_mode back via SessionDB.session_yolo_enabled).
     # Session-scoped /yolo toggles persist separately through
     # SessionDB.set_session_yolo at toggle time.
@@ -1617,7 +1617,7 @@ def init_agent(
         agent.show_commentary = True
 
     # LM Studio can either be explicitly preloaded through LM Studio's
-    # management API (the historical Hermes behavior) or left to LM Studio's
+    # management API (the historical XHermes behavior) or left to LM Studio's
     # just-in-time / Auto-Evict chat-completions path.  Keep the default
     # explicit for backward compatibility; users with LM Studio Auto-Evict can
     # opt into JIT via ``model.lmstudio_load_mode: jit``.
@@ -1737,7 +1737,7 @@ def init_agent(
                         from hermes_cli.profiles import get_active_profile_name
                         _profile = get_active_profile_name()
                         _init_kwargs["agent_identity"] = _profile
-                        _init_kwargs["agent_workspace"] = "hermes"
+                        _init_kwargs["agent_workspace"] = "xhermes"
                     except Exception:
                         pass
                     agent._memory_manager.initialize_all(**_init_kwargs)
@@ -1803,7 +1803,7 @@ def init_agent(
             pass
 
     # Per-platform prompt-hint overrides (config.yaml → platform_hints).
-    # Lets an enterprise admin append to or replace Hermes' built-in
+    # Lets an enterprise admin append to or replace XHermes' built-in
     # platform hint for a single messaging platform (e.g. WhatsApp) without
     # affecting other platforms. Shape:
     #   platform_hints:
@@ -2041,10 +2041,10 @@ def init_agent(
     codex_app_server_auto_compaction = str(
         _compression_cfg.get("codex_app_server_auto", "native") or "native"
     ).lower()
-    if codex_app_server_auto_compaction not in {"native", "hermes", "off"}:
+    if codex_app_server_auto_compaction not in {"native", "xhermes", "off"}:
         _ra().logger.warning(
             "Invalid compression.codex_app_server_auto=%r; using 'native'. "
-            "Valid values are: native, hermes, off.",
+            "Valid values are: native, xhermes, off.",
             codex_app_server_auto_compaction,
         )
         codex_app_server_auto_compaction = "native"
@@ -2522,14 +2522,14 @@ def init_agent(
         raise ValueError(
             f"Model {agent.model} has a context window of {_ctx:,} tokens, "
             f"which is below the minimum {MINIMUM_CONTEXT_LENGTH:,} required "
-            f"by Hermes Agent.  Choose a model with at least "
+            f"by xHermes Agent.  Choose a model with at least "
             f"{MINIMUM_CONTEXT_LENGTH // 1000}K context.  If your server "
             f"reports a window smaller than the model's true window, set "
             f"model.context_length in config.yaml to the real value "
             f"(this must be at least {MINIMUM_CONTEXT_LENGTH // 1000}K)."
         )
 
-    # Nous Hermes 3/4 are chat models, not tool-call-tuned. The interactive
+    # Nous XHermes 3/4 are chat models, not tool-call-tuned. The interactive
     # CLI already warns via cli.py show_banner() (richer output + /model hint),
     # so skip platform=="cli" here to avoid emitting the warning twice per
     # startup. (Gateway/TUI/cron construct with quiet_mode=True and are already
@@ -2543,7 +2543,7 @@ def init_agent(
             _hermes_warn = _check_hermes_model_warning(agent.model or "")
             if _hermes_warn:
                 _user_msg = (
-                    "⚠ Nous Research Hermes 3 & 4 models are NOT agentic — they "
+                    "⚠ Nous Research XHermes 3 & 4 models are NOT agentic — they "
                     "lack reliable tool-calling for agent workflows (delegation, "
                     "cron, proactive tools). Consider an agentic model instead "
                     "(Claude, GPT, Gemini, Qwen-Coder, etc.)."

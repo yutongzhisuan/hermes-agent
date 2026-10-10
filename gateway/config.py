@@ -625,7 +625,7 @@ class PlatformConfig:
     # assistant.threads.setStatus line (shown next to the bot name; needs the
     # assistant:write scope to render) and Google Chat's visible marker
     # message. None keeps each platform's built-in default ("is thinking..." /
-    # "Hermes is thinking…"). Platforms with textless indicators (Discord,
+    # "XHermes is thinking…"). Platforms with textless indicators (Discord,
     # Telegram, Matrix, …) ignore it.
     typing_status_text: Optional[str] = None
 
@@ -923,7 +923,7 @@ class GatewayConfig:
     # When True, the default profile's gateway serves inbound messages for every
     # profile on the host: profiles are stamped into session keys and (in later
     # phases) per-profile adapters/credentials are resolved. When False, the
-    # gateway behaves exactly as before — single HERMES_HOME, no profile stamping.
+    # gateway behaves exactly as before — single XHERMES_HOME, no profile stamping.
     multiplex_profiles: bool = False
 
     # Opt-in systemd event-loop watchdog. Zero preserves Type=simple and
@@ -1150,7 +1150,7 @@ class GatewayConfig:
         loop_watchdog = _coerce_bool(loop_watchdog_raw, True)
         if multiplex_profiles is None and isinstance(nested_gateway, dict):
             # Also honor gateway.multiplex_profiles written by
-            # ``hermes config set gateway.multiplex_profiles true``.
+            # ``xhermes config set gateway.multiplex_profiles true``.
             multiplex_profiles = nested_gateway.get("multiplex_profiles")
         # Operator override: GATEWAY_MULTIPLEX_PROFILES wins over config.yaml when
         # set to a recognized value. Hosted deployments (Nous Portal / Fly) stamp
@@ -1252,8 +1252,8 @@ def load_gateway_config() -> GatewayConfig:
 
     Priority (highest to lowest):
     1. Environment variables
-    2. ~/.hermes/config.yaml (primary user-facing config)
-    3. ~/.hermes/gateway.json (legacy — provides defaults under config.yaml)
+    2. ~/.xhermes/config.yaml (primary user-facing config)
+    3. ~/.xhermes/gateway.json (legacy — provides defaults under config.yaml)
     4. Built-in defaults
     """
     _home = get_hermes_home()
@@ -1291,7 +1291,7 @@ def load_gateway_config() -> GatewayConfig:
 
             # Shared nested-fallback source: settings meant to be top-level
             # keys are also accepted when a user nests them under `gateway:`
-            # (e.g. via `hermes config set gateway.<key> ...`, which naturally
+            # (e.g. via `xhermes config set gateway.<key> ...`, which naturally
             # produces that shape). Every key below mirrors the precedent
             # already established for gateway.multiplex_profiles/streaming/
             # write_sessions_json: top-level wins, nested gateway.* falls back.
@@ -1346,7 +1346,7 @@ def load_gateway_config() -> GatewayConfig:
 
             # Multiplexing flag: accept both the top-level key and the nested
             # gateway.multiplex_profiles form (written by
-            # ``hermes config set gateway.multiplex_profiles true``).
+            # ``xhermes config set gateway.multiplex_profiles true``).
             if "multiplex_profiles" in yaml_cfg:
                 gw_data["multiplex_profiles"] = yaml_cfg["multiplex_profiles"]
 
@@ -1361,7 +1361,7 @@ def load_gateway_config() -> GatewayConfig:
 
             if isinstance(gateway_section, dict):
                 if "multiplex_profiles" in gateway_section and "multiplex_profiles" not in gw_data:
-                    # gateway.multiplex_profiles written by `hermes config set gateway.multiplex_profiles true`
+                    # gateway.multiplex_profiles written by `xhermes config set gateway.multiplex_profiles true`
                     gw_data["multiplex_profiles"] = gateway_section["multiplex_profiles"]
                 if "max_concurrent_sessions" in gateway_section:
                     gw_data["max_concurrent_sessions"] = gateway_section["max_concurrent_sessions"]
@@ -1376,7 +1376,7 @@ def load_gateway_config() -> GatewayConfig:
             streaming_cfg = yaml_cfg.get("streaming")
             if not isinstance(streaming_cfg, dict) and isinstance(gateway_section, dict):
                 # Fall back to nested gateway.streaming written by
-                # ``hermes config set gateway.streaming.*``
+                # ``xhermes config set gateway.streaming.*``
                 streaming_cfg = gateway_section.get("streaming")
             if isinstance(streaming_cfg, dict):
                 gw_data["streaming"] = streaming_cfg
@@ -2326,7 +2326,7 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             # falsy so the adapter's dual-stack DEFAULT_HOST=None applies
             # (binds IPv4 + IPv6; "0.0.0.0" was IPv4-only, NS-603).
             "host": getenv("WECOM_CALLBACK_HOST", ""),
-            "port": getenv_int("WECOM_CALLBACK_PORT", 8645),
+            "port": getenv_int("WECOM_CALLBACK_PORT", 8745),
         })
 
     # Weixin (personal WeChat via iLink Bot API)
@@ -2382,7 +2382,7 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             "server_url": bluebubbles_server_url.rstrip("/"),
             "password": bluebubbles_password,
             "webhook_host": getenv("BLUEBUBBLES_WEBHOOK_HOST", "127.0.0.1"),
-            "webhook_port": getenv_int("BLUEBUBBLES_WEBHOOK_PORT", 8645),
+            "webhook_port": getenv_int("BLUEBUBBLES_WEBHOOK_PORT", 8745),
             "webhook_path": getenv("BLUEBUBBLES_WEBHOOK_PATH", "/bluebubbles-webhook"),
             "send_read_receipts": is_truthy_value(getenv("BLUEBUBBLES_SEND_READ_RECEIPTS", "true")),
         })

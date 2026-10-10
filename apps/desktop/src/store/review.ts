@@ -19,7 +19,7 @@ import { $workspaceChangeTick } from './workspace-events'
 // session's cwd is the repo; the pane reads git as the source of truth, the
 // same bounded "re-probe on structural edges" model as the coding rail.
 //
-// Scope is always "uncommitted" — Hermes' flow is agent edits you review BEFORE
+// Scope is always "uncommitted" — XHermes' flow is agent edits you review BEFORE
 // committing, so branch/last-turn scopes are almost always empty here (unlike
 // Codex, which commits per turn). We show the one view that's always populated.
 
@@ -27,10 +27,10 @@ import { $workspaceChangeTick } from './workspace-events'
 // event is addressed by pane id).
 export const REVIEW_PANE_ID = 'review'
 
-const OPEN_KEY = 'hermes.desktop.reviewOpen'
-const COMMIT_DEFAULT_KEY = 'hermes.desktop.reviewCommitDefault'
-const TREE_MODE_KEY = 'hermes.desktop.reviewTreeMode'
-const SELECTED_KEY = 'hermes.desktop.reviewSelectedPath'
+const OPEN_KEY = 'xhermes.desktop.reviewOpen'
+const COMMIT_DEFAULT_KEY = 'xhermes.desktop.reviewCommitDefault'
+const TREE_MODE_KEY = 'xhermes.desktop.reviewTreeMode'
+const SELECTED_KEY = 'xhermes.desktop.reviewSelectedPath'
 const REVIEW_REFRESH_DEBOUNCE_MS = 100
 const SHIP_INFO_STALE_MS = 30_000
 

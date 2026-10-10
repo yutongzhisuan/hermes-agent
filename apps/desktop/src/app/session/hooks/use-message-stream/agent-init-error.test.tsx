@@ -7,7 +7,7 @@ import type { ClientSessionState } from '@/app/types'
 import { textPart } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { $notifications, clearNotifications } from '@/store/notifications'
-import type { RpcEvent } from '@/types/hermes'
+import type { RpcEvent } from '@/types/xhermes'
 
 import { useMessageStream } from './index'
 

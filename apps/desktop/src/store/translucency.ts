@@ -14,7 +14,7 @@ import { atom } from 'nanostores'
 
 import { persistString, storedString } from '@/lib/storage'
 
-const KEY = 'hermes.desktop.translucency.v1'
+const KEY = 'xhermes.desktop.translucency.v1'
 
 const clamp = (n: number): number => Math.min(100, Math.max(0, Math.round(n)))
 

@@ -3,7 +3,7 @@
 Issue #49145: on Windows the ZIP-update path did ``rmtree(dst); copytree(...)``.
 A copy that failed partway (file locks / flaky I/O — the very conditions the ZIP
 path exists to work around) left the directory deleted with nothing copied back,
-which broke ``hermes --tui`` because ``ui-tui/`` had vanished.
+which broke ``xhermes --tui`` because ``ui-tui/`` had vanished.
 
 ``_atomic_replace_dir`` stages the new copy first and only swaps it in on full
 success, so a mid-copy failure leaves the original directory intact.
@@ -33,7 +33,7 @@ def test_atomic_replace_swaps_content_on_success(tmp_path: Path) -> None:
     assert (dst / "new.txt").read_text() == "NEW"
     assert not (dst / "old.txt").exists()
     # No staging/backup siblings left behind.
-    assert not (dst.parent / "ui-tui.hermes-update-staging").exists()
-    assert not (dst.parent / "ui-tui.hermes-update-old").exists()
+    assert not (dst.parent / "ui-tui.xhermes-update-staging").exists()
+    assert not (dst.parent / "ui-tui.xhermes-update-old").exists()
 
 

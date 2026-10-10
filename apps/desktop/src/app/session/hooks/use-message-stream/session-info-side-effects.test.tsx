@@ -7,7 +7,7 @@ import type { ClientSessionState } from '@/app/types'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { modelOptionsQueryKey } from '@/lib/model-options'
 import { setCurrentModel, setCurrentProvider } from '@/store/session'
-import type { RpcEvent } from '@/types/hermes'
+import type { RpcEvent } from '@/types/xhermes'
 
 import { useMessageStream } from './index'
 

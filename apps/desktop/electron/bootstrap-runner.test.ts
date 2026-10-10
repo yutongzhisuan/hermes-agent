@@ -22,7 +22,7 @@ const SCRIPT_NAME = process.platform === 'win32' ? 'install.ps1' : 'install.sh'
 const ZERO_COMMIT = '0000000000000000000000000000000000000000'
 
 function mkTmpHome() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-bootstrap-test-'))
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'xhermes-bootstrap-test-'))
 }
 
 test('runBootstrap bails immediately when the signal is already aborted', async () => {
@@ -33,10 +33,10 @@ test('runBootstrap bails immediately when the signal is already aborted', async 
 
   const result = await runBootstrap({
     installStamp: null,
-    activeRoot: '/tmp/hermes-runner-test',
+    activeRoot: '/tmp/xhermes-runner-test',
     sourceRepoRoot: null,
-    hermesHome: '/tmp/hermes-runner-test',
-    logRoot: '/tmp/hermes-runner-test',
+    hermesHome: '/tmp/xhermes-runner-test',
+    logRoot: '/tmp/xhermes-runner-test',
     onEvent: ev => events.push(ev),
     abortSignal: controller.signal
   })
@@ -55,7 +55,7 @@ test('installedAgentInstallScript resolves the installer in the agent checkout',
   try {
     assert.equal(installedAgentInstallScript(home), null, 'absent before the checkout exists')
 
-    const scriptsDir = path.join(home, 'hermes-agent', 'scripts')
+    const scriptsDir = path.join(home, 'xhermes-agent', 'scripts')
     fs.mkdirSync(scriptsDir, { recursive: true })
     const scriptPath = path.join(scriptsDir, SCRIPT_NAME)
     fs.writeFileSync(scriptPath, '#!/bin/sh\necho hi\n')
@@ -71,7 +71,7 @@ test('existing checkout detection requires git metadata', () => {
   const home = mkTmpHome()
 
   try {
-    const activeRoot = path.join(home, 'hermes-agent')
+    const activeRoot = path.join(home, 'xhermes-agent')
     assert.equal(hasExistingGitCheckout(activeRoot), false)
 
     fs.mkdirSync(path.join(activeRoot, '.git'), { recursive: true })
@@ -88,10 +88,10 @@ test('fresh bootstrap args include the packaged commit pin', () => {
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp,
-      activeRoot: '/tmp/hermes-agent',
-      hermesHome: '/tmp/hermes'
+      activeRoot: '/tmp/xhermes-agent',
+      hermesHome: '/tmp/xhermes'
     }),
-    ['--dir', '/tmp/hermes-agent', '--hermes-home', '/tmp/hermes', '--branch', 'main', '--commit', installStamp.commit]
+    ['--dir', '/tmp/xhermes-agent', '--xhermes-home', '/tmp/xhermes', '--branch', 'main', '--commit', installStamp.commit]
   )
 })
 
@@ -102,11 +102,11 @@ test('existing-checkout bootstrap args keep branch but skip the packaged commit 
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp,
-      activeRoot: '/tmp/hermes-agent',
-      hermesHome: '/tmp/hermes',
+      activeRoot: '/tmp/xhermes-agent',
+      hermesHome: '/tmp/xhermes',
       pinCommit: false
     }),
-    ['--dir', '/tmp/hermes-agent', '--hermes-home', '/tmp/hermes', '--branch', 'main']
+    ['--dir', '/tmp/xhermes-agent', '--xhermes-home', '/tmp/xhermes', '--branch', 'main']
   )
 })
 
@@ -124,10 +124,10 @@ test('fallback install stamps use an unpinned branch ref', () => {
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp: stamp,
-      activeRoot: '/tmp/hermes',
+      activeRoot: '/tmp/xhermes',
       hermesHome: '/tmp/home'
     }),
-    ['--dir', '/tmp/hermes', '--hermes-home', '/tmp/home', '--branch', 'main']
+    ['--dir', '/tmp/xhermes', '--xhermes-home', '/tmp/home', '--branch', 'main']
   )
 })
 
@@ -219,7 +219,7 @@ test('resolveInstallScript falls back to the installed agent checkout on a 404',
   try {
     const commit = 'a'.repeat(40)
     // Seed the installed agent checkout so the fallback has something to resolve.
-    const scriptsDir = path.join(home, 'hermes-agent', 'scripts')
+    const scriptsDir = path.join(home, 'xhermes-agent', 'scripts')
     fs.mkdirSync(scriptsDir, { recursive: true })
     const installed = path.join(scriptsDir, SCRIPT_NAME)
     fs.writeFileSync(installed, '#!/bin/sh\necho fallback\n')

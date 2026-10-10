@@ -51,7 +51,7 @@ class DummyAgent:
     ):
         self.api_mode = "codex_app_server"
         self.codex_app_server_auto_compaction = auto_compaction
-        self.session_id = "hermes-session-1"
+        self.session_id = "xhermes-session-1"
         self.platform = "cli"
         self._cached_system_prompt = "cached prompt"
         self._codex_session = FakeCodexSession(result)

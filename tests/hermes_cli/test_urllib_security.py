@@ -82,7 +82,7 @@ def _credential_headers() -> dict[str, str]:
         "CF-Access-Client-Secret": "cloudflare-secret",
         "X-Custom-Auth": "tenant-secret",
         "Accept": "application/json",
-        "User-Agent": "hermes-test",
+        "User-Agent": "xhermes-test",
     }
 
 
@@ -108,7 +108,7 @@ def test_cross_host_redirect_drops_arbitrary_credentials_on_wire():
     method, headers = _RecordingHandler.requests[-1]
     assert method == "GET"
     assert headers["accept"] == "application/json"
-    assert headers["user-agent"] == "hermes-test"
+    assert headers["user-agent"] == "xhermes-test"
     for name in (
         "authorization",
         "cookie",

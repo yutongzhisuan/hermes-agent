@@ -34,8 +34,8 @@ class TestAgentConfigSignature:
 
         runtime = {"api_key": "sk-test12345678", "base_url": "https://openrouter.ai/api/v1",
                     "provider": "openrouter"}
-        sig1 = GatewayRunner._agent_config_signature("claude-sonnet-4", runtime, ["hermes-telegram"], "")
-        sig2 = GatewayRunner._agent_config_signature("claude-opus-4.6", runtime, ["hermes-telegram"], "")
+        sig1 = GatewayRunner._agent_config_signature("claude-sonnet-4", runtime, ["xhermes-telegram"], "")
+        sig2 = GatewayRunner._agent_config_signature("claude-opus-4.6", runtime, ["xhermes-telegram"], "")
         assert sig1 != sig2
 
     def test_same_token_prefix_different_full_token_changes_signature(self):
@@ -56,8 +56,8 @@ class TestAgentConfigSignature:
         }
 
         assert rt1["api_key"][:8] == rt2["api_key"][:8]
-        sig1 = GatewayRunner._agent_config_signature("gpt-5.3-codex", rt1, ["hermes-telegram"], "")
-        sig2 = GatewayRunner._agent_config_signature("gpt-5.3-codex", rt2, ["hermes-telegram"], "")
+        sig1 = GatewayRunner._agent_config_signature("gpt-5.3-codex", rt1, ["xhermes-telegram"], "")
+        sig2 = GatewayRunner._agent_config_signature("gpt-5.3-codex", rt2, ["xhermes-telegram"], "")
         assert sig1 != sig2
 
     def test_provider_change_different_signature(self):
@@ -65,8 +65,8 @@ class TestAgentConfigSignature:
 
         rt1 = {"api_key": "sk-test12345678", "base_url": "https://openrouter.ai/api/v1", "provider": "openrouter"}
         rt2 = {"api_key": "sk-test12345678", "base_url": "https://api.anthropic.com", "provider": "anthropic"}
-        sig1 = GatewayRunner._agent_config_signature("claude-sonnet-4", rt1, ["hermes-telegram"], "")
-        sig2 = GatewayRunner._agent_config_signature("claude-sonnet-4", rt2, ["hermes-telegram"], "")
+        sig1 = GatewayRunner._agent_config_signature("claude-sonnet-4", rt1, ["xhermes-telegram"], "")
+        sig2 = GatewayRunner._agent_config_signature("claude-sonnet-4", rt2, ["xhermes-telegram"], "")
         assert sig1 != sig2
 
 
@@ -122,7 +122,7 @@ class TestExtractCacheBustingConfig:
                     "codex_gpt55_autoraise": False,
                     "target_ratio": 0.3,
                     "protect_last_n": 25,
-                    "codex_app_server_auto": "hermes",
+                    "codex_app_server_auto": "xhermes",
                     "some_other_key": "ignored",
                 }
             }
@@ -132,7 +132,7 @@ class TestExtractCacheBustingConfig:
         assert out["compression.codex_gpt55_autoraise"] is False
         assert out["compression.target_ratio"] == 0.3
         assert out["compression.protect_last_n"] == 25
-        assert out["compression.codex_app_server_auto"] == "hermes"
+        assert out["compression.codex_app_server_auto"] == "xhermes"
 
 
     def test_missing_keys_yield_none(self):
@@ -186,7 +186,7 @@ class TestAgentCacheLifecycle:
         session_key = "telegram:12345"
         runtime = {"api_key": "test", "base_url": "https://openrouter.ai/api/v1",
                     "provider": "openrouter", "api_mode": "chat_completions"}
-        sig = runner._agent_config_signature("anthropic/claude-sonnet-4", runtime, ["hermes-telegram"], "")
+        sig = runner._agent_config_signature("anthropic/claude-sonnet-4", runtime, ["xhermes-telegram"], "")
 
         # First message — create and cache
         agent1 = AIAgent(
@@ -836,10 +836,10 @@ class TestAgentConfigSignatureUserId:
         from gateway.run import GatewayRunner
         runtime = {"provider": "anthropic", "api_key": "k", "base_url": "", "api_mode": "chat_completions"}
         sig_implicit = GatewayRunner._agent_config_signature(
-            "claude-sonnet-4", runtime, ["hermes-telegram"], "",
+            "claude-sonnet-4", runtime, ["xhermes-telegram"], "",
         )
         sig_explicit_none = GatewayRunner._agent_config_signature(
-            "claude-sonnet-4", runtime, ["hermes-telegram"], "",
+            "claude-sonnet-4", runtime, ["xhermes-telegram"], "",
             user_id=None, user_id_alt=None,
         )
         assert sig_implicit == sig_explicit_none

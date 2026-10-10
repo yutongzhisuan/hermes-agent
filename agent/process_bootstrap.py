@@ -63,7 +63,7 @@ class _OpenAIProxy:
 class _SafeWriter:
     """Transparent stdio wrapper that catches OSError/ValueError from broken pipes.
 
-    When hermes-agent runs as a systemd service, Docker container, or headless
+    When xhermes-agent runs as a systemd service, Docker container, or headless
     daemon, the stdout/stderr pipe can become unavailable (idle timeout, buffer
     exhaustion, socket reset). Any print() call then raises
     ``OSError: [Errno 5] Input/output error``, which can crash agent setup or
@@ -165,14 +165,22 @@ def build_keepalive_http_client(
 
     ``verify`` is forwarded to httpx so auxiliary-client calls (compression,
     vision, web_extract, title generation, etc.) honor the same per-provider
-    ``ssl_ca_cert`` / ``ssl_verify`` and ``HERMES_CA_BUNDLE`` settings the main
+    ``ssl_ca_cert`` / ``ssl_verify`` and ``XHERMES_CA_BUNDLE`` settings the main
     client uses. It is passed on the client AND on the plain no-proxy mounts
     (a mounted transport owns the SSL context for its scheme).
     """
+    unix_http = None
+    try:
+        from extend import unix_socket_http as unix_http
+    except Exception:
+        if str(base_url or "").strip().lower().startswith("unix://"):
+            raise RuntimeError(
+                f"Failed to build UDS HTTP client for {str(base_url or '').strip()!r}; "
+                "refusing to fall back to TCP localhost."
+            ) from None
+
     try:
         import httpx
-
-        proxy = _get_proxy_for_base_url(base_url)
 
         limits = httpx.Limits(
             max_keepalive_connections=20,
@@ -181,6 +189,24 @@ def build_keepalive_http_client(
         )
         # Generous read=None for SSE streaming endpoints.
         timeout = httpx.Timeout(connect=15.0, read=None, write=15.0, pool=10.0)
+
+        if unix_http is not None and unix_http.is_unix_base_url(base_url):
+            try:
+                _, socket_path = unix_http.resolve_openai_base_url(base_url)
+                return unix_http.build_unix_httpx_client(
+                    socket_path,
+                    async_mode=async_mode,
+                    verify=verify,
+                    limits=limits,
+                    timeout=timeout,
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to build UDS HTTP client for {str(base_url or '').strip()!r}; "
+                    "refusing to fall back to TCP localhost."
+                ) from exc
+
+        proxy = _get_proxy_for_base_url(base_url)
 
         transport_cls = httpx.AsyncHTTPTransport if async_mode else httpx.HTTPTransport
         client_cls = httpx.AsyncClient if async_mode else httpx.Client
@@ -197,6 +223,8 @@ def build_keepalive_http_client(
             mounts=mounts or None,
             verify=verify,
         )
+    except RuntimeError:
+        raise
     except Exception:
         return None
 

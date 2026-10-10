@@ -34,51 +34,79 @@ class TestGetDefaultHermesRoot:
     """Tests for get_default_hermes_root() — Docker/custom deployment awareness."""
 
     def test_no_hermes_home_returns_native(self, tmp_path, monkeypatch):
-        """When HERMES_HOME is not set, returns ~/.hermes."""
-        monkeypatch.delenv("HERMES_HOME", raising=False)
+        """When no home env is set, returns ~/.xhermes."""
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-        assert get_default_hermes_root() == tmp_path / ".hermes"
-
-
-
-
+        assert get_default_hermes_root() == tmp_path / ".xhermes"
 
     def test_docker_profile_active(self, tmp_path, monkeypatch):
-        """When a Docker profile is active (HERMES_HOME=<root>/profiles/<name>),
+        """When a Docker profile is active (XHERMES_HOME=<root>/profiles/<name>),
         returns the Docker root, not the profile dir."""
         docker_root = tmp_path / "opt" / "data"
         profile = docker_root / "profiles" / "coder"
         profile.mkdir(parents=True)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
-        monkeypatch.setenv("HERMES_HOME", str(profile))
+        monkeypatch.setenv("XHERMES_HOME", str(profile))
         assert get_default_hermes_root() == docker_root
 
-    def test_no_hermes_home_returns_localappdata_root_on_windows(self, tmp_path, monkeypatch):
-        """Native Windows falls back to %LOCALAPPDATA%\\hermes, not ~/.hermes."""
+    def test_no_hermes_home_returns_localappdata_root_on_windows(
+        self, tmp_path, monkeypatch
+    ):
+        """Native Windows falls back to %LOCALAPPDATA%\\xhermes, not ~/.xhermes."""
         local_appdata = tmp_path / "LocalAppData"
-        monkeypatch.delenv("HERMES_HOME", raising=False)
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "Home")
         monkeypatch.setattr(hermes_constants.sys, "platform", "win32")
 
-        assert get_default_hermes_root() == local_appdata / "hermes"
+        assert get_default_hermes_root() == local_appdata / "xhermes"
 
+    def test_legacy_home_honored_as_fallback(self, tmp_path, monkeypatch):
+        """Without XHERMES_HOME, legacy XHERMES_HOME is honored (subprocess compat).
+
+        Design §3.2b: XHERMES_HOME stays a valid fallback so xhermes-propagated
+        children resolve correctly; only get_default_hermes_root() guards the
+        xhermes-home leak (see test_default_root_never_points_at_legacy_home).
+        """
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert get_hermes_home() == tmp_path / ".xhermes"
+
+    def test_xhermes_home_explicit_wins(self, tmp_path, monkeypatch):
+        """XHERMES_HOME explicitly set beats legacy XHERMES_HOME."""
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / "custom"))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
+
+        assert get_hermes_home() == tmp_path / "custom"
+
+    def test_default_root_never_points_at_legacy_home(self, tmp_path, monkeypatch):
+        """get_default_hermes_root() must never resolve to xhermes's home."""
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path / ".xhermes"))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        assert get_default_hermes_root() == tmp_path / ".xhermes"
 
 
 class TestGetHermesHome:
     """Tests for get_hermes_home() platform-aware fallback."""
 
     def test_windows_fallback_uses_localappdata(self, tmp_path, monkeypatch):
-        """When HERMES_HOME is unset on Windows, use %LOCALAPPDATA%\\hermes."""
+        """When no home env is set on Windows, use %LOCALAPPDATA%\\xhermes."""
         local_appdata = tmp_path / "LocalAppData"
-        monkeypatch.delenv("HERMES_HOME", raising=False)
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
+        monkeypatch.delenv("XHERMES_HOME", raising=False)
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "Home")
         monkeypatch.setattr(hermes_constants.sys, "platform", "win32")
         monkeypatch.setattr(hermes_constants, "_profile_fallback_warned", False)
 
-        assert get_hermes_home() == local_appdata / "hermes"
+        assert get_hermes_home() == local_appdata / "xhermes"
 
 
 class TestGetProcessHermesHome:
@@ -91,40 +119,38 @@ class TestGetProcessHermesHome:
 
     def test_env_set_returns_that_path(self, tmp_path, monkeypatch):
         home = tmp_path / "launch-home"
-        monkeypatch.setenv("HERMES_HOME", str(home))
+        monkeypatch.setenv("XHERMES_HOME", str(home))
         assert get_process_hermes_home() == home
-
-
 
 
 class TestHermesManagedNode:
     def test_windows_node_dir_prefers_portable_root(self, tmp_path, monkeypatch):
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         node_dir = home / "node"
         bin_dir = node_dir / "bin"
         node_dir.mkdir(parents=True)
         bin_dir.mkdir()
         monkeypatch.setattr(hermes_constants.sys, "platform", "win32")
-        monkeypatch.setenv("HERMES_HOME", str(home))
+        monkeypatch.setenv("XHERMES_HOME", str(home))
 
         assert iter_hermes_node_dirs() == [node_dir, bin_dir]
 
     def test_windows_finds_npm_cmd_before_path(self, tmp_path, monkeypatch):
-        home = tmp_path / "hermes"
+        home = tmp_path / "xhermes"
         node_dir = home / "node"
         node_dir.mkdir(parents=True)
         npm_cmd = node_dir / "npm.cmd"
         npm_cmd.write_text("@echo off\n")
         monkeypatch.setattr(hermes_constants.sys, "platform", "win32")
-        monkeypatch.setenv("HERMES_HOME", str(home))
+        monkeypatch.setenv("XHERMES_HOME", str(home))
         monkeypatch.setattr(hermes_constants, "node_tool_runnable", lambda path: True)
 
         assert find_hermes_node_executable("npm") == str(npm_cmd)
 
-
-
-    def test_windows_skips_broken_managed_npm_without_path_fallback(self, tmp_path, monkeypatch):
-        home = tmp_path / "hermes"
+    def test_windows_skips_broken_managed_npm_without_path_fallback(
+        self, tmp_path, monkeypatch
+    ):
+        home = tmp_path / "xhermes"
         managed_npm = home / "node" / "npm.cmd"
         managed_npm.parent.mkdir(parents=True)
         managed_npm.write_text("@echo off\n")
@@ -133,7 +159,7 @@ class TestHermesManagedNode:
         path_npm = bin_dir / "npm.cmd"
         path_npm.write_text("@echo off\n")
         monkeypatch.setattr(hermes_constants.sys, "platform", "win32")
-        monkeypatch.setenv("HERMES_HOME", str(home))
+        monkeypatch.setenv("XHERMES_HOME", str(home))
         monkeypatch.setenv("PATH", str(bin_dir))
         monkeypatch.setattr(hermes_constants, "_managed_node_heal_attempted", False)
         monkeypatch.setattr(hermes_constants, "heal_hermes_managed_node", lambda: False)
@@ -148,10 +174,11 @@ class TestHermesManagedNode:
         assert find_node_executable("npm") != str(path_npm)
 
 
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX shell stubs; Windows uses .cmd shims")
+@pytest.mark.skipif(
+    os.name == "nt", reason="POSIX shell stubs; Windows uses .cmd shims"
+)
 class TestNodeToolRunnable:
-    """node_tool_runnable() rejects broken Hermes-managed npm/node wrappers."""
+    """node_tool_runnable() rejects broken XHermes-managed npm/node wrappers."""
 
     def _stub(self, tmp_path, name, body, mode=0o755):
         path = tmp_path / name
@@ -162,8 +189,6 @@ class TestNodeToolRunnable:
     def test_none_and_empty_rejected(self):
         assert node_tool_runnable(None) is False
         assert node_tool_runnable("") is False
-
-
 
     def test_broken_managed_npm_heals_when_node_still_runs(self, tmp_path, monkeypatch):
         """npm can fail while node --version still succeeds (missing lib/cli.js)."""
@@ -178,7 +203,7 @@ class TestNodeToolRunnable:
         system_bin.mkdir()
         self._stub(system_bin, "npm", "#!/bin/sh\necho '11.10.0'\nexit 0\n")
 
-        monkeypatch.setenv("HERMES_HOME", str(profile_home))
+        monkeypatch.setenv("XHERMES_HOME", str(profile_home))
         monkeypatch.setenv("PATH", str(system_bin))
         monkeypatch.setattr(hermes_constants, "_managed_node_heal_attempted", False)
 
@@ -195,8 +220,9 @@ class TestNodeToolRunnable:
         assert resolved == str(broken_npm)
         assert resolved != str(system_bin / "npm")
 
-
-    def test_broken_managed_npm_returns_none_when_heal_fails(self, tmp_path, monkeypatch):
+    def test_broken_managed_npm_returns_none_when_heal_fails(
+        self, tmp_path, monkeypatch
+    ):
         profile_home = tmp_path / "profiles" / "assistant"
         managed_bin = profile_home / "node" / "bin"
         managed_bin.mkdir(parents=True)
@@ -206,7 +232,7 @@ class TestNodeToolRunnable:
         system_bin.mkdir()
         self._stub(system_bin, "npm", "#!/bin/sh\necho '11.10.0'\nexit 0\n")
 
-        monkeypatch.setenv("HERMES_HOME", str(profile_home))
+        monkeypatch.setenv("XHERMES_HOME", str(profile_home))
         monkeypatch.setenv("PATH", str(system_bin))
         monkeypatch.setattr(hermes_constants, "_managed_node_heal_attempted", False)
         monkeypatch.setattr(hermes_constants, "heal_hermes_managed_node", lambda: False)
@@ -215,7 +241,7 @@ class TestNodeToolRunnable:
 
     def test_outdated_managed_node_heals_to_target_major(self, tmp_path, monkeypatch):
         """A healthy managed tree below the target major upgrades on next resolve."""
-        target = hermes_constants._HERMES_NODE_TARGET_MAJOR
+        target = hermes_constants._XHERMES_NODE_TARGET_MAJOR
         profile_home = tmp_path / "profiles" / "assistant"
         managed_bin = profile_home / "node" / "bin"
         managed_bin.mkdir(parents=True)
@@ -224,7 +250,7 @@ class TestNodeToolRunnable:
         )
         heal_called = {"value": False}
 
-        monkeypatch.setenv("HERMES_HOME", str(profile_home))
+        monkeypatch.setenv("XHERMES_HOME", str(profile_home))
         monkeypatch.setenv("PATH", "")
         monkeypatch.setattr(hermes_constants, "_managed_node_heal_attempted", False)
 
@@ -242,7 +268,7 @@ class TestNodeToolRunnable:
 
     def test_outdated_managed_node_survives_failed_heal(self, tmp_path, monkeypatch):
         """Offline heal failure keeps serving the old tree — old Node beats no Node."""
-        target = hermes_constants._HERMES_NODE_TARGET_MAJOR
+        target = hermes_constants._XHERMES_NODE_TARGET_MAJOR
         profile_home = tmp_path / "profiles" / "assistant"
         managed_bin = profile_home / "node" / "bin"
         managed_bin.mkdir(parents=True)
@@ -250,7 +276,7 @@ class TestNodeToolRunnable:
             managed_bin, "node", f"#!/bin/sh\necho 'v{target - 1}.20.0'\nexit 0\n"
         )
 
-        monkeypatch.setenv("HERMES_HOME", str(profile_home))
+        monkeypatch.setenv("XHERMES_HOME", str(profile_home))
         monkeypatch.setenv("PATH", "")
         monkeypatch.setattr(hermes_constants, "_managed_node_heal_attempted", False)
         monkeypatch.setattr(hermes_constants, "heal_hermes_managed_node", lambda: False)
@@ -259,7 +285,7 @@ class TestNodeToolRunnable:
 
     def test_target_major_managed_node_does_not_heal(self, tmp_path, monkeypatch):
         """A tree already at the target major never triggers the heal."""
-        target = hermes_constants._HERMES_NODE_TARGET_MAJOR
+        target = hermes_constants._XHERMES_NODE_TARGET_MAJOR
         profile_home = tmp_path / "profiles" / "assistant"
         managed_bin = profile_home / "node" / "bin"
         managed_bin.mkdir(parents=True)
@@ -267,7 +293,7 @@ class TestNodeToolRunnable:
             managed_bin, "node", f"#!/bin/sh\necho 'v{target}.5.1'\nexit 0\n"
         )
 
-        monkeypatch.setenv("HERMES_HOME", str(profile_home))
+        monkeypatch.setenv("XHERMES_HOME", str(profile_home))
         monkeypatch.setenv("PATH", "")
         monkeypatch.setattr(hermes_constants, "_managed_node_heal_attempted", False)
 
@@ -277,7 +303,6 @@ class TestNodeToolRunnable:
         monkeypatch.setattr(hermes_constants, "heal_hermes_managed_node", _heal)
 
         assert hermes_constants.find_hermes_node_executable("node") == str(node)
-
 
 
 class TestIsContainer:
@@ -293,17 +318,12 @@ class TestIsContainer:
         monkeypatch.setattr(os.path, "exists", lambda p: p == "/.dockerenv")
         assert is_container() is True
 
-
-
-
     def test_detects_kubernetes_env(self, monkeypatch):
         """KUBERNETES_SERVICE_HOST env var triggers detection (k8s/k3s pod)."""
         self._reset_cache(monkeypatch)
         monkeypatch.setattr(os.path, "exists", lambda p: False)
         monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.43.0.1")
         assert is_container() is True
-
-
 
     def test_caches_result(self, monkeypatch):
         """Second call uses cached value without re-probing."""
@@ -321,11 +341,6 @@ class TestParseReasoningEffort:
     def test_empty_or_whitespace_returns_none(self, value):
         """Empty / whitespace-only input falls back to caller default (None)."""
         assert parse_reasoning_effort(value) is None
-
-
-
-
-
 
     @pytest.mark.parametrize(
         "value",
@@ -361,25 +376,18 @@ class TestResolvePerModelReasoningEffort:
     def test_exact_match(self):
         """Exact model string match returns the parsed override."""
         from hermes_constants import resolve_per_model_reasoning_effort
+
         overrides = {"claude-opus-4.5": "xhigh"}
         result = resolve_per_model_reasoning_effort("claude-opus-4.5", overrides)
         assert result == {"enabled": True, "effort": "xhigh"}
 
-
-
-
-
     def test_empty_model_returns_none(self):
         """Empty model string returns None."""
         from hermes_constants import resolve_per_model_reasoning_effort
+
         assert resolve_per_model_reasoning_effort("", {"gpt-5": "low"}) is None
 
     # --- Spelling tolerance layer ---
-
-
-
-
-
 
     def test_exact_match_wins_over_variant(self):
         """Ambiguity resolution: exact match takes priority over a variant.
@@ -388,12 +396,10 @@ class TestResolvePerModelReasoningEffort:
         variant) are keys, the exact input matches the exact key first.
         """
         from hermes_constants import resolve_per_model_reasoning_effort
+
         overrides = {"claude-opus-4.5": "high", "claude-opus-4-5": "xhigh"}
         result = resolve_per_model_reasoning_effort("claude-opus-4.5", overrides)
         assert result == {"enabled": True, "effort": "high"}
-
-
-
 
 
 class TestResolveReasoningConfig:
@@ -416,36 +422,36 @@ class TestResolveReasoningConfig:
 
     def test_per_model_override_wins(self):
         from hermes_constants import resolve_reasoning_config
+
         cfg = self._cfg(overrides={"claude-opus-4.5": "xhigh"})
         result = resolve_reasoning_config(cfg, "claude-opus-4.5")
         assert result == {"enabled": True, "effort": "xhigh"}
 
-
-
     def test_empty_model_derives_from_config_default(self):
         from hermes_constants import resolve_reasoning_config
+
         cfg = self._cfg(overrides={"gpt-5": "high"}, default_model="gpt-5")
         assert resolve_reasoning_config(cfg) == {"enabled": True, "effort": "high"}
-
-
-
-
-
-
-
 
     def test_malformed_sections_tolerated(self):
         """Non-dict agent/model sections must not raise."""
         from hermes_constants import resolve_reasoning_config
+
         assert resolve_reasoning_config({"agent": "oops", "model": 42}) is None
         assert resolve_reasoning_config({"agent": None, "model": None}) is None
-        assert resolve_reasoning_config({"agent": {"reasoning_overrides": "bad"}}) is None
+        assert (
+            resolve_reasoning_config({"agent": {"reasoning_overrides": "bad"}}) is None
+        )
 
     def test_invalid_override_value_falls_back_to_global(self):
         """A junk override value for the matching model falls through to global."""
         from hermes_constants import resolve_reasoning_config
+
         cfg = self._cfg(effort="medium", overrides={"gpt-5": "turbo-max"})
-        assert resolve_reasoning_config(cfg, "gpt-5") == {"enabled": True, "effort": "medium"}
+        assert resolve_reasoning_config(cfg, "gpt-5") == {
+            "enabled": True,
+            "effort": "medium",
+        }
 
 
 class TestReasoningOverridesDefaultConfig:
@@ -454,13 +460,14 @@ class TestReasoningOverridesDefaultConfig:
     def test_default_config_has_reasoning_overrides_key(self):
         """DEFAULT_CONFIG['agent'] contains 'reasoning_overrides' as an empty dict."""
         from hermes_cli.config import DEFAULT_CONFIG
+
         assert "reasoning_overrides" in DEFAULT_CONFIG["agent"]
         assert DEFAULT_CONFIG["agent"]["reasoning_overrides"] == {}
-
 
     def test_spelling_tolerant_lookup_works_with_user_config(self):
         """resolve_per_model_reasoning_effort works with user-added overrides."""
         from hermes_constants import resolve_per_model_reasoning_effort
+
         # User config with one override, query uses different spelling
         overrides = {
             "anthropic/claude-opus-4.5": "xhigh",  # user wrote with dots
@@ -481,7 +488,7 @@ class TestSecureParentDir:
 
     def test_safe_path_calls_chmod(self, tmp_path, monkeypatch):
         """Normal nested path (depth >= 3) should call os.chmod."""
-        safe_dir = tmp_path / "home" / "user" / ".hermes"
+        safe_dir = tmp_path / "home" / "user" / ".xhermes"
         safe_dir.mkdir(parents=True)
         target = safe_dir / "auth.json"
         target.touch()
@@ -501,9 +508,6 @@ class TestSecureParentDir:
         # Path("/foo").parent == Path("/")
         secure_parent_dir(Path("/foo"))
         assert called_with == []
-
-
-
 
     def test_symlink_resolved(self, tmp_path, monkeypatch):
         """Symlinks should be resolved before checking depth."""
@@ -527,7 +531,9 @@ class TestSecureParentDir:
         assert called_with[0] == (str(real_dir), 0o700)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX shell stubs; Windows uses .cmd shims")
+@pytest.mark.skipif(
+    os.name == "nt", reason="POSIX shell stubs; Windows uses .cmd shims"
+)
 class TestAgentBrowserRunnable:
     """agent_browser_runnable() validates the resolved CLI actually runs.
 
@@ -553,10 +559,6 @@ class TestAgentBrowserRunnable:
         # exists() follows the link → False, so it's rejected without exec.
         assert agent_browser_runnable(str(link)) is False
 
-
-
-
-
     def test_version_probe_uses_windows_hide_flags(self, tmp_path, monkeypatch):
         good = self._stub(tmp_path, "agent-browser", "#!/bin/sh\necho hi\n")
         captured = []
@@ -576,8 +578,6 @@ class TestAgentBrowserRunnable:
         assert captured[0][1]["creationflags"] == 0x08000000
 
 
-
-
 class TestGetHermesDir:
     """Tests for ``get_hermes_dir(new_subpath, old_name)``.
 
@@ -588,16 +588,12 @@ class TestGetHermesDir:
     """
 
     def _set_home(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("XHERMES_HOME", str(tmp_path))
 
     def test_neither_exists_returns_new(self, tmp_path, monkeypatch):
         self._set_home(tmp_path, monkeypatch)
         result = get_hermes_dir("platforms/pairing", "pairing")
         assert result == tmp_path / "platforms/pairing"
-
-
-
-
 
     def test_legacy_is_file_treated_as_content(self, tmp_path, monkeypatch):
         """A non-directory file at the legacy path counts as occupied.
@@ -610,8 +606,6 @@ class TestGetHermesDir:
         legacy.write_bytes(b"sentinel")
         result = get_hermes_dir("cache/images", "image_cache")
         assert result == legacy
-
-
 
     def test_dangling_legacy_symlink_returns_new(self, tmp_path, monkeypatch):
         """A dangling legacy symlink must NOT shadow populated new-layout data.
@@ -643,25 +637,36 @@ class TestGetHermesDir:
         assert result == legacy
 
 
-
 class TestWslPathTranslation:
     """Cross-boundary path translation for a Windows-host UI + WSL backend."""
 
     def test_windows_drive_to_wsl_mount(self):
-        assert hermes_constants.windows_path_to_wsl(r"C:\Users\alex") == "/mnt/c/Users/alex"
-        assert hermes_constants.windows_path_to_wsl("C:/Users/alex") == "/mnt/c/Users/alex"
+        assert (
+            hermes_constants.windows_path_to_wsl(r"C:\Users\alex")
+            == "/mnt/c/Users/alex"
+        )
+        assert (
+            hermes_constants.windows_path_to_wsl("C:/Users/alex") == "/mnt/c/Users/alex"
+        )
         assert hermes_constants.windows_path_to_wsl("D:\\") == "/mnt/d/"
 
     def test_windows_drive_ignores_non_drive_paths(self):
         assert hermes_constants.windows_path_to_wsl("/home/alex") is None
         assert hermes_constants.windows_path_to_wsl("relative\\dir") is None
 
-
-
-
     def test_translate_maps_windows_and_unc_on_wsl(self, monkeypatch):
         monkeypatch.setattr(hermes_constants, "is_wsl", lambda: True)
-        assert hermes_constants.translate_cwd_for_wsl_backend(r"C:\Users\alex") == "/mnt/c/Users/alex"
-        assert hermes_constants.translate_cwd_for_wsl_backend(r"\\wsl.localhost\Ubuntu\home\alex") == "/home/alex"
+        assert (
+            hermes_constants.translate_cwd_for_wsl_backend(r"C:\Users\alex")
+            == "/mnt/c/Users/alex"
+        )
+        assert (
+            hermes_constants.translate_cwd_for_wsl_backend(
+                r"\\wsl.localhost\Ubuntu\home\alex"
+            )
+            == "/home/alex"
+        )
         # Already-POSIX paths pass through untouched.
-        assert hermes_constants.translate_cwd_for_wsl_backend("/home/alex") == "/home/alex"
+        assert (
+            hermes_constants.translate_cwd_for_wsl_backend("/home/alex") == "/home/alex"
+        )

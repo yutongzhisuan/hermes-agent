@@ -34,17 +34,8 @@ name: auto-fix lint issues & formatting
 #      the PR is auto-closed and the branch deleted — the next run re-applies
 #      on the current state.
 
+# TEMP: offline-packaging-only — restore push:main when re-enabling CI
 on:
-  push:
-    branches: [main]
-    paths:
-      - '**/*.js'
-      - '**/*.cjs'
-      - '**/*.mjs'
-      - '**/*.ts'
-      - '**/*.tsx'
-      - 'package.json'
-      - 'package-lock.json'
   workflow_dispatch:
 
 permissions:

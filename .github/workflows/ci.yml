@@ -14,10 +14,9 @@ name: CI
 # Do not add ``secrets: inherit`` or GitHub App credentials here. Trusted
 # main-only automation uses protected environments in its own workflows.
 
+# TEMP: offline-packaging-only — restore previous `on:` when re-enabling CI
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -73,6 +72,12 @@ jobs:
     with:
       slice_count: 8
 
+  headless-wheel:
+    name: Headless wheel
+    needs: detect
+    if: needs.detect.outputs.python_prod == 'true'
+    uses: ./.github/workflows/headless-wheel.yml
+
   lint:
     name: Python lints
     needs: detect
@@ -91,7 +96,7 @@ jobs:
     name: Desktop E2E
     needs: detect
     # python_prod (not python): the Playwright suite exercises the built app
-    # + `hermes serve` backend, which never import anything under tests/.
+    # + `xhermes serve` backend, which never import anything under tests/.
     # Tests-only PRs (~17% of commits) skip this 5-minute job — the longest
     # single job in the workflow — while still running the full pytest lanes.
     #
@@ -187,7 +192,7 @@ jobs:
   # A single ``comment-live`` job polls the GitHub Actions API every 15s
   # for job statuses in this run, re-assembles the review comment from
   # whatever results are available, and upserts it via the
-  # ``<!-- hermes-ci-review-bot -->`` marker.
+  # ``<!-- xhermes-ci-review-bot -->`` marker.
   #
   # When the visible job set goes quiet, the poller waits 10 seconds and polls
   # once more so downstream jobs created by an aggregate gate get included.
@@ -273,6 +278,7 @@ jobs:
     needs:
       - detect
       - tests
+      - headless-wheel
       - lint
       - js-tests
       - e2e-desktop

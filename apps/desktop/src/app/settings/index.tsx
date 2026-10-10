@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { codiconIcon } from '@/components/ui/codicon'
 import { Tip } from '@/components/ui/tooltip'
-import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from '@/hermes'
+import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from '@/xhermes'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {
@@ -118,7 +118,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'hermes-config.json'
+      a.download = 'xhermes-config.json'
       a.click()
       URL.revokeObjectURL(url)
       triggerHaptic('success')

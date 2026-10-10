@@ -1,10 +1,10 @@
 """Auto-resume restart-loop breaker (#30719, defense-3).
 
-Defenses 1 and 2 (the ``_HERMES_GATEWAY`` guard on ``hermes gateway
+Defenses 1 and 2 (the ``_XHERMES_GATEWAY`` guard on ``xhermes gateway
 stop|restart`` + ``terminal_tool``, and the cron-creation lifecycle
 filter) stop the agent from scheduling its own restart via the cron and
 CLI paths.  They do NOT cover every SIGTERM source: an agent running a
-raw ``terminal("launchctl kickstart -k gui/<uid>/ai.hermes.gateway")``,
+raw ``terminal("launchctl kickstart -k gui/<uid>/ai.xhermes.gateway")``,
 an external monitor with a bad trigger, or any other repeated crash can
 still drive the supervisor (launchd ``KeepAlive`` / systemd ``Restart=``)
 into a tight respawn loop.  On each boot the gateway auto-resumes the
@@ -21,7 +21,7 @@ still starts and serves real inbound messages, it just stops replaying
 the session that keeps killing it, which breaks the cycle and puts a
 human back in the loop.
 
-State lives in ``<HERMES_HOME>/gateway/restart_loop.json`` so it is
+State lives in ``<XHERMES_HOME>/gateway/restart_loop.json`` so it is
 profile-scoped and survives process death.  It is intentionally tiny and
 best-effort: any read/write failure fails OPEN (no false trip) because a
 broken breaker must never wedge a healthy gateway.

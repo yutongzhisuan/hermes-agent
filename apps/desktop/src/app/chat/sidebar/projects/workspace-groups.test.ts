@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { HermesGitWorktree } from '@/global'
-import type { ProjectInfo, SessionInfo } from '@/types/hermes'
+import type { ProjectInfo, SessionInfo } from '@/types/xhermes'
 
 import {
   baseName,
@@ -53,7 +53,7 @@ const lane = (over: Partial<SidebarSessionGroup> & Pick<SidebarSessionGroup, 'id
 
 describe('baseName', () => {
   it('returns the final path segment, ignoring trailing slashes and separators', () => {
-    expect(baseName('/www/hermes-agent/')).toBe('hermes-agent')
+    expect(baseName('/www/xhermes-agent/')).toBe('xhermes-agent')
     expect(baseName('C:\\repos\\app')).toBe('app')
     expect(baseName('')).toBeUndefined()
   })
@@ -191,7 +191,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
   it('surfaces a user-named "New worktree" under .worktrees/ as its own lane', () => {
     const discovered: HermesGitWorktree[] = [
       {
-        branch: 'hermes/test-gui-stuff',
+        branch: 'xhermes/test-gui-stuff',
         detached: false,
         isMain: false,
         locked: false,
@@ -201,11 +201,11 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
 
     const merged = mergeRepoWorktreeGroups({ id: '/repo', path: '/repo', groups: [] }, discovered)
 
-    expect(merged.map(g => g.label)).toContain('hermes/test-gui-stuff')
+    expect(merged.map(g => g.label)).toContain('xhermes/test-gui-stuff')
   })
 
   it('relabels a dir-named linked worktree lane to its live checked-out branch', () => {
-    // Backend labels the lane by the worktree dir (`hermes-agent-ci`); the live
+    // Backend labels the lane by the worktree dir (`xhermes-agent-ci`); the live
     // `git worktree list` says HEAD there is `bb/ci-affected-only` → branch wins.
     const repo = {
       id: '/repo',
@@ -220,7 +220,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
         }),
         lane({
           id: '/repo-ci',
-          label: 'hermes-agent-ci',
+          label: 'xhermes-agent-ci',
           isMain: false,
           path: '/repo-ci',
           sessions: [makeSession('/repo-ci')]
@@ -733,7 +733,7 @@ describe('overlayLiveLanes', () => {
   })
 
   it('places a session into an out-of-tree (sibling) worktree lane by its path', () => {
-    // `hermes-agent-ci` is a linked worktree living BESIDE the repo, not under
+    // `xhermes-agent-ci` is a linked worktree living BESIDE the repo, not under
     // it — repo-root nesting fails, but the existing lane carries its real path.
     const existing = makeSession('/www/app-ci', { id: 'old' })
 

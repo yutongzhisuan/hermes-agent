@@ -1,4 +1,4 @@
-# nix/packages.nix — Hermes Agent package built with uv2nix
+# nix/packages.nix — XHermes Agent package built with uv2nix
 { inputs, ... }:
 {
   perSystem =
@@ -9,7 +9,7 @@
       ...
     }:
     let
-      minimal = pkgs.callPackage ./hermes-agent.nix {
+      minimal = pkgs.callPackage ./xhermes-agent.nix {
         inherit (inputs) uv2nix pyproject-nix pyproject-build-systems;
         npm-lockfile-fix = inputs'.npm-lockfile-fix.packages.default;
         # Only embed clean revs — dirtyRev doesn't represent any upstream

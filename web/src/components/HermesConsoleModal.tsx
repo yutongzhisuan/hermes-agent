@@ -103,8 +103,8 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
   const termRef = useRef<XtermTerminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const lineRef = useRef("");
-  const promptRef = useRef("hermes> ");
-  const inputPromptRef = useRef("hermes> ");
+  const promptRef = useRef("xhermes> ");
+  const inputPromptRef = useRef("xhermes> ");
   const historyRef = useRef<string[]>([]);
   const historyIndexRef = useRef<number | null>(null);
   const activeCommandRef = useRef(false);
@@ -272,7 +272,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
       if (!term) return;
 
       if (frame.type === "ready") {
-        const nextPrompt = frame.prompt || "hermes> ";
+        const nextPrompt = frame.prompt || "xhermes> ";
         promptRef.current = nextPrompt;
         inputPromptRef.current = nextPrompt;
         hasReadyFrameRef.current = true;
@@ -394,7 +394,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
     setConnectionState("connecting");
     setConsoleProfile(profile || "current");
     hasReadyFrameRef.current = false;
-    writeLine(term, "\x1b[2mConnecting to Hermes Console...\x1b[0m");
+    writeLine(term, "\x1b[2mConnecting to XHermes Console...\x1b[0m");
 
     void (async () => {
       try {
@@ -486,7 +486,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
       onClick={(event) => event.target === event.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="hermes-console-title"
+      aria-labelledby="xhermes-console-title"
     >
       <div
         className={cn(
@@ -500,10 +500,10 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
           </div>
           <div className="min-w-0 flex-1">
             <h2
-              id="hermes-console-title"
+              id="xhermes-console-title"
               className="font-mondwest text-display text-base tracking-wider"
             >
-              Hermes Console
+              XHermes Console
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Badge tone={statusTone}>{connectionState}</Badge>

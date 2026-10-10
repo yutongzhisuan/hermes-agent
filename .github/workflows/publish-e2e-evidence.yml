@@ -3,10 +3,9 @@ name: Publish E2E evidence
 # This runs only from the default branch after CI completes. It intentionally
 # checks out main, never the PR ref, and treats the downloaded artifact as
 # untrusted input before uploading validated GitHub attachments.
+# TEMP: offline-packaging-only — restore workflow_run:CI when re-enabling CI
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  workflow_dispatch:
 
 permissions:
   actions: read

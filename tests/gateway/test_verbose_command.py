@@ -47,7 +47,7 @@ class TestVerboseCommand:
     @pytest.mark.asyncio
     async def test_disabled_by_default(self, tmp_path, monkeypatch):
         """When tool_progress_command is false, /verbose returns an info message."""
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
         config_path = hermes_home / "config.yaml"
         config_path.write_text("display:\n  tool_progress: all\n", encoding="utf-8")
@@ -63,7 +63,7 @@ class TestVerboseCommand:
     @pytest.mark.asyncio
     async def test_enabled_cycles_mode(self, tmp_path, monkeypatch):
         """When enabled, /verbose cycles tool_progress mode per-platform."""
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
         config_path = hermes_home / "config.yaml"
         config_path.write_text(
@@ -87,7 +87,7 @@ class TestVerboseCommand:
     @pytest.mark.asyncio
     async def test_quoted_false_keeps_command_disabled(self, tmp_path, monkeypatch):
         """Quoted false must not enable the /verbose gateway command."""
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "xhermes"
         hermes_home.mkdir()
         config_path = hermes_home / "config.yaml"
         config_path.write_text(

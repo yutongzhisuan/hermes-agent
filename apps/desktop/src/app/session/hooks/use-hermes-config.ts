@@ -1,7 +1,7 @@
 import { type MutableRefObject, useCallback, useRef, useState } from 'react'
 
 import { setTerminalFontFamilyFromConfig } from '@/app/right-sidebar/terminal/terminal-font'
-import { getHermesConfig, getHermesConfigDefaults } from '@/hermes'
+import { getHermesConfig, getHermesConfigDefaults } from '@/xhermes'
 import { BUILTIN_PERSONALITIES, normalizePersonalityValue, personalityNamesFromConfig } from '@/lib/chat-runtime'
 import { normalize } from '@/lib/text'
 import {
@@ -92,7 +92,7 @@ export function useHermesConfig({ activeSessionIdRef }: HermesConfigOptions) {
         // Publish the profile default regardless of whether the composer is
         // reseeded below: picker rows and preset application resolve "the
         // default" from here, so a manual model pick must not leave them
-        // rendering/applying Hermes' built-in medium over the user's config.
+        // rendering/applying XHermes' built-in medium over the user's config.
         setDefaultReasoningEffort(reasoning)
 
         const shouldSeedComposer =

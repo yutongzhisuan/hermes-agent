@@ -203,7 +203,7 @@ class TestFallbackChainAdvancement:
 
     def test_nous_non_anthropic_fallback_stays_on_chat_completions(self):
         portal = "https://inference-api.nousresearch.com/v1"
-        fbs = [{"provider": "nous", "model": "hermes-4-405b"}]
+        fbs = [{"provider": "nous", "model": "xhermes-4-405b"}]
         agent = _make_agent(fallback_model=fbs)
         with (
             patch(
@@ -214,7 +214,7 @@ class TestFallbackChainAdvancement:
                 "agent.auxiliary_client.resolve_provider_client",
                 return_value=(
                     _mock_client(base_url=portal, api_key="portal-jwt"),
-                    "hermes-4-405b",
+                    "xhermes-4-405b",
                 ),
             ),
             patch(

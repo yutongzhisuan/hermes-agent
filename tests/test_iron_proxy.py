@@ -32,11 +32,11 @@ from agent.proxy_sources import iron_proxy as ip
 
 @pytest.fixture
 def hermes_home(tmp_path, monkeypatch):
-    """Point HERMES_HOME at a temp dir so install paths don't touch the real $HOME."""
+    """Point XHERMES_HOME at a temp dir so install paths don't touch the real $HOME."""
 
-    home = tmp_path / "hermes"
+    home = tmp_path / "xhermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("XHERMES_HOME", str(home))
     # Make sure no stale provider keys influence discovery.
     for key in list(os.environ):
         if key.endswith("_API_KEY"):
@@ -489,7 +489,7 @@ def test_ensure_management_token_persists_and_is_stable(hermes_home):
     t1 = ip.ensure_management_token()
     t2 = ip.ensure_management_token()
     assert t1 == t2
-    assert t1.startswith("hermes-mgmt-")
+    assert t1.startswith("xhermes-mgmt-")
     p = ip._proxy_state_dir() / "management.token"
     assert p.exists()
     assert (p.stat().st_mode & 0o777) == 0o600
@@ -575,7 +575,7 @@ def test_start_proxy_injects_management_key_env(hermes_home, monkeypatch):
 
     ip.start_proxy(binary=fake_bin, config_path=cfg_path, install_if_missing=False)
     assert captured_env.get(ip._MGMT_API_KEY_ENV)
-    assert captured_env[ip._MGMT_API_KEY_ENV].startswith("hermes-mgmt-")
+    assert captured_env[ip._MGMT_API_KEY_ENV].startswith("xhermes-mgmt-")
 
 
 # ---------------------------------------------------------------------------
@@ -625,7 +625,7 @@ def test_reset_for_tests_clears_version_cache_and_nonce():
 def test_docker_egress_node_options_uses_sentinel(hermes_home, monkeypatch):
     """``_egress_proxy_args_for_docker`` should NOT put NODE_OPTIONS in
     env_overrides directly; it uses a sentinel key
-    ``_HERMES_EGRESS_NODE_OPTIONS_APPEND`` so DockerEnvironment can
+    ``_XHERMES_EGRESS_NODE_OPTIONS_APPEND`` so DockerEnvironment can
     append-merge with the operator's existing NODE_OPTIONS."""
 
     from tools.environments.docker import _egress_proxy_args_for_docker
@@ -653,7 +653,7 @@ def test_docker_egress_node_options_uses_sentinel(hermes_home, monkeypatch):
 
     _, env, _ = _egress_proxy_args_for_docker()
     # The egress dict should contain the sentinel, NOT a raw NODE_OPTIONS.
-    assert env.get("_HERMES_EGRESS_NODE_OPTIONS_APPEND") == "--use-openssl-ca"
+    assert env.get("_XHERMES_EGRESS_NODE_OPTIONS_APPEND") == "--use-openssl-ca"
     assert "NODE_OPTIONS" not in env, (
         "NODE_OPTIONS in egress env_overrides would clobber the operator's "
         "docker_env NODE_OPTIONS — that's exactly the bug arshkumarsingh "
