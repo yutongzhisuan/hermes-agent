@@ -430,6 +430,12 @@ def _try_termux_ultrafast_version() -> bool:
 
 _ensure_project_root_on_path_fast()
 
+if sys.argv[1:] == ["--managed-inference-version"]:
+    from extend.infa_provider.managed import MANAGED_INFERENCE_VERSION
+
+    print(MANAGED_INFERENCE_VERSION)
+    raise SystemExit(0)
+
 if _try_ultrafast_version():
     raise SystemExit(0)
 

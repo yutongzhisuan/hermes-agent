@@ -190,6 +190,7 @@ offline_write_manifest() {
 {
   "kind": "${kind}",
   "package": "xhermes-agent",
+  "managed_inference_protocol": "managed-inference-v1",
   "version": "${version}",
   "python": "${python}",
   "platform": "${platform}",

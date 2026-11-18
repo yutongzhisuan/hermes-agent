@@ -172,6 +172,12 @@ jobs:
             "$root/bin/xhermes" --version
           fi
 
+          protocol="$("$root/bin/xhermes" --managed-inference-version)"
+          if [ "$protocol" != "managed-inference-v1" ]; then
+            echo "ERROR: frozen bundle lacks managed-inference-v1" >&2
+            exit 1
+          fi
+
       - name: List artifacts
         run: |
           ls -lh dist/xhermes-agent-*-${{ matrix.platform }}.tar.gz

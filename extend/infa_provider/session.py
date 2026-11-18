@@ -32,9 +32,13 @@ class InfaSession:
     inference_base_url: str
     expires_at: int = 0
     managed_by: str = ""
+    managed_auth_file: str = ""
+    managed_scope: Optional[dict[str, Any]] = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
+        payload.pop("managed_auth_file", None)
+        payload.pop("managed_scope", None)
         payload["logged_in"] = True
         payload["auth_mode"] = "consumer_session"
         if not payload.get("managed_by"):
@@ -84,6 +88,8 @@ def _auth_json_path():
 
 
 def save_session(session: InfaSession, *, store: Optional[dict[str, Any]] = None) -> None:
+    if session.managed_by == "desktop":
+        raise InfaAuthError("Desktop managed credentials are read-only.", code="managed_inference_read_only")
     payload = session.to_dict()
     if store is not None:
         store.clear()
@@ -99,6 +105,11 @@ def save_session(session: InfaSession, *, store: Optional[dict[str, Any]] = None
 
 
 def load_session(*, store: Optional[Mapping[str, Any]] = None) -> Optional[InfaSession]:
+    from extend.infa_provider.managed import managed_from_environment
+
+    managed = managed_from_environment()
+    if managed is not None:
+        return managed
     if store is not None:
         if not store.get("access_token"):
             return None
@@ -111,6 +122,8 @@ def load_session(*, store: Optional[Mapping[str, Any]] = None) -> Optional[InfaS
     state = providers.get(PROVIDER_ID) if isinstance(providers, dict) else None
     if not isinstance(state, dict) or not state.get("access_token") or not state.get("device_private_key"):
         return None
+    if state.get("managed_by") == "desktop":
+        raise InfaAuthError("Legacy Desktop authorization is no longer supported.", code="managed_inference_authorization_required")
     return InfaSession.from_dict(state)
 
 
@@ -146,14 +159,14 @@ def resolve_runtime_credentials(*, force_refresh: bool = False, refresh_if_expir
 
     session = load_session()
     if session is not None:
-        if force_refresh or (refresh_if_expiring and access_token_is_expiring(session)):
+        if session.managed_by != "desktop" and (force_refresh or (refresh_if_expiring and access_token_is_expiring(session))):
             session = refresh_session(session)
             save_session(session)
         return {
             "provider": PROVIDER_ID,
             "api_key": session.access_token,
             "base_url": session.inference_base_url,
-            "source": "xhermes-auth-store",
+            "source": "desktop-managed-inference" if session.managed_by == "desktop" else "xhermes-auth-store",
             "session": session,
         }
     config_creds = _config_api_credentials()

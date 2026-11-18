@@ -96,6 +96,7 @@ def build_top_level_parser():
         epilog=_EPILOGUE,
     )
 
+    parser.add_argument("--managed-inference-version", action="version", version="managed-inference-v1", help=argparse.SUPPRESS)
     parser.add_argument(
         "--version", "-V", action="store_true", help="Show version and exit"
     )

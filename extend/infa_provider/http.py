@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import secrets
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -15,7 +16,8 @@ from extend.infa_provider.dpop import (
     new_proof_id,
     token_hash,
 )
-from extend.infa_provider.session import InfaSession, load_session
+from extend.infa_provider.session import InfaSession, InfaAuthError, load_session
+from extend.infa_provider.managed import session_at_request_boundary
 
 _SIGNED_PREFIXES = (
     "/api/v1/chat/completions",
@@ -81,8 +83,20 @@ class _DPoPTransport(httpx.BaseTransport):
         self._nonce = nonce
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        latest = session_at_request_boundary(self._session)
+        if latest.managed_by == "desktop" and (not should_sign(request.url.path) or not str(request.url).startswith(latest.inference_base_url.rstrip("/") + "/")):
+            raise InfaAuthError("Managed inference endpoint changed.", code="managed_inference_scope_mismatch")
         if not should_sign(request.url.path):
             return self._inner.handle_request(request)
+        if latest.access_token != self._session.access_token:
+            self._nonce[0] = ""
+        self._session = latest
+        if latest.managed_by == "desktop":
+            if not str(request.url).startswith(latest.inference_base_url.rstrip("/") + "/"):
+                raise InfaAuthError("Managed inference endpoint changed.", code="managed_inference_scope_mismatch")
+            request.headers["Authorization"] = "Bearer " + latest.access_token
+            if request.method == "POST":
+                request.headers.setdefault("Idempotency-Key", "xhermes-" + secrets.token_urlsafe(24))
         current = request
         if self._nonce[0]:
             current = _clone_request(request)
@@ -105,8 +119,20 @@ class _AsyncDPoPTransport(httpx.AsyncBaseTransport):
         self._nonce = nonce
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        latest = session_at_request_boundary(self._session)
+        if latest.managed_by == "desktop" and (not should_sign(request.url.path) or not str(request.url).startswith(latest.inference_base_url.rstrip("/") + "/")):
+            raise InfaAuthError("Managed inference endpoint changed.", code="managed_inference_scope_mismatch")
         if not should_sign(request.url.path):
             return await self._inner.handle_async_request(request)
+        if latest.access_token != self._session.access_token:
+            self._nonce[0] = ""
+        self._session = latest
+        if latest.managed_by == "desktop":
+            if not str(request.url).startswith(latest.inference_base_url.rstrip("/") + "/"):
+                raise InfaAuthError("Managed inference endpoint changed.", code="managed_inference_scope_mismatch")
+            request.headers["Authorization"] = "Bearer " + latest.access_token
+            if request.method == "POST":
+                request.headers.setdefault("Idempotency-Key", "xhermes-" + secrets.token_urlsafe(24))
         current = request
         if self._nonce[0]:
             current = _clone_request(request)

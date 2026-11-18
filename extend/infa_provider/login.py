@@ -103,6 +103,10 @@ def login(
 
 
 def refresh_session(session: InfaSession, *, client: Optional[httpx.Client] = None, now: Optional[float] = None) -> InfaSession:
+    if session.managed_by == "desktop":
+        from extend.infa_provider.managed import session_at_request_boundary
+
+        return session_at_request_boundary(session)
     owned = client is None
     http = client or httpx.Client(timeout=20.0)
     try:
